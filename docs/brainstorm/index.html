@@ -1,0 +1,1713 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Five Keeps</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jacquard+24&family=Silkscreen:wght@400;700&family=Alegreya+Sans:ital,wght@0,400;0,500;0,700;0,800;1,400&display=swap">
+<style>
+:root{
+  --bg:#ECEEEA; --surface:#F7F8F5; --surface-2:#E1E5E2; --ink:#1B2230; --ink-2:#465262; --ink-3:#687384;
+  --rule:#C8CFCC; --accent:#9E2B25; --gold:#8A5F0E; --gold-fill:#EBCB78; --link:#2A5A8C;
+  --bar:#7B8797; --bar-lead:#B8862B; --grid:#D5DBD8;
+  --t-countermine:#5F7188; --t-hoard:#B98322; --t-mirror:#7E55A8; --t-colossus:#A8612A; --t-dead:#47845A;
+  --screen:#0C0A12; --screen-edge:#22202C;
+  --display:'Jacquard 24','Alegreya Sans',Georgia,serif;
+  --body:'Alegreya Sans','Gill Sans','Segoe UI',system-ui,sans-serif;
+  --pixel:'Silkscreen','Courier New',ui-monospace,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --bg:#11151C; --surface:#181E27; --surface-2:#222A36; --ink:#E4E8EE; --ink-2:#AAB4C1; --ink-3:#7F8A9A;
+    --rule:#2C3542; --accent:#E27468; --gold:#E6BC62; --gold-fill:#5B4718; --link:#90B8E8;
+    --bar:#6D7A8C; --bar-lead:#D9A948; --grid:#263040;
+    --t-countermine:#8C9DB4; --t-hoard:#D9A948; --t-mirror:#A985D0; --t-colossus:#D08850; --t-dead:#6FB083;
+    --screen-edge:#2E2B3A;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#11151C; --surface:#181E27; --surface-2:#222A36; --ink:#E4E8EE; --ink-2:#AAB4C1; --ink-3:#7F8A9A;
+  --rule:#2C3542; --accent:#E27468; --gold:#E6BC62; --gold-fill:#5B4718; --link:#90B8E8;
+  --bar:#6D7A8C; --bar-lead:#D9A948; --grid:#263040;
+  --t-countermine:#8C9DB4; --t-hoard:#D9A948; --t-mirror:#A985D0; --t-colossus:#D08850; --t-dead:#6FB083;
+  --screen-edge:#2E2B3A;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+@media (prefers-reduced-motion: reduce){html{scroll-behavior:auto}}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:17.5px;line-height:1.55;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1120px;margin:0 auto;padding-inline:20px;padding-block:28px 80px}
+a{color:var(--link);text-underline-offset:2px}
+a:focus-visible,button:focus-visible,input:focus-visible,summary:focus-visible{outline:2px solid var(--link);outline-offset:2px;border-radius:3px}
+h1,h2,h3{text-wrap:balance;line-height:1.1;margin:0}
+p{margin:0}
+.measure{max-width:68ch}
+.stack>*+*{margin-top:.8em}
+.eyebrow{font-size:13px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3);font-weight:700}
+.muted{color:var(--ink-2)}
+strong{font-weight:800}
+
+/* header */
+.masthead{display:grid;gap:14px;padding-block:8px 26px;border-bottom:1px solid var(--rule)}
+.masthead h1{font-family:var(--display);font-weight:400;font-size:clamp(64px,11vw,124px);letter-spacing:.01em;line-height:.9}
+.masthead .lede{font-size:20px;color:var(--ink-2);max-width:62ch}
+
+/* toc */
+.toc{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:color-mix(in srgb,var(--bg) 92%,transparent);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);border-bottom:1px solid var(--rule);margin-inline:-20px;padding-inline:20px}
+.toc ol{list-style:none;display:flex;gap:4px;margin:0;padding:8px 0;overflow-x:auto;scrollbar-width:none}
+.toc ol::-webkit-scrollbar{display:none}
+.toc a{display:block;white-space:nowrap;text-decoration:none;color:var(--ink-2);font-size:14.5px;font-weight:500;padding:4px 10px;border-radius:999px}
+.toc a:hover{background:var(--surface-2);color:var(--ink)}
+.toc a[aria-current="true"]{background:var(--ink);color:var(--bg)}
+
+section{scroll-margin-top:64px}
+.sec{padding-block:56px 8px}
+.sec>h2{font-size:clamp(28px,4vw,38px);font-weight:800;letter-spacing:-.01em;margin-bottom:6px}
+.sec>.sub{color:var(--ink-2);font-size:18px;max-width:66ch;margin-bottom:26px}
+
+/* verdict */
+.verdict{display:grid;grid-template-columns:1fr 1fr;gap:0;margin-top:28px;border-top:3px solid var(--ink);background:var(--surface)}
+.verdict>div{padding:22px 24px 24px}
+.verdict>div+div{border-left:1px solid var(--rule)}
+.verdict h2{font-size:24px;font-weight:800;margin:6px 0 10px}
+.verdict .flag{color:var(--accent)}
+.verdict .rec{color:var(--gold)}
+.verdict p+p,.verdict ul{margin-top:10px}
+.verdict ul{padding-left:1.1em;margin-bottom:0}
+.verdict li+li{margin-top:4px}
+@media (max-width:760px){.verdict{grid-template-columns:1fr}.verdict>div+div{border-left:0;border-top:1px solid var(--rule)}}
+
+/* concept cards */
+.cards{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-top:26px}
+.card{display:grid;grid-template-rows:auto 1fr;text-decoration:none;color:inherit;background:var(--surface);border:1px solid var(--rule);border-radius:6px;overflow:hidden;transition:transform .15s ease,border-color .15s ease}
+.card:hover{transform:translateY(-2px);border-color:var(--ink-3)}
+.card .thumb{background:var(--screen);aspect-ratio:1/1;position:relative}
+.card .thumb canvas{position:absolute;inset:0;width:100%;height:100%}
+.card .body{padding:10px 12px 12px;display:grid;gap:4px;align-content:start}
+.card .name{font-family:var(--display);font-size:30px;line-height:1;display:flex;align-items:center;gap:8px}
+.card .tag{font-size:14.5px;color:var(--ink-2);line-height:1.35}
+.card .pick{justify-self:start;font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;padding:2px 7px;border-radius:3px;background:var(--gold-fill);color:var(--ink)}
+.card .pick.alt{background:var(--surface-2)}
+.sigil{width:10px;height:10px;border-radius:2px;flex:none;display:inline-block}
+@media (max-width:980px){.cards{grid-template-columns:repeat(3,1fr)}}
+@media (max-width:620px){.cards{grid-template-columns:1fr}.card{grid-template-columns:96px 1fr;grid-template-rows:auto}.card .thumb{aspect-ratio:auto;min-height:96px}}
+
+/* tables */
+.table-wrap{overflow-x:auto;border:1px solid var(--rule);border-radius:6px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:15.5px;line-height:1.4}
+th,td{text-align:left;vertical-align:top;padding:9px 12px;border-bottom:1px solid var(--rule)}
+thead th{font-size:12.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3);font-weight:700;background:var(--surface-2);white-space:nowrap}
+tbody tr:last-child td{border-bottom:0}
+td.game{font-weight:700;white-space:nowrap}
+.lvl{display:inline-block;font-size:12px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;padding:1px 6px;border-radius:3px;white-space:nowrap}
+.lvl.hi{background:color-mix(in srgb,var(--accent) 18%,transparent);color:var(--accent)}
+.lvl.md{background:color-mix(in srgb,var(--gold) 18%,transparent);color:var(--gold)}
+.lvl.lo{background:var(--surface-2);color:var(--ink-2)}
+.lvl.ok{background:color-mix(in srgb,var(--t-dead) 20%,transparent);color:var(--t-dead)}
+.note{font-size:14.5px;color:var(--ink-3);margin-top:10px;max-width:80ch}
+.recent{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px 28px;margin-top:22px;padding:0;list-style:none}
+.recent li{font-size:15.5px;border-top:1px solid var(--rule);padding-top:8px}
+.recent b{font-weight:800}
+
+/* assumptions */
+.assume{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:18px;margin-top:6px}
+.assume div{border-top:1px solid var(--rule);padding-top:10px}
+.assume h3{font-size:17px;font-weight:800;margin-bottom:4px}
+.assume p{font-size:16px;color:var(--ink-2)}
+
+/* concept plates */
+.plate{padding-block:64px 8px;border-top:1px solid var(--rule);margin-top:56px}
+.plate-head{display:grid;gap:6px;margin-bottom:22px}
+.plate-head .kicker{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.plate-head h2{font-family:var(--display);font-weight:400;font-size:clamp(52px,8vw,88px);line-height:.9}
+.plate-head .tagline{font-size:22px;font-weight:500;color:var(--ink-2);font-style:italic}
+.badge{font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;padding:3px 8px;border-radius:3px;background:var(--surface-2);color:var(--ink-2)}
+.badge.pick{background:var(--gold-fill);color:var(--ink)}
+.plate-grid{display:grid;gap:34px}
+.plate.land .plate-grid{grid-template-columns:1fr}
+.plate.port .plate-grid{grid-template-columns:minmax(260px,340px) 1fr;align-items:start}
+.plate.port .fig{position:sticky;top:64px}
+@media (max-width:860px){.plate.port .plate-grid{grid-template-columns:1fr}.plate.port .fig{position:static;max-width:360px;margin-inline:auto;width:100%}}
+.cols{display:grid;grid-template-columns:1.15fr 1fr;gap:34px}
+@media (max-width:860px){.cols{grid-template-columns:1fr}}
+.prose h3{font-size:14px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);font-weight:800;margin:22px 0 6px}
+.prose h3:first-child{margin-top:0}
+.prose p{max-width:66ch}
+.prose ol,.prose ul{margin:0;padding-left:1.25em;max-width:64ch}
+.prose li+li{margin-top:5px}
+.pitch{font-size:19px;line-height:1.5}
+
+/* spec sheet */
+.spec{display:grid;grid-template-columns:auto 1fr;border-top:2px solid var(--ink);margin:0}
+.spec dt{font-size:12.5px;letter-spacing:.07em;text-transform:uppercase;font-weight:800;color:var(--ink-3);padding:10px 14px 10px 0;border-bottom:1px solid var(--rule)}
+.spec dd{margin:0;padding:9px 0;border-bottom:1px solid var(--rule);font-size:16px}
+.spec dd .lvl{margin-right:6px}
+@media (max-width:420px){.spec{grid-template-columns:1fr}.spec dt{border-bottom:0;padding-bottom:0}}
+
+/* mockup screens */
+.fig figcaption{font-size:13.5px;color:var(--ink-3);margin-top:8px;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.monitor{background:var(--screen);border:1px solid var(--screen-edge);border-radius:10px;padding:8px;box-shadow:0 18px 40px -24px rgba(10,8,20,.55)}
+.phone{background:var(--screen);border:1px solid var(--screen-edge);border-radius:30px;padding:12px 9px 16px;box-shadow:0 18px 40px -24px rgba(10,8,20,.55);max-width:340px;margin-inline:auto}
+.phone .screen{border-radius:16px}
+.screen{position:relative;overflow:hidden;border-radius:4px;background:#0c0a12;container-type:inline-size}
+.screen canvas{display:block;width:100%;height:auto}
+.screen.land{aspect-ratio:16/9}
+.screen.port{aspect-ratio:9/16}
+.screen canvas{position:absolute;inset:0;width:100%;height:100%}
+
+/* in-game HUD */
+.hud{position:absolute;inset:0;pointer-events:none;font-family:var(--pixel);color:#F4F1FF;text-shadow:0 1px 0 #0c0a12,1px 0 0 #0c0a12,0 -1px 0 #0c0a12,-1px 0 0 #0c0a12;font-size:max(8px,1.55cqw);line-height:1.15;letter-spacing:.02em}
+.port .hud{font-size:max(8px,3.6cqw)}
+.hud .row{position:absolute;display:flex;gap:.5em;flex-wrap:wrap;align-items:center}
+.hud .tl{left:1.6%;top:1.8%;right:1.6%}
+.hud .chip{background:rgba(12,10,18,.72);border:1px solid rgba(255,255,255,.14);padding:.25em .45em;border-radius:.3em;white-space:nowrap}
+.hud .chip i{font-style:normal;color:#FEE761}
+.hud .chip.bad i{color:#FF6B6B}
+.hud .meter{position:absolute;display:grid;gap:.25em}
+.hud .meter .lab{display:flex;justify-content:space-between;gap:1em}
+.hud .bar{height:.75em;background:rgba(12,10,18,.8);border:1px solid rgba(255,255,255,.3);position:relative;overflow:hidden}
+.hud .bar b{position:absolute;inset:0 auto 0 0;display:block}
+.hud .bar s{position:absolute;top:0;bottom:0;width:1px;background:rgba(255,255,255,.35);text-decoration:none}
+.hud .toast{position:absolute;background:rgba(18,14,30,.86);border:1px solid rgba(255,255,255,.2);padding:.4em .55em;border-radius:.3em;max-width:48%}
+.port .hud .toast{max-width:78%}
+.hud .toast em{font-style:normal;display:block;color:#FEAE34;margin-bottom:.15em}
+.hud .toast.red em{color:#FF6B6B}
+.hud .toast.vio em{color:#D9A6FF}
+.hud .toast.grn em{color:#9BE58A}
+.hud .tools{position:absolute;left:0;right:0;bottom:0;display:flex;justify-content:center;gap:.35em;padding:.45em;background:linear-gradient(transparent,rgba(12,10,18,.85) 40%)}
+.hud .tool{border:1px solid rgba(255,255,255,.28);background:rgba(28,24,40,.9);padding:.35em .5em;border-radius:.25em;white-space:nowrap}
+.hud .tool.on{background:#FEAE34;color:#1b1420;text-shadow:none;border-color:#FEE761}
+.hud .pips{display:flex;gap:.2em}
+.hud .pips span{width:.7em;height:.7em;border:1px solid rgba(255,255,255,.45);background:rgba(12,10,18,.7)}
+.hud .pips span.on{background:#FF4F4F;border-color:#FFB0B0}
+
+/* annotation pins */
+.pin{position:absolute;transform:translate(-50%,-50%);width:max(18px,2.5cqw);height:max(18px,2.5cqw);border-radius:50%;background:#FFFFFF;color:#111;border:2px solid #111;font:800 max(10px,1.4cqw)/1 var(--body);display:grid;place-items:center;pointer-events:auto;cursor:default;box-shadow:0 0 0 2px rgba(255,255,255,.35);transition:transform .15s}
+.port .pin{width:max(18px,8cqw);height:max(18px,8cqw);font-size:max(10px,4.4cqw)}
+.pin.hot{transform:translate(-50%,-50%) scale(1.25);background:#FEE761}
+.pins-toggle{font:600 13.5px var(--body);color:var(--ink-2);background:none;border:1px solid var(--rule);border-radius:999px;padding:2px 10px;cursor:pointer}
+.screen.nopins .pin{display:none}
+.legend{list-style:none;margin:14px 0 0;padding:0;display:grid;gap:7px;counter-reset:pin}
+.legend li{display:grid;grid-template-columns:24px 1fr;gap:10px;font-size:15.5px;line-height:1.4;align-items:start;border-radius:4px;padding:2px 4px 2px 0}
+.legend li::before{counter-increment:pin;content:counter(pin);width:22px;height:22px;border-radius:50%;background:var(--ink);color:var(--bg);font-weight:800;font-size:13px;display:grid;place-items:center;margin-top:1px}
+.legend li.hot{background:var(--surface-2)}
+.land .legend{grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:8px 22px}
+
+/* compare */
+.presets{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;align-items:center}
+.presets span{font-size:14px;color:var(--ink-3);margin-right:4px}
+.btn{font:600 14.5px var(--body);color:var(--ink);background:var(--surface);border:1px solid var(--rule);border-radius:999px;padding:5px 12px;cursor:pointer}
+.btn:hover{border-color:var(--ink-3)}
+.btn[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.matrix td,.matrix th{text-align:center;white-space:nowrap}
+.matrix td:first-child,.matrix th:first-child{text-align:left;white-space:normal;min-width:220px}
+.matrix .crit b{display:block;font-weight:800}
+.matrix .crit small{display:block;color:var(--ink-3);font-size:13.5px;line-height:1.3}
+.matrix input[type=range]{width:110px;accent-color:var(--ink)}
+.matrix .w{font-variant-numeric:tabular-nums;font-weight:700;display:inline-block;width:1.2em}
+.score{font-variant-numeric:tabular-nums;font-weight:700;display:inline-grid;place-items:center;width:28px;height:28px;border-radius:4px}
+.s1{background:color-mix(in srgb,var(--accent) 22%,transparent)}
+.s2{background:color-mix(in srgb,var(--accent) 10%,transparent)}
+.s3{background:var(--surface-2)}
+.s4{background:color-mix(in srgb,var(--t-dead) 16%,transparent)}
+.s5{background:color-mix(in srgb,var(--t-dead) 30%,transparent)}
+.matrix tfoot td{border-top:2px solid var(--ink);font-weight:800;font-variant-numeric:tabular-nums}
+.chart{margin-top:26px;background:var(--surface);border:1px solid var(--rule);border-radius:6px;padding:18px 18px 14px}
+.chart h3{font-size:16px;font-weight:800;margin-bottom:2px}
+.chart .cap{font-size:14px;color:var(--ink-3);margin-bottom:14px}
+.bars{display:grid;gap:10px;position:relative}
+.brow{display:grid;grid-template-columns:150px 1fr;gap:12px;align-items:center}
+.brow .lab{font-weight:700;font-size:15.5px;display:flex;align-items:center;gap:8px}
+.track{position:relative;height:24px;outline:none}
+.track .grid{position:absolute;left:0;top:0;bottom:0;right:36px;background:repeating-linear-gradient(90deg,var(--grid) 0 1px,transparent 1px 20%);border-right:1px solid var(--grid)}
+.track:focus-visible{outline:2px solid var(--link);outline-offset:2px}
+.fill{position:absolute;left:0;top:3px;height:18px;border-radius:0 4px 4px 0;background:var(--bar);transition:width .35s ease}
+.fill.lead{background:var(--bar-lead)}
+.brow:hover .fill{filter:brightness(1.08)}
+.val{position:absolute;top:50%;transform:translateY(-50%);font-size:14px;font-weight:800;font-variant-numeric:tabular-nums;color:var(--ink);padding-left:6px;white-space:nowrap}
+.axis{display:grid;grid-template-columns:150px 1fr;gap:12px;margin-top:6px}
+.axis div{display:flex;justify-content:space-between;font-size:12px;color:var(--ink-3);font-variant-numeric:tabular-nums;padding-right:30px}
+@media (max-width:520px){.brow,.axis{grid-template-columns:104px 1fr}.brow .lab{font-size:14px}}
+.tip{position:fixed;z-index:50;pointer-events:none;background:var(--ink);color:var(--bg);padding:6px 9px;border-radius:4px;font-size:13.5px;line-height:1.3;max-width:240px}
+.tip strong{font-size:16px}
+
+/* mix, cuts, decisions */
+.mix{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px}
+.mix article{background:var(--surface);border:1px solid var(--rule);border-radius:6px;padding:16px 18px}
+.mix h3{font-size:18px;font-weight:800;margin-bottom:6px}
+.mix p{font-size:16px;color:var(--ink-2)}
+.mix .fits{margin-top:10px;display:flex;gap:6px;flex-wrap:wrap}
+.fits span{font-size:12.5px;font-weight:700;padding:1px 7px;border-radius:3px;background:var(--surface-2);color:var(--ink-2);display:inline-flex;align-items:center;gap:5px}
+.cuts td:first-child{font-weight:700;min-width:190px}
+.decide{display:grid;gap:0;border-top:2px solid var(--ink)}
+.decide details{border-bottom:1px solid var(--rule)}
+.decide summary{cursor:pointer;list-style:none;display:grid;grid-template-columns:1fr auto;gap:14px;align-items:baseline;padding:13px 2px}
+.decide summary::-webkit-details-marker{display:none}
+.decide summary h3{font-size:18.5px;font-weight:800}
+.decide summary .def{font-size:14.5px;color:var(--gold);font-weight:700;text-align:right}
+.decide summary .def::before{content:"Default: ";color:var(--ink-3);font-weight:500}
+.decide .opts{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;padding:0 2px 16px}
+.decide .opt{background:var(--surface);border:1px solid var(--rule);border-radius:6px;padding:11px 13px;font-size:15.5px}
+.decide .opt.chosen{border-color:var(--gold);box-shadow:inset 0 0 0 1px var(--gold)}
+.decide .opt b{display:block;font-weight:800;margin-bottom:2px}
+.decide .why{grid-column:1/-1;font-size:15.5px;color:var(--ink-2);max-width:78ch}
+@media (max-width:560px){.decide summary{grid-template-columns:1fr}.decide summary .def{text-align:left}}
+
+/* next steps */
+.weeks{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px}
+.week{background:var(--surface);border:1px solid var(--rule);border-radius:6px;padding:18px 20px}
+.week h3{font-size:19px;font-weight:800;margin:4px 0 10px}
+.week ul{padding-left:1.1em;margin:0;font-size:16px}
+.week li+li{margin-top:5px}
+.week .pass,.week .kill{margin-top:12px;font-size:15.5px;padding-top:10px;border-top:1px solid var(--rule)}
+.week .pass b{color:var(--t-dead)}
+.week .kill b{color:var(--accent)}
+.tech{margin-top:22px;display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:10px 26px;list-style:none;padding:0}
+.tech li{border-top:1px solid var(--rule);padding-top:8px;font-size:15.5px}
+.tech b{display:block;font-weight:800}
+
+/* ledger */
+.ledger{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+.ledger div{border-top:3px solid var(--ink-3);padding-top:10px}
+.ledger div.est{border-top-color:var(--t-dead)}
+.ledger div.jud{border-top-color:var(--gold)}
+.ledger div.unk{border-top-color:var(--accent)}
+.ledger h3{font-size:17px;font-weight:800;margin-bottom:6px}
+.ledger ul{margin:0;padding-left:1.1em;font-size:15.5px;color:var(--ink-2)}
+.ledger li+li{margin-top:4px}
+@media (max-width:760px){.ledger{grid-template-columns:1fr}}
+.foot{margin-top:60px;padding-top:16px;border-top:1px solid var(--rule);font-size:14px;color:var(--ink-3)}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header class="masthead">
+  <p class="eyebrow">Base-Manager · concept brainstorm · September 2026</p>
+  <h1>Five Keeps</h1>
+  <p class="lede">Five concepts for a side-view fantasy castle builder, each with a mockup, a check against existing games, the scope for one developer, and the question a prototype has to answer. The recommendation comes first.</p>
+</header>
+
+<nav class="toc" aria-label="Sections">
+  <ol>
+    <li><a href="#verdict">Verdict</a></li>
+    <li><a href="#taken">What's taken</a></li>
+    <li><a href="#countermine">Countermine</a></li>
+    <li><a href="#hoardkeep">Hoardkeep</a></li>
+    <li><a href="#mirrorhold">Mirrorhold</a></li>
+    <li><a href="#colossus">Hollow Colossus</a></li>
+    <li><a href="#deadhold">Deadhold</a></li>
+    <li><a href="#compare">Compare</a></li>
+    <li><a href="#mix">Mix &amp; match</a></li>
+    <li><a href="#decide">Decisions</a></li>
+    <li><a href="#next">Next two weeks</a></li>
+    <li><a href="#ledger">What's checked</a></li>
+  </ol>
+</nav>
+
+<section id="verdict" class="verdict" aria-label="Verdict">
+  <div>
+    <p class="eyebrow flag">The problem with the pitch</p>
+    <h2>As written, it's already on the Play Store twice.</h2>
+    <p><em>The Elder Scrolls: Castles</em> (Bethesda Game Studios, global launch September 2024) is Fallout Shelter in an Elder Scrolls castle, made by the Fallout Shelter team. <em>Hustle Castle</em> (MY.GAMES, 2017) is a side-view medieval Fallout Shelter with invasions and PvP raids. Craft the World, Kingdom Two Crowns, Hammerting, Grow Castle and Castle Doombad cover most of the rest, and Kingdom III is due in 2027.</p>
+    <p>The opening: Castles has no castle defense at all (its battles happen away from the castle), and Hustle Castle's defense is a free-to-play PvP layer. A fantasy setting and a side view won't set you apart. A defense mechanic that only works in cross-section can.</p>
+  </div>
+  <div>
+    <p class="eyebrow rec">Recommendation</p>
+    <h2>Hoardkeep, with Countermine's tunnel war as its defense.</h2>
+    <p>You build on a sleeping dragon, and everything makes noise: your forges, your gold-skimming, and the enemy's tunnels. You defend by listening for their digging. Your own noise risks waking the dragon, and waking it on purpose is your last-resort weapon. It has the clearest hook of the five, fits a portrait phone, and one person can build it.</p>
+    <ul>
+      <li>If PC/Steam is the first market instead, build pure <a href="#countermine">Countermine</a>. It's the most novel of the five; the search found no game built around it.</li>
+      <li>Before committing, run the <a href="#next">two one-week greybox fun-tests</a> and drop whichever fails its kill criteria.</li>
+      <li>The ranking depends on my weights. <a href="#compare">Change them</a> if your priorities differ.</li>
+    </ul>
+  </div>
+</section>
+
+<div class="cards" aria-label="The five concepts">
+  <a class="card" href="#countermine"><div class="thumb" data-thumb="countermine" role="img" aria-label="Countermine thumbnail: castle walls above, tunnels below"></div><div class="body"><span class="name"><span class="sigil" style="background:var(--t-countermine)"></span>Countermine</span><span class="tag">Hold the walls. Win the war beneath them.</span><span class="pick alt">PC pick</span></div></a>
+  <a class="card" href="#hoardkeep"><div class="thumb" data-thumb="hoardkeep" role="img" aria-label="Hoardkeep thumbnail: a dragon asleep on gold under a mountain keep"></div><div class="body"><span class="name"><span class="sigil" style="background:var(--t-hoard)"></span>Hoardkeep</span><span class="tag">Build on a dragon. Try not to wake it.</span><span class="pick">Recommended</span></div></a>
+  <a class="card" href="#mirrorhold"><div class="thumb" data-thumb="mirrorhold" role="img" aria-label="Mirrorhold thumbnail: a castle and its upside-down shadow reflection"></div><div class="body"><span class="name"><span class="sigil" style="background:var(--t-mirror)"></span>Mirrorhold</span><span class="tag">Every room you build has a reflection. Something lives down there.</span></div></a>
+  <a class="card" href="#colossus"><div class="thumb" data-thumb="colossus" role="img" aria-label="Hollow Colossus thumbnail: rooms inside a walking brass giant"></div><div class="body"><span class="name"><span class="sigil" style="background:var(--t-colossus)"></span>Colossus</span><span class="tag">Your castle is inside a dead god-machine. Wake it.</span></div></a>
+  <a class="card" href="#deadhold"><div class="thumb" data-thumb="deadhold" role="img" aria-label="Deadhold thumbnail: a necromancer's keep with crypts below"></div><div class="body"><span class="name"><span class="sigil" style="background:var(--t-dead)"></span>Deadhold</span><span class="tag">They keep attacking. You keep hiring.</span></div></a>
+</div>
+
+<section id="taken" class="sec">
+  <h2>What's already taken</h2>
+  <p class="sub">Checked by web search in September 2026, closest matches first. The side view, the fantasy castle, rooms full of people, and waves of attackers are each covered several times over.</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Game</th><th>Released</th><th>View</th><th>What it does</th><th>Overlap</th></tr></thead>
+      <tbody>
+        <tr><td class="game">The Elder Scrolls: Castles</td><td>2024 global (Play early access 2023) · mobile only</td><td>Side-view cutaway</td><td>Fallout Shelter's formula in a Tamriel castle: one real day is one year, dynasties and heirs, throne rulings, inherited traits, heroes sent on quests. No castle defense; the main internal threat is subjects plotting to kill the ruler. Free-to-play with IAP and a subscription pass.</td><td><span class="lvl hi">Very high</span></td></tr>
+        <tr><td class="game">Hustle Castle</td><td>2017 · mobile</td><td>Side-view cutaway</td><td>A medieval Fallout Shelter: rooms, dwellers, PvE invasions and PvP castle raids. Still running.</td><td><span class="lvl hi">Very high</span></td></tr>
+        <tr><td class="game">Fallout Shelter</td><td>2015 · mobile, PC, consoles</td><td>Side-view cutaway</td><td>Rooms, dwellers, exploration. Raiders and Deathclaws break in through the vault door; fires and pests break out inside.</td><td><span class="lvl hi">Very high</span></td></tr>
+        <tr><td class="game">Craft the World</td><td>2014 · PC (DLC through 2025)</td><td>2D side view</td><td>Dwarves dig, build and craft, then fortify against monster waves.</td><td><span class="lvl hi">High</span></td></tr>
+        <tr><td class="game">Hammerting</td><td>2021 · PC</td><td>2D side view</td><td>A dwarf mining colony inside a mountain, with fighting underground.</td><td><span class="lvl hi">High</span></td></tr>
+        <tr><td class="game">Kingdom Two Crowns</td><td>2018 · PC, consoles, mobile</td><td>Side-scroller</td><td>A monarch spends coins on recruits and walls, then survives nightly Greed attacks. Kingdom III was announced in August 2026 for 2027.</td><td><span class="lvl hi">High</span></td></tr>
+        <tr><td class="game">Castle Doombad</td><td>2024 re-release · PC, mobile</td><td>Side view, many floors</td><td>You are the villain. Stack trap floors to stop heroes climbing to your castle's top.</td><td><span class="lvl md">Medium</span></td></tr>
+        <tr><td class="game">Grow Castle</td><td>2016 · mobile</td><td>Side view</td><td>Add floors to the castle; the heroes on each floor shoot at incoming waves.</td><td><span class="lvl md">Medium</span></td></tr>
+        <tr><td class="game">Dome Keeper</td><td>2022 · PC, Xbox</td><td>2D side view</td><td>Mine under the dome between waves, then run up and defend it.</td><td><span class="lvl md">Medium</span></td></tr>
+        <tr><td class="game">Legend of Keepers</td><td>2021 · PC, Switch</td><td>Rooms in a line</td><td>Place monsters and traps; turn-based fights against raiding heroes.</td><td><span class="lvl md">Medium</span></td></tr>
+        <tr><td class="game">Airships: Conquer the Skies</td><td>2018 · PC</td><td>Side-on "ant farm"</td><td>Build ships from rooms; crews man guns, fight fires and board by grappling hook.</td><td><span class="lvl md">Medium</span></td></tr>
+        <tr><td class="game">Siege Survival: Gloria Victis</td><td>2021 · PC</td><td>Isometric</td><td>Survival management inside a besieged castle: craft by day, scavenge by night.</td><td><span class="lvl lo">Theme only</span></td></tr>
+        <tr><td class="game">The Wandering Village</td><td>1.0 in 2025 · PC, consoles</td><td>Top-down</td><td>A village on the back of a giant walking creature.</td><td><span class="lvl lo">Theme only</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <ul class="recent" aria-label="Recent and upcoming">
+    <li><b>Kingdom III: Rising Realms</b> — revealed August 2026, due 2027. Side-scrolling build and defend.</li>
+    <li><b>Wall World 2</b> — November 2025. Side-view mine-and-defend.</li>
+    <li><b>Super Fantasy Kingdom</b> — early access October 2025. Isometric pixel-art roguelite; build by day, defend by night.</li>
+    <li><b>The King is Watching</b> — July 2025. Castle-management roguelite against invaders; not side view.</li>
+    <li><b>Cataclismo</b> — 1.0 March 2025. 3D stronghold built block by block against night hordes.</li>
+    <li><b>Dungeon Settlers</b> — early access September 2026. Colony building plus dungeon expeditions.</li>
+  </ul>
+  <p class="note">Sources: Steam store pages, UESP, GameSpot and GamesRadar, read through search results because direct page fetches were blocked. Not confirmed: whether TES: Castles plays in portrait or landscape. Small itch.io and game-jam titles are the likeliest misses.</p>
+</section>
+
+<section id="assume" class="sec" aria-labelledby="assume-h">
+  <h2 id="assume-h">What I assumed about you</h2>
+  <p class="sub">These drive the scope and platform scores. If one is wrong, the ranking changes.</p>
+  <div class="assume">
+    <div><h3>One developer, web stack</h3><p>Canvas or WebGL in the browser, no native engine. Web-stack games have shipped on Steam: Vampire Survivors launched on Phaser, and CrossCode shipped as HTML5 inside NW.js.</p></div>
+    <div><h3>PWA first, TWA on Play</h3><p>GitHub Pages for the web build, a Trusted Web Activity for Google Play. TWAs can take payments through Play Billing using the Digital Goods API.</p></div>
+    <div><h3>Art one person can make</h3><p>Low-res pixel art. The mockups below use 320×180 and 180×320 base resolutions, which is cheap to animate and forgiving of rough drawing.</p></div>
+    <div><h3>No servers at launch</h3><p>That rules out async PvP raids and any design that needs live ops to stay fair, which is where Hustle Castle lives.</p></div>
+  </div>
+</section>
+
+<section id="countermine" class="plate land" aria-labelledby="cm-h">
+  <div class="plate-head">
+    <div class="kicker"><span class="sigil" style="background:var(--t-countermine)"></span><span class="badge">Landscape</span><span class="badge">Roguelite runs</span><span class="badge">PC pick</span></div>
+    <h2 id="cm-h">Countermine</h2>
+    <p class="tagline">Hold the walls. Win the war beneath them.</p>
+  </div>
+  <div class="plate-grid">
+    <figure class="fig" style="margin:0">
+      <div class="monitor"><div class="screen land" data-scene="countermine" role="img" aria-label="Mockup: a castle at dusk under siege. Archers on the east wall, a trebuchet in the enemy camp. Underground, your countermine tunnel runs toward a partly detected enemy tunnel, and a listening post sends out rings.">
+        <div class="hud" aria-hidden="true">
+          <div class="row tl"><span class="chip">DAY <i>12</i>/40</span><span class="chip">RELIEF IN <i>28</i> DAYS</span><span class="chip bad">FOOD <i>340</i> -18/DAY</span><span class="chip">TIMBER <i>55</i></span><span class="chip">ARROWS <i>410</i></span><span class="chip">MORALE <i>62%</i></span></div>
+          <div class="toast red" style="left:67%;top:57%"><em>DIGGING HEARD</em>BENEATH EAST TOWER · ~4 FATHOMS</div>
+          <div class="tools"><span class="tool on">DIG</span><span class="tool">LISTEN</span><span class="tool">SHORE UP</span><span class="tool">FLOOD</span><span class="tool">SORTIE</span></div>
+        </div>
+        <span class="pin" style="left:66%;top:79%">1</span>
+        <span class="pin" style="left:48%;top:84%">2</span>
+        <span class="pin" style="left:56.5%;top:66%">3</span>
+        <span class="pin" style="left:63%;top:40%">4</span>
+        <span class="pin" style="left:21%;top:66%">5</span>
+      </div></div>
+      <figcaption><span>Mockup, 320×180 base resolution, animated</span><button class="pins-toggle" type="button">Hide labels</button></figcaption>
+      <ol class="legend">
+        <li>Enemy sap. Only the stretch your posts have heard is drawn; the rest is guesswork (red dots).</li>
+        <li>Listening post. A soldier with a drum sends back a direction and a distance band.</li>
+        <li>Your countermine, heading to cut the sap off before it reaches the tower's foundations.</li>
+        <li>Trebuchet stones crack the curtain wall. Repairs compete with digging for the same workers.</li>
+        <li>Cellar economy: granary, well and infirmary. Food is finite; the siege is a countdown.</li>
+      </ol>
+    </figure>
+    <div class="cols">
+      <div class="prose">
+        <p class="pitch">A besieging army arrives, and relief is forty days away. Above ground it's a conventional siege: walls, archers, trebuchets, rationing. Below ground their sappers are digging toward your foundations, and you can't see them. You listen for them, dig countermines to cut them off, and fight in the dark.</p>
+        <h3>Core loop, one siege day</h3>
+        <ol>
+          <li>Dawn report: stores, damage, and what the listening posts heard overnight.</li>
+          <li>Set the day's orders: rations, shifts, where to dig, what to repair.</li>
+          <li>The day runs in real time with pause: bombardment, repairs, digging, tunnel fights.</li>
+          <li>Night brings assaults, sorties, sickness and desertion checks.</li>
+          <li>Win by lasting until relief arrives, or by wrecking enough engines and morale to break the siege.</li>
+        </ol>
+        <h3>The new part: fog of war underground</h3>
+        <ul>
+          <li>Enemy tunnels stay hidden until detected. A listening post gives a direction and a distance band; a scrying mage can reveal one segment, at a price. Listening for mines is historical: Herodotus describes a smith at the siege of Barca finding Persian tunnels by tapping a bronze shield, and WWI tunnellers used geophones.</li>
+          <li>You choose where to dig. When galleries meet, it's a tunnel fight or a dirty trick: smoke, flooding from the moat, or pulling the props to bury the sappers and weaken the ground above.</li>
+          <li>A sap that reaches your foundations gets fired. The props burn, that stretch of wall falls, and the assault comes through the breach at night.</li>
+          <li>Every worker underground is one not repairing walls or tending the kitchen garden. That labor split is the whole game.</li>
+        </ul>
+        <h3>Threats</h3>
+        <p>Goblin sapper hordes that dig many shallow saps. An undead legion that never eats and never breaks, but moves slowly. Renegade legionaries with heavy engines. Wyvern riders setting roofs alight. Plague and deserters.</p>
+        <h3>Structure</h3>
+        <p>Roguelite. One siege is one run of about an hour, with a different castle and besieger each time. Between runs you unlock castellan traits, castle layouts and engineering doctrines.</p>
+      </div>
+      <dl class="spec">
+        <dt>Side view</dt><dd>Essential. It's the only view where the wall fight and the tunnel war are both readable at once.</dd>
+        <dt>Novelty</dt><dd><span class="lvl ok">Strong</span>The search found no game built around detecting and intercepting tunnels. Tunnelling exists only as a unit or tactic: Stronghold's Tunneler, King Arthur's Gold, Cortex Command, RimWorld's sapper raids. Watch <em>Dig In</em>, a WWI trench sim in early access that lists tunnelling as planned.</dd>
+        <dt>Scope</dt><dd><span class="lvl md">Medium</span>For 1.0: 3 castles, about 14 room types, 5 besieger factions, about 40 events, tunnel combat.</dd>
+        <dt>Platform</dt><dd>Landscape. Best on PC and web; works on phones if each day becomes a turn.</dd>
+        <dt>Risks</dt><dd>Detection could collapse into a solved sweep pattern. Attrition sims can feel passive. The tone runs grim unless the fantasy side carries it.</dd>
+        <dt>Prototype asks</dt><dd><strong>Is guessing where they're digging and racing to cut them off tense, or tedious?</strong></dd>
+      </dl>
+    </div>
+  </div>
+</section>
+
+<section id="hoardkeep" class="plate port" aria-labelledby="hk-h">
+  <div class="plate-head">
+    <div class="kicker"><span class="sigil" style="background:var(--t-hoard)"></span><span class="badge">Portrait</span><span class="badge">Persistent keep</span><span class="badge pick">Recommended</span></div>
+    <h2 id="hk-h">Hoardkeep</h2>
+    <p class="tagline">Build on a dragon. Try not to wake it.</p>
+  </div>
+  <div class="plate-grid">
+    <figure class="fig" style="margin:0">
+      <div class="phone"><div class="screen port" data-scene="hoardkeep" role="img" aria-label="Mockup: a kobold keep carved into a mountain. Noise rings spread down from the forge toward a red dragon asleep on a gold hoard. A flame vent fires into a corridor where three adventurers have entered.">
+        <div class="hud" aria-hidden="true">
+          <div class="row tl"><span class="chip">GOLD <i>1240</i></span><span class="chip">KOBOLDS <i>23</i></span></div>
+          <div class="meter" style="left:3%;width:36%;top:9.5%"><div class="lab"><span>STIR</span><span data-stir>38%</span></div><div class="bar"><b data-stirbar style="width:38%;background:linear-gradient(90deg,#63c74d,#feae34 55%,#e43b44)"></b><s style="left:40%"></s><s style="left:75%"></s></div></div>
+          <div class="toast" style="left:3%;top:16.5%;max-width:34%"><em>FORGE RUNNING</em>+4 STIR/MIN</div>
+          <div class="tools"><span class="tool">DIG</span><span class="tool">TAPESTRY</span><span class="tool on">SKIM</span><span class="tool">LISTEN</span></div>
+        </div>
+        <span class="pin" style="left:30%;top:27%">1</span>
+        <span class="pin" style="left:44%;top:12%">2</span>
+        <span class="pin" style="left:72%;top:49%">3</span>
+        <span class="pin" style="left:34%;top:49%">4</span>
+        <span class="pin" style="left:87%;top:39.5%">5</span>
+        <span class="pin" style="left:92%;top:57%">6</span>
+        <span class="pin" style="left:62%;top:74%">7</span>
+      </div></div>
+      <figcaption><span>Mockup, 180×320 base resolution, animated</span><button class="pins-toggle" type="button">Hide labels</button></figcaption>
+      <ol class="legend">
+        <li>The forge is loud. Its noise travels down through the rock toward the lair.</li>
+        <li>Stir meter. At 100% the dragon wakes.</li>
+        <li>A flame vent fires on every exhale, so the trap corridor pulses to its breathing.</li>
+        <li>The skim winch: gold now, stir later.</li>
+        <li>An adventurer party walking in through the east adit.</li>
+        <li>Dragonslayer sappers, heard but not yet seen, digging toward the hoard.</li>
+        <li>The dragon: power plant, bank, and last-resort weapon.</li>
+      </ol>
+    </figure>
+    <div class="prose">
+      <p class="pitch">Your clan's keep sits on the mountain where a dragon sleeps on its hoard. Its breath heats your forges, its shed scales armor your guards, and its gold pays for everything. Every hammer blow and every skimmed coin makes it stir. Dragonslayers want its head, adventurers want its gold, and your clan is all that stands between them and it. When you're about to be overrun, you can wake it on purpose.</p>
+      <h3>Core loop</h3>
+      <ol>
+        <li>Dig rooms into the mountain and staff them.</li>
+        <li>Produce: forges, kitchens, trap workshops. Production makes noise.</li>
+        <li>Keep the stir down with tapestries and moss, lullaby bards, feeding, and by timing loud work to its deepest sleep.</li>
+        <li>Skim the hoard for fast gold and a big spike in stir.</li>
+        <li>Defend. Parties walk in through the adits and dragonslayer sappers dig toward the lair. You have traps, guards, and vents that channel its breath.</li>
+        <li>At 100% stir, or when you choose, it wakes and burns everything near its path, attackers first. Pay a tribute to lull it back to sleep, or it leaves and takes the hoard.</li>
+      </ol>
+      <h3>The new part: one noise system, three jobs</h3>
+      <ul>
+        <li>Your noise travels through the rock to the lair, and you can see the ripples. Depth is the trade-off: rooms near the lair get dragon heat and hoard access, but the dragon hears them better.</li>
+        <li>Their noise gives them away. Sappers digging toward the hoard are heard the same way; this is Countermine's tunnel war. Digging a countermine near the lair is loud, so every interception risks the wake.</li>
+        <li>Its breathing is a clock. Flame vents fire on the exhale, so trap corridors pulse on a rhythm you can plan around.</li>
+        <li>The dragon grows with its hoard: more heat, more power, more danger.</li>
+        <li>Waking it is a weapon. Timing a wake for the moment the dragonslayers break through is the signature play.</li>
+      </ul>
+      <h3>Who you are</h3>
+      <p>A kobold clan (small, funny, good with traps, and the easiest to market) or a dragon-cult noble house (closer to the dragon priests of the Elder Scrolls). The mockup uses kobolds.</p>
+      <h3>Threats</h3>
+      <p>Adventurer parties on loot runs. A dragonslayer order whose crusades escalate. Rival clans raiding by tunnel. A necromancer who wants the bones. Cave-ins.</p>
+      <h3>Structure</h3>
+      <p>A persistent keep, like Fallout Shelter, with seasonal hunts and a long arc: the dragon ages, and eventually it's slain, it leaves, or it ascends. Short sessions work.</p>
+      <dl class="spec" style="margin-top:22px">
+        <dt>Side view</dt><dd>Strong. Noise traveling down through rock to the dragon, and depth as risk, only read in section.</dd>
+        <dt>Novelty</dt><dd><span class="lvl md">Good</span>The combination looks new; the parts don't. <em>Don't Wake the Beast</em> (announced 2024) has a noise-driven awakening meter in a stealth roguelite, <em>Clank!</em> raises a dragon's rage with noise, and an itch.io "Dragon Game" has you direct kobolds as the dragon.</dd>
+        <dt>Scope</dt><dd><span class="lvl md">Medium</span>For 1.0: one mountain with procedural variation, about 16 room types, 6 enemy types, the dragon (one big sprite plus the wake set piece), about 50 events, the tunnel war.</dd>
+        <dt>Platform</dt><dd>Portrait with short sessions. A persistent keep suits phones and offline progress.</dd>
+        <dt>Risks</dt><dd>Players may hold stir near zero forever; a hunger cycle that forces periodic wakes fixes that, and a deliberate wake must sometimes be the best move. Expect Dungeon Keeper comparisons. The wake sequence is the one expensive art piece.</dd>
+        <dt>Prototype asks</dt><dd><strong>Does greed against noise force a real decision every minute, and does a deliberate wake feel like a gamble that paid off?</strong></dd>
+      </dl>
+    </div>
+  </div>
+</section>
+
+<section id="mirrorhold" class="plate port" aria-labelledby="mh-h">
+  <div class="plate-head">
+    <div class="kicker"><span class="sigil" style="background:var(--t-mirror)"></span><span class="badge">Portrait</span><span class="badge">Day/night halves</span><span class="badge">Most novel look</span></div>
+    <h2 id="mh-h">Mirrorhold</h2>
+    <p class="tagline">Every room you build has a reflection. Something lives down there.</p>
+  </div>
+  <div class="plate-grid">
+    <figure class="fig" style="margin:0">
+      <div class="phone"><div class="screen port" data-scene="mirrorhold" role="img" aria-label="Mockup: a castle standing on a glowing line, with an upside-down purple reflection of the castle beneath it. Shadow workers stand upside down in the reflected rooms, and dark shapes with red eyes rise from the bottom. Raiders approach the real castle from the right. The scene cycles between day and night.">
+        <div class="hud" aria-hidden="true">
+          <div class="row tl"><span class="chip">ESSENCE <i>38</i></span><span class="chip" data-phase>DAY: THE KEEP</span></div>
+          <div class="meter" style="left:3%;width:38%;top:9.5%"><div class="lab"><span>VEIL</span><span>72%</span></div><div class="bar"><b style="width:72%;background:linear-gradient(90deg,#68386c,#b55088 60%,#f6757a)"></b></div></div>
+          <div class="toast vio" style="left:auto;right:3%;top:9.5%;max-width:40%"><em>FRAYING</em>CHAPEL'S REFLECTION</div>
+          <div class="tools"><span class="tool on">BUILD</span><span class="tool">WARD</span><span class="tool">LANTERN</span><span class="tool">GATE</span></div>
+        </div>
+        <span class="pin" style="left:22%;top:50%">1</span>
+        <span class="pin" style="left:52%;top:56.5%">2</span>
+        <span class="pin" style="left:20%;top:88%">3</span>
+        <span class="pin" style="left:71%;top:50%">4</span>
+        <span class="pin" style="left:94%;top:43%">5</span>
+      </div></div>
+      <figcaption><span>Mockup, 180×320, cycles day and night</span><button class="pins-toggle" type="button">Hide labels</button></figcaption>
+      <ol class="legend">
+        <li>Build a room above and its twin appears below. The ground line is the mirror.</li>
+        <li>At night your sleepers' shadows work the twin rooms, upside down.</li>
+        <li>Umbral horrors climb toward the reflection from the deep.</li>
+        <li>A thin spot in the Veil. Things leak through where you've drawn too much essence.</li>
+        <li>Raiders attack the real keep by day.</li>
+      </ol>
+    </figure>
+    <div class="prose">
+      <p class="pitch">Your keep stands on the Veil, the thin skin between the waking world and the Umbra. Everything you build above ground also appears upside down beneath it, as a shadow keep worked by your people's shadows while they sleep. By day you run the castle and fight raiders. By night you run its reflection and hold back what lives in the dark.</p>
+      <h3>Core loop</h3>
+      <ol>
+        <li>Day: build rooms (each one creates its twin), assign workers, produce materials, fight off raiders.</li>
+        <li>Night: your sleepers' shadows work the twins and produce essence. Wards and lanterns hold off the umbral horrors.</li>
+        <li>Spend essence on wards, enchanted gear and rituals. Drawing essence thins the Veil.</li>
+        <li>Damage crosses over. A fallen twin haunts its real room; a burned real room leaves its twin adrift.</li>
+      </ol>
+      <h3>The new part: a mirrored base</h3>
+      <ul>
+        <li>One build action, two rooms. Layout matters twice: a room that's safe above can be exposed below, where the reflection's rooftops face the deep.</li>
+        <li>Day and night alternate your focus, so you never run both realms at full intensity at once. On a phone screen that halves the load.</li>
+        <li>The Veil is your risk budget. Strong magic thins it, and thin spots let things climb into the real keep.</li>
+      </ul>
+      <h3>Threats</h3>
+      <p>Above: raiders, bandit lords, a jealous neighbor. Below: shades, gloams, the drowned. When the Veil thins, both sides spill over.</p>
+      <h3>Structure</h3>
+      <p>A persistent keep or a campaign, with a day–night cycle of about six to eight minutes.</p>
+      <dl class="spec" style="margin-top:22px">
+        <dt>Side view</dt><dd>Essential. The ground line is the mirror.</dd>
+        <dt>Novelty</dt><dd><span class="lvl ok">Strong</span>Closest is <em>Parallel Empires</em>, a small itch.io game where each building spawns an upside-down copy in a mirror world, but that copy is an enemy and damage doesn't carry across. <em>Flip TD</em> flips the world to defend both sides.</dd>
+        <dt>Name</dt><dd>My first title was Veilkeep, but <em>Veilkeeper</em> (PocketLore Studios, a tactical RPG with base building) is too close. Mirrorhold is a placeholder and hasn't been checked.</dd>
+        <dt>Scope</dt><dd><span class="lvl hi">Medium–large</span>Twin rooms double the design work. They don't double the art if the reflection is a palette-and-shimmer effect like the mockup's.</dd>
+        <dt>Platform</dt><dd>Portrait. The keep above and its reflection below fill a tall screen.</dd>
+        <dt>Risks</dt><dd>The hardest of the five to explain in a sentence, though a screenshot explains itself. The night half could become a chore instead of a second game.</dd>
+        <dt>Prototype asks</dt><dd><strong>Is the night half fun on its own, or just a tax on the day half?</strong></dd>
+      </dl>
+    </div>
+  </div>
+</section>
+
+<section id="colossus" class="plate port" aria-labelledby="hc-h">
+  <div class="plate-head">
+    <div class="kicker"><span class="sigil" style="background:var(--t-colossus)"></span><span class="badge">Portrait</span><span class="badge">Campaign in acts</span><span class="badge">Biggest scope</span></div>
+    <h2 id="hc-h">Hollow Colossus</h2>
+    <p class="tagline">Your castle is inside a dead god-machine. Wake it.</p>
+  </div>
+  <div class="plate-grid">
+    <figure class="fig" style="margin:0">
+      <div class="phone"><div class="screen port" data-scene="colossus" role="img" aria-label="Mockup: a giant brass colossus walking across a desert at sunset. Its body is cut away to show rooms: an observatory in the head, a glowing furnace heart, workshops and farms. A sealed arm chamber holds glowing guardian eyes. Raiders on beasts throw grappling hooks at its legs, and a wyvern rider circles overhead.">
+        <div class="hud" aria-hidden="true">
+          <div class="row tl"><span class="chip">BRASS <i>210</i></span><span class="chip">AETHER <i>64</i></span><span class="chip" style="display:flex;gap:.5em;align-items:center">ALARM <span class="pips"><span class="on"></span><span class="on"></span><span></span><span></span><span></span></span></span><span class="chip">WALKING · <i>3.2</i> LEAGUES</span></div>
+          <div class="toast red" style="left:2%;top:66%;max-width:32%"><em>LEFT ARM</em>GUARDIANS STIRRING</div>
+          <div class="tools"><span class="tool on">OPEN</span><span class="tool">REPAIR</span><span class="tool">REPROGRAM</span><span class="tool">HALT</span></div>
+        </div>
+        <span class="pin" style="left:23%;top:40%">1</span>
+        <span class="pin" style="left:61.5%;top:36%">2</span>
+        <span class="pin" style="left:50%;top:36%">3</span>
+        <span class="pin" style="left:43%;top:77%">4</span>
+        <span class="pin" style="left:79%;top:84%">5</span>
+      </div></div>
+      <figcaption><span>Mockup, 180×320, animated walk cycle</span><button class="pins-toggle" type="button">Hide labels</button></figcaption>
+      <ol class="legend">
+        <li>A sealed chamber. Opening it gives you space and machinery, and raises the alarm.</li>
+        <li>Guardian constructs, the colossus's immune system, waking behind a sealed hatch.</li>
+        <li>The heart furnace powers every other system.</li>
+        <li>Restored legs: the keep walks, and the landscape changes under it.</li>
+        <li>Raiders chase it and try to board by grappling hook.</li>
+      </ol>
+    </figure>
+    <div class="prose">
+      <p class="pitch">A brass colossus from a vanished civilization kneels in the wastes, dead for a thousand years. Your settlers move in. Each sealed chamber you open gives you space and ancient machinery, and wakes more of its immune system: guardian constructs that treat you as an infection. Restore its heart, then its limbs. Eventually it stands up, and your castle walks.</p>
+      <h3>Core loop</h3>
+      <ol>
+        <li>Open sealed chambers in a fixed anatomy: head, chest, arms, belly, legs.</li>
+        <li>Claim, furnish and staff them. Repair its systems: heart furnace, hydraulics, optics.</li>
+        <li>Handle the alarm. Guardians spawn from waking nodes; destroy them or reprogram them into defenders.</li>
+        <li>Fight off scavengers who want its brass.</li>
+        <li>Once the legs work, walk. Travel changes the biome, the resources and the threats, and raiders chase you and try to board.</li>
+      </ol>
+      <h3>The new part: the base is a body</h3>
+      <ul>
+        <li>The body is the map. Every chamber is hand-authored, with its own shape and machinery.</li>
+        <li>Alarm is the risk budget. The deeper you tamper, the more of the colossus fights you.</li>
+        <li>Reprogramming turns the internal enemy into your garrison.</li>
+        <li>The walking phase turns a base builder into a journey.</li>
+      </ul>
+      <h3>Threats</h3>
+      <p>Guardian constructs, scavenger clans, wyvern riders, sandstorms. Late game, other colossi, which are also a scope trap.</p>
+      <h3>Structure</h3>
+      <p>A campaign in three acts: settle, restore, walk.</p>
+      <dl class="spec" style="margin-top:22px">
+        <dt>Side view</dt><dd>Strong. The body's silhouette is the map, and its anatomy stacks vertically.</dd>
+        <dt>Novelty</dt><dd><span class="lvl md">Moderate</span>Bases on walking giants are now a small genre: <em>The Wandering Village</em> (top-down, on a creature's back), <em>Ark of Charon</em> (2024; golem workers turn a walking World-Tree creature into a fortress) and <em>Beyond These Stars</em> (a city on a space whale). Settling inside a dormant machine whose guardians act as an immune system didn't turn up.</dd>
+        <dt>Scope</dt><dd><span class="lvl hi">Large</span>The walking phase is nearly a second game: parallax travel, biomes, chase fights. Cut it and the concept loses its payoff.</dd>
+        <dt>Platform</dt><dd>Portrait. A standing giant fits a phone screen.</dd>
+        <dt>Risks</dt><dd>Scope. Fixed chamber shapes remove the free room layout that makes Fallout Shelter-likes satisfying. It drifts from castle fantasy toward steampunk mech.</dd>
+        <dt>Prototype asks</dt><dd><strong>Is opening a chamber exciting every time?</strong> The whole game rests on hand-authored chambers.</dd>
+      </dl>
+    </div>
+  </div>
+</section>
+
+<section id="deadhold" class="plate land" aria-labelledby="dh-h">
+  <div class="plate-head">
+    <div class="kicker"><span class="sigil" style="background:var(--t-dead)"></span><span class="badge">Either orientation</span><span class="badge">Night waves</span><span class="badge">Least novel</span></div>
+    <h2 id="dh-h">Deadhold</h2>
+    <p class="tagline">They keep attacking. You keep hiring.</p>
+  </div>
+  <div class="plate-grid">
+    <figure class="fig" style="margin:0">
+      <div class="monitor"><div class="screen land" data-scene="deadhold" role="img" aria-label="Mockup: a ruined keep on a hill under a green moon. Villagers with torches and a crusader with a banner approach the gate. Skeletons drag the fallen inside and down to crypts, where a green raising circle glows and undead workers stand in rows.">
+        <div class="hud" aria-hidden="true">
+          <div class="row tl"><span class="chip">NIGHT <i>7</i></span><span class="chip">BONES <i>180</i></span><span class="chip">SOULS <i>12</i></span><span class="chip bad">WORKERS <i>26</i> (8 ROTTING)</span><span class="chip" style="display:flex;gap:.5em;align-items:center">DREAD <span class="pips"><span class="on"></span><span class="on"></span><span class="on"></span><span></span><span></span></span></span><span class="chip">CRUSADE IN <i>2</i> NIGHTS</span></div>
+          <div class="toast grn" style="left:70%;top:24%;max-width:28%"><em>5 FALLEN AT THE GATE</em>HAUL THEM IN?</div>
+          <div class="tools"><span class="tool on">RAISE</span><span class="tool">EMBALM</span><span class="tool">WALL</span><span class="tool">TERRIFY</span></div>
+        </div>
+        <span class="pin" style="left:68%;top:57%">1</span>
+        <span class="pin" style="left:48%;top:82%">2</span>
+        <span class="pin" style="left:19%;top:82%">3</span>
+        <span class="pin" style="left:95%;top:52%">4</span>
+      </div></div>
+      <figcaption><span>Mockup, 320×180 base resolution, animated</span><button class="pins-toggle" type="button">Hide labels</button></figcaption>
+      <ol class="legend">
+        <li>Skeletons haul the fallen through the gate and down the chute.</li>
+        <li>The raising circle. Bodies rise keeping their trade: a dead smith is still a smith.</li>
+        <li>Rot. Zombies decay on a timer; skeletons last; liches are rare.</li>
+        <li>The crusade. Dread rises with your power, and each crusade is bigger.</li>
+      </ol>
+    </figure>
+    <div class="cols">
+      <div class="prose">
+        <p class="pitch">You're a necromancer who has taken a ruined keep. Every raider, villager and crusader who dies at your walls becomes a worker. The living world escalates: more dread brings bigger crusades, which bring more bodies, which make you stronger, until a crusade is bigger than your walls.</p>
+        <h3>Core loop</h3>
+        <ol>
+          <li>Build crypt rooms and defenses.</li>
+          <li>Survive the night's attack.</li>
+          <li>Haul in the fallen and raise them by trade.</li>
+          <li>Manage rot: zombies decay, skeletons last, liches are rare and expensive.</li>
+          <li>Dread rises with your power, and the crusades escalate.</li>
+        </ol>
+        <h3>The new part</h3>
+        <p>Attack waves are your labor supply. You want to be attacked, just not too hard.</p>
+        <h3>Better use</h3>
+        <p>As an unlockable faction or mode inside another concept, where it doesn't have to carry the whole game's novelty.</p>
+      </div>
+      <dl class="spec">
+        <dt>Side view</dt><dd>Moderate. Keep above, crypts below, bodies traveling down to the raising circle. It would work top-down too.</dd>
+        <dt>Novelty</dt><dd><span class="lvl hi">Low</span>Done in substance: <em>Necromancer Accountant</em> (corpses into minions, defend against human attacks), <em>NecroCity</em> (2023, undead city builder with tower defense), and Dungeons 3 and Dungeon Keeper (fallen heroes rise or convert).</dd>
+        <dt>Scope</dt><dd><span class="lvl md">Medium</span></dd>
+        <dt>Platform</dt><dd>Either orientation.</dd>
+        <dt>Risks</dt><dd>The least distinctive of the five. A dark theme narrows the audience on mobile storefronts. The snowball is hard to balance between runaway and death spiral.</dd>
+        <dt>Prototype asks</dt><dd><strong>Can the snowball be tuned into a tense curve?</strong></dd>
+      </dl>
+    </div>
+  </div>
+</section>
+
+<section id="compare" class="sec" style="border-top:1px solid var(--rule);margin-top:56px">
+  <h2>Compare</h2>
+  <p class="sub">The scores are my judgment, not data. Weights start at phone-first because you ship to Google Play. Change a weight and the ranking updates.</p>
+  <div class="presets" role="group" aria-label="Weight presets">
+    <span>Presets</span>
+    <button class="btn" type="button" id="preset-phone" data-preset="phone">Phone-first</button>
+    <button class="btn" type="button" id="preset-pc" data-preset="pc">PC / Steam-first</button>
+    <button class="btn" type="button" id="preset-novel" data-preset="novel">Novelty above all</button>
+  </div>
+  <div class="table-wrap">
+    <table class="matrix" id="matrix">
+      <thead><tr><th>Criterion and weight</th><th>Countermine</th><th>Hoardkeep</th><th>Mirrorhold</th><th>Colossus</th><th>Deadhold</th></tr></thead>
+      <tbody></tbody>
+      <tfoot><tr><td>Weighted score, out of 100</td><td data-total="0"></td><td data-total="1"></td><td data-total="2"></td><td data-total="3"></td><td data-total="4"></td></tr></tfoot>
+    </table>
+  </div>
+  <div class="chart">
+    <h3>Weighted score</h3>
+    <p class="cap">One bar per concept at the current weights. The leader is highlighted.</p>
+    <div class="bars" id="bars"></div>
+    <div class="axis" aria-hidden="true"><span></span><div><span>0</span><span>20</span><span>40</span><span>60</span><span>80</span><span>100</span></div></div>
+  </div>
+</section>
+
+<section id="mix" class="sec">
+  <h2>Mix and match</h2>
+  <p class="sub">These mechanics transplant between concepts. The recommendation already uses the first one.</p>
+  <div class="mix">
+    <article><h3>Listening and interception</h3><p>From Countermine. Enemy tunnels are hidden until heard; you dig to cut them off. In Hoardkeep the same noise system that stirs the dragon also exposes sappers, so one system does three jobs.</p><div class="fits"><span><i class="sigil" style="background:var(--t-countermine)"></i>Countermine</span><span><i class="sigil" style="background:var(--t-hoard)"></i>Hoardkeep</span></div></article>
+    <article><h3>Alarm bell</h3><p>Ringing the bell sends residents from their jobs to battle posts, and travel time makes layout part of defense. Ring early and production stops; ring late and the walls are empty.</p><div class="fits"><span>All five</span></div></article>
+    <article><h3>Structural load</h3><p>Rooms have weight and supports have capacity. Bombardment and cave-ins cascade through a cheap graph check instead of physics, which buys dramatic collapses for little code.</p><div class="fits"><span><i class="sigil" style="background:var(--t-countermine)"></i>Countermine</span><span><i class="sigil" style="background:var(--t-hoard)"></i>Hoardkeep</span></div></article>
+    <article><h3>Self-destruct button</h3><p>Waking the dragon, flooding the tunnels, tearing the Veil. Each concept is stronger with a catastrophe you can trigger on purpose that's sometimes the right call.</p><div class="fits"><span>All five</span></div></article>
+    <article><h3>Corpse labor</h3><p>From Deadhold. Fallen attackers become workers. Works as an unlockable faction elsewhere, without carrying a whole game.</p><div class="fits"><span><i class="sigil" style="background:var(--t-dead)"></i>Deadhold</span><span><i class="sigil" style="background:var(--t-countermine)"></i>Countermine</span></div></article>
+    <article><h3>Time-loop siege</h3><p>The keep falls every night and you keep only what you learned. Strong, but closer to a narrative puzzle game than a builder. Worth keeping as a mode.</p><div class="fits"><span><i class="sigil" style="background:var(--t-countermine)"></i>Countermine</span></div></article>
+  </div>
+
+  <h3 style="font-size:22px;font-weight:800;margin:40px 0 12px">Ideas I cut</h3>
+  <div class="table-wrap">
+    <table class="cuts">
+      <thead><tr><th>Idea</th><th>Why it's out</th></tr></thead>
+      <tbody>
+        <tr><td>Fallout Shelter in a castle</td><td>The Elder Scrolls: Castles and Hustle Castle.</td></tr>
+        <tr><td>Be the villain, stop the heroes</td><td>Dungeon Keeper, Dungeons, Legend of Keepers, Castle Doombad, War for the Overworld.</td></tr>
+        <tr><td>Castle-vs-castle async PvP</td><td>Needs servers, anti-cheat and a big player base. Hustle Castle's territory.</td></tr>
+        <tr><td>Floating castle you keep balanced</td><td>Airborne Kingdom already tilts its flying city by lift and weight.</td></tr>
+        <tr><td>Last beacon against the dark</td><td>Kingdom's Greed, Frostpunk's heat radius, Don't Starve's darkness.</td></tr>
+        <tr><td>Build by day, defend by night</td><td>Kingdom, Thronefall, Super Fantasy Kingdom. It's a pacing choice, not a hook.</td></tr>
+        <tr><td>Sealed-evil prison fortress</td><td>Overlaps Hoardkeep, and the dragon is easier to grasp.</td></tr>
+        <tr><td>Guild hall that outfits adventurers</td><td>Recettear, Moonlighter, Dungeon Village.</td></tr>
+        <tr><td>Run the besieging camp</td><td>The inverse of Countermine. A possible second mode, not a first game.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="decide" class="sec">
+  <h2>Decisions you need to make</h2>
+  <p class="sub">Each has my default. Open one to see the options.</p>
+  <div class="decide">
+    <details open><summary><h3>Which concept</h3><span class="def">Hoardkeep</span></summary>
+      <div class="opts">
+        <div class="opt chosen"><b>Hoardkeep + tunnel war</b>Clearest hook, fits phones, medium scope.</div>
+        <div class="opt"><b>Countermine</b>Most novel, deepest systems, best on PC.</div>
+        <div class="opt"><b>Mirrorhold</b>Most striking look, least certain fun.</div>
+        <p class="why">Pick the one whose prototype question you most want answered. If both fun-tests pass, the platform decision below breaks the tie.</p>
+      </div></details>
+    <details><summary><h3>Player presence</h3><span class="def">God view</span></summary>
+      <div class="opts">
+        <div class="opt chosen"><b>God view</b>Fallout Shelter style. You assign and build; nobody is "you".</div>
+        <div class="opt"><b>Avatar</b>Terraria or Kingdom style. You walk the keep as its lord.</div>
+        <p class="why">An avatar adds controls, animation and combat feel, which roughly doubles the work before the management game is even fun. A lord unit you can take control of in a crisis gets most of the flavor.</p>
+      </div></details>
+    <details><summary><h3>Time model</h3><span class="def">Real time with pause</span></summary>
+      <div class="opts">
+        <div class="opt chosen"><b>Real time with pause</b>Plus speed controls. Standard for the genre.</div>
+        <div class="opt"><b>Day turns</b>Plan, then resolve. Best for phones and for Countermine.</div>
+        <div class="opt"><b>Idle timers</b>Only if you go free-to-play.</div>
+        <p class="why">Timers pace a free-to-play economy, but they fight a defense game's fairness: attacks shouldn't land while the player is away and can't respond.</p>
+      </div></details>
+    <details><summary><h3>Structure</h3><span class="def">Depends on concept</span></summary>
+      <div class="opts">
+        <div class="opt chosen"><b>Persistent keep</b>For Hoardkeep and Mirrorhold. One save, a long arc.</div>
+        <div class="opt chosen"><b>Roguelite runs</b>For Countermine. One siege per run, unlocks between.</div>
+        <p class="why">Runs buy replay value from little content; a persistent keep buys attachment. Pick per concept rather than globally.</p>
+      </div></details>
+    <details><summary><h3>Orientation</h3><span class="def">Portrait</span></summary>
+      <div class="opts">
+        <div class="opt chosen"><b>Portrait</b>One-handed phone play and a tall base. Suits Hoardkeep, Mirrorhold and Colossus.</div>
+        <div class="opt"><b>Landscape</b>Wide battlefield. Suits Countermine and a PC-first launch.</div>
+        <p class="why">A TWA can lock orientation. Supporting both doubles the UI layout work, so pick one per platform.</p>
+      </div></details>
+    <details><summary><h3>Business model</h3><span class="def">Free demo, one-time unlock</span></summary>
+      <div class="opts">
+        <div class="opt chosen"><b>Free demo + unlock</b>Web demo on GitHub Pages or itch.io, full game via Play Billing in the TWA, and Steam later.</div>
+        <div class="opt"><b>Free-to-play</b>Timers, IAP, live ops. The two games above already occupy it with bigger budgets.</div>
+        <div class="opt"><b>Web-portal ads</b>Poki or CrazyGames. Needs short sessions and a lighter game.</div>
+        <p class="why">This is my reasoning, not market data. A solo developer can't outspend Bethesda or MY.GAMES on user acquisition, so compete on design and sell it once.</p>
+      </div></details>
+    <details><summary><h3>Art and renderer</h3><span class="def">Pixel art on Canvas 2D</span></summary>
+      <div class="opts">
+        <div class="opt chosen"><b>Canvas 2D</b>Enough for this sprite count. The mockups run on it.</div>
+        <div class="opt"><b>PixiJS</b>WebGL batching and filters. Worth it for Mirrorhold's reflection shader or hundreds of units.</div>
+        <div class="opt"><b>Phaser</b>Scenes, input and audio included. More engine than a simulation-heavy game needs.</div>
+        <p class="why">In this genre the complexity lives in the simulation, not the renderer. Keep the model separate from drawing so you can swap renderers later.</p>
+      </div></details>
+  </div>
+</section>
+
+<section id="next" class="sec">
+  <h2>The next two weeks</h2>
+  <p class="sub">Greybox fun-tests: boxes and text, no art. Each answers one plate's "prototype asks" question.</p>
+  <div class="weeks">
+    <div class="week">
+      <p class="eyebrow">Week 1</p>
+      <h3>Hoardkeep: greed against noise</h3>
+      <ul>
+        <li>One mountain cross-section and five room types: forge, dorm, kitchen, tapestry hall, trap corridor.</li>
+        <li>The dragon as a box with a breathing timer and a stir meter.</li>
+        <li>Noise spreads through the room graph by breadth-first search, with falloff by distance and dampening per room.</li>
+        <li>One attacker type every three minutes, one enemy sap, and a wake button.</li>
+      </ul>
+      <p class="pass"><b>Pass:</b> after 20 minutes you still want to push your luck, and a deliberate wake felt like a gamble.</p>
+      <p class="kill"><b>Kill:</b> the best play is "never run the forge", or waking is always right or always wrong.</p>
+    </div>
+    <div class="week">
+      <p class="eyebrow">Week 2</p>
+      <h3>Countermine: detect and intercept</h3>
+      <ul>
+        <li>One wall, one keep, one besieger.</li>
+        <li>A 40×12 underground grid with fog of war. Enemy saps path toward the foundations with some randomness.</li>
+        <li>Listening posts return a direction and a distance band. Digging costs labor and time.</li>
+        <li>A fired sap drops a wall section, followed by a night assault.</li>
+      </ul>
+      <p class="pass"><b>Pass:</b> interceptions feel like a hunt, and when you lose a wall you know why.</p>
+      <p class="kill"><b>Kill:</b> detection becomes a fixed sweep pattern, or the underground feels disconnected from the walls.</p>
+    </div>
+  </div>
+  <ul class="tech" aria-label="Technical sketch">
+    <li><b>Model apart from renderer</b>Fixed-step simulation at about 10 ticks per second, rendering interpolated between ticks.</li>
+    <li><b>Grid plus room graph</b>Cells for rock, rooms and tunnels; A* over rooms and ladders for pathing, like Fallout Shelter's elevators.</li>
+    <li><b>One propagation routine</b>Breadth-first search with falloff handles noise, detection and alarm in every concept.</li>
+    <li><b>Content as data</b>Rooms, enemies and events in JSON, so balancing doesn't need code changes.</li>
+    <li><b>Saves</b>JSON snapshots in IndexedDB, with export and import for backups.</li>
+    <li><b>Shipping</b>A service worker for offline play; Bubblewrap to package the TWA for Play.</li>
+  </ul>
+  <p class="note">After the fun-tests, a vertical slice (one complete season or siege with near-final art) is my estimate of 8–10 weeks part-time. That's a guess; it depends on your hours.</p>
+</section>
+
+<section id="ledger" class="sec">
+  <h2>What's checked and what isn't</h2>
+  <p class="sub">So you know which parts to trust.</p>
+  <div class="ledger">
+    <div class="est"><h3>Established</h3><ul>
+      <li>Competitor facts in "What's already taken", from store pages, UESP and press coverage found by web search.</li>
+      <li>Novelty searches for each concept's core mechanic.</li>
+      <li>Historical mine detection (Herodotus on Barca; WWI geophones).</li>
+      <li>TWA payments through Play Billing; web-stack games shipping on Steam.</li>
+    </ul></div>
+    <div class="jud"><h3>My judgment</h3><ul>
+      <li>Every score and weight in Compare.</li>
+      <li>Scope sizes, content counts, and the vertical-slice estimate.</li>
+      <li>Platform fit and the business-model advice.</li>
+      <li>The recommendation itself.</li>
+    </ul></div>
+    <div class="unk"><h3>Unknown until built</h3><ul>
+      <li>Whether any signature mechanic is fun. That's what the fun-tests are for.</li>
+      <li>Small itch.io or jam games with the same idea; searches miss these most.</li>
+      <li>Trademark status of the working titles. Countermine, Hoardkeep and Hollow Colossus had no store matches; Mirrorhold and Deadhold weren't checked.</li>
+    </ul></div>
+  </div>
+</section>
+
+<p class="foot">Mockups are drawn live on canvas from code in this page at their base resolutions, as a feasibility check on the art style. Working titles are placeholders.</p>
+</div>
+<div class="tip" id="tip" hidden></div>
+<script>
+'use strict';
+/* ---------- pixel kit: palette (ENDESGA 32 + a few extras) ---------- */
+const P = {
+  rust:'#be4a2f', ochre:'#d77643', bone:'#ead4aa', tan:'#e4a672', clay:'#b86f50', brown:'#733e39', plum:'#3e2731',
+  crimson:'#a22633', red:'#e43b44', orange:'#f77622', amber:'#feae34', yellow:'#fee761',
+  green:'#63c74d', forest:'#3e8948', pine:'#265c42', deep:'#193c3e',
+  navy:'#124e89', blue:'#0099db', cyan:'#2ce8f5', white:'#ffffff',
+  silver:'#c0cbdc', steel:'#8b9bb4', slate:'#5a6988', indigo:'#3a4466', ink:'#262b44', night:'#181425',
+  hot:'#ff0044', grape:'#68386c', mauve:'#b55088', pink:'#f6757a', peach:'#e8b796', skin2:'#c28569',
+  void:'#0e0b18', soot:'#1f1a24', earth:'#2a1d18'
+};
+const MR = Math.round, MF = Math.floor;
+const SCENES = {};
+
+function rngOf(a){ return function(){ a|=0; a=a+0x6D2B79F5|0; let t=Math.imul(a^a>>>15,1|a); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
+function R(c,x,y,w,h,col){ w=MR(w); h=MR(h); if(w<=0||h<=0) return; c.fillStyle=col; c.fillRect(MR(x),MR(y),w,h); }
+function D(c,x,y,col){ c.fillStyle=col; c.fillRect(MR(x),MR(y),1,1); }
+function A(c,a,fn){ const o=c.globalAlpha; c.globalAlpha=o*a; fn(); c.globalAlpha=o; }
+function clip(c,x,y,w,h,fn){ c.save(); c.beginPath(); c.rect(x,y,w,h); c.clip(); fn(); c.restore(); }
+
+function sky(c,x,y,w,h,cols){
+  const n=cols.length, bh=h/n;
+  for(let i=0;i<n;i++) R(c,x,y+MF(i*bh),w,Math.ceil(bh)+1,cols[i]);
+  for(let i=1;i<n;i++){
+    const by=y+MF(i*bh);
+    for(let xx=x;xx<x+w;xx++){
+      if((xx&1)===0) D(c,xx,by-1,cols[i]);
+      if((xx&1)===1) D(c,xx,by,cols[i-1]);
+    }
+  }
+}
+function ridge(c,rnd,x0,x1,base,amp,col,freq){
+  const p1=rnd()*6,p2=rnd()*6,p3=rnd()*6, hs=[];
+  for(let x=x0;x<x1;x++){
+    const v=0.5+0.3*Math.sin(x*freq+p1)+0.14*Math.sin(x*freq*2.3+p2)+0.07*Math.sin(x*freq*5.7+p3);
+    const top=MR(base-amp*v); hs.push(top); R(c,x,top,1,base-top+1,col);
+  }
+  return hs;
+}
+function speck(c,rnd,x,y,w,h,col,d){ const n=MR(w*h*d); for(let i=0;i<n;i++) D(c,x+MF(rnd()*w),y+MF(rnd()*h),col); }
+function texture(c,rnd,x,y,w,h,base,specks){ R(c,x,y,w,h,base); for(const s of specks) speck(c,rnd,x,y,w,h,s[0],s[1]); }
+function bricks(c,rnd,x,y,w,h,o){
+  const bw=o.bw||6, bh=o.bh||3;
+  clip(c,x,y,w,h,()=>{
+    R(c,x,y,w,h,o.base);
+    for(let row=0,yy=y; yy<y+h; row++,yy+=bh+1){
+      R(c,x,yy+bh,w,1,o.dark);
+      const off=(row&1)?MF(bw/2)+1:0;
+      for(let xx=x-off; xx<x+w; xx+=bw+1){
+        R(c,xx+bw,yy,1,bh,o.dark);
+        if(rnd()<0.45) R(c,xx+1,yy,2,1,o.light);
+        if(rnd()<0.25) D(c,xx+bw-1,yy+bh-1,o.dark);
+      }
+    }
+  });
+}
+function crenel(c,x,y,w,col,shade){ for(let xx=x; xx<x+w-1; xx+=4){ R(c,xx,y-3,2,3,col); D(c,xx+1,y-3,shade||col); } }
+function roof(c,cx,base,hw,ht,col,shade){
+  for(let i=0;i<ht;i++){ const w=Math.max(1,MR(hw*(i+1)/ht)); R(c,cx-w,base-ht+i,w,1,col); R(c,cx,base-ht+i,w,1,shade); }
+  D(c,cx,base-ht-1,P.amber);
+}
+function ellipse(c,cx,cy,rx,ry,col){ c.fillStyle=col; for(let dy=-ry;dy<=ry;dy++){ const w=MR(rx*Math.sqrt(Math.max(0,1-(dy*dy)/((ry+.5)*(ry+.5))))); c.fillRect(MR(cx-w),MR(cy+dy),w*2+1,1); } }
+function poly(c,pts,col){
+  let y0=Infinity,y1=-Infinity; for(const p of pts){ y0=Math.min(y0,p[1]); y1=Math.max(y1,p[1]); }
+  c.fillStyle=col;
+  for(let y=MF(y0); y<=Math.ceil(y1); y++){
+    const yc=y+.5, xs=[];
+    for(let i=0,j=pts.length-1;i<pts.length;j=i++){ const a=pts[i],b=pts[j]; if((a[1]>yc)!==(b[1]>yc)) xs.push(a[0]+(yc-a[1])*(b[0]-a[0])/(b[1]-a[1])); }
+    xs.sort((m,n)=>m-n);
+    for(let k=0;k+1<xs.length;k+=2){ const xa=MR(xs[k]), xb=MR(xs[k+1]); if(xb>xa) c.fillRect(xa,y,xb-xa,1); }
+  }
+}
+function line(c,x0,y0,x1,y1,col,dash){
+  x0=MR(x0); y0=MR(y0); x1=MR(x1); y1=MR(y1);
+  const dx=Math.abs(x1-x0), sx=x0<x1?1:-1, dy=-Math.abs(y1-y0), sy=y0<y1?1:-1; let err=dx+dy, i=0;
+  for(let guard=0; guard<2000; guard++){
+    if(!dash || (i%dash) < Math.ceil(dash/2)) D(c,x0,y0,col);
+    i++; if(x0===x1&&y0===y1) break;
+    const e2=2*err; if(e2>=dy){ err+=dy; x0+=sx; } if(e2<=dx){ err+=dx; y0+=sy; }
+  }
+}
+function ring(c,cx,cy,r,col,keep){
+  r=MR(r); if(r<1) return; let x=r,y=0,err=1-r;
+  while(x>=y){
+    for(const [dx,dy] of [[x,y],[y,x],[-y,x],[-x,y],[-x,-y],[-y,-x],[y,-x],[x,-y]]) if(!keep||keep(dx,dy)) D(c,cx+dx,cy+dy,col);
+    y++; if(err<0) err+=2*y+1; else { x--; err+=2*(y-x)+1; }
+  }
+}
+function room(c,rnd,x,y,w,h,o){
+  R(c,x,y,w,h,o.wall);
+  speck(c,rnd,x,y,w,h-2,o.wall2,0.06);
+  R(c,x,y,w,1,o.wall2);
+  R(c,x,y+h-2,w,2,o.floor); R(c,x,y+h-2,w,1,o.floorTop||o.floor);
+}
+function flame(c,x,y,t,s){
+  const f=MF(t*9+(s||0))%3;
+  D(c,x,y,P.yellow); D(c,x,y-1,f===0?P.amber:P.yellow);
+  if(f!==2) D(c,x,y-2,P.orange);
+  if(f===1) D(c,x+1,y-1,P.orange); if(f===2) D(c,x-1,y-1,P.orange);
+}
+function glow(c,x,y,r,col,a){ for(let i=0;i<3;i++){ const rr=MR(r*(1-i/3)); if(rr>0) A(c,a*.45,()=>ellipse(c,x,y,rr,rr,col)); } }
+function torch(c,x,y,t,s){ R(c,x,y,1,3,P.brown); glow(c,x,y-1,5,P.amber,.14); flame(c,x,y-1,t,s); }
+function zGlyph(c,x,y,col){ R(c,x,y,3,1,col); D(c,x+1,y+1,col); R(c,x,y+2,3,1,col); }
+
+/* characters: x = left, y = feet baseline (exclusive) */
+function human(c,x,y,o,t){
+  const h=o.h||8, top=y-h, f=o.face||1, ph=o.ph||0;
+  const walking = o.walk && MF(t*o.walk+ph)%2===1;
+  const legs=o.legs||P.ink;
+  if(walking){ D(c,x,y-2,legs); D(c,x,y-1,legs); D(c,x+3,y-2,legs); D(c,x+3,y-1,legs); R(c,x+1,y-2,2,1,legs); }
+  else R(c,x+1,y-2,2,2,legs);
+  R(c,x,top+2,4,h-4,o.body);
+  if(o.robe) R(c,x,top+2,4,h-3,o.body);
+  if(o.trim) R(c,x,top+h-4,4,1,o.trim);
+  R(c,x+1,top,2,2,o.skin||P.peach);
+  if(o.hair) R(c,x+1,top,2,1,o.hair);
+  if(o.beard) R(c,x+1,top+2,2,1,o.beard);
+  if(o.helm){ R(c,x,top,4,1,o.helm); R(c,x+1,top-1,2,1,o.helm); }
+  if(o.plume){ D(c,x+1,top-2,o.plume); D(c,x+2,top-3,o.plume); }
+  if(o.hood){ R(c,x,top-1,4,1,o.hood); D(c,x,top,o.hood); D(c,x+3,top,o.hood); D(c,x,top+1,o.hood); D(c,x+3,top+1,o.hood); }
+  if(o.hat){ R(c,x-1,top,6,1,o.hat); R(c,x+1,top-1,2,1,o.hat); D(c,x+2,top-2,o.hat); D(c,x+3,top-3,o.hat); }
+  if(o.horns){ D(c,x,top-1,P.bone); D(c,x+3,top-1,P.bone); }
+  if(o.eyes){ D(c,x+1,top+1,o.eyes); D(c,x+2,top+1,o.eyes); }
+  if(o.arms){ D(c, f>0?x+4:x-1, top+3, o.arms); }
+  const sx = f>0 ? x+4 : x-1;
+  if(o.spear){ R(c,sx,top-3,1,h+1,P.clay); D(c,sx,top-4,P.silver); }
+  if(o.torch){ R(c,sx,top+2,1,3,P.brown); glow(c,sx,top,6,P.amber,.18); flame(c,sx,top+1,t,ph); }
+  if(o.staff){ R(c,sx,top-1,1,h,P.brown); D(c,sx,top-2,o.staff); glow(c,sx,top-2,3,o.staff,.3); }
+  if(o.fork){ R(c,sx,top-2,1,h,P.clay); D(c,sx-1,top-3,P.silver); D(c,sx+1,top-3,P.silver); D(c,sx,top-3,P.silver); }
+  if(o.bow){ R(c,sx,top+1,1,4,P.brown); D(c,sx+f,top,P.brown); D(c,sx+f,top+5,P.brown); D(c,sx,top+3,P.bone); }
+  if(o.banner){ R(c,sx,top-8,1,h+7,P.bone); R(c, f>0?sx+1:sx-5, top-8, 5, 5, o.banner); if(o.emblem) D(c, f>0?sx+3:sx-3, top-6, o.emblem); }
+  if(o.pick){
+    const up = MF(t*o.pick+ph)%2===0;
+    if(up){ R(c,sx,top-1,1,4,P.clay); R(c,sx-1,top-2,3,1,P.silver); }
+    else { if(f>0){ R(c,sx,top+3,3,1,P.clay); D(c,sx+3,top+2,P.silver); D(c,sx+3,top+4,P.silver);} else { R(c,sx-2,top+3,3,1,P.clay); D(c,sx-3,top+2,P.silver); D(c,sx-3,top+4,P.silver);} }
+  }
+  if(o.carry) R(c,x,top-2,4,2,o.carry);
+}
+function kobold(c,x,y,o,t){
+  const top=y-6, f=o.face||1, ph=o.ph||0, skin=o.skin||P.ochre, tun=o.body||P.brown;
+  const walking = o.walk && MF(t*o.walk+ph)%2===1;
+  if(walking){ D(c,x,y-1,skin); D(c,x+2,y-1,skin); } else { D(c,x+1,y-1,skin); D(c,x+2,y-1,skin); }
+  R(c,x,top+2,3,3,tun);
+  D(c, f>0?x-1:x+3, top+4, skin); D(c, f>0?x-2:x+4, top+5, skin);
+  R(c,x,top,3,2,skin); D(c, f>0?x+3:x-1, top+1, skin);
+  D(c, f>0?x:x+2, top-1, P.bone); D(c, f>0?x+2:x, top, P.night);
+  const sx = f>0 ? x+3 : x-1;
+  if(o.spear){ R(c,sx,top-2,1,8,P.clay); D(c,sx,top-3,P.silver); }
+  if(o.hammer){ const up=MF(t*o.hammer+ph)%2===0; if(up){ R(c,sx,top-1,1,3,P.clay); R(c,sx-1,top-2,3,1,P.steel);} else { R(c,sx,top+2,2,1,P.clay); R(c,sx+2,top+1,1,3,P.steel);} }
+  if(o.carry) R(c,x,top-2,3,2,o.carry);
+}
+
+/* ---------- Countermine (320x180) ---------- */
+SCENES.countermine = {
+  w:320, h:180, seed:7, still:3.1, crop:[96,0,180,180],
+  bg(c,rnd){
+    const GY=100;
+    sky(c,0,0,320,GY,[P.night,P.ink,P.indigo,P.grape,P.mauve,P.pink,P.amber]);
+    speck(c,rnd,0,0,320,34,P.white,.004); speck(c,rnd,0,0,320,22,P.silver,.003);
+    ellipse(c,292,90,10,10,P.yellow); ellipse(c,292,90,8,8,'#fff3b0');
+    ridge(c,rnd,0,320,GY,26,P.grape,.03);
+    ridge(c,rnd,0,320,GY,13,P.plum,.055);
+    // strata
+    texture(c,rnd,0,GY,320,18,P.brown,[[P.clay,.06],[P.plum,.08]]);
+    texture(c,rnd,0,GY+18,320,32,P.plum,[[P.brown,.07],[P.earth,.06]]);
+    texture(c,rnd,0,GY+50,320,30,P.soot,[[P.indigo,.08],[P.ink,.08]]);
+    for(let i=0;i<26;i++){ const x=rnd()*320, y=GY+22+rnd()*56; ellipse(c,x,y,1+MF(rnd()*2),1,rnd()<.5?P.slate:P.indigo); }
+    for(let i=0;i<30;i++){ const x=MF(rnd()*320); line(c,x,GY+1,x+MF(rnd()*6)-3,GY+3+MF(rnd()*5),P.clay); }
+    R(c,0,GY,320,1,P.forest); R(c,0,GY+1,320,1,P.pine);
+    for(let x=0;x<320;x+=3) if(rnd()<.5) D(c,x,GY-1,P.forest);
+    // moat
+    R(c,214,GY,16,7,P.navy); R(c,214,GY,16,1,P.blue); R(c,215,GY+7,14,1,P.navy);
+    // foundations under east tower
+    bricks(c,rnd,192,GY,22,12,{base:P.slate,dark:P.indigo,light:P.steel});
+    // left tower + wall
+    bricks(c,rnd,18,44,22,56,{base:P.slate,dark:P.indigo,light:P.steel});
+    roof(c,29,44,13,16,P.crimson,P.plum);
+    R(c,27,56,2,3,P.amber); R(c,31,72,2,3,P.amber);
+    bricks(c,rnd,40,64,18,36,{base:P.slate,dark:P.indigo,light:P.steel}); crenel(c,40,64,18,P.slate,P.indigo);
+    // keep shell + cutaway
+    bricks(c,rnd,58,28,54,72,{base:P.slate,dark:P.indigo,light:P.steel}); crenel(c,58,28,54,P.slate,P.indigo);
+    room(c,rnd,61,32,48,16,{wall:P.ink,wall2:P.indigo,floor:P.brown,floorTop:P.clay});
+    R(c,61,48,48,2,P.slate);
+    room(c,rnd,61,50,48,16,{wall:P.plum,wall2:P.brown,floor:P.brown,floorTop:P.clay});
+    R(c,61,66,48,2,P.slate);
+    room(c,rnd,61,68,48,31,{wall:P.earth,wall2:P.plum,floor:P.brown,floorTop:P.clay});
+    // top room: shelves + orb pedestal
+    R(c,64,36,8,10,P.brown); for(let r=0;r<3;r++) for(let i=0;i<7;i++) D(c,64+i+ (i>3?1:0)*0,37+r*3,[P.red,P.blue,P.green,P.amber,P.bone,P.mauve,P.cyan][(i+r*2)%7]);
+    R(c,86,43,3,3,P.slate); R(c,85,46,5,1,P.indigo);
+    // hall: banner, table, throne
+    R(c,82,52,5,8,P.crimson); D(c,84,55,P.amber); D(c,82,60,P.crimson); D(c,86,60,P.crimson);
+    R(c,66,61,14,1,P.clay); D(c,67,62,P.brown); D(c,78,62,P.brown); D(c,67,63,P.brown); D(c,78,63,P.brown);
+    R(c,99,56,5,8,P.amber); R(c,100,57,3,4,P.crimson);
+    // bottom: hearth + beds + ladder
+    R(c,64,86,10,11,P.indigo); R(c,65,88,8,9,P.night); R(c,63,85,12,1,P.slate);
+    R(c,86,94,9,2,P.silver); R(c,86,96,9,1,P.navy); R(c,97,94,9,2,P.silver); R(c,97,96,9,1,P.navy);
+    for(let y=33;y<99;y+=3) R(c,106,y,2,1,P.clay); R(c,105,32,1,67,P.brown); R(c,108,32,1,67,P.brown);
+    // bailey: forge hut, stone pile
+    R(c,116,84,20,16,P.clay); R(c,116,84,20,1,P.brown); R(c,116,90,20,1,P.brown); R(c,121,84,1,16,P.brown); R(c,131,84,1,16,P.brown);
+    poly(c,[[113,85],[126,74],[139,85]],P.crimson); poly(c,[[126,74],[139,85],[126,85]],P.plum);
+    R(c,130,72,3,8,P.slate); R(c,122,92,5,8,P.night);
+    R(c,140,95,9,5,P.slate); R(c,142,93,5,2,P.steel); R(c,139,99,11,1,P.indigo);
+    // east curtain + gate + damage
+    bricks(c,rnd,150,58,46,42,{base:P.slate,dark:P.indigo,light:P.steel}); crenel(c,150,58,46,P.slate,P.indigo);
+    R(c,166,82,12,18,P.night); R(c,167,81,10,1,P.night); R(c,168,80,8,1,P.night);
+    for(let x=167;x<178;x+=3) R(c,x,82,1,14,P.steel); for(let y=84;y<96;y+=3) R(c,166,y,12,1,P.steel);
+    line(c,193,64,189,70,P.night); line(c,189,70,192,76,P.night); line(c,192,76,187,84,P.night); line(c,190,70,195,73,P.night);
+    for(let i=0;i<5;i++) D(c,190-i,58-1,P.pink);
+    R(c,196,96,6,4,P.slate); R(c,198,94,3,2,P.steel); D(c,203,99,P.slate);
+    // east tower
+    bricks(c,rnd,196,46,16,54,{base:P.slate,dark:P.indigo,light:P.steel}); roof(c,204,46,9,12,P.crimson,P.plum);
+    R(c,203,60,1,4,P.night); R(c,203,76,1,4,P.night);
+    // enemy camp
+    poly(c,[[248,100],[259,86],[270,100]],P.bone); poly(c,[[259,86],[270,100],[259,100]],P.tan);
+    poly(c,[[282,100],[289,91],[296,100]],P.bone);
+    poly(c,[[296,100],[307,84],[318,100]],P.crimson); for(let x=299;x<316;x+=4) line(c,307,85,x,99,P.plum);
+    R(c,244,100,14,3,P.night); R(c,240,98,4,2,P.brown); R(c,258,98,5,2,P.brown); D(c,241,97,P.clay);
+    R(c,262,50,14,50,P.brown); for(let y=55;y<98;y+=6) R(c,262,y,14,1,P.clay); R(c,262,50,14,6,P.bone); R(c,262,56,14,1,P.tan);
+    R(c,258,52,4,2,P.clay); ellipse(c,265,98,2,2,P.plum); ellipse(c,273,98,2,2,P.plum);
+    line(c,292,100,300,74,P.brown); line(c,308,100,300,74,P.brown); line(c,293,100,301,74,P.clay); R(c,288,98,24,2,P.brown);
+    // underground: cellars, well, gallery, listening niche
+    R(c,50,100,70,4,P.slate); R(c,104,98,3,6,P.night);
+    room(c,rnd,52,104,66,22,{wall:P.earth,wall2:P.plum,floor:P.brown,floorTop:P.clay});
+    R(c,84,104,2,22,P.slate); R(c,96,104,2,22,P.slate);
+    for(let i=0;i<5;i++){ ellipse(c,57+i*5,121,2,2,i%2?P.tan:P.bone); } ellipse(c,62,117,2,2,P.bone); ellipse(c,72,117,2,2,P.tan);
+    R(c,88,104,6,60,P.night); R(c,87,118,8,2,P.slate); R(c,88,158,6,6,P.navy); R(c,88,158,6,1,P.blue);
+    R(c,100,121,7,2,P.silver); R(c,110,121,7,2,P.silver); R(c,100,120,2,1,P.peach);
+    R(c,112,124,6,11,P.night); R(c,118,127,61,8,P.night); R(c,118,134,61,1,P.brown);
+    for(let x=122;x<178;x+=8){ R(c,x,127,1,7,P.clay); R(c,x-1,127,3,1,P.brown); }
+    R(c,179,128,1,6,P.night); D(c,180,130,P.night); D(c,180,132,P.night);
+    R(c,148,135,12,7,P.night); R(c,150,139,4,3,P.crimson); R(c,150,139,4,1,P.bone);
+    // fog of war over the unknown ground east of the known tunnels
+    const fogTop=x=> x<216 ? GY+13 : (x<232 ? GY+9 : GY+4);
+    for(let x=184;x<320;x++) for(let y=fogTop(x);y<180;y++) if(((x+y)&1)===0) D(c,x,y,P.void);
+    for(let y=GY+14;y<180;y+=2) for(let x=180;x<184;x++) if(((x+y)&3)===0) D(c,x,y,P.void);
+  },
+  fg(c,t){
+    const u=t%4;
+    // stars twinkle
+    for(const [x,y,s] of [[40,8,0],[120,14,1.3],[210,6,2.1],[260,18,.7]]) if(MF(t*2+s)%3===0) D(c,x,y,P.white);
+    // flags
+    const fl=(x,y,a,b)=>{ R(c,x,y-12,1,12,P.steel); const ph=MF(t*6)%3; for(let i=0;i<6;i++){ const dy=[0,1,0][(i+ph)%3]; R(c,x+1+i,y-12+dy,1,4,i<3?a:b); } };
+    fl(85,28,P.blue,P.navy); fl(29,28,P.blue,P.navy); fl(242,100,P.night,P.crimson);
+    // forge smoke + glow
+    for(let i=0;i<4;i++){ const k=((t*7+i*6)%24); A(c,1-k/24,()=>ellipse(c,131+Math.sin(t+i)*2+k*.2,71-k,1+MF(k/8),1+MF(k/10),P.steel)); }
+    glow(c,124,96,5,P.orange,.25+.1*Math.sin(t*9)); D(c,123,97,P.amber); D(c,124,96,P.yellow);
+    // hearth fire, torches, orb
+    flame(c,68,96,t,1); flame(c,70,96,t,2); glow(c,69,94,6,P.orange,.18);
+    torch(c,76,54,t,.3); torch(c,63,70,t,.8); torch(c,70,108,t,1.1); torch(c,106,108,t,1.7); torch(c,140,128,t,2.2);
+    glow(c,87,41,4+MF(Math.sin(t*3)+1),P.cyan,.35); ellipse(c,87,41,2,2,P.cyan); D(c,86,40,P.white);
+    // people in the keep
+    human(c,78,48,{body:P.navy,hat:P.navy,skin:P.peach,robe:1,face:1},t);
+    human(c,68+MR(Math.sin(t*.8)*4),66,{body:P.crimson,hair:P.brown,walk:4},t);
+    human(c,92+MR(Math.sin(t*.6+1)*3),66,{body:P.forest,hair:P.bone,walk:4,ph:1,face:-1},t);
+    human(c,75,98,{body:P.bone,hair:P.tan,face:-1},t);
+    // wall-walk archers + arrows
+    for(const [x,ph] of [[156,0],[167,.4],[179,.8]]) human(c,x,58,{body:P.navy,helm:P.steel,bow:1,face:1,ph},t);
+    for(let i=0;i<3;i++){ const s=((t+i*.55)%1.6)/1.6; const x0=184,y0=52,x1=248,y1=96; const x=x0+(x1-x0)*s, y=y0+(y1-y0)*s-18*Math.sin(Math.PI*s); R(c,x,y,2,1,P.bone); }
+    // mason carrying stone
+    const mx=138+MR((Math.sin(t*.9)+1)*5); human(c,mx,100,{body:P.clay,hair:P.brown,carry:P.steel,walk:4,face:Math.cos(t*.9)>0?1:-1},t);
+    // besiegers
+    for(const [x,ph] of [[236,0],[241,.5],[252,.2],[279,.7]]) human(c,x,100,{h:7,body:P.ink,skin:P.green,helm:P.slate,spear:1,face:-1,ph},t);
+    // trebuchet
+    let ang;
+    if(u<2.4) ang=-110+130*(u/2.4); else if(u<2.8) ang=20-130*((u-2.4)/.4); else ang=-110;
+    const ra=ang*Math.PI/180, px=300, py=74;
+    const lx=px+20*Math.cos(ra), ly=py+20*Math.sin(ra), sx=px-7*Math.cos(ra), sy=py-7*Math.sin(ra);
+    line(c,sx,sy,lx,ly,P.tan); R(c,sx-2,sy-1,4,4,P.indigo); D(c,px,py,P.amber);
+    if(u<2.8) R(c,lx-1,ly,2,2,P.steel);
+    if(u>=2.8 && u<3.8){ const s=(u-2.8)/1; const x=293+(198-293)*s, y=55+(70-55)*s-26*Math.sin(Math.PI*s); R(c,x-1,y-1,3,3,P.steel); D(c,x,y-1,P.silver); }
+    const du = u>=3.8 ? u-3.8 : (u<.4 ? u+.2 : -1);
+    if(du>=0){ for(let i=0;i<5;i++){ const a=i*1.3, r=2+du*14; A(c,1-du/.6,()=>ellipse(c,197+Math.cos(a)*r*.6,71+Math.sin(a)*r*.4,1,1,P.bone)); } }
+    // listening pings
+    clip(c,0,102,320,78,()=>{ for(let k=0;k<2;k++){ const r=((t*14+k*21)%42); A(c,Math.max(0,1-r/42),()=>ring(c,154,139,r,P.cyan)); } });
+    // listener + miners
+    human(c,155,142,{h:7,body:P.navy,helm:P.steel,face:-1},t);
+    human(c,167,135,{h:7,body:P.clay,beard:P.bone,skin:P.peach,pick:4,face:1},t);
+    human(c,172,135,{h:7,body:P.brown,beard:P.tan,pick:4,ph:1,face:1},t);
+    for(let i=0;i<3;i++){ const s=(t*3+i*.33)%1; D(c,180+s*4,130-s*3+s*s*6,P.clay); }
+    // enemy sap: detected stretch only
+    const F=214-14*((t%16)/16);
+    R(c,F,137,228-F,6,P.night); R(c,F,136,228-F,1,P.crimson); R(c,F,143,228-F,1,P.crimson);
+    for(let x=226;x>F+4;x-=8){ R(c,x,137,1,6,P.brown); }
+    human(c,F+1,143,{h:6,body:P.ink,skin:P.green,pick:5,face:-1},t);
+    human(c,F+6,143,{h:6,body:P.ink,skin:P.green,pick:5,ph:1,face:-1},t);
+    for(let i=0;i<3;i++){ const s=(t*3+i*.33)%1; D(c,F-1-s*3,139-s*2+s*s*5,P.clay); }
+    line(c,F,138,206,113,P.hot,3);
+    line(c,229,140,252,140,P.crimson,3); line(c,252,140,252,104,P.crimson,3);
+    line(c,180,131,196,138,P.amber,2);
+    // well bucket
+    const by=106+MR((Math.sin(t*.7)+1)*24); R(c,91,104,1,by-104,P.bone); R(c,90,by,3,2,P.clay);
+  }
+};
+
+/* ---------- Hoardkeep (180x320) ---------- */
+const HK_MTN=[[0,150],[56,70],[70,56],[110,56],[124,68],[180,140],[180,320],[0,320]];
+function hkTop(x){ const p=HK_MTN; for(let i=0;i<5;i++){ const a=p[i],b=p[i+1]; if(x>=a[0]&&x<=b[0]) return a[1]+(b[1]-a[1])*(x-a[0])/(b[0]-a[0]); } return 320; }
+function hkLairTop(x){ const d=(x-90)/80; return Math.abs(d)>=1?999:236-64*Math.sqrt(1-d*d); }
+function hkDragon(c,t){
+  const b=Math.sin(t*Math.PI/2), br=b>.3?1:0;
+  // tail
+  const pts=[[132,250,7],[146,256,6],[150,266,5],[144,276,4.5],[130,281,4],[112,283,3.5],[94,283,3],[78,281,2.2]];
+  for(let i=0;i+1<pts.length;i++){ const [x0,y0,r0]=pts[i],[x1,y1,r1]=pts[i+1]; const n=MR(Math.hypot(x1-x0,y1-y0)/1.5);
+    for(let k=0;k<=n;k++){ const s=k/n, x=x0+(x1-x0)*s, y=y0+(y1-y0)*s, r=MR(r0+(r1-r0)*s); ellipse(c,x,y+1,r,r,P.crimson); ellipse(c,x,y,r,Math.max(1,r-1),P.red); } }
+  for(let i=1;i<pts.length-1;i++){ const [x,y,r]=pts[i]; D(c,x,y-r-1,P.crimson); D(c,x+1,y-r,P.crimson); }
+  // body
+  ellipse(c,100,251,34,15+br,P.crimson); ellipse(c,100,248,33,12+br,P.red);
+  glow(c,86,256,10,P.orange,.12*(b+1));
+  ellipse(c,100,259,25,4,P.ochre); for(let x=78;x<122;x+=3) D(c,x,259,P.amber);
+  for(let x=74;x<=126;x+=6){ const d=(x-100)/33; const ty=MR(248-(12+br)*Math.sqrt(Math.max(0,1-d*d))); D(c,x,ty-2,P.crimson); R(c,x-1,ty-1,3,1,P.crimson); }
+  for(let i=0;i<14;i++){ const x=80+((i*37)%40), y=244+((i*23)%10); D(c,x,y,P.crimson); }
+  // folded wing
+  poly(c,[[78,245],[92,222],[104,226],[118,230],[131,241],[112,245]],P.crimson);
+  line(c,92,222,85,244,P.plum); line(c,104,226,98,244,P.plum); line(c,118,230,112,244,P.plum); line(c,92,222,118,230,P.plum);
+  for(let x=86;x<128;x+=6) D(c,x,245,P.red);
+  // neck + head
+  for(let s=0;s<=1;s+=.08){ const x=72+(52-72)*s, y=244+(258-244)*s, r=MR(8-2*s); ellipse(c,x,y+1,r,r,P.crimson); ellipse(c,x,y,r,r-1,P.red); }
+  ellipse(c,44,262,10,6,P.red); R(c,24,261,16,6,P.red); R(c,23,262,1,4,P.red); R(c,24,266,16,1,P.crimson);
+  D(c,25,262,P.night); R(c,42,259,4,1,P.night); R(c,42,258,4,1,P.pink);
+  line(c,48,257,58,248,P.bone); line(c,49,258,59,249,P.bone); line(c,43,256,49,248,P.tan);
+  D(c,52,255,P.crimson); D(c,54,253,P.crimson);
+  R(c,56,270,7,3,P.red); D(c,55,273,P.bone); D(c,58,273,P.bone); D(c,61,273,P.bone);
+  // Zz and smoke
+  for(let i=0;i<3;i++){ const k=(t*6+i*8)%24; A(c,1-k/24,()=>zGlyph(c,40+k*.45,250-k,P.bone)); }
+  if(b<-.2) for(let i=0;i<3;i++){ const k=((t*10+i*3)%9); A(c,1-k/9,()=>ellipse(c,20-k,262-k*.6,1,1,P.steel)); }
+  return b;
+}
+SCENES.hoardkeep = {
+  w:180, h:320, seed:11, still:6.4, crop:[0,140,180,180],
+  bg(c,rnd){
+    sky(c,0,0,180,150,[P.night,P.ink,P.indigo,P.slate]);
+    speck(c,rnd,0,0,180,80,P.white,.005);
+    ellipse(c,28,28,7,7,P.bone); ellipse(c,31,26,6,6,P.night);
+    ridge(c,rnd,0,180,150,44,P.indigo,.07);
+    // mountain body (cross-section)
+    poly(c,HK_MTN,P.ink);
+    for(let i=0;i<2600;i++){ const x=MF(rnd()*180), y=MF(rnd()*320); if(y>hkTop(x)+1) D(c,x,y,rnd()<.5?P.indigo:(y>170?P.plum:P.soot)); }
+    for(let x=0;x<180;x++){ const y=MR(hkTop(x)); D(c,x,y,P.steel); D(c,x,y+1,P.slate); }
+    poly(c,[[56,70],[70,56],[76,60],[68,66],[62,72]],P.silver); poly(c,[[110,56],[124,68],[118,70],[112,62]],P.silver);
+    // keep on the peak
+    bricks(c,rnd,66,46,48,10,{base:P.slate,dark:P.indigo,light:P.steel}); crenel(c,66,46,48,P.slate,P.indigo);
+    bricks(c,rnd,69,34,10,22,{base:P.slate,dark:P.indigo,light:P.steel}); roof(c,74,34,6,7,P.crimson,P.plum);
+    bricks(c,rnd,101,34,10,22,{base:P.slate,dark:P.indigo,light:P.steel}); roof(c,106,34,6,7,P.crimson,P.plum);
+    bricks(c,rnd,81,16,18,40,{base:P.slate,dark:P.indigo,light:P.steel}); roof(c,90,16,11,12,P.crimson,P.plum);
+    R(c,86,24,8,10,P.crimson); D(c,89,27,P.amber); D(c,90,28,P.amber); D(c,88,29,P.amber); D(c,91,29,P.amber);
+    R(c,72,40,2,3,P.amber); R(c,105,40,2,3,P.amber); R(c,89,38,2,3,P.amber);
+    // shaft
+    R(c,88,56,5,88,P.night); for(let y=58;y<144;y+=3) R(c,88,y,5,1,P.clay);
+    const W={wall:P.earth,wall2:P.plum,floor:P.brown,floorTop:P.clay};
+    room(c,rnd,64,62,24,16,W); room(c,rnd,93,62,24,16,W);
+    room(c,rnd,44,84,44,16,{wall:'#3a2226',wall2:P.plum,floor:P.brown,floorTop:P.clay}); room(c,rnd,93,84,36,16,W);
+    room(c,rnd,30,106,30,16,W); room(c,rnd,61,106,27,16,W); room(c,rnd,93,106,32,16,W);
+    room(c,rnd,22,128,38,16,W); room(c,rnd,61,128,27,16,W); room(c,rnd,93,128,87,16,W);
+    for(let y=128;y<142;y++) for(let x=Math.ceil(124+(y-68)*56/72);x<180;x++) D(c,x,y,P.slate);
+    // dorm, kitchen
+    R(c,66,69,9,1,P.bone); R(c,66,74,9,1,P.bone); R(c,66,69,1,7,P.clay); R(c,74,69,1,7,P.clay); R(c,78,72,8,2,P.tan);
+    ellipse(c,104,72,3,2,P.ink); R(c,110,72,6,1,P.clay); D(c,110,73,P.brown); D(c,115,73,P.brown);
+    // forge
+    R(c,46,88,10,10,P.indigo); R(c,48,92,6,6,P.night); R(c,62,94,7,2,P.steel); R(c,64,96,3,2,P.indigo);
+    // trap workshop
+    ellipse(c,100,93,3,3,P.steel); D(c,100,93,P.indigo); ellipse(c,108,95,2,2,P.steel); for(let x=114;x<126;x+=3){ D(c,x,97,P.silver); R(c,x-1,98,3,1,P.steel); }
+    // storage
+    R(c,32,114,6,6,P.clay); R(c,32,114,6,1,P.tan); R(c,39,116,5,4,P.brown); ellipse(c,50,117,3,3,P.clay); R(c,47,116,7,1,P.brown); R(c,47,119,7,1,P.brown);
+    // tapestry hall
+    R(c,63,108,5,10,P.crimson); D(c,65,111,P.amber); R(c,70,108,5,10,P.navy); D(c,72,111,P.cyan); R(c,77,108,5,10,P.forest); D(c,79,111,P.yellow);
+    R(c,62,120,25,1,P.forest);
+    // nursery
+    R(c,95,118,28,2,P.tan); for(const x of [98,104,110,116]){ ellipse(c,x,116,2,2,P.bone); D(c,x,115,P.amber); }
+    // guard room + winch
+    for(const x of [26,30,34]){ R(c,x,131,1,11,P.clay); D(c,x,130,P.silver); } R(c,40,139,12,1,P.clay);
+    ellipse(c,70,134,3,3,P.clay); D(c,70,134,P.brown); R(c,74,142,3,2,P.night); R(c,74,144,3,30,P.night);
+    // trap corridor spikes, vents
+    for(let x=110;x<120;x+=3){ D(c,x,141,P.silver); R(c,x-1,142,3,1,P.steel); }
+    R(c,127,142,3,2,P.night); R(c,145,142,3,2,P.night);
+    R(c,127,144,3,MR(hkLairTop(128)-144)+1,P.night); R(c,145,144,3,MR(hkLairTop(146)-144)+1,P.night);
+    // lair
+    ellipse(c,90,236,80,64,P.soot); ellipse(c,70,190,30,14,P.soot); ellipse(c,120,196,28,12,P.soot);
+    A(c,.5,()=>ellipse(c,90,272,70,34,P.plum)); A(c,.35,()=>ellipse(c,92,282,60,22,P.brown));
+    for(let i=0;i<60;i++){ const x=MF(12+rnd()*156); const y=MR(hkLairTop(x)); if(y<999) D(c,x,y+MF(rnd()*2),P.indigo); }
+    for(const x of [40,58,112,132,150]){ const y=MR(hkLairTop(x)); R(c,x,y,2,4+MF(rnd()*4),P.ink); D(c,x,y+6,P.indigo); }
+    // hoard
+    ellipse(c,92,294,66,13,P.orange); ellipse(c,92,295,62,10,P.amber);
+    speck(c,rnd,30,284,124,16,P.yellow,.18); speck(c,rnd,34,286,116,12,P.orange,.08);
+    R(c,120,280,3,4,P.yellow); R(c,119,279,5,1,P.amber); D(c,121,284,P.amber);
+    R(c,68,282,5,2,P.yellow); D(c,68,281,P.yellow); D(c,70,281,P.yellow); D(c,72,281,P.yellow); D(c,70,282,P.red);
+    for(const [x,y,col] of [[84,287,P.red],[104,289,P.cyan],[140,291,P.green],[52,291,P.cyan],[128,286,P.hot]]) D(c,x,y,col);
+    R(c,0,300,180,20,P.ink); speck(c,rnd,0,300,180,20,P.indigo,.1);
+    // fog over unheard rock to the east
+    for(let y=150;y<250;y++) for(let x=152+(y&1);x<180;x+=2) if(x>MR(90+80*Math.sqrt(Math.max(0,1-((y-236)/64)**2)))+2 && y>144) D(c,x,y,P.void);
+  },
+  fg(c,t,st,host){
+    for(const [x,y,s] of [[20,60,0],[150,20,1.1],[120,70,2.3]]) if(MF(t*2+s)%3===0) D(c,x,y,P.white);
+    // torches
+    torch(c,85,66,t,.2); torch(c,95,66,t,.9); torch(c,56,110,t,1.4); torch(c,122,110,t,.6); torch(c,40,132,t,1.8); torch(c,96,132,t,2.4);
+    // forge fire + smith
+    glow(c,51,94,7,P.orange,.28+.08*Math.sin(t*8)); flame(c,50,97,t,0); flame(c,52,97,t,1.5);
+    kobold(c,58,98,{hammer:4,face:1,body:P.plum},t);
+    if(MF(t*4)%2===1) for(let i=0;i<4;i++) D(c,63+((i*7+MF(t*20))%6),92-((i*3)%4),i%2?P.yellow:P.amber);
+    // noise rings from the forge, travelling down
+    for(let k=0;k<3;k++){ const r=((t*22+k*22)%66); A(c,Math.max(0,.85-r/66),()=>ring(c,62,96,r,P.bone,(dx,dy)=>dy>=0 && ((dx+dy)&1)===0)); }
+    // clan at work
+    R(c,66,68,6,1,P.ochre); D(c,71,67,P.ochre); R(c,66,73,6,1,P.ochre); D(c,66,72,P.ochre);
+    kobold(c,99,76,{face:-1,body:P.bone},t);
+    kobold(c,112,98,{hammer:3,face:-1,body:P.brown,ph:1},t);
+    kobold(c,36+MR((Math.sin(t*.9)+1)*6),120,{walk:5,face:Math.cos(t*.9)>0?1:-1,carry:P.clay},t);
+    kobold(c,74,120,{face:1,body:P.mauve},t); for(let i=0;i<2;i++){ const k=(t*5+i*6)%12; A(c,1-k/12,()=>{ D(c,80+k*.3,112-k,P.bone); D(c,81+k*.3,111-k,P.bone); }); }
+    kobold(c,106,120,{face:1,body:P.tan},t);
+    kobold(c,44,142,{spear:1,face:1,body:P.crimson},t); kobold(c,50,142,{spear:1,face:1,body:P.crimson,ph:1},t);
+    kobold(c,64,142,{face:1,body:P.brown},t);
+    const wa=t*2; D(c,70+MR(Math.cos(wa)*3),134+MR(Math.sin(wa)*3),P.bone);
+    // dragon + vents
+    const b=hkDragon(c,t);
+    const ex=b<-.2;
+    // skim rope + bucket, in front of the dragon
+    const by=178+MR((Math.sin(t*.6)+1)*44);
+    R(c,75,137,1,by-137,P.bone); R(c,73,by,5,3,P.clay); if(Math.cos(t*.6)<0) R(c,74,by-1,3,1,P.yellow);
+    for(const vx of [128,146]){
+      if(ex){ const hgt=10+MF(Math.sin(t*20+vx)*2); for(let y=0;y<hgt;y++){ const w=y<3?3:(y<7?2:1); R(c,vx-MF(w/2),142-y,w,1,y<4?P.yellow:(y<8?P.orange:P.red)); } glow(c,vx,136,7,P.orange,.3); }
+      else glow(c,vx,143,3,P.orange,.25);
+    }
+    kobold(c,101,142,{spear:1,face:1,body:P.crimson},t);
+    human(c,134,142,{h:8,body:P.steel,helm:P.silver,plume:P.red,spear:1,face:-1,walk:2},t);
+    human(c,150,142,{h:7,body:P.pine,hood:P.forest,face:-1,walk:2,ph:1},t);
+    human(c,158,142,{h:8,body:P.navy,hat:P.blue,staff:P.cyan,robe:1,face:-1,walk:2},t);
+    // dragonslayer sap, heard not seen
+    R(c,158,190,13,5,P.night); R(c,158,189,13,1,P.crimson); R(c,158,195,13,1,P.crimson);
+    human(c,159,195,{h:5,body:P.slate,helm:P.silver,pick:5,face:-1},t);
+    line(c,171,192,180,192,P.crimson,3);
+    for(let k=0;k<2;k++){ const r=((t*12+k*9)%18); A(c,Math.max(0,1-r/18),()=>ring(c,164,192,r,P.hot)); }
+    // glitter
+    for(let i=0;i<5;i++){ const s=MF(t*3)+i*17; D(c,34+((s*29)%118),286+((s*13)%10),P.white); }
+    if(host){ const v=MR(38+3*Math.sin(t*.5)); if(st.v!==v){ st.v=v; const a=host.querySelector('[data-stir]'), bar=host.querySelector('[data-stirbar]'); if(a) a.textContent=v+'%'; if(bar) bar.style.width=v+'%'; } }
+  }
+};
+
+/* ---------- Mirrorhold (180x320) ---------- */
+const MH_UMBRA=['#0e0b18','#1b1430','#2a1d45','#3e2a5c','#5b3a7a','#7d4f9e','#a36ac0','#d9a6ff'];
+function mhCastle(rnd){
+  const cv=document.createElement('canvas'); cv.width=180; cv.height=160; const c=cv.getContext('2d');
+  const S={base:P.steel,dark:P.slate,light:P.silver};
+  bricks(c,rnd,40,92,100,64,S); crenel(c,40,92,40,P.steel,P.slate); crenel(c,100,92,40,P.steel,P.slate);
+  bricks(c,rnd,26,70,14,86,S); roof(c,33,70,9,14,P.navy,P.ink);
+  bricks(c,rnd,140,84,14,72,S); roof(c,147,84,9,14,P.navy,P.ink);
+  bricks(c,rnd,80,54,20,44,S); roof(c,90,54,12,16,P.navy,P.ink);
+  for(const [x,y] of [[32,80],[32,100],[32,120],[146,94],[146,114],[89,64],[89,78]]) R(c,x,y,2,4,P.amber);
+  const W={wall:'#5a4038',wall2:P.brown,floor:P.brown,floorTop:P.clay};
+  room(c,rnd,56,98,68,18,{wall:'#3f3a58',wall2:P.indigo,floor:P.brown,floorTop:P.clay});
+  R(c,56,116,68,2,P.slate);
+  room(c,rnd,40,118,44,18,{wall:'#4a3a52',wall2:P.grape,floor:P.brown,floorTop:P.clay}); room(c,rnd,86,118,54,18,W);
+  R(c,40,136,100,2,P.slate);
+  room(c,rnd,30,138,36,18,{wall:'#4a2a26',wall2:P.plum,floor:P.brown,floorTop:P.clay}); room(c,rnd,68,138,38,18,W); room(c,rnd,108,138,42,18,W);
+  // library
+  R(c,58,101,22,12,P.brown); for(let r=0;r<3;r++) for(let i=0;i<20;i++) if((i*7+r*3)%5) D(c,59+i,102+r*4,[P.red,P.blue,P.green,P.amber,P.bone,P.mauve][(i+r)%6]);
+  R(c,100,110,12,1,P.clay); D(c,101,111,P.brown); D(c,110,111,P.brown); ellipse(c,116,106,2,2,P.cyan);
+  // chapel: stained glass + altar
+  R(c,57,121,9,11,P.ink); for(let y=0;y<9;y++) for(let x=0;x<7;x++) D(c,58+x,122+y,[P.red,P.blue,P.yellow,P.green][(x+y*2)%4]);
+  R(c,52,132,16,2,P.bone);
+  // hall: banner, table, throne
+  R(c,100,121,6,9,P.navy); D(c,102,124,P.yellow); D(c,103,124,P.yellow); R(c,92,131,16,1,P.clay); R(c,128,126,6,8,P.amber); R(c,129,127,4,4,P.crimson);
+  // forge, granary, barracks
+  R(c,32,144,9,10,P.indigo); R(c,34,148,5,6,P.night); R(c,50,150,6,2,P.steel); R(c,52,152,2,2,P.indigo);
+  for(let i=0;i<5;i++) ellipse(c,73+i*6,151,2,2,i%2?P.tan:P.bone); ellipse(c,80,146,3,2,P.bone); ellipse(c,92,146,3,2,P.tan);
+  for(const x of [112,124,136]){ R(c,x,146,9,1,P.bone); R(c,x,151,9,1,P.bone); R(c,x,146,1,8,P.clay); }
+  return cv;
+}
+function mhReflect(src){
+  const w=src.width,h=src.height, s=src.getContext('2d').getImageData(0,0,w,h), out=document.createElement('canvas');
+  out.width=w; out.height=h; const oc=out.getContext('2d'), o=oc.createImageData(w,h);
+  const hex=MH_UMBRA.map(v=>[parseInt(v.slice(1,3),16),parseInt(v.slice(3,5),16),parseInt(v.slice(5,7),16)]);
+  for(let y=0;y<h;y++) for(let x=0;x<w;x++){
+    const si=((h-1-y)*w+x)*4, di=(y*w+x)*4; if(s.data[si+3]<128) continue;
+    const L=(.3*s.data[si]+.59*s.data[si+1]+.11*s.data[si+2]); const warm=s.data[si]>200&&s.data[si+1]>150&&s.data[si+2]<120;
+    const k=warm?7:Math.min(6,MF(L/256*7.2)); const col=hex[k];
+    o.data[di]=col[0]; o.data[di+1]=col[1]; o.data[di+2]=col[2]; o.data[di+3]=255;
+  }
+  oc.putImageData(o,0,0); return out;
+}
+SCENES.mirrorhold = {
+  w:180, h:320, seed:23, still:3.5, crop:[0,70,180,180],
+  bg(c,rnd){
+    sky(c,0,0,180,156,['#3b7dd8','#5a9be6','#86bff0','#bfe1f6']);
+    for(const [x,y,r] of [[40,30,6],[50,28,5],[58,31,4],[128,44,5],[137,42,6],[146,45,4]]) ellipse(c,x,y,r,MF(r/2)+1,P.white);
+    ridge(c,rnd,0,180,156,30,'#6fa878',.045); ridge(c,rnd,0,180,156,16,'#4b8a5c',.07);
+    R(c,0,154,180,2,P.forest); R(c,0,156,180,2,P.pine); R(c,0,158,180,2,P.brown);
+    sky(c,0,160,180,160,['#2a1d45','#1d1636','#150f28','#0e0b18']);
+    speck(c,rnd,0,170,180,150,'#3e2a5c',.01);
+    this.castle=mhCastle(rnd); this.refl=mhReflect(this.castle);
+    c.drawImage(this.castle,0,0);
+  },
+  fg(c,t,st,host){
+    const p=t%16, n = p<7?0 : p<8?(p-7) : p<15?1 : 1-(p-15);
+    // reflection with shimmer
+    for(let r=0;r<160;r++){ const dx=MR(Math.sin(r*.45+t*2.6)*(r<6?0:1)); c.drawImage(this.refl,0,r,180,1,dx,160+r,180,1); }
+    // above: night overlay + lit windows, sun/moon
+    if(n>0){ A(c,.62*n,()=>R(c,0,0,180,158,'#101433')); for(const [x,y] of [[32,80],[32,100],[32,120],[146,94],[146,114],[89,64],[89,78]]) { A(c,n,()=>R(c,x,y,2,4,P.yellow)); glow(c,x+1,y+2,4,P.amber,.25*n); } for(const [x,y] of [[20,14],[70,8],[160,22],[110,12],[150,50]]) A(c,n,()=>D(c,x,y,P.white)); A(c,n,()=>{ ellipse(c,30,24,6,6,P.bone); }); }
+    if(n<1) A(c,1-n,()=>{ ellipse(c,152,22,7,7,P.yellow); ellipse(c,152,22,5,5,'#fff6c8'); });
+    // flags on towers
+    const fl=(x,y)=>{ R(c,x,y-10,1,10,P.ink); const ph=MF(t*6)%3; for(let i=0;i<5;i++){ const dy=[0,1,0][(i+ph)%3]; R(c,x+1+i,y-10+dy,1,3,i<3?P.crimson:P.red); } };
+    fl(33,55); fl(147,69); fl(90,37);
+    // people above (day work) and their shadows below (night work)
+    const folk=[[44,156,P.bone,1],[82,156,P.forest,-1],[118,156,P.navy,1],[70,136,P.mauve,1],[112,136,P.crimson,-1],[88,116,P.navy,1]];
+    folk.forEach(([x,y,col,f],i)=>{
+      const dx = n<.5 ? MR(Math.sin(t*.8+i)*3) : 0;
+      human(c,x+dx,y,{body:col,hair:P.brown,walk: n<.5?4:0,face:f,ph:i},t);
+      c.save(); c.setTransform(1,0,0,-1,0,320);
+      const sx = n>=.5 ? MR(Math.sin(t*.8+i)*3) : 0;
+      A(c,.55+.45*n,()=>human(c,x+sx,y,{body:'#07060d',skin:'#07060d',eyes:P.cyan,walk:n>=.5?4:0,face:f,ph:i},t));
+      c.restore();
+    });
+    // forge fire above
+    flame(c,36,153,t,0); glow(c,36,151,5,P.orange,.25);
+    // below dims by day
+    if(n<1) A(c,.5*(1-n),()=>R(c,0,162,180,158,'#07060d'));
+    // the Veil
+    R(c,0,159,180,1,P.grape); R(c,0,160,180,1,P.mauve); R(c,0,161,180,1,P.grape);
+    for(let i=0;i<12;i++){ const x=MF((i*47+t*18))%180; if(x<118||x>136) D(c,x,160,i%3?P.pink:P.white); }
+    R(c,118,159,18,3,'#0e0b18'); for(let x=118;x<136;x+=2) D(c,x,160+((x+MF(t*6))%3)-1,P.mauve);
+    for(let i=0;i<6;i++){ const k=(t*9+i*5)%26; A(c,1-k/26,()=>D(c,120+((i*5)%14)+MR(Math.sin(t*2+i)*2),158-k,i%2?P.mauve:'#d9a6ff')); }
+    // umbral horrors rising
+    for(const [x,ph] of [[30,0],[72,1.7],[118,3.1],[154,.9]]){
+      const rise=6+MR((Math.sin(t*.9+ph)+1)*5)+MR(n*6), top=318-18-rise;
+      for(let y=top;y<320;y++){ const w=3+MR((y-top)/5)+(MF(y*.7+t*4+ph)%2); R(c,x-w-1,y,w*2+2,1,'#3e2a5c'); R(c,x-w,y,w*2,1,'#07060d'); }
+      for(let k=0;k<3;k++){ const tx=x-4+k*4, ty=top-2-MR((Math.sin(t*2+k+ph)+1)*3); line(c,x,top+4,tx,ty,'#07060d'); }
+      D(c,x-2,top+5,P.hot); D(c,x+1,top+5,P.hot); if(n>.5){ glow(c,x,top+5,3,P.hot,.25); }
+    }
+    // raiders by day
+    if(n<1) A(c,1-n,()=>{ for(const [x,ph] of [[160,0],[166,.5],[172,.2]]) human(c,x,156,{body:P.brown,skin:'#9fb38a',helm:P.slate,horns:1,spear:1,face:-1,walk:3,ph},t); });
+    if(host){ const lab=n<.5?'DAY: THE KEEP':'NIGHT: THE REFLECTION'; if(st.lab!==lab){ st.lab=lab; const e=host.querySelector('[data-phase]'); if(e) e.textContent=lab; } }
+  }
+};
+
+/* ---------- Hollow Colossus (180x320) ---------- */
+const BR={hi:'#e8c170',mid:'#c9923e',dk:'#8a5a2b',deep:'#4a2f1b',in:'#241712',ver:'#4fa38a'};
+function quad(c,x0,y0,x1,y1,w,col){ const dx=x1-x0, dy=y1-y0, L=Math.hypot(dx,dy)||1, nx=-dy/L*w/2, ny=dx/L*w/2; poly(c,[[x0+nx,y0+ny],[x1+nx,y1+ny],[x1-nx,y1-ny],[x0-nx,y0-ny]],col); }
+function hatch(c,x,y,w,h){ R(c,x,y,w,h,BR.deep); clip(c,x,y,w,h,()=>{ for(let k=-h;k<w;k+=4) line(c,x+k,y+h,x+k+h,y,BR.dk); }); }
+function colBody(rnd){
+  const cv=document.createElement('canvas'); cv.width=180; cv.height=210; const c=cv.getContext('2d');
+  // arms (behind torso edges)
+  for(const ax of [38,128]){
+    poly(c,[[ax,98],[ax+14,98],[ax+13,150],[ax+1,150]],BR.mid);
+    ellipse(c,ax+6,152,7,5,BR.dk); D(c,ax+6,152,BR.hi);
+    poly(c,[[ax,154],[ax+12,154],[ax+11,194],[ax+1,194]],BR.mid);
+    ellipse(c,ax+6,200,7,6,BR.mid); for(let i=0;i<4;i++) D(c,ax+2+i*3,198,BR.dk);
+    R(c,ax,98,1,52,BR.hi); R(c,ax,154,1,40,BR.hi);
+  }
+  hatch(c,40,108,9,36);
+  R(c,134,104,5,86,BR.in); for(let y=106;y<190;y+=3) R(c,134,y,5,1,BR.dk);
+  // shoulders
+  for(const sx of [50,130]){ ellipse(c,sx,96,14,10,BR.mid); ellipse(c,sx,93,12,6,BR.hi); ellipse(c,sx,95,12,5,BR.mid); for(let i=-9;i<=9;i+=6) D(c,sx+i,99,BR.dk); }
+  // torso
+  poly(c,[[56,86],[124,86],[118,178],[62,178]],BR.mid);
+  line(c,56,86,62,178,BR.dk); line(c,124,86,118,178,BR.dk); R(c,57,86,67,1,BR.hi);
+  for(let i=0;i<12;i++) D(c,64+MF(rnd()*52),88+MF(rnd()*88),BR.ver);
+  const IN={wall:BR.in,wall2:BR.deep,floor:BR.dk,floorTop:BR.hi};
+  room(c,rnd,64,92,24,18,IN); room(c,rnd,92,92,24,18,IN);
+  room(c,rnd,64,114,10,30,{wall:'#1f2a1d',wall2:P.pine,floor:BR.dk,floorTop:BR.hi});
+  room(c,rnd,76,114,28,30,IN); hatch(c,106,114,10,30);
+  room(c,rnd,66,148,24,24,IN); room(c,rnd,92,148,22,24,IN);
+  // furniture
+  R(c,68,104,5,4,BR.dk); ellipse(c,80,103,3,3,P.steel); D(c,80,103,P.indigo);
+  for(const x of [96,104]){ R(c,x,100,6,1,P.bone); R(c,x,104,6,1,P.bone); R(c,x,100,1,8,BR.dk); } R(c,111,99,1,9,P.clay); D(c,111,98,P.silver);
+  for(let y=118;y<142;y+=5){ R(c,65,y,8,1,P.forest); D(c,66+(y%3),y-1,P.green); D(c,70,y-1,P.green); }
+  line(c,76,124,70,124,BR.dk); line(c,104,124,110,124,BR.dk); line(c,90,114,90,118,BR.dk); line(c,90,140,90,144,BR.dk);
+  R(c,68,164,6,6,P.clay); R(c,68,164,6,1,P.tan); R(c,75,166,5,4,BR.dk); ellipse(c,84,167,3,3,P.clay);
+  R(c,95,164,16,1,P.clay); D(c,96,165,BR.dk); D(c,109,165,BR.dk);
+  // hips
+  R(c,62,178,56,14,BR.dk); R(c,64,180,52,3,BR.mid); for(let x=66;x<116;x+=6) D(c,x,188,BR.hi);
+  // neck + head
+  R(c,82,80,16,8,BR.dk); for(let x=84;x<98;x+=4) D(c,x,83,BR.hi);
+  ellipse(c,90,64,18,16,BR.mid); ellipse(c,88,58,14,9,BR.hi); ellipse(c,90,61,16,11,BR.mid);
+  R(c,88,44,4,5,BR.dk); D(c,89,43,BR.hi);
+  room(c,rnd,79,56,22,19,IN);
+  line(c,84,72,96,59,P.steel); line(c,85,72,97,59,P.slate); R(c,82,72,5,1,P.clay);
+  R(c,72,62,6,2,BR.dk); R(c,102,58,6,9,BR.deep);
+  return cv;
+}
+function colStrips(rnd){
+  const far=document.createElement('canvas'); far.width=360; far.height=50; const f=far.getContext('2d');
+  for(let i=0;i<9;i++){ const x=MF(rnd()*360), w=18+MF(rnd()*34), h=12+MF(rnd()*26);
+    for(const ox of [0,-360,360]){ poly(f,[[x+ox,50],[x+ox+4,50-h],[x+ox+w-4,50-h],[x+ox+w,50]],P.grape); R(f,x+ox+4,50-h,w-8,1,P.mauve); } }
+  for(let x=0;x<360;x++) R(f,x,44+MR(Math.sin(x*.05)*2),1,8,P.plum);
+  const gr=document.createElement('canvas'); gr.width=360; gr.height=40; const g=gr.getContext('2d');
+  texture(g,rnd,0,0,360,40,P.tan,[[P.skin2,.06],[P.bone,.03]]);
+  for(let y=6;y<40;y+=7) for(let x=0;x<360;x++) if(Math.sin(x*.08+y)>.6) D(g,x,y+MR(Math.sin(x*.05+y)*1.5),P.clay);
+  for(let i=0;i<14;i++){ const x=MF(rnd()*356), y=6+MF(rnd()*30); ellipse(g,x,y,1+MF(rnd()*3),1,P.brown); }
+  for(let i=0;i<4;i++){ const x=MF(rnd()*340), y=14+MF(rnd()*20); R(g,x,y,8,1,P.bone); for(let k=0;k<4;k++) D(g,x+1+k*2,y-1,P.bone); }
+  R(g,0,0,360,1,P.amber);
+  return {far,gr};
+}
+function colLeg(c,hx,s,lift,shade,t){
+  const kx=hx+s*4, ky=236, axx=hx+s*10, ay=282-lift;
+  const m=shade?BR.dk:BR.mid, e=shade?BR.deep:BR.dk;
+  quad(c,hx,190,kx,ky,18,e); quad(c,hx,190,kx,ky,15,m);
+  quad(c,kx,ky,axx,ay,14,e); quad(c,kx,ky,axx,ay,11,m);
+  ellipse(c,kx,ky,8,6,e); ellipse(c,kx,ky,5,4,m); D(c,kx,ky,BR.hi);
+  R(c,axx-8,ay,21,6,e); R(c,axx-7,ay,19,4,m); R(c,axx-7,ay,19,1,BR.hi);
+  if(!shade){ R(c,MR((kx+axx)/2)-1,ky+8,3,34,BR.in); const py=ky+8+MR((Math.sin(t*1.3)+1)*14); R(c,MR((kx+axx)/2)-2,py,5,1,P.amber); }
+  return [axx,ay];
+}
+SCENES.colossus = {
+  w:180, h:320, seed:31, still:1.2, crop:[0,70,180,180],
+  bg(c,rnd){
+    sky(c,0,0,180,282,[P.ink,P.indigo,P.grape,P.mauve,P.pink,P.orange,P.amber]);
+    speck(c,rnd,0,0,180,70,P.white,.004);
+    ellipse(c,36,262,20,20,P.yellow); ellipse(c,36,262,16,16,'#fff3b0');
+    this.body=colBody(rnd); this.strips=colStrips(rnd);
+  },
+  fg(c,t){
+    const ph=t*2.4, s=Math.sin(ph), bob=MR(Math.abs(s)*1.4);
+    const fo=MF(t*5)%360, go=MF(t*16)%360;
+    c.drawImage(this.strips.far,fo,0,180,50,0,232,180,50); if(fo>180) c.drawImage(this.strips.far,0,0,fo-180,50,360-fo,232,fo-180,50);
+    c.drawImage(this.strips.gr,go,0,180,40,0,281,180,40); if(go>180) c.drawImage(this.strips.gr,0,0,go-180,40,360-go,281,go-180,40);
+    // wyvern rider
+    const wy=66+MR(Math.sin(t*1.7)*3), up=MF(t*5)%2===0;
+    poly(c, up?[[146,wy],[139,wy-11],[153,wy-2]]:[[146,wy+1],[139,wy+11],[153,wy+2]], P.forest);
+    ellipse(c,148,wy,6,2,P.pine); line(c,153,wy-1,158,wy-4,P.pine); D(c,159,wy-4,P.hot); line(c,142,wy+1,135,wy+3,P.pine); R(c,146,wy-4,2,3,P.clay);
+    // legs
+    const fr=colLeg(c,106,-s,Math.max(0,-Math.cos(ph))*5,true,t);
+    const fl=colLeg(c,74,s,Math.max(0,Math.cos(ph))*5,false,t);
+    for(const [fx,fy,lf] of [[fl[0],fl[1],Math.cos(ph)],[fr[0],fr[1],-Math.cos(ph)]]) if(lf<-.2){ const k=(t*8)%6; A(c,1-k/6,()=>{ ellipse(c,fx-10-k,fy+5-k*.5,2,1,P.bone); ellipse(c,fx+14+k,fy+5-k*.5,2,1,P.bone); }); }
+    // upper body
+    c.drawImage(this.body,0,bob);
+    const Y=v=>v+bob;
+    // heart furnace
+    const pu=.5+.5*Math.sin(t*3.1);
+    glow(c,90,Y(129),14,P.orange,.18+.12*pu); ellipse(c,90,Y(129),9,11,P.orange); ellipse(c,90,Y(129),5,7+MR(pu),P.yellow); D(c,89,Y(126),P.white);
+    // eye lens
+    glow(c,106,Y(62),6,P.cyan,.3); ellipse(c,106,Y(62),2,4,P.cyan); D(c,106,Y(60),P.white);
+    // guardian eyes in sealed chambers
+    const blink=MF(t*1.3)%4===0;
+    if(!blink){ for(const [x,y] of [[109,122],[112,132],[43,120],[45,134]]){ glow(c,x,Y(y),3,P.hot,.3); D(c,x,Y(y),P.hot); D(c,x+1,Y(y),P.hot); } }
+    // settlers
+    human(c,86,Y(73),{h:7,body:P.navy,hair:P.bone,face:1},t);
+    human(c,70,Y(108),{h:7,body:P.clay,hair:P.brown,pick:3,face:1},t);
+    human(c,99,Y(108),{h:7,body:P.crimson,helm:P.steel,face:-1},t);
+    human(c,66,Y(142),{h:7,body:P.forest,hair:P.tan,face:1},t);
+    human(c,70+MR((Math.sin(t*.9)+1)*6),Y(170),{h:7,body:P.bone,carry:P.clay,walk:4,face:Math.cos(t*.9)>0?1:-1},t);
+    human(c,97,Y(170),{h:7,body:P.mauve,face:1},t); human(c,106,Y(170),{h:7,body:P.navy,face:-1},t);
+    human(c,134,Y(120+MR((Math.sin(t*.7)+1)*30)),{h:7,body:P.pine,hair:P.brown},t);
+    torch(c,74,Y(96),t,.4); torch(c,112,Y(152),t,1.2);
+    // raiders on beasts + grapple
+    for(const [x,p] of [[146,0],[166,1.1]]){
+      const by=292+MR(Math.sin(t*6+p)); ellipse(c,x,by,7,3,P.brown); R(c,x+6,by-3,4,3,P.brown); D(c,x+9,by-3,P.hot);
+      const lg=MF(t*8+p)%2; D(c,x-5+lg,by+3,P.plum); D(c,x-2-lg,by+3,P.plum); D(c,x+3+lg,by+3,P.plum); D(c,x+5-lg,by+3,P.plum);
+      human(c,x-2,by-2,{h:6,body:P.ink,skin:P.tan,helm:P.slate,face:-1},t);
+    }
+    line(c,143,283,fr[0]+2,242,P.bone,2);
+    const cy=Math.max(0,Math.min(1,(t*.2)%1)); human(c,MR(143+(fr[0]+2-143)*cy)-2,MR(283+(242-283)*cy)+3,{h:5,body:P.ink,skin:P.tan},t);
+  }
+};
+
+/* ---------- Deadhold (320x180) ---------- */
+function dhTop(x){ return x<210?104:(x<250?104+(x-210)*14/40:118); }
+function gflame(c,x,y,t,s){ const f=MF(t*9+(s||0))%3; D(c,x,y,'#b8f5a0'); D(c,x,y-1,f===0?P.green:'#b8f5a0'); if(f!==2) D(c,x,y-2,P.forest); if(f===1) D(c,x+1,y-1,P.forest); if(f===2) D(c,x-1,y-1,P.forest); glow(c,x,y-1,5,P.green,.14); }
+function skel(c,x,y,o,t){ human(c,x,y,Object.assign({body:P.bone,skin:P.bone,legs:P.bone,eyes:P.night,h:7},o),t); D(c,x+1,y-4,P.night); D(c,x+2,y-3,P.night); }
+SCENES.deadhold = {
+  w:320, h:180, seed:41, still:2.2, crop:[120,0,180,180],
+  bg(c,rnd){
+    sky(c,0,0,320,120,[P.void,P.night,P.ink,'#1d2e3a',P.deep]);
+    speck(c,rnd,0,0,320,60,P.white,.004);
+    glow(c,44,30,20,'#d7f5c8',.08); ellipse(c,44,30,12,12,'#d7f5c8'); ellipse(c,40,27,3,2,'#a9d8a0'); ellipse(c,49,34,2,2,'#a9d8a0'); D(c,45,24,'#a9d8a0');
+    ridge(c,rnd,0,320,118,22,'#132a2c',.035); ridge(c,rnd,0,320,118,10,'#0f2022',.06);
+    // earth
+    const pts=[[0,104],[210,104],[250,118],[320,118],[320,180],[0,180]]; poly(c,pts,P.earth);
+    for(let i=0;i<2400;i++){ const x=MF(rnd()*320), y=MF(rnd()*180); if(y>dhTop(x)+1) D(c,x,y,rnd()<.6?P.plum:P.soot); }
+    for(let i=0;i<22;i++){ const x=MF(rnd()*318), y=MF(112+rnd()*64); if(y>dhTop(x)+3){ if(i%3===0){ R(c,x,y,2,2,P.bone); D(c,x,y+1,P.night);} else R(c,x,y,3,1,P.bone); } }
+    for(let x=0;x<320;x++){ const y=MR(dhTop(x)); D(c,x,y,P.pine); if(x%3===0) D(c,x,y-1,P.deep); }
+    // graveyard + dead tree
+    for(const x of [22,30,38,46]){ R(c,x,98,4,6,P.slate); R(c,x+1,97,2,1,P.slate); D(c,x+1,100,P.indigo); }
+    R(c,12,84,2,20,P.soot); line(c,13,90,6,82,P.soot); line(c,13,86,20,78,P.soot); line(c,17,82,22,83,P.soot); line(c,9,85,7,80,P.soot);
+    // keep ruins
+    const S={base:P.slate,dark:P.indigo,light:P.steel};
+    bricks(c,rnd,60,60,16,44,S); bricks(c,rnd,60,54,5,6,S); bricks(c,rnd,69,50,5,10,S);
+    bricks(c,rnd,76,66,74,38,S); bricks(c,rnd,90,62,8,4,S); bricks(c,rnd,120,60,10,6,S);
+    room(c,rnd,80,72,66,31,{wall:'#1c1720',wall2:P.soot,floor:P.brown,floorTop:P.plum});
+    for(let x=84;x<140;x+=9) line(c,x,66,x+6,60,P.brown);
+    R(c,86,93,30,1,P.clay); D(c,87,94,P.brown); D(c,114,94,P.brown); R(c,126,78,14,12,P.brown); for(let i=0;i<13;i++) D(c,127+i,80+(i%3)*3,[P.grape,P.pine,P.brown][i%3]);
+    bricks(c,rnd,150,22,18,82,S); crenel(c,150,22,18,P.slate,P.indigo);
+    R(c,158,36,2,4,P.green); R(c,158,56,2,4,P.green); R(c,158,76,2,4,P.green);
+    bricks(c,rnd,168,80,18,24,S); crenel(c,168,80,18,P.slate,P.indigo);
+    bricks(c,rnd,186,68,20,36,S); crenel(c,186,68,20,P.slate,P.indigo);
+    R(c,190,86,12,18,P.night); R(c,191,85,10,1,P.night); for(let x=191;x<202;x+=3) R(c,x,86,1,3,P.steel); R(c,190,88,12,1,P.steel);
+    // underground rooms
+    const W={wall:'#1c1720',wall2:P.soot,floor:P.plum,floorTop:P.brown};
+    R(c,194,104,4,8,P.night);
+    room(c,rnd,182,112,44,20,W); room(c,rnd,90,112,86,20,W);
+    room(c,rnd,20,140,90,26,W); room(c,rnd,116,140,74,26,W); room(c,rnd,196,140,54,26,W);
+    R(c,176,112,5,54,P.night); for(let y=114;y<166;y+=3) R(c,176,y,5,1,P.plum);
+    for(const y of [116,121,126]) for(let x=94;x<172;x+=4){ R(c,x,y,2,2,P.bone); D(c,x,y+1,P.night); }
+    R(c,190,126,14,4,P.plum); R(c,208,127,12,3,P.soot);
+    ellipse(c,202,160,3,3,P.clay); ellipse(c,210,160,3,3,P.clay); R(c,220,160,16,3,P.bone); for(let x=221;x<236;x+=3) D(c,x,161,P.tan); R(c,238,157,8,6,P.slate);
+    R(c,144,157,16,3,P.slate); R(c,146,160,2,4,P.indigo); R(c,156,160,2,4,P.indigo);
+  },
+  fg(c,t){
+    // clouds over moon, bats, orb
+    const cx=((t*4)%120)-20; A(c,.55,()=>{ ellipse(c,cx,32,14,3,P.ink); ellipse(c,cx+8,29,8,3,P.ink); });
+    for(let i=0;i<3;i++){ const a=t*1.2+i*2.1, x=159+MR(Math.cos(a)*(14+i*4)), y=12+MR(Math.sin(a*1.3)*6), up=MF(t*8+i)%2; D(c,x,y,P.night); D(c,x-1,y-up,P.night); D(c,x+1,y-up,P.night); }
+    const pu=.5+.5*Math.sin(t*2.4); glow(c,159,14,7+MR(pu*2),P.green,.22); ellipse(c,159,14,3,3,P.green); D(c,158,13,'#d7f5c8');
+    for(let i=0;i<3;i++){ const k=(t*5+i*4)%12; A(c,1-k/12,()=>D(c,158+MR(Math.sin(t+i)*2),10-k,P.green)); }
+    // hall candles, crypt torches
+    gflame(c,90,92,t,0); gflame(c,100,92,t,.7); gflame(c,110,92,t,1.3);
+    gflame(c,186,117,t,.4); gflame(c,24,145,t,1.1); gflame(c,100,145,t,1.9); gflame(c,120,145,t,.2); gflame(c,246,145,t,.9); gflame(c,172,117,t,1.5);
+    // necromancer in hall
+    human(c,120,101,{body:P.grape,hood:P.grape,robe:1,staff:P.green,face:1,eyes:P.green},t);
+    // haulers on the slope, bodies
+    for(const off of [0,18]){ const k=(t*6+off)%36, x=232-k, y=MR(dhTop(x+2)); skel(c,x,y,{walk:5,face:-1,ph:off},t); R(c,x+5,y-2,6,2,P.plum); D(c,x+10,y-3,P.peach); }
+    R(c,214,MR(dhTop(214))-2,6,2,P.plum); D(c,219,MR(dhTop(219))-3,P.peach); R(c,224,MR(dhTop(224))-2,6,2,P.brown);
+    const ch=(t*.8)%1; R(c,194,104+MR(ch*20),4,2,P.plum);
+    // villagers + crusader
+    for(const [x,ph,tool] of [[248,0,'torch'],[256,.6,'fork'],[264,.3,'torch'],[274,.9,'fork'],[284,.2,'torch']]){ const o={body:[P.clay,P.brown,P.forest,P.navy,P.plum][MF(x/8)%5],hair:P.brown,face:-1,ph,walk:1.5}; o[tool]=1; human(c,x,118,o,t); }
+    const bw=MF(t*6)%3; human(c,300,118,{body:P.white,helm:P.silver,plume:P.amber,face:-1,trim:P.amber},t);
+    R(c,298,98,1,20,P.bone); for(let i=0;i<6;i++) R(c,292+i,99+[0,1,0][(i+bw)%3],1,8,P.white); D(c,294,102,P.amber); D(c,295,103,P.amber); D(c,294,103,P.amber); D(c,295,102,P.amber);
+    // ossuary workers
+    skel(c,100+MR((Math.sin(t*.8)+1)*14),130,{walk:5,face:Math.cos(t*.8)>0?1:-1,carry:P.bone},t);
+    skel(c,150,130,{pick:3,face:-1},t);
+    // barracks rows
+    for(let i=0;i<7;i++){ const x=28+i*11, sw=MR(Math.sin(t*1.5+i)*.6); if(i%2) skel(c,x+sw,164,{face:1},t); else human(c,x+sw,164,{body:[P.pine,P.plum,P.brown][i%3],skin:'#8fb07a',arms:'#8fb07a',face:1},t); }
+    for(let i=0;i<3;i++){ const k=(t*4+i*3)%9; A(c,1-k/9,()=>D(c,60+MR(Math.sin(t*2+i)*2),154-k,P.green)); }
+    // raising circle
+    const rg=.5+.5*Math.sin(t*2);
+    A(c,.6+.4*rg,()=>{ for(let x=-20;x<=20;x++){ const e=MR(Math.sqrt(Math.max(0,1-(x/20)**2))*2); D(c,152+x,162-e,P.green); D(c,152+x,162+e,P.green); } for(let x=-16;x<=16;x+=4) D(c,152+x,162,'#b8f5a0'); });
+    glow(c,152,156,12,P.green,.12+.1*rg);
+    const lift=MR(rg*3); R(c,145,154-lift,14,2,P.bone); D(c,158,153-lift,P.peach);
+    for(let i=0;i<5;i++){ const k=(t*7+i*2.3)%11; A(c,1-k/11,()=>D(c,142+i*5,160-k,P.green)); }
+    human(c,168,164,{body:P.grape,hood:P.grape,robe:1,staff:P.green,face:-1,eyes:P.green},t);
+  }
+};
+
+/* ---------- mounting, animation loop ---------- */
+const REDUCE = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+const live = [];
+const io = ('IntersectionObserver' in window) ? new IntersectionObserver(es=>{ for(const e of es){ const it=live.find(i=>i.host===e.target); if(it) it.visible=e.isIntersecting; } },{rootMargin:'120px'}) : null;
+function mount(host,name,thumb){
+  const S=SCENES[name]; if(!S) return;
+  const W=S.w, H=S.h, crop= thumb ? S.crop : [0,0,W,H];
+  const base=document.createElement('canvas'); base.width=W; base.height=H;
+  try{ S.bg(base.getContext('2d'), rngOf(S.seed)); }catch(e){ console.error(name,e); }
+  const buf=document.createElement('canvas'); buf.width=W; buf.height=H; const b=buf.getContext('2d');
+  const out=document.createElement('canvas'); out.setAttribute('aria-hidden','true');
+  host.insertBefore(out,host.firstChild);
+  const oc=out.getContext('2d'), st={};
+  const it={host,visible:!io,last:0,t:S.still,k:0};
+  it.draw=function(tt){
+    it.t=tt; b.clearRect(0,0,W,H); b.drawImage(base,0,0);
+    try{ S.fg(b,tt,st,thumb?null:host); }catch(e){ if(!it.err){ it.err=1; console.error(name,e); } }
+    oc.imageSmoothingEnabled=false; oc.drawImage(buf,crop[0],crop[1],crop[2],crop[3],0,0,out.width,out.height);
+  };
+  const size=()=>{ const r=host.getBoundingClientRect(); if(!r.width) return; const dpr=Math.min(window.devicePixelRatio||1,3);
+    const nk=Math.max(1,Math.min(12,Math.ceil(Math.max(r.width*dpr/crop[2],r.height*dpr/crop[3]))));
+    if(nk!==it.k){ it.k=nk; out.width=crop[2]*nk; out.height=crop[3]*nk; } it.draw(it.t); };
+  if('ResizeObserver' in window) new ResizeObserver(size).observe(host); else window.addEventListener('resize',size);
+  size();
+  if(!thumb && !REDUCE){ live.push(it); if(io) io.observe(host); }
+}
+document.querySelectorAll('[data-scene]').forEach(h=>mount(h,h.dataset.scene,false));
+document.querySelectorAll('[data-thumb]').forEach(h=>mount(h,h.dataset.thumb,true));
+if(!REDUCE && live.length){
+  const t0=performance.now();
+  const tick=now=>{ for(const it of live){ if(it.visible && now-it.last>=50){ it.last=now; it.draw(SCENES[it.host.dataset.scene].still+(now-t0)/1000); } } requestAnimationFrame(tick); };
+  requestAnimationFrame(tick);
+}
+
+/* ---------- pins: toggle + legend linking ---------- */
+document.querySelectorAll('figure.fig').forEach(fig=>{
+  const screen=fig.querySelector('.screen'), pins=[...fig.querySelectorAll('.pin')], items=[...fig.querySelectorAll('.legend li')], btn=fig.querySelector('.pins-toggle');
+  if(btn&&screen) btn.addEventListener('click',()=>{ const off=screen.classList.toggle('nopins'); btn.textContent=off?'Show labels':'Hide labels'; });
+  const hot=(i,on)=>{ if(pins[i]) pins[i].classList.toggle('hot',on); if(items[i]) items[i].classList.toggle('hot',on); };
+  items.forEach((li,i)=>{ li.addEventListener('mouseenter',()=>hot(i,true)); li.addEventListener('mouseleave',()=>hot(i,false)); });
+  pins.forEach((p,i)=>{ p.addEventListener('mouseenter',()=>hot(i,true)); p.addEventListener('mouseleave',()=>hot(i,false)); });
+});
+
+/* ---------- table of contents: current section ---------- */
+(()=>{
+  const links=[...document.querySelectorAll('.toc a')], map=new Map(links.map(a=>[a.getAttribute('href').slice(1),a]));
+  if(!('IntersectionObserver' in window)) return;
+  const obs=new IntersectionObserver(es=>{ for(const e of es) if(e.isIntersecting){ links.forEach(a=>a.removeAttribute('aria-current')); const a=map.get(e.target.id); if(a){ a.setAttribute('aria-current','true'); a.scrollIntoView({block:'nearest',inline:'nearest'}); } } },{rootMargin:'-35% 0px -60% 0px'});
+  map.forEach((a,id)=>{ const s=document.getElementById(id); if(s) obs.observe(s); });
+})();
+
+/* ---------- compare: weights, totals, bars ---------- */
+(()=>{
+  const NAMES=['Countermine','Hoardkeep','Mirrorhold','Colossus','Deadhold'];
+  const TINT=['--t-countermine','--t-hoard','--t-mirror','--t-colossus','--t-dead'];
+  const CRIT=[
+    {id:'novel',name:'Novelty',note:'From the September 2026 search',s:[5,4,5,3,1]},
+    {id:'hook',name:'One-line hook',note:'Would a stranger get it from one sentence?',s:[3,5,3,4,4]},
+    {id:'scope',name:'Solo scope',note:'Higher means smaller',s:[4,4,3,2,4]},
+    {id:'loop',name:'Core-loop confidence',note:'How sure I am the central decision is fun',s:[3,4,2,3,4]},
+    {id:'phone',name:'Phone fit',note:'Portrait, short sessions, works as a TWA',s:[2,5,4,4,3]},
+    {id:'replay',name:'Replay per asset',note:'Play time bought by each piece of content',s:[5,3,3,2,4]},
+    {id:'side',name:'Side view is essential',note:'Would it break in top-down?',s:[5,4,5,4,2]}
+  ];
+  const PRE={phone:{novel:3,hook:2,scope:3,loop:3,phone:2,replay:2,side:1},pc:{novel:3,hook:2,scope:3,loop:3,phone:0,replay:3,side:2},novel:{novel:5,hook:1,scope:2,loop:2,phone:1,replay:1,side:2}};
+  const KEY='fivekeeps.weights';
+  let W=Object.assign({},PRE.phone);
+  try{ const v=JSON.parse(localStorage.getItem(KEY)||'null'); if(v&&typeof v==='object') CRIT.forEach(c=>{ if(Number.isInteger(v[c.id])&&v[c.id]>=0&&v[c.id]<=5) W[c.id]=v[c.id]; }); }catch(e){}
+  const tb=document.querySelector('#matrix tbody'), bars=document.getElementById('bars'), tip=document.getElementById('tip');
+  if(!tb||!bars) return;
+  CRIT.forEach(c=>{
+    const tr=document.createElement('tr'), td=document.createElement('td'); td.className='crit';
+    const b=document.createElement('b'); b.textContent=c.name; const sm=document.createElement('small'); sm.textContent=c.note;
+    const lab=document.createElement('label'); lab.style.cssText='display:flex;align-items:center;gap:8px;margin-top:6px;font-size:13.5px;color:var(--ink-2)';
+    lab.htmlFor='w-'+c.id; lab.append('Weight ');
+    const inp=document.createElement('input'); inp.type='range'; inp.min='0'; inp.max='5'; inp.step='1'; inp.id='w-'+c.id; inp.value=W[c.id];
+    const out=document.createElement('span'); out.className='w'; out.textContent=W[c.id];
+    inp.addEventListener('input',()=>{ W[c.id]=+inp.value; out.textContent=inp.value; update(); });
+    lab.append(inp,out); td.append(b,sm,lab); tr.append(td);
+    c.s.forEach((v,i)=>{ const d=document.createElement('td'); const sp=document.createElement('span'); sp.className='score s'+v; sp.textContent=v; sp.title=NAMES[i]+': '+v+' of 5'; d.append(sp); tr.append(d); });
+    tb.append(tr); c.inp=inp; c.out=out;
+  });
+  const rows=NAMES.map((n,i)=>{
+    const r=document.createElement('div'); r.className='brow';
+    const l=document.createElement('div'); l.className='lab'; const sg=document.createElement('span'); sg.className='sigil'; sg.style.background='var('+TINT[i]+')'; l.append(sg,document.createTextNode(n));
+    const tr=document.createElement('div'); tr.className='track'; tr.tabIndex=0;
+    const g=document.createElement('i'); g.className='grid'; const f=document.createElement('div'); f.className='fill'; const v=document.createElement('span'); v.className='val';
+    tr.append(g,f,v); r.append(l,tr); bars.append(r);
+    const show=(x,y)=>{ tip.hidden=false; tip.innerHTML=''; const s=document.createElement('strong'); s.textContent=r.dataset.score; const d=document.createElement('div'); d.textContent=n+(f.classList.contains('lead')?' · leader':'')+' · out of 100'; tip.append(s,d); tip.style.left=Math.min(x+14,innerWidth-250)+'px'; tip.style.top=(y+14)+'px'; };
+    tr.addEventListener('pointermove',e=>show(e.clientX,e.clientY)); tr.addEventListener('pointerleave',()=>{ tip.hidden=true; });
+    tr.addEventListener('focus',()=>{ const b=tr.getBoundingClientRect(); show(b.left+b.width*.5,b.top); }); tr.addEventListener('blur',()=>{ tip.hidden=true; });
+    return {r,f,v,tr};
+  });
+  function update(){
+    const sw=CRIT.reduce((a,c)=>a+W[c.id],0);
+    const tot=NAMES.map((n,i)=> sw? MR(CRIT.reduce((a,c)=>a+W[c.id]*c.s[i],0)/(sw*5)*100) : null);
+    const best=Math.max(...tot.map(v=>v??-1));
+    tot.forEach((v,i)=>{
+      const cell=document.querySelector('[data-total="'+i+'"]'); if(cell) cell.textContent= v==null?'—':v;
+      const R_=rows[i]; R_.r.dataset.score= v==null?'—':v; const w=v??0;
+      R_.f.style.width='calc((100% - 36px) * '+(w/100)+')'; R_.v.style.left='calc((100% - 36px) * '+(w/100)+')'; R_.v.textContent= v==null?'—':v;
+      R_.f.classList.toggle('lead', v!=null && v===best); R_.tr.setAttribute('aria-label',NAMES[i]+': '+(v==null?'no score':v+' out of 100'));
+    });
+    CRIT.forEach(c=>{ c.inp.value=W[c.id]; c.out.textContent=W[c.id]; });
+    document.querySelectorAll('[data-preset]').forEach(bt=>{ const p=PRE[bt.dataset.preset]; bt.setAttribute('aria-pressed', String(CRIT.every(c=>p[c.id]===W[c.id]))); });
+    try{ localStorage.setItem(KEY,JSON.stringify(W)); }catch(e){}
+  }
+  document.querySelectorAll('[data-preset]').forEach(bt=>bt.addEventListener('click',()=>{ W=Object.assign({},PRE[bt.dataset.preset]); update(); }));
+  update();
+})();
+</script>
+</body>
+</html>
