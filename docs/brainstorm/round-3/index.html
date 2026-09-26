@@ -1,0 +1,1418 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Afterglass</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jacquard+24&family=Silkscreen:wght@400;700&family=Alegreya+Sans:ital,wght@0,400;0,500;0,700;0,800;1,400&display=swap">
+<style>
+:root{
+  --bg:#ECEAF0; --surface:#F8F7FB; --surface-2:#E1DEE9; --candle:#B7791F; --tain:#6A4FA0; --unlit:#B3263B; --c-rite:#00968a; --c-day:#d99a2b; --c-dusk:#c2458f; --c-night:#6a4fc0; --ink:#1B2230; --ink-2:#465262; --ink-3:#687384;
+  --rule:#C8CFCC; --accent:#9E2B25; --gold:#8A5F0E; --gold-fill:#EBCB78; --link:#2A5A8C;
+  --bar:#7B8797; --bar-lead:#B8862B; --grid:#D5DBD8;
+  --t-countermine:#5F7188; --t-hoard:#B98322; --t-mirror:#7E55A8; --t-colossus:#A8612A; --t-dead:#47845A; --bone:#8A6A2F; --glass:#6A4FA0; --wire:#2F6FB0;
+  --screen:#0C0A12; --screen-edge:#22202C;
+  --display:'Jacquard 24','Alegreya Sans',Georgia,serif;
+  --body:'Alegreya Sans','Gill Sans','Segoe UI',system-ui,sans-serif;
+  --pixel:'Silkscreen','Courier New',ui-monospace,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --bg:#110F17; --surface:#1A1722; --surface-2:#25212F; --candle:#E3B055; --tain:#B39BE6; --unlit:#F07080; --c-rite:#10a597; --c-day:#b87a12; --c-dusk:#d0559c; --c-night:#8a6fe0; --ink:#E4E8EE; --ink-2:#AAB4C1; --ink-3:#7F8A9A;
+    --rule:#2C3542; --accent:#E27468; --gold:#E6BC62; --gold-fill:#5B4718; --link:#90B8E8;
+    --bar:#6D7A8C; --bar-lead:#D9A948; --grid:#263040;
+    --t-countermine:#8C9DB4; --t-hoard:#D9A948; --t-mirror:#A985D0; --t-colossus:#D08850; --t-dead:#6FB083; --bone:#D9B870; --glass:#B39BE6; --wire:#8FC0F0;
+    --screen-edge:#2E2B3A;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#110F17; --surface:#1A1722; --surface-2:#25212F; --candle:#E3B055; --tain:#B39BE6; --unlit:#F07080; --c-rite:#10a597; --c-day:#b87a12; --c-dusk:#d0559c; --c-night:#8a6fe0; --ink:#E4E8EE; --ink-2:#AAB4C1; --ink-3:#7F8A9A;
+  --rule:#2C3542; --accent:#E27468; --gold:#E6BC62; --gold-fill:#5B4718; --link:#90B8E8;
+  --bar:#6D7A8C; --bar-lead:#D9A948; --grid:#263040;
+  --t-countermine:#8C9DB4; --t-hoard:#D9A948; --t-mirror:#A985D0; --t-colossus:#D08850; --t-dead:#6FB083; --bone:#D9B870; --glass:#B39BE6; --wire:#8FC0F0;
+  --screen-edge:#2E2B3A;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+@media (prefers-reduced-motion: reduce){html{scroll-behavior:auto}}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:17.5px;line-height:1.55;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1120px;margin:0 auto;padding-inline:20px;padding-block:28px 80px}
+a{color:var(--link);text-underline-offset:2px}
+a:focus-visible,button:focus-visible,input:focus-visible,summary:focus-visible{outline:2px solid var(--link);outline-offset:2px;border-radius:3px}
+h1,h2,h3{text-wrap:balance;line-height:1.1;margin:0}
+p{margin:0}
+.measure{max-width:68ch}
+.stack>*+*{margin-top:.8em}
+.eyebrow{font-size:13px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3);font-weight:700}
+.muted{color:var(--ink-2)}
+strong{font-weight:800}
+
+/* header */
+.masthead{display:grid;gap:14px;padding-block:8px 26px;border-bottom:1px solid var(--rule)}
+.masthead h1{font-family:var(--display);font-weight:400;font-size:clamp(64px,11vw,124px);letter-spacing:.01em;line-height:.9}
+.masthead .lede{font-size:20px;color:var(--ink-2);max-width:62ch}
+
+/* toc */
+.toc{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:color-mix(in srgb,var(--bg) 92%,transparent);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);border-bottom:1px solid var(--rule);margin-inline:-20px;padding-inline:20px}
+.toc ol{list-style:none;display:flex;gap:4px;margin:0;padding:8px 0;overflow-x:auto;scrollbar-width:none}
+.toc ol::-webkit-scrollbar{display:none}
+.toc a{display:block;white-space:nowrap;text-decoration:none;color:var(--ink-2);font-size:14.5px;font-weight:500;padding:4px 10px;border-radius:999px}
+.toc a:hover{background:var(--surface-2);color:var(--ink)}
+.toc a[aria-current="true"]{background:var(--ink);color:var(--bg)}
+
+section{scroll-margin-top:64px}
+.sec{padding-block:56px 8px}
+.sec>h2{font-size:clamp(28px,4vw,38px);font-weight:800;letter-spacing:-.01em;margin-bottom:6px}
+.sec>.sub{color:var(--ink-2);font-size:18px;max-width:66ch;margin-bottom:26px}
+
+/* verdict */
+.verdict{display:grid;grid-template-columns:1fr 1fr;gap:0;margin-top:28px;border-top:3px solid var(--ink);background:var(--surface)}
+.verdict>div{padding:22px 24px 24px}
+.verdict>div+div{border-left:1px solid var(--rule)}
+.verdict h2{font-size:24px;font-weight:800;margin:6px 0 10px}
+.verdict .flag{color:var(--accent)}
+.verdict .rec{color:var(--gold)}
+.verdict p+p,.verdict ul{margin-top:10px}
+.verdict ul{padding-left:1.1em;margin-bottom:0}
+.verdict li+li{margin-top:4px}
+@media (max-width:760px){.verdict{grid-template-columns:1fr}.verdict>div+div{border-left:0;border-top:1px solid var(--rule)}}
+
+/* concept cards */
+.cards{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-top:26px}
+.card{display:grid;grid-template-rows:auto 1fr;text-decoration:none;color:inherit;background:var(--surface);border:1px solid var(--rule);border-radius:6px;overflow:hidden;transition:transform .15s ease,border-color .15s ease}
+.card:hover{transform:translateY(-2px);border-color:var(--ink-3)}
+.card .thumb{background:var(--screen);aspect-ratio:1/1;position:relative}
+.card .thumb canvas{position:absolute;inset:0;width:100%;height:100%}
+.card .body{padding:10px 12px 12px;display:grid;gap:4px;align-content:start}
+.card .name{font-family:var(--display);font-size:30px;line-height:1;display:flex;align-items:center;gap:8px}
+.card .tag{font-size:14.5px;color:var(--ink-2);line-height:1.35}
+.card .pick{justify-self:start;font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;padding:2px 7px;border-radius:3px;background:var(--gold-fill);color:var(--ink)}
+.card .pick.alt{background:var(--surface-2)}
+.sigil{width:10px;height:10px;border-radius:2px;flex:none;display:inline-block}
+@media (max-width:980px){.cards{grid-template-columns:repeat(3,1fr)}}
+@media (max-width:620px){.cards{grid-template-columns:1fr}.card{grid-template-columns:96px 1fr;grid-template-rows:auto}.card .thumb{aspect-ratio:auto;min-height:96px}}
+
+/* tables */
+.table-wrap{overflow-x:auto;border:1px solid var(--rule);border-radius:6px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:15.5px;line-height:1.4}
+th,td{text-align:left;vertical-align:top;padding:9px 12px;border-bottom:1px solid var(--rule)}
+thead th{font-size:12.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3);font-weight:700;background:var(--surface-2);white-space:nowrap}
+tbody tr:last-child td{border-bottom:0}
+td.game{font-weight:700;white-space:nowrap}
+.lvl{display:inline-block;font-size:12px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;padding:1px 6px;border-radius:3px;white-space:nowrap}
+.lvl.hi{background:color-mix(in srgb,var(--accent) 18%,transparent);color:var(--accent)}
+.lvl.md{background:color-mix(in srgb,var(--gold) 18%,transparent);color:var(--gold)}
+.lvl.lo{background:var(--surface-2);color:var(--ink-2)}
+.lvl.ok{background:color-mix(in srgb,var(--t-dead) 20%,transparent);color:var(--t-dead)}
+.note{font-size:14.5px;color:var(--ink-3);margin-top:10px;max-width:80ch}
+.recent{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px 28px;margin-top:22px;padding:0;list-style:none}
+.recent li{font-size:15.5px;border-top:1px solid var(--rule);padding-top:8px}
+.recent b{font-weight:800}
+
+/* assumptions */
+.assume{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:18px;margin-top:6px}
+.assume div{border-top:1px solid var(--rule);padding-top:10px}
+.assume h3{font-size:17px;font-weight:800;margin-bottom:4px}
+.assume p{font-size:16px;color:var(--ink-2)}
+
+/* concept plates */
+.plate{padding-block:64px 8px;border-top:1px solid var(--rule);margin-top:56px}
+.plate-head{display:grid;gap:6px;margin-bottom:22px}
+.plate-head .kicker{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.plate-head h2{font-family:var(--display);font-weight:400;font-size:clamp(52px,8vw,88px);line-height:.9}
+.plate-head .tagline{font-size:22px;font-weight:500;color:var(--ink-2);font-style:italic}
+.badge{font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;padding:3px 8px;border-radius:3px;background:var(--surface-2);color:var(--ink-2)}
+.badge.pick{background:var(--gold-fill);color:var(--ink)}
+.plate-grid{display:grid;gap:34px}
+.plate.land .plate-grid{grid-template-columns:1fr}
+.plate.port .plate-grid{grid-template-columns:minmax(260px,340px) 1fr;align-items:start}
+.plate.port .fig{position:sticky;top:64px}
+@media (max-width:860px){.plate.port .plate-grid{grid-template-columns:1fr}.plate.port .fig{position:static;max-width:360px;margin-inline:auto;width:100%}}
+.cols{display:grid;grid-template-columns:1.15fr 1fr;gap:34px}
+@media (max-width:860px){.cols{grid-template-columns:1fr}}
+.prose h3{font-size:14px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);font-weight:800;margin:22px 0 6px}
+.prose h3:first-child{margin-top:0}
+.prose p{max-width:66ch}
+.prose ol,.prose ul{margin:0;padding-left:1.25em;max-width:64ch}
+.prose li+li{margin-top:5px}
+.pitch{font-size:19px;line-height:1.5}
+
+/* spec sheet */
+.spec{display:grid;grid-template-columns:auto 1fr;border-top:2px solid var(--ink);margin:0}
+.spec dt{font-size:12.5px;letter-spacing:.07em;text-transform:uppercase;font-weight:800;color:var(--ink-3);padding:10px 14px 10px 0;border-bottom:1px solid var(--rule)}
+.spec dd{margin:0;padding:9px 0;border-bottom:1px solid var(--rule);font-size:16px}
+.spec dd .lvl{margin-right:6px}
+@media (max-width:420px){.spec{grid-template-columns:1fr}.spec dt{border-bottom:0;padding-bottom:0}}
+
+/* mockup screens */
+.fig figcaption{font-size:13.5px;color:var(--ink-3);margin-top:8px;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.monitor{background:var(--screen);border:1px solid var(--screen-edge);border-radius:10px;padding:8px;box-shadow:0 18px 40px -24px rgba(10,8,20,.55)}
+.phone{background:var(--screen);border:1px solid var(--screen-edge);border-radius:30px;padding:12px 9px 16px;box-shadow:0 18px 40px -24px rgba(10,8,20,.55);max-width:340px;margin-inline:auto}
+.phone .screen{border-radius:16px}
+.screen{position:relative;overflow:hidden;border-radius:4px;background:#0c0a12;container-type:inline-size}
+.screen canvas{display:block;width:100%;height:auto}
+.screen.land{aspect-ratio:16/9}
+.screen.port{aspect-ratio:9/16}
+.screen canvas{position:absolute;inset:0;width:100%;height:100%}
+
+/* in-game HUD */
+.hud{position:absolute;inset:0;pointer-events:none;font-family:var(--pixel);color:#F4F1FF;text-shadow:0 1px 0 #0c0a12,1px 0 0 #0c0a12,0 -1px 0 #0c0a12,-1px 0 0 #0c0a12;font-size:max(8px,1.55cqw);line-height:1.15;letter-spacing:.02em}
+.port .hud{font-size:max(8px,3.6cqw)}
+.hud .row{position:absolute;display:flex;gap:.5em;flex-wrap:wrap;align-items:center}
+.hud .tl{left:1.6%;top:1.8%;right:1.6%}
+.hud .chip{background:rgba(12,10,18,.72);border:1px solid rgba(255,255,255,.14);padding:.25em .45em;border-radius:.3em;white-space:nowrap}
+.hud .chip i{font-style:normal;color:#FEE761}
+.hud .chip.bad i{color:#FF6B6B}
+.hud .meter{position:absolute;display:grid;gap:.25em}
+.hud .meter .lab{display:flex;justify-content:space-between;gap:1em}
+.hud .bar{height:.75em;background:rgba(12,10,18,.8);border:1px solid rgba(255,255,255,.3);position:relative;overflow:hidden}
+.hud .bar b{position:absolute;inset:0 auto 0 0;display:block}
+.hud .bar s{position:absolute;top:0;bottom:0;width:1px;background:rgba(255,255,255,.35);text-decoration:none}
+.hud .toast{position:absolute;background:rgba(18,14,30,.86);border:1px solid rgba(255,255,255,.2);padding:.4em .55em;border-radius:.3em;max-width:48%}
+.port .hud .toast{max-width:78%}
+.hud .toast em{font-style:normal;display:block;color:#FEAE34;margin-bottom:.15em}
+.hud .toast.red em{color:#FF6B6B}
+.hud .toast.vio em{color:#D9A6FF}
+.hud .toast.grn em{color:#9BE58A}
+.hud .tools{position:absolute;left:0;right:0;bottom:0;display:flex;justify-content:center;gap:.35em;padding:.45em;background:linear-gradient(transparent,rgba(12,10,18,.85) 40%)}
+.hud .tool{border:1px solid rgba(255,255,255,.28);background:rgba(28,24,40,.9);padding:.35em .5em;border-radius:.25em;white-space:nowrap}
+.hud .tool.on{background:#FEAE34;color:#1b1420;text-shadow:none;border-color:#FEE761}
+.hud .pips{display:flex;gap:.2em}
+.hud .pips span{width:.7em;height:.7em;border:1px solid rgba(255,255,255,.45);background:rgba(12,10,18,.7)}
+.hud .pips span.on{background:#FF4F4F;border-color:#FFB0B0}
+
+/* annotation pins */
+.pin{position:absolute;transform:translate(-50%,-50%);width:max(18px,2.5cqw);height:max(18px,2.5cqw);border-radius:50%;background:#FFFFFF;color:#111;border:2px solid #111;font:800 max(10px,1.4cqw)/1 var(--body);display:grid;place-items:center;pointer-events:auto;cursor:default;box-shadow:0 0 0 2px rgba(255,255,255,.35);transition:transform .15s}
+.port .pin{width:max(18px,8cqw);height:max(18px,8cqw);font-size:max(10px,4.4cqw)}
+.pin.hot{transform:translate(-50%,-50%) scale(1.25);background:#FEE761}
+.pins-toggle{font:600 13.5px var(--body);color:var(--ink-2);background:none;border:1px solid var(--rule);border-radius:999px;padding:2px 10px;cursor:pointer}
+.screen.nopins .pin{display:none}
+.legend{list-style:none;margin:14px 0 0;padding:0;display:grid;gap:7px;counter-reset:pin}
+.legend li{display:grid;grid-template-columns:24px 1fr;gap:10px;font-size:15.5px;line-height:1.4;align-items:start;border-radius:4px;padding:2px 4px 2px 0}
+.legend li::before{counter-increment:pin;content:counter(pin);width:22px;height:22px;border-radius:50%;background:var(--ink);color:var(--bg);font-weight:800;font-size:13px;display:grid;place-items:center;margin-top:1px}
+.legend li.hot{background:var(--surface-2)}
+.land .legend{grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:8px 22px}
+
+/* compare */
+.presets{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;align-items:center}
+.presets span{font-size:14px;color:var(--ink-3);margin-right:4px}
+.btn{font:600 14.5px var(--body);color:var(--ink);background:var(--surface);border:1px solid var(--rule);border-radius:999px;padding:5px 12px;cursor:pointer}
+.btn:hover{border-color:var(--ink-3)}
+.btn[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.matrix td,.matrix th{text-align:center;white-space:nowrap}
+.matrix td:first-child,.matrix th:first-child{text-align:left;white-space:normal;min-width:220px}
+.matrix .crit b{display:block;font-weight:800}
+.matrix .crit small{display:block;color:var(--ink-3);font-size:13.5px;line-height:1.3}
+.matrix input[type=range]{width:110px;accent-color:var(--ink)}
+.matrix .w{font-variant-numeric:tabular-nums;font-weight:700;display:inline-block;width:1.2em}
+.score{font-variant-numeric:tabular-nums;font-weight:700;display:inline-grid;place-items:center;width:28px;height:28px;border-radius:4px}
+.s1{background:color-mix(in srgb,var(--accent) 22%,transparent)}
+.s2{background:color-mix(in srgb,var(--accent) 10%,transparent)}
+.s3{background:var(--surface-2)}
+.s4{background:color-mix(in srgb,var(--t-dead) 16%,transparent)}
+.s5{background:color-mix(in srgb,var(--t-dead) 30%,transparent)}
+.matrix tfoot td{border-top:2px solid var(--ink);font-weight:800;font-variant-numeric:tabular-nums}
+.chart{margin-top:26px;background:var(--surface);border:1px solid var(--rule);border-radius:6px;padding:18px 18px 14px}
+.chart h3{font-size:16px;font-weight:800;margin-bottom:2px}
+.chart .cap{font-size:14px;color:var(--ink-3);margin-bottom:14px}
+.bars{display:grid;gap:10px;position:relative}
+.brow{display:grid;grid-template-columns:150px 1fr;gap:12px;align-items:center}
+.brow .lab{font-weight:700;font-size:15.5px;display:flex;align-items:center;gap:8px}
+.track{position:relative;height:24px;outline:none}
+.track .grid{position:absolute;left:0;top:0;bottom:0;right:36px;background:repeating-linear-gradient(90deg,var(--grid) 0 1px,transparent 1px 20%);border-right:1px solid var(--grid)}
+.track:focus-visible{outline:2px solid var(--link);outline-offset:2px}
+.fill{position:absolute;left:0;top:3px;height:18px;border-radius:0 4px 4px 0;background:var(--bar);transition:width .35s ease}
+.fill.lead{background:var(--bar-lead)}
+.brow:hover .fill{filter:brightness(1.08)}
+.val{position:absolute;top:50%;transform:translateY(-50%);font-size:14px;font-weight:800;font-variant-numeric:tabular-nums;color:var(--ink);padding-left:6px;white-space:nowrap}
+.axis{display:grid;grid-template-columns:150px 1fr;gap:12px;margin-top:6px}
+.axis div{display:flex;justify-content:space-between;font-size:12px;color:var(--ink-3);font-variant-numeric:tabular-nums;padding-right:30px}
+@media (max-width:520px){.brow,.axis{grid-template-columns:104px 1fr}.brow .lab{font-size:14px}}
+.tip{position:fixed;z-index:50;pointer-events:none;background:var(--ink);color:var(--bg);padding:6px 9px;border-radius:4px;font-size:13.5px;line-height:1.3;max-width:240px}
+.tip strong{font-size:16px}
+
+/* mix, cuts, decisions */
+.mix{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px}
+.mix article{background:var(--surface);border:1px solid var(--rule);border-radius:6px;padding:16px 18px}
+.mix h3{font-size:18px;font-weight:800;margin-bottom:6px}
+.mix p{font-size:16px;color:var(--ink-2)}
+.mix .fits{margin-top:10px;display:flex;gap:6px;flex-wrap:wrap}
+.fits span{font-size:12.5px;font-weight:700;padding:1px 7px;border-radius:3px;background:var(--surface-2);color:var(--ink-2);display:inline-flex;align-items:center;gap:5px}
+.cuts td:first-child{font-weight:700;min-width:190px}
+.decide{display:grid;gap:0;border-top:2px solid var(--ink)}
+.decide details{border-bottom:1px solid var(--rule)}
+.decide summary{cursor:pointer;list-style:none;display:grid;grid-template-columns:1fr auto;gap:14px;align-items:baseline;padding:13px 2px}
+.decide summary::-webkit-details-marker{display:none}
+.decide summary h3{font-size:18.5px;font-weight:800}
+.decide summary .def{font-size:14.5px;color:var(--gold);font-weight:700;text-align:right}
+.decide summary .def::before{content:"Default: ";color:var(--ink-3);font-weight:500}
+.decide .opts{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;padding:0 2px 16px}
+.decide .opt{background:var(--surface);border:1px solid var(--rule);border-radius:6px;padding:11px 13px;font-size:15.5px}
+.decide .opt.chosen{border-color:var(--gold);box-shadow:inset 0 0 0 1px var(--gold)}
+.decide .opt b{display:block;font-weight:800;margin-bottom:2px}
+.decide .why{grid-column:1/-1;font-size:15.5px;color:var(--ink-2);max-width:78ch}
+@media (max-width:560px){.decide summary{grid-template-columns:1fr}.decide summary .def{text-align:left}}
+
+/* next steps */
+.weeks{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px}
+.week{background:var(--surface);border:1px solid var(--rule);border-radius:6px;padding:18px 20px}
+.week h3{font-size:19px;font-weight:800;margin:4px 0 10px}
+.week ul{padding-left:1.1em;margin:0;font-size:16px}
+.week li+li{margin-top:5px}
+.week .pass,.week .kill{margin-top:12px;font-size:15.5px;padding-top:10px;border-top:1px solid var(--rule)}
+.week .pass b{color:var(--t-dead)}
+.week .kill b{color:var(--accent)}
+.tech{margin-top:22px;display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:10px 26px;list-style:none;padding:0}
+.tech li{border-top:1px solid var(--rule);padding-top:8px;font-size:15.5px}
+.tech b{display:block;font-weight:800}
+
+/* ledger */
+.ledger{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+.ledger div{border-top:3px solid var(--ink-3);padding-top:10px}
+.ledger div.est{border-top-color:var(--t-dead)}
+.ledger div.jud{border-top-color:var(--gold)}
+.ledger div.unk{border-top-color:var(--accent)}
+.ledger h3{font-size:17px;font-weight:800;margin-bottom:6px}
+.ledger ul{margin:0;padding-left:1.1em;font-size:15.5px;color:var(--ink-2)}
+.ledger li+li{margin-top:4px}
+@media (max-width:760px){.ledger{grid-template-columns:1fr}}
+.foot{margin-top:60px;padding-top:16px;border-top:1px solid var(--rule);font-size:14px;color:var(--ink-3)}
+
+/* ---- round two ---- */
+.line{font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;padding:3px 8px;border-radius:3px;display:inline-flex;align-items:center;gap:6px}
+.line.dead{background:color-mix(in srgb,var(--bone) 18%,transparent);color:var(--bone)}
+.line.glass{background:color-mix(in srgb,var(--glass) 18%,transparent);color:var(--glass)}
+.line.both{background:linear-gradient(90deg,color-mix(in srgb,var(--bone) 22%,transparent),color-mix(in srgb,var(--glass) 22%,transparent));color:var(--ink)}
+.cards.ten{grid-template-columns:repeat(5,1fr)}
+.cards.ten .card .name{font-size:26px}
+.cards.ten .card .tag{font-size:14px}
+.cards.ten .meta{display:flex;flex-wrap:wrap;gap:5px;margin-top:4px}
+.cards.ten .meta span{font-size:11.5px;font-weight:700;color:var(--ink-3)}
+@media (max-width:980px){.cards.ten{grid-template-columns:repeat(2,1fr)}}
+@media (max-width:620px){.cards.ten{grid-template-columns:1fr}}
+.group-head{margin-top:72px;padding-top:18px;border-top:3px solid var(--ink);display:grid;gap:6px}
+.group-head h2{font-size:clamp(28px,4vw,38px);font-weight:800}
+.group-head p{color:var(--ink-2);max-width:70ch;font-size:18px}
+.idea{padding-block:48px 8px;border-top:1px solid var(--rule);margin-top:40px}
+.idea-head{display:grid;gap:6px;margin-bottom:20px}
+.idea-head .kicker{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.idea-head h2{font-family:var(--display);font-weight:400;font-size:clamp(48px,7vw,80px);line-height:.9}
+.idea-head .tagline{font-size:21px;font-weight:500;color:var(--ink-2);font-style:italic}
+.idea-grid{display:grid;gap:30px}
+.idea.land .idea-grid{grid-template-columns:1fr}
+.idea.port .idea-grid{grid-template-columns:minmax(260px,340px) 1fr;align-items:start}
+.idea.port .fig{position:sticky;top:64px}
+@media (max-width:860px){.idea.port .idea-grid{grid-template-columns:1fr}.idea.port .fig{position:static;max-width:360px;margin-inline:auto;width:100%}}
+.traits{list-style:none;padding:0;margin:6px 0 0;display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:8px}
+.traits li{background:var(--surface);border:1px solid var(--rule);border-radius:5px;padding:7px 10px;font-size:15px;line-height:1.35}
+.traits b{display:block;font-weight:800;font-size:14.5px}
+.frame{background:var(--screen);border:1px solid var(--screen-edge);border-radius:10px;padding:8px;box-shadow:0 18px 40px -24px rgba(10,8,20,.55)}
+.stage{position:relative;overflow:hidden;border-radius:4px;background:#0c0a12;container-type:inline-size}
+.stage canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+.stage.r169{aspect-ratio:16/9}.stage.r916{aspect-ratio:9/16}.stage.r85{aspect-ratio:8/5}.stage.r21{aspect-ratio:230/108}.stage.r11{aspect-ratio:1/1}
+.stage .pin{width:max(18px,2.5cqw);height:max(18px,2.5cqw)}
+.stage.r916 .pin{width:max(18px,8cqw);height:max(18px,8cqw);font-size:max(10px,4.4cqw)}
+.stage .hud{font-size:max(8px,1.55cqw)}
+.stage.r916 .hud{font-size:max(8px,3.6cqw)}
+.diptych{display:grid;grid-template-columns:1fr 1fr;gap:10px;max-width:520px}
+.diptych figcaption,.tile figcaption{font-size:13px;color:var(--ink-3);margin-top:6px;text-align:center}
+.extras{display:grid;gap:26px;margin-top:34px}
+.extras>h3{font-size:14px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);font-weight:800}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:26px;align-items:start}
+@media (max-width:860px){.row2{grid-template-columns:1fr}}
+.panel{background:var(--surface);border:1px solid var(--rule);border-radius:6px;padding:16px 18px}
+.panel h4{font-size:16px;font-weight:800;margin:0 0 4px}
+.panel .cap{font-size:14px;color:var(--ink-3);margin:0 0 12px}
+.loop svg{width:100%;height:auto;display:block;color:var(--ink)}
+.story{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.story .shot{display:grid;gap:6px}
+.story .shot p{font-size:14px;color:var(--ink-2);line-height:1.35}
+.story .shot b{font-weight:800;color:var(--ink)}
+@media (max-width:620px){.story{grid-template-columns:1fr}}
+.store{display:grid;grid-template-columns:1fr 96px;gap:12px;align-items:end}
+.store .icon{border-radius:22%;overflow:hidden;aspect-ratio:1/1;position:relative;box-shadow:0 6px 14px -8px rgba(0,0,0,.5)}
+.store .icon canvas{position:absolute;inset:0;width:100%;height:100%}
+/* wireframe */
+.wire{max-width:300px;margin-inline:auto;border:2px solid var(--ink);border-radius:26px;padding:14px 10px 12px;background:var(--surface);font:600 12px/1.25 var(--body);color:var(--ink)}
+.wire .bar{display:flex;justify-content:space-between;gap:6px;border:1px dashed var(--ink-3);border-radius:6px;padding:6px 8px;margin-bottom:8px}
+.wire .ph{border:1.5px solid var(--ink-3);border-radius:4px;position:relative;display:grid;place-items:center;color:var(--ink-3);text-align:center;font-weight:700;background:repeating-linear-gradient(135deg,transparent 0 8px,color-mix(in srgb,var(--ink-3) 10%,transparent) 8px 9px)}
+.wire .split{display:grid;grid-template-rows:1fr 1fr;gap:3px;height:230px;margin-bottom:8px}
+.wire .sheet{border:1.5px solid var(--ink);border-radius:10px 10px 4px 4px;padding:8px;display:grid;gap:6px;margin-bottom:8px}
+.wire .sheet h5{margin:0;font-size:12.5px;font-weight:800}
+.wire .mrow{display:grid;grid-template-columns:1fr auto;gap:6px;align-items:center;border-top:1px dashed var(--ink-3);padding-top:6px;font-weight:600}
+.wire .tog{display:inline-flex;border:1.5px solid var(--ink);border-radius:999px;overflow:hidden}
+.wire .tog span{padding:2px 7px;font-size:11px}
+.wire .tog .on{background:var(--ink);color:var(--surface)}
+.wire .tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:4px}
+.wire .tabs span{border:1.5px solid var(--ink-3);border-radius:4px;text-align:center;padding:4px 0;font-size:11px}
+.wire .tabs .on{border-color:var(--ink);background:var(--surface-2)}
+.wnote{font:600 12.5px/1.35 var(--body);color:var(--wire);display:grid;gap:8px;align-content:start}
+.wnote li{padding-left:2px}
+/* dossier */
+.dossier{background:#1d1924;color:#efe9f6;border-radius:10px;padding:16px;border:1px solid #3a3346;font-family:var(--body)}
+.dossier .pair{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.dossier .por{display:grid;gap:6px}
+.dossier .por .cv{position:relative;aspect-ratio:120/150;border-radius:6px;overflow:hidden;border:2px solid #4a4058}
+.dossier .por .cv canvas{position:absolute;inset:0;width:100%;height:100%}
+.dossier .por small{font-size:12.5px;color:#b7aec6}
+.dossier .por b{font-size:14.5px}
+.dossier .acts{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}
+.dossier button{font:700 13.5px var(--body);border-radius:999px;padding:6px 12px;cursor:pointer;border:1px solid #6a5f80;background:#2a2434;color:#efe9f6}
+.dossier button.pri{background:#e9d8ff;color:#1d1924;border-color:#e9d8ff}
+.dossier button[aria-pressed="true"]{background:#ff4d5e;border-color:#ff4d5e;color:#fff}
+.dossier table{font-size:13.5px;border-collapse:collapse;width:100%}
+.dossier td{padding:6px 4px;border-top:1px solid #3a3346;color:#efe9f6}
+.chip-s{font-size:11px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;padding:2px 7px;border-radius:3px}
+.chip-s.ok{background:#1f4a33;color:#9be5b4}.chip-s.q{background:#3a3346;color:#cfc6dc}.chip-s.bad{background:#5a1f28;color:#ffb0b8}
+.bmtip{position:absolute;left:66%;top:18%;background:rgba(18,14,30,.9);border:1px solid rgba(255,255,255,.25);border-radius:.3em;padding:.45em .6em;font-family:var(--pixel);color:#f4f1ff;font-size:max(8px,1.4cqw);line-height:1.3;max-width:32%}
+.bmtip em{font-style:normal;color:#b7c0cc;display:block}
+.bmtip i{font-style:normal;color:#ff9a8a}
+/* style gallery */
+.gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
+.tile .stage{border-radius:6px}
+.tile figcaption b{display:block;color:var(--ink);font-size:14px}
+.wgrid{display:grid;grid-template-columns:minmax(0,300px) minmax(0,1fr);gap:16px;align-items:start}
+@media (max-width:620px){.wgrid{grid-template-columns:1fr}}
+.pick-note{font-size:15.5px;color:var(--ink-2);max-width:74ch;margin-top:14px}
+
+/* ---- round three ---- */
+.pillars{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-top:8px}
+.pillars div{background:var(--surface);border:1px solid var(--rule);border-radius:6px;padding:12px 14px}
+.pillars b{display:block;font-size:16.5px;font-weight:800;margin-bottom:4px}
+.pillars p{font-size:15px;color:var(--ink-2)}
+.fixes{display:grid;gap:0;border-top:2px solid var(--ink)}
+.fixes .row{display:grid;grid-template-columns:minmax(160px,1fr) 2fr;gap:18px;padding:12px 0;border-bottom:1px solid var(--rule)}
+.fixes .row b{font-weight:800;color:var(--accent)}
+.fixes .row p{font-size:16px}
+@media (max-width:640px){.fixes .row{grid-template-columns:1fr;gap:4px}}
+.duo{display:grid;grid-template-columns:repeat(2,minmax(0,340px));gap:22px;justify-content:start}
+@media (max-width:760px){.duo{grid-template-columns:minmax(0,340px)}}
+.phase{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;padding:3px 8px;border-radius:3px}
+.phase.day{background:color-mix(in srgb,var(--candle) 20%,transparent);color:var(--candle)}
+.phase.night{background:color-mix(in srgb,var(--tain) 20%,transparent);color:var(--tain)}
+.phase.dawn{background:color-mix(in srgb,var(--accent) 16%,transparent);color:var(--accent)}
+.twocol{display:grid;grid-template-columns:1fr 1fr;gap:30px;align-items:start}
+@media (max-width:860px){.twocol{grid-template-columns:1fr}}
+.strip{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.strip figure{margin:0}
+.strip .stage{aspect-ratio:180/160}
+.strip figcaption{font-size:14px;color:var(--ink-2);margin-top:6px;line-height:1.35}
+.strip figcaption b{color:var(--ink);font-weight:800}
+@media (max-width:760px){.strip{grid-template-columns:repeat(2,1fr)}}
+.pxui{font-family:var(--pixel);background:#14101f;color:#efe9f6;border-radius:4px;padding:14px;box-shadow:0 0 0 2px #0b0812,0 0 0 4px #4a3f66,0 0 0 6px #0b0812;font-size:13px;line-height:1.35;max-width:520px}
+.pxui h4{margin:0 0 4px;font-size:16px;color:#fee761;font-weight:700}
+.pxui .muted{color:#b7aec6}
+.rite-row{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;padding:9px 0;border-top:1px dashed #4a3f66}
+.rite-row .who b{color:#bff6ff}
+.rite-row .who small{display:block;color:#b7aec6;font-size:11.5px}
+.rite-row .opts{display:inline-flex;border:2px solid #6a5f80}
+.rite-row button{font:700 12px var(--pixel);background:#1d1830;color:#efe9f6;border:0;padding:6px 9px;cursor:pointer}
+.rite-row button[aria-pressed="true"]{background:#fee761;color:#14101f}
+.rite-row button:focus-visible{outline:2px solid #bff6ff;outline-offset:1px}
+.rite-foot{display:flex;flex-wrap:wrap;justify-content:space-between;gap:10px;align-items:center;margin-top:10px;padding-top:10px;border-top:2px solid #4a3f66}
+.meter-px{display:inline-flex;gap:3px;vertical-align:middle}
+.meter-px span{width:10px;height:10px;background:#2a2440;box-shadow:inset 0 0 0 1px #6a5f80}
+.meter-px span.on{background:#ff4d5e}
+.meter-px span.warn{background:#feae34}
+.begin{font:700 13px var(--pixel);background:#fee761;color:#14101f;border:0;padding:8px 12px;cursor:pointer;box-shadow:0 3px 0 #b7791f}
+.effects{font-size:12px;color:#cfc6dc;margin-top:6px}
+.sheet{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:10px}
+.sheet figure{margin:0;text-align:center}
+.sheet canvas{width:64px;height:64px;image-rendering:pixelated;display:block;margin:0 auto;border-radius:3px}
+.sheet figcaption{font-size:13px;color:var(--ink-2);margin-top:4px;line-height:1.2}
+.sheet figcaption i{display:block;font-style:normal;font-size:11.5px;color:var(--ink-3)}
+.swatches{display:grid;grid-template-columns:repeat(32,1fr);gap:2px}
+.swatches span{aspect-ratio:1/2;border-radius:2px}
+.swlab{font-size:13px;color:var(--ink-3);margin:8px 0 4px;font-weight:700}
+.pairs{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}
+.pairs figure{margin:0}
+.pairs .stage{aspect-ratio:auto}
+.pairs canvas{width:100%;height:auto;image-rendering:pixelated;display:block;border-radius:4px}
+.pairs figcaption{font-size:14px;color:var(--ink-2);margin-top:6px}
+.pairs figcaption b{color:var(--ink)}
+.steps{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.steps figure{margin:0}
+.steps canvas{width:100%;height:auto;image-rendering:pixelated;display:block;border-radius:4px;background:#0c0a12}
+.steps figcaption{font-size:13.5px;color:var(--ink-2);margin-top:5px}
+@media (max-width:640px){.steps{grid-template-columns:repeat(2,1fr)}}
+.icons{display:flex;flex-wrap:wrap;gap:12px}
+.icons figure{margin:0;text-align:center;width:84px}
+.icons canvas{width:56px;height:64px;image-rendering:pixelated;display:block;margin:0 auto}
+.icons figcaption{font-size:12.5px;color:var(--ink-2);margin-top:4px}
+.hudbar{font-family:var(--pixel);display:flex;flex-wrap:wrap;gap:6px;background:#14101f;color:#efe9f6;padding:8px;border-radius:4px;font-size:12px}
+.hudbar span{background:#241d38;padding:3px 6px;border:1px solid #3a3150}
+.hudbar i{font-style:normal;color:#fee761}
+.actbar{font-family:var(--pixel);display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.actbar span{background:#241d38;color:#efe9f6;padding:6px 9px;border:1px solid #3a3150;font-size:12px}
+.actbar span.on{background:#fee761;color:#14101f;border-color:#fee761}
+.kit{display:grid;gap:14px}
+.kit h5{margin:0 0 4px;font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3)}
+.fig-svg svg{width:100%;height:auto;display:block;color:var(--ink)}
+.chapter{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;counter-reset:ch}
+.chapter div{background:var(--surface);border:1px solid var(--rule);border-radius:6px;padding:10px 12px;font-size:15px}
+.chapter b{display:block;font-weight:800}
+.chapter div::before{counter-increment:ch;content:"Year " counter(ch);display:block;font-size:11.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3);font-weight:800}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header class="masthead">
+  <p class="eyebrow">Base-Manager · round three · follows <a href="https://claude.ai/artifact/NQnfqzeQtkyqgyboLg2bf4">Bone &amp; Glass</a></p>
+  <h1>Afterglass</h1>
+  <p class="lede">A side-view pixel keep on the border between the living and the dead. By day the living build, craft and hold the walls. Anyone who dies wakes that night in the keep's reflection and works the night shift. This is the Mourning Glass idea from round two, worked through in depth: rules for day, dusk, night and dawn, the systems that tie them together, and how it looks in pixel art.</p>
+</header>
+
+<nav class="toc" aria-label="Sections">
+  <ol>
+    <li><a href="#problems">Problems</a></li><li><a href="#pitch">Pitch</a></li><li><a href="#cycle">The cycle</a></li><li><a href="#day">Day</a></li><li><a href="#dusk">Dusk</a></li><li><a href="#night">Night</a></li><li><a href="#dawn">Dawn</a></li><li><a href="#mirrors">Mirrors</a></li><li><a href="#people">People</a></li><li><a href="#economy">Economy</a></li><li><a href="#seasons">Seasons</a></li><li><a href="#threats">Threats</a></li><li><a href="#look">Look</a></li><li><a href="#structure">Structure</a></li><li><a href="#scope">Scope</a></li><li><a href="#decide">Decisions</a></li><li><a href="#ledger">What's checked</a></li>
+  </ol>
+</nav>
+
+<section id="problems" class="sec" style="padding-top:36px">
+  <p class="eyebrow flag">Read this first</p>
+  <h2>Six problems this design has to solve</h2>
+  <p class="sub">This concept tends to break in these places. Each fix is a design proposal, untested until the greybox.</p>
+  <div class="fixes">
+    <div class="row"><b>Players will get people killed on purpose.</b><p>If every death is a new worker, feeding people to the raiders becomes a strategy. <strong>Fix:</strong> how someone dies decides what wakes. Dying on duty or of old age makes a loyal shade; dying of neglect makes a Restless one that snuffs candles and turns hostile; killing your own people makes a Wraith that hunts you. Good deaths come from good lives.</p></div>
+    <div class="row"><b>Bad days spiral.</b><p>A lost raid means fewer workers by day and a flood of dead at night. <strong>Fix:</strong> mirrors cap how many shades you can bind. Extra dead wake Restless, and releasing them at dawn raises the living's morale, so a disaster turns into a recovery.</p></div>
+    <div class="row"><b>The night becomes a chore.</b><p>A second realm that only maintains the first gets skipped. <strong>Fix:</strong> night has its own verbs (light, guide, ward, hold a line in the dark) and makes things the day can't: dreams, essence, and warnings about tomorrow.</p></div>
+    <div class="row"><b>Two economies double the scope.</b><p><strong>Fix:</strong> one set of room art serves both realms (the reflection is a vertical flip plus a palette swap), and each room has exactly one day job and one night job. A cut list is at the end.</p></div>
+    <div class="row"><b>Upside-down rooms are hard to read.</b><p><strong>Fix:</strong> shades are dark silhouettes with glowing eyes, the camera slides down to center the reflection at night, and the interface never flips. Test it in the first art pass.</p></div>
+    <div class="row"><b>Grief is heavy material.</b><p><strong>Fix:</strong> warm writing, names, funerals and peaceful releases, and no gore. The dawn rite is about letting go as much as keeping.</p></div>
+  </div>
+  <p class="note">The dead-worker idea on its own is crowded: Graveyard Keeper 2, the jam game Micro Necro (ghosts of dead villagers help the living), and the upcoming <em>My Staff Are Dead! Paranormal Tycoon</em>. No game found moves its dead into a mirror world or has a mirror-covering rite, so those two stay at the center of everything below.</p>
+</section>
+
+<section id="pitch" class="sec">
+  <h2>The pitch</h2>
+  <p class="pitch measure">You hold a keep on the Veil, the thin skin between the living world and the Tain, the reflected world behind every mirror. By day you're a lord of the living: you build rooms, craft goods and hold the walls against raiders. Anyone who dies inside the walls, your guard or their raider, wakes at dusk in the Tain as a shade and works the night shift in the reflected keep, holding back the Unlit that climb out of the Deep. At dawn you decide which of the dead stay bound to your mirrors and which you let rest.</p>
+  <div class="pillars" style="margin-top:20px">
+    <div><b>Every death is a loss and a hire</b><p>A death costs the day and feeds the night. It's never only one.</p></div>
+    <div><b>Two halves, two sets of verbs</b><p>Day builds and fights at the walls. Night lights, guides and holds lines in the dark.</p></div>
+    <div><b>The mirror is the door</b><p>Every link between the realms is a mirror you hang, cover or break.</p></div>
+    <div><b>You can't farm death</b><p>A good death makes a loyal shade. Neglect and cruelty make dangerous ones.</p></div>
+    <div><b>Readable at arm's length</b><p>Fixed pixel scale, clear silhouettes, one realm in focus at a time.</p></div>
+  </div>
+  <p class="note">About the name: <strong>Afterglass</strong> means the world after death, behind the glass. No game with that name turned up in a web search. Tainhold (after the <em>tain</em>, a mirror's metal backing) and Candlewake are clean backups. Names ending in "-glass" are common, so check again before you commit.</p>
+</section>
+
+<section id="cycle" class="sec">
+  <h2>A day and a night</h2>
+  <p class="sub">One full cycle takes about ten minutes of real time, with pause and fast-forward. The season decides how it splits between day and night.</p>
+  <figure class="panel fig-svg" style="margin:0">
+    <svg viewBox="0 0 640 214" role="img" aria-label="Chart: a ten-minute cycle split into dawn rite, day, dusk and night. Summer: day 6 minutes, night 2.5. At the equinoxes, spring and autumn: 4.25 each. Winter: day 2.5, night 6. The rite takes 1 minute and dusk half a minute in every season.">
+      <g font-size="12" fill="currentColor">
+        <rect x="110" y="8" width="12" height="12" rx="2" style="fill:var(--c-rite)"/><text x="127" y="18">Dawn rite (paused)</text>
+        <rect x="250" y="8" width="12" height="12" rx="2" style="fill:var(--c-day)"/><text x="267" y="18">Day</text>
+        <rect x="310" y="8" width="12" height="12" rx="2" style="fill:var(--c-dusk)"/><text x="327" y="18">Dusk</text>
+        <rect x="378" y="8" width="12" height="12" rx="2" style="fill:var(--c-night)"/><text x="395" y="18">Night</text>
+      </g>
+      <g stroke="var(--grid)" stroke-width="1">
+        <line x1="110" y1="34" x2="110" y2="178"/><line x1="212" y1="34" x2="212" y2="178"/><line x1="314" y1="34" x2="314" y2="178"/><line x1="416" y1="34" x2="416" y2="178"/><line x1="518" y1="34" x2="518" y2="178"/><line x1="620" y1="34" x2="620" y2="178"/>
+      </g>
+      <g font-size="13" font-weight="700" fill="currentColor" text-anchor="end"><text x="100" y="62">Summer</text><text x="100" y="112">Equinox</text><text x="100" y="162">Winter</text></g>
+      <g>
+        <rect x="110" y="44" width="49" height="24" style="fill:var(--c-rite)"><title>Summer · dawn rite · 1 min</title></rect><rect x="161" y="44" width="304" height="24" style="fill:var(--c-day)"><title>Summer · day · 6 min</title></rect><rect x="467" y="44" width="23" height="24" style="fill:var(--c-dusk)"><title>Summer · dusk · 0.5 min</title></rect><rect x="492" y="44" width="128" height="24" rx="4" style="fill:var(--c-night)"><title>Summer · night · 2.5 min</title></rect>
+        <rect x="110" y="94" width="49" height="24" style="fill:var(--c-rite)"><title>Spring and autumn · dawn rite · 1 min</title></rect><rect x="161" y="94" width="215" height="24" style="fill:var(--c-day)"><title>Spring and autumn · day · 4.25 min</title></rect><rect x="378" y="94" width="23" height="24" style="fill:var(--c-dusk)"><title>Spring and autumn · dusk · 0.5 min</title></rect><rect x="403" y="94" width="217" height="24" rx="4" style="fill:var(--c-night)"><title>Spring and autumn · night · 4.25 min</title></rect>
+        <rect x="110" y="144" width="49" height="24" style="fill:var(--c-rite)"><title>Winter · dawn rite · 1 min</title></rect><rect x="161" y="144" width="126" height="24" style="fill:var(--c-day)"><title>Winter · day · 2.5 min</title></rect><rect x="289" y="144" width="23" height="24" style="fill:var(--c-dusk)"><title>Winter · dusk · 0.5 min</title></rect><rect x="314" y="144" width="306" height="24" rx="4" style="fill:var(--c-night)"><title>Winter · night · 6 min</title></rect>
+      </g>
+      <g font-size="12" font-weight="700">
+        <text x="134.5" y="60" text-anchor="middle" fill="#ffffff">Rite</text><text x="313" y="60" text-anchor="middle" fill="#1b1420">Day 6 min</text><text x="556" y="60" text-anchor="middle" fill="#ffffff">Night 2.5</text>
+        <text x="134.5" y="110" text-anchor="middle" fill="#ffffff">Rite</text><text x="268.5" y="110" text-anchor="middle" fill="#1b1420">Day 4.25</text><text x="511.5" y="110" text-anchor="middle" fill="#ffffff">Night 4.25</text>
+        <text x="134.5" y="160" text-anchor="middle" fill="#ffffff">Rite</text><text x="224" y="160" text-anchor="middle" fill="#1b1420">Day 2.5</text><text x="467" y="160" text-anchor="middle" fill="#ffffff">Night 6 min</text>
+      </g>
+      <g font-size="11.5" fill="currentColor" text-anchor="middle" opacity=".75"><text x="110" y="196">0</text><text x="212" y="196">2</text><text x="314" y="196">4</text><text x="416" y="196">6</text><text x="518" y="196">8</text><text x="620" y="196">10 min</text></g>
+    </svg>
+    <figcaption class="note">The swing from summer to winter is roughly what London sees, from about 16½ hours of daylight in June to under 8 in December. Summer is for building and stockpiling candles; in winter the dead carry the keep.</figcaption>
+  </figure>
+  <div class="pillars" style="margin-top:14px">
+    <div><span class="phase dawn">Dawn</span><b style="margin-top:6px">The Rite</b><p>Paused. Decide which of the dead stay bound and which you let rest.</p></div>
+    <div><span class="phase day">Day</span><b style="margin-top:6px">The living keep</b><p>Build, craft, heal and defend. Raids usually hit around midday.</p></div>
+    <div><span class="phase night" style="color:var(--accent);background:color-mix(in srgb,var(--accent) 14%,transparent)">Dusk</span><b style="margin-top:6px">The Crossing</b><p>The day's dead wake in the Tain. Place tonight's candles.</p></div>
+    <div><span class="phase night">Night</span><b style="margin-top:6px">The Tain</b><p>Light, guide, ward and hold. The Unlit surge around midnight.</p></div>
+  </div>
+</section>
+
+<section id="day" class="sec">
+  <span class="phase day">Day</span>
+  <h2 style="margin-top:8px">Day: the living keep</h2>
+  <p class="sub">The familiar half: a Fallout Shelter-style cross-section you build, staff and defend. The Tain is visible below it, dim, with its shades resting in the glass.</p>
+  <div class="twocol">
+    <figure class="fig" style="margin:0">
+      <div class="phone"><div class="stage r916" data-ag="day" role="img" aria-label="Pixel mockup of the day view: a stone keep cut away into fourteen rooms with people working. A funeral in the chapel, a body on a slab in the crypt, a smith and apprentice at the forge, raiders at the gate. Below a glowing line, the dim upside-down reflection of the keep.">
+        <div class="hud" aria-hidden="true"><div class="row tl"><span class="chip">DAY <i>14</i> · SUMMER</span><span class="chip">LIVING <i>21</i></span><span class="chip">DEAD <i>9</i>/10</span><span class="chip">CANDLES <i>38</i></span></div><div class="toast red" style="left:auto;right:3%;top:14%;max-width:44%"><em>RAID AT THE GATE</em>3 RAIDERS</div><div class="tools"><span class="tool">BUILD</span><span class="tool">ASSIGN</span><span class="tool">CRAFT</span><span class="tool on">DEFEND</span></div></div>
+        <span class="pin" style="left:30%;top:30%">1</span><span class="pin" style="left:24%;top:47%">2</span><span class="pin" style="left:72%;top:39%">3</span><span class="pin" style="left:93%;top:44%">4</span><span class="pin" style="left:50%;top:76%">5</span>
+      </div></div>
+      <figcaption><span>Pixel mockup, 180×320, animated</span><button class="pins-toggle" type="button">Hide labels</button></figcaption>
+      <ol class="legend"><li>A funeral in the chapel. Its mirror is covered, as mourners do.</li><li>Ada, killed in this morning's raid, lies in the crypt until dusk.</li><li>Whispers: the old smith's shade coaches his apprentice through the forge mirror.</li><li>Raiders at the gate. Whoever falls here works for you tonight.</li><li>The Tain by day: dim, its shades resting in the glass.</li></ol>
+    </figure>
+    <div class="prose">
+      <h3>What you do</h3>
+      <ul><li><strong>Build.</strong> Carve rooms into the keep's cross-section. Every room you build has a twin in the Tain.</li><li><strong>Assign.</strong> People have skills and traits and work where you put them.</li><li><strong>Craft.</strong> Tallow becomes candles, sand and silver become mirrors, ore becomes arms, grain becomes bread.</li><li><strong>Defend.</strong> Walls, a gate and archers against raids. Ring the bell to send workers to their posts.</li><li><strong>Tend.</strong> Heal the wounded before they die badly, and hold funerals so grief can heal.</li></ul>
+      <h3>What goes wrong by day</h3>
+      <ul><li><strong>Raids</strong> by the Ashen Host, later with rams and ladders.</li><li><strong>Fire</strong> spreading through wooden rooms.</li><li><strong>Sickness</strong> in crowded quarters. The sick die Pale.</li><li><strong>Hunger and cold.</strong> Deaths from neglect wake Restless.</li><li><strong>The Lantern Church,</strong> which inspects the keep when too many souls are bound.</li></ul>
+      <h3>What last night gave you</h3>
+      <ul><li><strong>Dreams:</strong> rested, happier workers.</li><li><strong>Essence:</strong> healing and wards.</li><li><strong>Whispers:</strong> a bound shade behind an uncovered mirror coaches whoever works that room.</li><li><strong>Warnings:</strong> a black mirror shows tonight's threats and tomorrow's raid.</li></ul>
+    </div>
+  </div>
+</section>
+
+<section id="dusk" class="sec">
+  <span class="phase dawn">Dusk</span>
+  <h2 style="margin-top:8px">Dusk: the Crossing</h2>
+  <p class="sub">About thirty seconds. It's the game's signature moment, so it should look good and be short.</p>
+  <div class="strip">
+    <figure><div class="frame"><div class="stage" data-ag="sunset" data-crop="80" role="img" aria-label="Frame 1: sunset light over the keep; the living head for bed."></div></div><figcaption><b>Sunset.</b> The bell rings and the living head for bed. Unfinished work pauses.</figcaption></figure>
+    <figure><div class="frame"><div class="stage" data-ag="lights" data-crop="80" role="img" aria-label="Frame 2: the keep goes dark except the quarters and the gate."></div></div><figcaption><b>Lights.</b> The keep goes dark except the quarters, the infirmary and the gate.</figcaption></figure>
+    <figure><div class="frame"><div class="stage" data-ag="rise" data-crop="80" role="img" aria-label="Frame 3: a glowing soul sinks from the crypt through the Veil and wakes upside down in the reflected room."></div></div><figcaption><b>The dead rise.</b> Ada's soul sinks through the Veil and wakes in the Waking Room.</figcaption></figure>
+    <figure><div class="frame"><div class="stage" data-ag="night" data-crop="80" role="img" aria-label="Frame 4: candles lit in the reflection, shades at their posts."></div></div><figcaption><b>At their posts.</b> Candles are lit and every shade is where you put it.</figcaption></figure>
+  </div>
+  <div class="prose" style="margin-top:18px">
+    <ul><li>Each body in the crypt wakes as a shade, if a mirror has room for it. How the person died decides what kind of shade wakes (see <a href="#people">People</a>).</li><li>With no room left, the shade wakes Restless at the edge of the Deep. You deal with it tonight or release it at dawn.</li><li>You place tonight's candles. Each burns for one night; lanterns last longer but cost silver.</li></ul>
+  </div>
+</section>
+
+<section id="night" class="sec">
+  <span class="phase night">Night</span>
+  <h2 style="margin-top:8px">Night: the Tain</h2>
+  <p class="sub">The camera slides down to the reflection. The Tain is the same keep flipped and recolored, lit only by the candles you placed. Everything outside the light belongs to the Unlit.</p>
+  <div class="twocol">
+    <figure class="fig" style="margin:0">
+      <div class="phone"><div class="stage r916" data-ag="night" data-cam="120" role="img" aria-label="Pixel mockup of the night view: the dark keep at the top, a glowing line, and below it the upside-down violet reflection lit by pools of dithered candlelight, with dark figures with cyan eyes working upside down. Black creatures with red eyes crawl up from glowing cracks in the dark below and into an unlit room.">
+        <div class="hud" aria-hidden="true"><div class="row tl"><span class="chip">NIGHT <i>14</i></span><span class="chip">SHADES <i>9</i>/10</span><span class="chip">CANDLES <i>38</i></span><span class="chip">ESSENCE <i>22</i></span></div><div class="toast vio" style="left:3%;top:60%;max-width:48%"><em>CREEPERS IN THE HOLLOW GRANARY</em>IT HAS NO CANDLE</div><div class="tools"><span class="tool on">LIGHT</span><span class="tool">WARD</span><span class="tool">GUIDE</span><span class="tool">HUSH</span></div></div>
+        <span class="pin" style="left:17%;top:41%">1</span><span class="pin" style="left:39%;top:26%">2</span><span class="pin" style="left:22%;top:21%">3</span><span class="pin" style="left:72%;top:31%">4</span><span class="pin" style="left:66%;top:84%">5</span>
+      </div></div>
+      <figcaption><span>Pixel mockup, 180×320, dithered candlelight, animated</span><button class="pins-toggle" type="button">Hide labels</button></figcaption>
+      <ol class="legend"><li>Candlelight is the only safe ground.</li><li>The Hollow Granary has no candle, and Creepers are getting in.</li><li>Ada, new tonight, in the Waking Room. New shades glow brighter.</li><li>A Maw testing the Maw, the gate that faces the Deep.</li><li>Rifts in the Deep, where the Unlit come from.</li></ol>
+    </figure>
+    <div class="prose">
+      <h3>What you do</h3>
+      <ul><li><strong>Light.</strong> Place candles. The Unlit can't enter light, and every candle burns down by dawn.</li><li><strong>Work.</strong> Shades work the twin rooms (table below).</li><li><strong>Guide.</strong> Send shades where they're needed. Routes through the dark are dangerous.</li><li><strong>Ward.</strong> Spend essence to seal a mirror or a rift for the night.</li><li><strong>Hold.</strong> Shades fight at the edge of the light.</li><li><strong>Hush.</strong> Silence every shade: the Unlit pass by, but all work stops.</li></ul>
+      <h3>What comes up from the Deep</h3>
+      <ul><li><strong>Creepers:</strong> fast and weak; they snuff candles.</li><li><strong>Maws:</strong> break twin rooms. A broken twin haunts its day room.</li><li><strong>Weepers:</strong> seep into the Dreamwell and give the sleepers above nightmares.</li><li><strong>The Hollow:</strong> a new-moon boss that eats light.</li><li><strong>The Drowned:</strong> on rainy nights, up through the moat's twin.</li><li><strong>Your own dead gone wrong:</strong> Restless shades and Wraiths.</li></ul>
+    </div>
+  </div>
+  <h3 style="font-size:20px;font-weight:800;margin:36px 0 10px">Every room has a twin</h3>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Room by day</th><th>Day job</th><th>Twin by night</th><th>Night job</th></tr></thead>
+    <tbody>
+      <tr><td class="game">Library</td><td>Research</td><td class="game">Archive of the Dead</td><td>Old knowledge speeds research</td></tr>
+      <tr><td class="game">Glazier</td><td>Makes mirrors</td><td class="game">Silvering</td><td>Quicksilver to repair and upgrade mirrors</td></tr>
+      <tr><td class="game">Chandlery</td><td>Candles from tallow</td><td class="game">Wick Room</td><td>Makes candles burn longer</td></tr>
+      <tr><td class="game">Chapel</td><td>Funerals, remembrance</td><td class="game">Choir of Echoes</td><td>Essence; calms Restless shades</td></tr>
+      <tr><td class="game">Quarters</td><td>Sleep</td><td class="game">Dreamwell</td><td>Dreams. Weepers here cause nightmares above.</td></tr>
+      <tr><td class="game">Infirmary</td><td>Healing</td><td class="game">Threshold</td><td>Guides the dying toward a good death</td></tr>
+      <tr><td class="game">Hall</td><td>Decrees and audiences</td><td class="game">Court of Shades</td><td>The dead's requests; late game, your own shade sits here</td></tr>
+      <tr><td class="game">Barracks</td><td>Guards train</td><td class="game">Watch of the Dead</td><td>The night garrison</td></tr>
+      <tr><td class="game">Hearth</td><td>Food</td><td class="game">Cold Hearth</td><td>Where shades gather: morale for the dead</td></tr>
+      <tr><td class="game">Forge</td><td>Arms</td><td class="game">Cold Forge</td><td>Grave-steel that harms the Unlit</td></tr>
+      <tr><td class="game">Crypt</td><td>Bodies wait for dusk</td><td class="game">Waking Room</td><td>Where the dead wake</td></tr>
+      <tr><td class="game">Gatehouse</td><td>The gate</td><td class="game">The Maw</td><td>Faces the Deep; big incursions come here</td></tr>
+      <tr><td class="game">Granary, cellar</td><td>Storage</td><td class="game">Hollow Granary, Hollow Cellar</td><td>Nothing. Dark and empty: the weak spots.</td></tr>
+    </tbody>
+  </table></div>
+  <p class="note">Storage is safe by day and a liability by night. That one asymmetry gives every build decision a second meaning.</p>
+</section>
+
+<section id="dawn" class="sec">
+  <span class="phase dawn">Dawn</span>
+  <h2 style="margin-top:8px">Dawn: the Rite</h2>
+  <p class="sub">The game pauses. The Unlit withdraw, the shades go back into the glass, and you decide who stays. Try the toggles.</p>
+  <div class="twocol">
+    <div class="pxui" id="rite" role="group" aria-label="Interactive mockup of the dawn rite screen">
+      <h4>DAWN RITE · DAY 15</h4>
+      <p class="muted">The Unlit withdrew. Candles left: 6. Nightmares: 1, in the quarters.</p>
+      <div class="rite-row" data-who="ada"><div class="who"><b>CHAPEL GLASS · ADA</b><small>guard · Loyal · died holding the gate · brother Wil lives</small></div><div class="opts"><button type="button" data-v="keep" aria-pressed="true">KEEP</button><button type="button" data-v="cover" aria-pressed="false">COVER</button></div></div>
+      <div class="rite-row" data-who="tam"><div class="who"><b>FORGE GLASS · OLD TAM</b><small>smith · Serene · old age · memory 40%</small></div><div class="opts"><button type="button" data-v="keep" aria-pressed="true">KEEP</button><button type="button" data-v="cover" aria-pressed="false">COVER</button></div></div>
+      <div class="rite-row" data-who="hesk"><div class="who"><b>HALL GREAT GLASS · HESK</b><small>raider · Stranger · no bonds</small></div><div class="opts"><button type="button" data-v="keep" aria-pressed="true">KEEP</button><button type="button" data-v="cover" aria-pressed="false">COVER</button></div></div>
+      <div class="rite-row" data-who="bran"><div class="who"><b>NO MIRROR · BRAN</b><small>cook · Restless · starved in the siege · turns Wraith in 2 nights</small></div><div class="opts"><button type="button" data-v="cover" aria-pressed="true">RELEASE</button></div></div>
+      <div class="rite-foot"><div>DREAD <span class="meter-px" id="rite-dread"></span></div><button type="button" class="begin">BEGIN THE DAY</button></div>
+      <p class="effects" id="rite-effects" aria-live="polite"></p>
+    </div>
+    <div class="prose">
+      <h3>The rules</h3>
+      <ul><li><strong>Keep</strong> a shade and it works tomorrow night. Dread rises by one.</li><li><strong>Cover</strong> its mirror and the shade is released. The living gain remembrance, and anyone bonded to it is at peace instead of grieving.</li><li><strong>Restless shades</strong> with no mirror must be released, or they turn Wraith after three nights.</li><li><strong>Break a mirror</strong> in an emergency to free everyone in it at once. The room then has seven seasons of bad luck, after the old superstition about seven years.</li><li><strong>Name the dead</strong> in the ledger. Named shades fade half as fast.</li></ul>
+      <p style="margin-top:12px;color:var(--ink-2)">Dread is the cost of keeping. At five, the Lantern Church sends an inspector. Covering mirrors after a death is a real mourning custom, kept in Jewish homes during shiva and in Victorian households.</p>
+      <p style="margin-top:10px;color:var(--ink-2)">The Rite is also the save point and the natural place to stop a session.</p>
+    </div>
+  </div>
+</section>
+
+<section id="mirrors" class="sec">
+  <h2>Mirrors</h2>
+  <p class="sub">Every link between the realms is a mirror. A mirror holds shades, lets the dead reach the living, and gives the Unlit a way up.</p>
+  <div class="icons" aria-label="Mirror states">
+    <figure><canvas width="14" height="16" data-icon3="uncovered" aria-hidden="true"></canvas><figcaption>Uncovered</figcaption></figure>
+    <figure><canvas width="14" height="16" data-icon3="covered" aria-hidden="true"></canvas><figcaption>Covered</figcaption></figure>
+    <figure><canvas width="14" height="16" data-icon3="cracked" aria-hidden="true"></canvas><figcaption>Cracked</figcaption></figure>
+    <figure><canvas width="14" height="16" data-icon3="broken" aria-hidden="true"></canvas><figcaption>Broken</figcaption></figure>
+    <figure><canvas width="14" height="16" data-icon3="great" aria-hidden="true"></canvas><figcaption>Great glass</figcaption></figure>
+    <figure><canvas width="14" height="16" data-icon3="black" aria-hidden="true"></canvas><figcaption>Black mirror</figcaption></figure>
+  </div>
+  <div class="twocol" style="margin-top:18px">
+    <div class="table-wrap"><table>
+      <thead><tr><th>Mirror</th><th>Holds</th><th>Made from</th><th>Special</th></tr></thead>
+      <tbody>
+        <tr><td class="game">Hand mirror</td><td>1 shade</td><td>Glass, a little silver</td><td>Cheap; fits any room</td></tr>
+        <tr><td class="game">Pier glass</td><td>2 shades</td><td>Glass, silver</td><td>The standard</td></tr>
+        <tr><td class="game">Great glass</td><td>4 shades</td><td>Glass, silver, quicksilver</td><td>Shades can step through by day and help in person</td></tr>
+        <tr><td class="game">Black mirror</td><td>None</td><td>Obsidian</td><td>Shows tonight's threats and tomorrow's raid</td></tr>
+      </tbody>
+    </table></div>
+    <div class="prose">
+      <ul><li><strong>Capacity.</strong> Your mirrors' combined slots cap how many shades you can bind. That cap is the main brake on farming death.</li><li><strong>Twins need a mirror.</strong> A twin room can only be worked if a mirror in its day room links the two.</li><li><strong>Uncovered</strong> mirrors are open both ways: whispers help the living by day, and if the twin room falls at night, something comes through.</li><li><strong>Cracked</strong> mirrors leak. <strong>Broken</strong> ones free their shades and curse the room.</li><li>The black mirror is modeled on John Dee's obsidian scrying mirror, now in the British Museum.</li></ul>
+    </div>
+  </div>
+</section>
+
+<section id="people" class="sec">
+  <h2>People: life, death, rest</h2>
+  <p class="sub">Everyone in the keep is one person across both rosters. How they lived and how they died decide what kind of shade they make.</p>
+  <figure class="panel fig-svg" style="margin:0">
+    <svg viewBox="0 0 640 330" role="img" aria-label="Diagram: a living person dies and wakes as one of six shades depending on the cause: Loyal, Serene, Pale, Restless, Wraith, or Stranger for a raider. At dawn a shade is either kept, becoming bound until its memory runs out and it passes on, or covered and released to rest. Restless shades turn Wraith after three nights. A shade in the Threshold can guide a dying person toward a better death.">
+      <defs><marker id="pa" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker><marker id="pv" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#8f6ad8"/></marker></defs>
+      <g fill="none" stroke="currentColor" stroke-width="1.5">
+        <rect x="14" y="96" width="100" height="44" rx="6"/><rect x="14" y="252" width="100" height="44" rx="6" stroke-dasharray="4 3"/>
+        <rect x="196" y="16" width="170" height="38" rx="6"/><rect x="196" y="66" width="170" height="38" rx="6"/><rect x="196" y="116" width="170" height="38" rx="6"/><rect x="196" y="166" width="170" height="38" rx="6"/><rect x="196" y="216" width="170" height="38" rx="6"/><rect x="196" y="266" width="170" height="38" rx="6"/>
+        <rect x="430" y="70" width="90" height="40" rx="6"/><rect x="430" y="200" width="90" height="40" rx="6"/>
+        <rect x="548" y="70" width="80" height="40" rx="20" stroke-dasharray="2 3"/><rect x="548" y="200" width="80" height="40" rx="20" stroke-dasharray="2 3"/>
+      </g>
+      <g fill="currentColor" font-size="14" font-weight="700" text-anchor="middle"><text x="64" y="123">Living</text><text x="64" y="279">A raider</text><text x="475" y="95">Bound</text><text x="475" y="225">Released</text><text x="588" y="95">Passes on</text><text x="588" y="225">At rest</text></g>
+      <g fill="currentColor" font-size="13"><text x="206" y="40"><tspan font-weight="800">Loyal</tspan> · died on duty</text><text x="206" y="90"><tspan font-weight="800">Serene</tspan> · old age</text><text x="206" y="140"><tspan font-weight="800">Pale</tspan> · sickness</text><text x="206" y="190"><tspan font-weight="800">Restless</tspan> · neglect</text><text x="206" y="240"><tspan font-weight="800">Wraith</tspan> · killed by you</text><text x="206" y="290"><tspan font-weight="800">Stranger</tspan> · a raider</text></g>
+      <g stroke="currentColor" stroke-width="1.5" fill="none">
+        <path d="M114 112 L170 112 L170 35 L193 35" marker-end="url(#pa)"/><path d="M170 85 L193 85" marker-end="url(#pa)"/><path d="M170 112 L170 235 L193 235" marker-end="url(#pa)"/><path d="M170 135 L193 135" marker-end="url(#pa)"/><path d="M170 185 L193 185" marker-end="url(#pa)"/>
+        <path d="M114 274 L150 274 L150 285 L193 285" marker-end="url(#pa)"/>
+        <path d="M366 60 L400 60 L400 90 L427 90" marker-end="url(#pa)"/><path d="M366 210 L400 210 L400 220 L427 220" marker-end="url(#pa)"/>
+        <path d="M520 90 L545 90" marker-end="url(#pa)"/><path d="M520 220 L545 220" marker-end="url(#pa)"/>
+      </g>
+      <g fill="currentColor" font-size="12"><text x="126" y="104">dies</text><text x="376" y="50">kept at dawn</text><text x="376" y="266">covered at dawn</text><text x="480" y="130">memory runs out</text></g>
+      <path d="M366 190 C 384 196, 384 226, 369 232" fill="none" stroke="#c0392b" stroke-width="1.8" marker-end="url(#pa)"/><text x="372" y="178" font-size="11.5" fill="#c0392b" font-weight="700">3 nights</text>
+      <path d="M196 140 C 176 128, 176 52, 194 44" fill="none" stroke="#8f6ad8" stroke-width="1.8" stroke-dasharray="5 3" marker-end="url(#pv)"/><text x="14" y="62" font-size="11.5" fill="#8f6ad8" font-weight="700">guided at</text><text x="14" y="76" font-size="11.5" fill="#8f6ad8" font-weight="700">the Threshold</text>
+    </svg>
+    <figcaption class="note">The dashed purple arrow is the soft path: a shade in the Threshold can ease a dying person toward a better death.</figcaption>
+  </figure>
+  <div class="twocol" style="margin-top:22px">
+    <div class="table-wrap"><table>
+      <thead><tr><th>Living trait</th><th>After death</th><th>What it does at night</th></tr></thead>
+      <tbody>
+        <tr><td class="game">Brave</td><td class="game">Reckless</td><td>Charges the Unlit; dies again faster</td></tr>
+        <tr><td class="game">Devout</td><td class="game">Bitter</td><td>Resents the living; strong at wards</td></tr>
+        <tr><td class="game">Diligent</td><td class="game">Tireless</td><td>Never rests, never talks</td></tr>
+        <tr><td class="game">Coward</td><td class="game">Lurker</td><td>Unseen by the Unlit; a good scout</td></tr>
+        <tr><td class="game">Gentle</td><td class="game">Keening</td><td>Sings; calms Restless shades</td></tr>
+        <tr><td class="game">Greedy</td><td class="game">Hoarding</td><td>More essence, but pockets candles</td></tr>
+        <tr><td class="game">Stubborn</td><td class="game">Anchored</td><td>Fades half as fast</td></tr>
+        <tr><td class="game">Cheerful</td><td class="game">Wistful</td><td>Better dreams in the Dreamwell</td></tr>
+      </tbody>
+    </table></div>
+    <div class="prose">
+      <h3>Bonds</h3>
+      <ul><li><strong>Twinned work.</strong> A living worker and a bonded shade in a room and its twin both work a quarter faster.</li><li><strong>Grief.</strong> When someone dies, the people bonded to them work a fifth slower until a funeral or a release.</li><li><strong>At peace.</strong> Releasing a bonded shade turns grief into a lasting morale boost.</li><li><strong>Haunting.</strong> A bonded shade that turns Wraith goes after its own kin's room first.</li></ul>
+      <h3>Fading and remembrance</h3>
+      <p>Shades lose memory every night. When it's gone they pass on by themselves: free, but you lose the worker. Chapel services and memorials by day make remembrance, which restores memory, and a name in the ledger halves the fade.</p>
+      <h3>Aging (a cut candidate)</h3>
+      <p>The living age by season and have children. By the late game, everyone you started with works nights. It's poignant but expensive; see the cut list.</p>
+    </div>
+  </div>
+</section>
+
+<section id="economy" class="sec">
+  <h2>Economy</h2>
+  <p class="sub">Each realm makes what the other needs. Nothing important is produced on both sides.</p>
+  <figure class="panel fig-svg" style="margin:0">
+    <svg viewBox="0 0 640 318" role="img" aria-label="Diagram: resources crossing the Veil. Down from day to night: candles become light, mirrors become capacity, remembrance slows fading, and bodies become new shades. Up from night to day: essence heals and wards, dreams rest the living, whispers teach skills, the black mirror warns of raids, and quicksilver makes better mirrors.">
+      <defs><marker id="ea" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker></defs>
+      <text x="150" y="20" font-size="13" font-weight="800" text-anchor="middle" fill="currentColor">DAY MAKES</text><text x="490" y="20" font-size="13" font-weight="800" text-anchor="middle" fill="currentColor">NIGHT USES</text>
+      <line x1="320" y1="30" x2="320" y2="310" stroke="#8f6ad8" stroke-width="2" stroke-dasharray="7 5"/><text x="326" y="306" font-size="12" fill="#8f6ad8" font-weight="700">the Veil</text>
+      <g font-size="13" fill="currentColor">
+        <text x="290" y="48" text-anchor="end">Candles <tspan opacity=".7">(chandlery)</tspan></text><text x="350" y="48">Light: safe ground</text>
+        <text x="290" y="76" text-anchor="end">Mirrors <tspan opacity=".7">(glazier)</tspan></text><text x="350" y="76">Capacity for shades</text>
+        <text x="290" y="104" text-anchor="end">Remembrance <tspan opacity=".7">(chapel)</tspan></text><text x="350" y="104">Slower fading</text>
+        <text x="290" y="132" text-anchor="end">The fallen <tspan opacity=".7">(the walls)</tspan></text><text x="350" y="132">New shades</text>
+      </g>
+      <g stroke="currentColor" stroke-width="1.5"><line x1="296" y1="44" x2="344" y2="44" marker-end="url(#ea)"/><line x1="296" y1="72" x2="344" y2="72" marker-end="url(#ea)"/><line x1="296" y1="100" x2="344" y2="100" marker-end="url(#ea)"/><line x1="296" y1="128" x2="344" y2="128" marker-end="url(#ea)"/></g>
+      <text x="150" y="170" font-size="13" font-weight="800" text-anchor="middle" fill="currentColor">DAY USES</text><text x="490" y="170" font-size="13" font-weight="800" text-anchor="middle" fill="currentColor">NIGHT MAKES</text>
+      <g font-size="13" fill="currentColor">
+        <text x="290" y="198" text-anchor="end">Healing and wards</text><text x="350" y="198">Essence <tspan opacity=".7">(Choir of Echoes)</tspan></text>
+        <text x="290" y="226" text-anchor="end">Rested, cheerful workers</text><text x="350" y="226">Dreams <tspan opacity=".7">(Dreamwell)</tspan></text>
+        <text x="290" y="254" text-anchor="end">Skill help</text><text x="350" y="254">Whispers <tspan opacity=".7">(open mirrors)</tspan></text>
+        <text x="290" y="282" text-anchor="end">Raid warnings</text><text x="350" y="282">Scrying <tspan opacity=".7">(black mirror)</tspan></text>
+      </g>
+      <g stroke="currentColor" stroke-width="1.5"><line x1="344" y1="194" x2="296" y2="194" marker-end="url(#ea)"/><line x1="344" y1="222" x2="296" y2="222" marker-end="url(#ea)"/><line x1="344" y1="250" x2="296" y2="250" marker-end="url(#ea)"/><line x1="344" y1="278" x2="296" y2="278" marker-end="url(#ea)"/></g>
+    </svg>
+    <figcaption class="note">Local resources stay local: grain, timber, stone and iron by day; quicksilver, grave-steel and old knowledge by night. Morale belongs to the living, dread to the dead.</figcaption>
+  </figure>
+</section>
+
+<section id="seasons" class="sec">
+  <h2>Seasons, moons and the calendar</h2>
+  <div class="twocol">
+    <div class="prose">
+      <ul><li><strong>A year is four seasons of seven days.</strong> The chart above shows the day and night split; summer builds, winter survives.</li><li><strong>The seventh night of each season is a new moon.</strong> The Hollow comes up from the Deep.</li><li><strong>Raiders follow the harvest.</strong> Autumn brings sieges that camp outside for days.</li><li><strong>Plague summers</strong> hit crowded keeps.</li></ul>
+    </div>
+    <div class="prose">
+      <ul><li><strong>The eclipse, once a year.</strong> Day and night run at the same time for a few minutes: both rosters awake and both threat sets attacking. It's the set piece that proves the two halves belong together.</li><li><strong>The Long Night</strong> at the winter solstice ends each year: a double-length night and the year's hardest fight.</li><li><strong>The Inquisition</strong> can come in any season if dread stays high.</li></ul>
+    </div>
+  </div>
+</section>
+
+<section id="threats" class="sec">
+  <h2>Threats</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Threat</th><th>When</th><th>What it does</th><th>Answer</th></tr></thead>
+    <tbody>
+      <tr><td class="game"><span class="phase day">Day</span> Ashen Host</td><td>Most days; sieges in autumn</td><td>Assaults the gate, later with rams and ladders</td><td>Walls, archers, the bell. Their dead become Strangers.</td></tr>
+      <tr><td class="game"><span class="phase day">Day</span> Fire</td><td>Forges and hearths</td><td>Spreads through wooden rooms</td><td>Stone rooms, water barrels</td></tr>
+      <tr><td class="game"><span class="phase day">Day</span> Sickness</td><td>Summer, crowding</td><td>Spreads; the sick die Pale</td><td>Infirmary, space, essence</td></tr>
+      <tr><td class="game"><span class="phase day">Day</span> Lantern Church</td><td>When dread is high</td><td>Inspections, a silver embargo, then a crusade</td><td>Release souls, donate, hide mirrors</td></tr>
+      <tr><td class="game"><span class="phase night">Night</span> Creepers</td><td>Every night</td><td>Snuff candles, bite shades</td><td>Light, the Watch</td></tr>
+      <tr><td class="game"><span class="phase night">Night</span> Maws</td><td>From the second season</td><td>Break twin rooms, which haunts the day room</td><td>Wards, grave-steel</td></tr>
+      <tr><td class="game"><span class="phase night">Night</span> Weepers</td><td>Nights after deaths</td><td>Nightmares for the sleepers above</td><td>Light the Dreamwell; Keening shades</td></tr>
+      <tr><td class="game"><span class="phase night">Night</span> The Drowned</td><td>Rain</td><td>Come up through the moat's twin; drag shades down</td><td>Ward the cellar twins</td></tr>
+      <tr><td class="game"><span class="phase night">Night</span> The Hollow</td><td>New moon</td><td>Eats light</td><td>Lanterns, the whole Watch, the hush</td></tr>
+      <tr><td class="game"><span class="phase night">Night</span> Restless, Wraiths</td><td>After neglect or cruelty</td><td>Snuff candles; hunt their kin</td><td>Release at dawn; good deaths</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section id="look" class="sec" style="border-top:3px solid var(--ink);margin-top:64px">
+  <h2>How it looks</h2>
+  <p class="sub">Everything on this page is drawn by one small pixel renderer, as a check that the style is buildable in the browser.</p>
+  <div class="twocol">
+    <div class="prose">
+      <h3>Technical spec</h3>
+      <ul><li><strong>Canvas:</strong> 180×320 portrait, scaled by whole numbers (6× on a 1080×1920 phone) and letterboxed otherwise.</li><li><strong>World:</strong> taller than the screen. The camera pans between keep and Tain, with 1× and 2× zoom so pixels stay square.</li><li><strong>Grid:</strong> floors are 18 px (16 of room, 2 of floor); walls are 2 px.</li><li><strong>People:</strong> 4×8 px, with two-frame walk and work cycles.</li><li><strong>Palette:</strong> the 32-color ENDESGA 32 by day. The Tain is the same art flipped and run through an eight-step violet ramp.</li><li><strong>Light:</strong> candlelight uses 4×4 ordered dithering, four light levels, and a slight flicker.</li><li><strong>Interface:</strong> drawn at twice the world's pixel density in a pixel font, so text stays sharp.</li></ul>
+    </div>
+    <div>
+      <h3 style="font-size:14px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);font-weight:800;margin:0 0 8px">Color script</h3>
+      <div class="strip" style="grid-template-columns:repeat(4,1fr)">
+        <figure><div class="frame"><div class="stage" style="aspect-ratio:9/16" data-ag="dawn" data-still="1" role="img" aria-label="The keep at dawn in pink light"></div></div><figcaption><b>Dawn</b></figcaption></figure>
+        <figure><div class="frame"><div class="stage" style="aspect-ratio:9/16" data-ag="day" data-still="1" role="img" aria-label="The keep at noon"></div></div><figcaption><b>Noon</b></figcaption></figure>
+        <figure><div class="frame"><div class="stage" style="aspect-ratio:9/16" data-ag="sunset" data-still="1" role="img" aria-label="The keep at dusk in orange light"></div></div><figcaption><b>Dusk</b></figcaption></figure>
+        <figure><div class="frame"><div class="stage" style="aspect-ratio:9/16" data-ag="night" data-still="1" data-cam="60" role="img" aria-label="The keep at midnight with the Tain lit by candles"></div></div><figcaption><b>Midnight</b></figcaption></figure>
+      </div>
+    </div>
+  </div>
+
+  <h3 style="font-size:20px;font-weight:800;margin:36px 0 8px">One set of art, two realms</h3>
+  <p class="measure" style="color:var(--ink-2);margin-bottom:12px">The Tain costs almost no extra art. Every room is drawn once for the day, then flipped, pushed through a palette lookup, and dressed with candles and shades at runtime. The forge, step by step:</p>
+  <div class="steps">
+    <figure><canvas width="52" height="20" data-step="1" aria-hidden="true"></canvas><figcaption>1. The forge as drawn for the day.</figcaption></figure>
+    <figure><canvas width="52" height="20" data-step="2" aria-hidden="true"></canvas><figcaption>2. Flipped top to bottom.</figcaption></figure>
+    <figure><canvas width="52" height="20" data-step="3" aria-hidden="true"></canvas><figcaption>3. Through the Tain palette lookup.</figcaption></figure>
+    <figure><canvas width="52" height="20" data-step="4" aria-hidden="true"></canvas><figcaption>4. Candles, shades and dithered light added.</figcaption></figure>
+  </div>
+  <p class="swlab">ENDESGA 32 by day</p><div class="swatches" id="sw-day"></div>
+  <p class="swlab">The same colors after the Tain lookup</p><div class="swatches" id="sw-tain"></div>
+
+  <h3 style="font-size:20px;font-weight:800;margin:36px 0 8px">Rooms and their twins, close up</h3>
+  <div class="pairs">
+    <figure><canvas width="54" height="42" data-pair="chapel" aria-hidden="true"></canvas><figcaption><b>Chapel / Choir of Echoes.</b> A funeral by day; shades sing for essence by night.</figcaption></figure>
+    <figure><canvas width="68" height="42" data-pair="quarters" aria-hidden="true"></canvas><figcaption><b>Quarters / Dreamwell.</b> Beds by day; candles here keep the sleepers' nightmares away.</figcaption></figure>
+    <figure><canvas width="54" height="42" data-pair="forge" aria-hidden="true"></canvas><figcaption><b>Forge / Cold Forge.</b> Arms by day; grave-steel by night.</figcaption></figure>
+  </div>
+
+  <h3 style="font-size:20px;font-weight:800;margin:36px 0 8px">Sprite sheet</h3>
+  <p class="measure" style="color:var(--ink-2);margin-bottom:12px">Shown at 4×, animated. The living read by warm color, the dead by silhouette and eye color, the Unlit by shape.</p>
+  <div class="sheet" id="sheet"></div>
+
+  <h3 style="font-size:20px;font-weight:800;margin:36px 0 8px">Interface kit</h3>
+  <div class="kit">
+    <div><h5>Top bar, day and night</h5><div class="hudbar"><span>DAY <i>14</i> · SUMMER</span><span>LIVING <i>21</i></span><span>DEAD <i>9</i>/10</span><span>GRAIN <i>212</i></span><span>CANDLES <i>38</i></span><span>SILVER <i>9</i></span></div><div class="hudbar" style="margin-top:6px"><span>NIGHT <i>14</i></span><span>SHADES <i>9</i>/10</span><span>CANDLES <i>38</i></span><span>ESSENCE <i>22</i></span><span>NEW MOON IN <i>2</i></span></div></div>
+    <div><h5>Action bar by phase</h5><div class="actbar"><span class="on">BUILD</span><span>ASSIGN</span><span>CRAFT</span><span>DEFEND</span></div><div class="actbar"><span class="on">LIGHT</span><span>WARD</span><span>GUIDE</span><span>HUSH</span></div><div class="actbar"><span class="on">KEEP</span><span>COVER</span><span>NAME</span><span>BEGIN THE DAY</span></div></div>
+  </div>
+</section>
+
+<section id="structure" class="sec">
+  <h2>Structure</h2>
+  <p class="sub">A five-year campaign, then an open-ended sandbox. One day and night is about ten minutes, and the Rite is the save point.</p>
+  <div class="chapter">
+    <div><b>The First Winter</b>Learn the cycle; survive long nights on stockpiled candles.</div>
+    <div><b>The Ashen Host</b>Raids escalate into the first siege.</div>
+    <div><b>The Lantern Church</b>Inspections, an embargo, an inquisition.</div>
+    <div><b>The Deep Rises</b>The Hollow grows; new-moon nights get worse.</div>
+    <div><b>The Long Night</b>The finale, and a choice of ending.</div>
+  </div>
+  <div class="prose" style="margin-top:16px">
+    <h3>Endings</h3>
+    <ul><li><strong>Seal the Veil.</strong> Release every shade. The Tain closes and the living go on alone.</li><li><strong>Open the Veil.</strong> The living and the dead share both realms, and the keep becomes a crossing.</li><li><strong>Keep the watch.</strong> Your lord dies and rules the Tain as its warden, and play continues at night.</li></ul>
+  </div>
+</section>
+
+<section id="scope" class="sec">
+  <h2>Scope</h2>
+  <div class="twocol">
+    <div class="table-wrap"><table>
+      <thead><tr><th>For 1.0</th><th>Count</th></tr></thead>
+      <tbody>
+        <tr><td>Room pairs</td><td>12</td></tr><tr><td>Mirror types</td><td>4</td></tr><tr><td>Ways to die, and shade kinds</td><td>6</td></tr><tr><td>Trait pairs</td><td>8</td></tr><tr><td>Day threats / night threats</td><td>4 / 6</td></tr><tr><td>Events</td><td>about 60</td></tr><tr><td>Campaign years / endings</td><td>5 / 3</td></tr>
+      </tbody>
+    </table></div>
+    <div class="prose">
+      <h3>Cut list, in order</h3>
+      <ol><li>Aging and children</li><li>The Court of Shades</li><li>The Drowned</li><li>The eclipse</li><li>Two of the three endings</li></ol>
+      <p style="margin-top:10px;color:var(--ink-2)">My estimate, not a measurement: a vertical slice in about ten weeks part-time, and 1.0 in 12 to 18 months part-time.</p>
+    </div>
+  </div>
+  <div class="weeks" style="margin-top:22px">
+    <div class="week"><p class="eyebrow">Weeks 1–2 · greybox</p><h3>Two rosters and the Rite</h3><ul><li>Deaths by cause become shades by kind.</li><li>Mirror capacity caps the night roster.</li><li>The dawn rite with keep and cover.</li></ul><p class="pass"><b>Test:</b> does a death feel like a loss and a hire at once?</p></div>
+    <div class="week"><p class="eyebrow">Weeks 3–4 · greybox</p><h3>The night on its own</h3><ul><li>Candles and light radius.</li><li>Creepers and one twin-room job.</li><li>Fading and remembrance.</li></ul><p class="pass"><b>Test:</b> is the night fun without the day?</p></div>
+    <div class="week"><p class="eyebrow">Weeks 5–6 · first art</p><h3>Pixel pass</h3><ul><li>Four room pairs and the palette lookup.</li><li>The dusk crossing.</li><li>The night camera, upside down and flipped.</li></ul><p class="pass"><b>Test:</b> can players read the Tain on a phone?</p></div>
+    <div class="week"><p class="eyebrow">Weeks 7–10 · slice</p><h3>One season</h3><ul><li>Seven days ending in the Hollow.</li><li>Escalating raids.</li><li>The Church's first inspection.</li></ul><p class="pass"><b>Test:</b> do people want to play a second season?</p></div>
+  </div>
+</section>
+
+<section id="decide" class="sec">
+  <h2>Decisions to make</h2>
+  <div class="decide">
+    <details open><summary><h3>How the night looks</h3><span class="def">Upside down</span></summary><div class="opts"><div class="opt chosen"><b>Keep the Tain upside down</b>The camera slides down and the mirror stays literal. Cheaper.</div><div class="opt"><b>Flip the view at dusk</b>A dramatic turn; the Tain reads upright but the keep hangs above.</div><p class="why">Build the upside-down version first and test a flip in the first art pass. If players get lost, flip.</p></div></details>
+    <details><summary><h3>Can you execute people?</h3><span class="def">Not in 1.0</span></summary><div class="opts"><div class="opt chosen"><b>No</b>Wraiths come only from cruelty events.</div><div class="opt"><b>Yes</b>A darker lord, and a whole moral system to build.</div><p class="why">Execution invites exploits and needs its own content. Leave it out until the core works.</p></div></details>
+    <details><summary><h3>Cycle length</h3><span class="def">About ten minutes</span></summary><div class="opts"><div class="opt chosen"><b>Ten minutes, split by season</b>A day and a night per short session.</div><div class="opt"><b>Longer days</b>More building per cycle, fewer rites.</div><p class="why">Short cycles put the Rite, the best decision, in front of players more often.</p></div></details>
+    <details><summary><h3>Aging and children</h3><span class="def">Cut from 1.0</span></summary><div class="opts"><div class="opt chosen"><b>Cut</b>Fixed adults; new people arrive as refugees.</div><div class="opt"><b>Keep</b>Generations, and a poignant late game.</div><p class="why">Generations are the most expensive system here and not needed to prove the core.</p></div></details>
+    <details><summary><h3>Business model and platform</h3><span class="def">Premium, portrait</span></summary><div class="opts"><div class="opt chosen"><b>Premium with a free web demo</b>As in round one: web demo, unlock through Play Billing, Steam later.</div><div class="opt"><b>Free-to-play</b>Timers fight a game where attacks need you present.</div><p class="why">Unchanged from round one.</p></div></details>
+  </div>
+</section>
+
+<section id="ledger" class="sec">
+  <h2>What's checked and what isn't</h2>
+  <div class="ledger">
+    <div class="est"><h3>Established</h3><ul><li>Covering mirrors in a house of mourning (Jewish shiva custom; Victorian households).</li><li>The broken-mirror superstition of seven years' bad luck.</li><li>"Tain" is the metal backing of a mirror.</li><li>John Dee's obsidian mirror is in the British Museum.</li><li>London daylight runs from about 16½ hours in June to under 8 in December.</li><li>The name and premise searches from this round and the last.</li></ul></div>
+    <div class="jud"><h3>Design proposals</h3><ul><li>Every rule, number and room on this page.</li><li>The cycle lengths and season split.</li><li>Content counts, the cut list and the schedule.</li></ul></div>
+    <div class="unk"><h3>Unknown until built</h3><ul><li>Whether the night is fun on its own.</li><li>Whether players can read the upside-down Tain on a phone.</li><li>Whether the death rules stop exploits without feeling punishing.</li></ul></div>
+  </div>
+</section>
+
+<p class="foot">Every mockup on this page is drawn live in the browser at its real pixel resolution. Afterglass is a working title.</p>
+</div>
+<script>
+'use strict';
+/* ---------- pixel kit: palette (ENDESGA 32 + a few extras) ---------- */
+const P = {
+  rust:'#be4a2f', ochre:'#d77643', bone:'#ead4aa', tan:'#e4a672', clay:'#b86f50', brown:'#733e39', plum:'#3e2731',
+  crimson:'#a22633', red:'#e43b44', orange:'#f77622', amber:'#feae34', yellow:'#fee761',
+  green:'#63c74d', forest:'#3e8948', pine:'#265c42', deep:'#193c3e',
+  navy:'#124e89', blue:'#0099db', cyan:'#2ce8f5', white:'#ffffff',
+  silver:'#c0cbdc', steel:'#8b9bb4', slate:'#5a6988', indigo:'#3a4466', ink:'#262b44', night:'#181425',
+  hot:'#ff0044', grape:'#68386c', mauve:'#b55088', pink:'#f6757a', peach:'#e8b796', skin2:'#c28569',
+  void:'#0e0b18', soot:'#1f1a24', earth:'#2a1d18'
+};
+const MR = Math.round, MF = Math.floor;
+const SCENES = {};
+
+function rngOf(a){ return function(){ a|=0; a=a+0x6D2B79F5|0; let t=Math.imul(a^a>>>15,1|a); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
+function R(c,x,y,w,h,col){ w=MR(w); h=MR(h); if(w<=0||h<=0) return; c.fillStyle=col; c.fillRect(MR(x),MR(y),w,h); }
+function D(c,x,y,col){ c.fillStyle=col; c.fillRect(MR(x),MR(y),1,1); }
+function A(c,a,fn){ const o=c.globalAlpha; c.globalAlpha=o*a; fn(); c.globalAlpha=o; }
+function clip(c,x,y,w,h,fn){ c.save(); c.beginPath(); c.rect(x,y,w,h); c.clip(); fn(); c.restore(); }
+
+function sky(c,x,y,w,h,cols){
+  const n=cols.length, bh=h/n;
+  for(let i=0;i<n;i++) R(c,x,y+MF(i*bh),w,Math.ceil(bh)+1,cols[i]);
+  for(let i=1;i<n;i++){
+    const by=y+MF(i*bh);
+    for(let xx=x;xx<x+w;xx++){
+      if((xx&1)===0) D(c,xx,by-1,cols[i]);
+      if((xx&1)===1) D(c,xx,by,cols[i-1]);
+    }
+  }
+}
+function ridge(c,rnd,x0,x1,base,amp,col,freq){
+  const p1=rnd()*6,p2=rnd()*6,p3=rnd()*6, hs=[];
+  for(let x=x0;x<x1;x++){
+    const v=0.5+0.3*Math.sin(x*freq+p1)+0.14*Math.sin(x*freq*2.3+p2)+0.07*Math.sin(x*freq*5.7+p3);
+    const top=MR(base-amp*v); hs.push(top); R(c,x,top,1,base-top+1,col);
+  }
+  return hs;
+}
+function speck(c,rnd,x,y,w,h,col,d){ const n=MR(w*h*d); for(let i=0;i<n;i++) D(c,x+MF(rnd()*w),y+MF(rnd()*h),col); }
+function texture(c,rnd,x,y,w,h,base,specks){ R(c,x,y,w,h,base); for(const s of specks) speck(c,rnd,x,y,w,h,s[0],s[1]); }
+function bricks(c,rnd,x,y,w,h,o){
+  const bw=o.bw||6, bh=o.bh||3;
+  clip(c,x,y,w,h,()=>{
+    R(c,x,y,w,h,o.base);
+    for(let row=0,yy=y; yy<y+h; row++,yy+=bh+1){
+      R(c,x,yy+bh,w,1,o.dark);
+      const off=(row&1)?MF(bw/2)+1:0;
+      for(let xx=x-off; xx<x+w; xx+=bw+1){
+        R(c,xx+bw,yy,1,bh,o.dark);
+        if(rnd()<0.45) R(c,xx+1,yy,2,1,o.light);
+        if(rnd()<0.25) D(c,xx+bw-1,yy+bh-1,o.dark);
+      }
+    }
+  });
+}
+function crenel(c,x,y,w,col,shade){ for(let xx=x; xx<x+w-1; xx+=4){ R(c,xx,y-3,2,3,col); D(c,xx+1,y-3,shade||col); } }
+function roof(c,cx,base,hw,ht,col,shade){
+  for(let i=0;i<ht;i++){ const w=Math.max(1,MR(hw*(i+1)/ht)); R(c,cx-w,base-ht+i,w,1,col); R(c,cx,base-ht+i,w,1,shade); }
+  D(c,cx,base-ht-1,P.amber);
+}
+function ellipse(c,cx,cy,rx,ry,col){ c.fillStyle=col; for(let dy=-ry;dy<=ry;dy++){ const w=MR(rx*Math.sqrt(Math.max(0,1-(dy*dy)/((ry+.5)*(ry+.5))))); c.fillRect(MR(cx-w),MR(cy+dy),w*2+1,1); } }
+function poly(c,pts,col){
+  let y0=Infinity,y1=-Infinity; for(const p of pts){ y0=Math.min(y0,p[1]); y1=Math.max(y1,p[1]); }
+  c.fillStyle=col;
+  for(let y=MF(y0); y<=Math.ceil(y1); y++){
+    const yc=y+.5, xs=[];
+    for(let i=0,j=pts.length-1;i<pts.length;j=i++){ const a=pts[i],b=pts[j]; if((a[1]>yc)!==(b[1]>yc)) xs.push(a[0]+(yc-a[1])*(b[0]-a[0])/(b[1]-a[1])); }
+    xs.sort((m,n)=>m-n);
+    for(let k=0;k+1<xs.length;k+=2){ const xa=MR(xs[k]), xb=MR(xs[k+1]); if(xb>xa) c.fillRect(xa,y,xb-xa,1); }
+  }
+}
+function line(c,x0,y0,x1,y1,col,dash){
+  x0=MR(x0); y0=MR(y0); x1=MR(x1); y1=MR(y1);
+  const dx=Math.abs(x1-x0), sx=x0<x1?1:-1, dy=-Math.abs(y1-y0), sy=y0<y1?1:-1; let err=dx+dy, i=0;
+  for(let guard=0; guard<2000; guard++){
+    if(!dash || (i%dash) < Math.ceil(dash/2)) D(c,x0,y0,col);
+    i++; if(x0===x1&&y0===y1) break;
+    const e2=2*err; if(e2>=dy){ err+=dy; x0+=sx; } if(e2<=dx){ err+=dx; y0+=sy; }
+  }
+}
+function ring(c,cx,cy,r,col,keep){
+  r=MR(r); if(r<1) return; let x=r,y=0,err=1-r;
+  while(x>=y){
+    for(const [dx,dy] of [[x,y],[y,x],[-y,x],[-x,y],[-x,-y],[-y,-x],[y,-x],[x,-y]]) if(!keep||keep(dx,dy)) D(c,cx+dx,cy+dy,col);
+    y++; if(err<0) err+=2*y+1; else { x--; err+=2*(y-x)+1; }
+  }
+}
+function room(c,rnd,x,y,w,h,o){
+  R(c,x,y,w,h,o.wall);
+  speck(c,rnd,x,y,w,h-2,o.wall2,0.06);
+  R(c,x,y,w,1,o.wall2);
+  R(c,x,y+h-2,w,2,o.floor); R(c,x,y+h-2,w,1,o.floorTop||o.floor);
+}
+function flame(c,x,y,t,s){
+  const f=MF(t*9+(s||0))%3;
+  D(c,x,y,P.yellow); D(c,x,y-1,f===0?P.amber:P.yellow);
+  if(f!==2) D(c,x,y-2,P.orange);
+  if(f===1) D(c,x+1,y-1,P.orange); if(f===2) D(c,x-1,y-1,P.orange);
+}
+function glow(c,x,y,r,col,a){ for(let i=0;i<3;i++){ const rr=MR(r*(1-i/3)); if(rr>0) A(c,a*.45,()=>ellipse(c,x,y,rr,rr,col)); } }
+function torch(c,x,y,t,s){ R(c,x,y,1,3,P.brown); glow(c,x,y-1,5,P.amber,.14); flame(c,x,y-1,t,s); }
+function zGlyph(c,x,y,col){ R(c,x,y,3,1,col); D(c,x+1,y+1,col); R(c,x,y+2,3,1,col); }
+
+/* characters: x = left, y = feet baseline (exclusive) */
+function human(c,x,y,o,t){
+  const h=o.h||8, top=y-h, f=o.face||1, ph=o.ph||0;
+  const walking = o.walk && MF(t*o.walk+ph)%2===1;
+  const legs=o.legs||P.ink;
+  if(walking){ D(c,x,y-2,legs); D(c,x,y-1,legs); D(c,x+3,y-2,legs); D(c,x+3,y-1,legs); R(c,x+1,y-2,2,1,legs); }
+  else R(c,x+1,y-2,2,2,legs);
+  R(c,x,top+2,4,h-4,o.body);
+  if(o.robe) R(c,x,top+2,4,h-3,o.body);
+  if(o.trim) R(c,x,top+h-4,4,1,o.trim);
+  R(c,x+1,top,2,2,o.skin||P.peach);
+  if(o.hair) R(c,x+1,top,2,1,o.hair);
+  if(o.beard) R(c,x+1,top+2,2,1,o.beard);
+  if(o.helm){ R(c,x,top,4,1,o.helm); R(c,x+1,top-1,2,1,o.helm); }
+  if(o.plume){ D(c,x+1,top-2,o.plume); D(c,x+2,top-3,o.plume); }
+  if(o.hood){ R(c,x,top-1,4,1,o.hood); D(c,x,top,o.hood); D(c,x+3,top,o.hood); D(c,x,top+1,o.hood); D(c,x+3,top+1,o.hood); }
+  if(o.hat){ R(c,x-1,top,6,1,o.hat); R(c,x+1,top-1,2,1,o.hat); D(c,x+2,top-2,o.hat); D(c,x+3,top-3,o.hat); }
+  if(o.horns){ D(c,x,top-1,P.bone); D(c,x+3,top-1,P.bone); }
+  if(o.eyes){ D(c,x+1,top+1,o.eyes); D(c,x+2,top+1,o.eyes); }
+  if(o.arms){ D(c, f>0?x+4:x-1, top+3, o.arms); }
+  const sx = f>0 ? x+4 : x-1;
+  if(o.spear){ R(c,sx,top-3,1,h+1,P.clay); D(c,sx,top-4,P.silver); }
+  if(o.torch){ R(c,sx,top+2,1,3,P.brown); glow(c,sx,top,6,P.amber,.18); flame(c,sx,top+1,t,ph); }
+  if(o.staff){ R(c,sx,top-1,1,h,P.brown); D(c,sx,top-2,o.staff); glow(c,sx,top-2,3,o.staff,.3); }
+  if(o.fork){ R(c,sx,top-2,1,h,P.clay); D(c,sx-1,top-3,P.silver); D(c,sx+1,top-3,P.silver); D(c,sx,top-3,P.silver); }
+  if(o.bow){ R(c,sx,top+1,1,4,P.brown); D(c,sx+f,top,P.brown); D(c,sx+f,top+5,P.brown); D(c,sx,top+3,P.bone); }
+  if(o.banner){ R(c,sx,top-8,1,h+7,P.bone); R(c, f>0?sx+1:sx-5, top-8, 5, 5, o.banner); if(o.emblem) D(c, f>0?sx+3:sx-3, top-6, o.emblem); }
+  if(o.pick){
+    const up = MF(t*o.pick+ph)%2===0;
+    if(up){ R(c,sx,top-1,1,4,P.clay); R(c,sx-1,top-2,3,1,P.silver); }
+    else { if(f>0){ R(c,sx,top+3,3,1,P.clay); D(c,sx+3,top+2,P.silver); D(c,sx+3,top+4,P.silver);} else { R(c,sx-2,top+3,3,1,P.clay); D(c,sx-3,top+2,P.silver); D(c,sx-3,top+4,P.silver);} }
+  }
+  if(o.carry) R(c,x,top-2,4,2,o.carry);
+}
+function kobold(c,x,y,o,t){
+  const top=y-6, f=o.face||1, ph=o.ph||0, skin=o.skin||P.ochre, tun=o.body||P.brown;
+  const walking = o.walk && MF(t*o.walk+ph)%2===1;
+  if(walking){ D(c,x,y-1,skin); D(c,x+2,y-1,skin); } else { D(c,x+1,y-1,skin); D(c,x+2,y-1,skin); }
+  R(c,x,top+2,3,3,tun);
+  D(c, f>0?x-1:x+3, top+4, skin); D(c, f>0?x-2:x+4, top+5, skin);
+  R(c,x,top,3,2,skin); D(c, f>0?x+3:x-1, top+1, skin);
+  D(c, f>0?x:x+2, top-1, P.bone); D(c, f>0?x+2:x, top, P.night);
+  const sx = f>0 ? x+3 : x-1;
+  if(o.spear){ R(c,sx,top-2,1,8,P.clay); D(c,sx,top-3,P.silver); }
+  if(o.hammer){ const up=MF(t*o.hammer+ph)%2===0; if(up){ R(c,sx,top-1,1,3,P.clay); R(c,sx-1,top-2,3,1,P.steel);} else { R(c,sx,top+2,2,1,P.clay); R(c,sx+2,top+1,1,3,P.steel);} }
+  if(o.carry) R(c,x,top-2,3,2,o.carry);
+}
+
+/* ---------- Mirrorhold (180x320) ---------- */
+const MH_UMBRA=['#0e0b18','#1b1430','#2a1d45','#3e2a5c','#5b3a7a','#7d4f9e','#a36ac0','#d9a6ff'];
+function mhCastle(rnd){
+  const cv=document.createElement('canvas'); cv.width=180; cv.height=160; const c=cv.getContext('2d');
+  const S={base:P.steel,dark:P.slate,light:P.silver};
+  bricks(c,rnd,40,92,100,64,S); crenel(c,40,92,40,P.steel,P.slate); crenel(c,100,92,40,P.steel,P.slate);
+  bricks(c,rnd,26,70,14,86,S); roof(c,33,70,9,14,P.navy,P.ink);
+  bricks(c,rnd,140,84,14,72,S); roof(c,147,84,9,14,P.navy,P.ink);
+  bricks(c,rnd,80,54,20,44,S); roof(c,90,54,12,16,P.navy,P.ink);
+  for(const [x,y] of [[32,80],[32,100],[32,120],[146,94],[146,114],[89,64],[89,78]]) R(c,x,y,2,4,P.amber);
+  const W={wall:'#5a4038',wall2:P.brown,floor:P.brown,floorTop:P.clay};
+  room(c,rnd,56,98,68,18,{wall:'#3f3a58',wall2:P.indigo,floor:P.brown,floorTop:P.clay});
+  R(c,56,116,68,2,P.slate);
+  room(c,rnd,40,118,44,18,{wall:'#4a3a52',wall2:P.grape,floor:P.brown,floorTop:P.clay}); room(c,rnd,86,118,54,18,W);
+  R(c,40,136,100,2,P.slate);
+  room(c,rnd,30,138,36,18,{wall:'#4a2a26',wall2:P.plum,floor:P.brown,floorTop:P.clay}); room(c,rnd,68,138,38,18,W); room(c,rnd,108,138,42,18,W);
+  // library
+  R(c,58,101,22,12,P.brown); for(let r=0;r<3;r++) for(let i=0;i<20;i++) if((i*7+r*3)%5) D(c,59+i,102+r*4,[P.red,P.blue,P.green,P.amber,P.bone,P.mauve][(i+r)%6]);
+  R(c,100,110,12,1,P.clay); D(c,101,111,P.brown); D(c,110,111,P.brown); ellipse(c,116,106,2,2,P.cyan);
+  // chapel: stained glass + altar
+  R(c,57,121,9,11,P.ink); for(let y=0;y<9;y++) for(let x=0;x<7;x++) D(c,58+x,122+y,[P.red,P.blue,P.yellow,P.green][(x+y*2)%4]);
+  R(c,52,132,16,2,P.bone);
+  // hall: banner, table, throne
+  R(c,100,121,6,9,P.navy); D(c,102,124,P.yellow); D(c,103,124,P.yellow); R(c,92,131,16,1,P.clay); R(c,128,126,6,8,P.amber); R(c,129,127,4,4,P.crimson);
+  // forge, granary, barracks
+  R(c,32,144,9,10,P.indigo); R(c,34,148,5,6,P.night); R(c,50,150,6,2,P.steel); R(c,52,152,2,2,P.indigo);
+  for(let i=0;i<5;i++) ellipse(c,73+i*6,151,2,2,i%2?P.tan:P.bone); ellipse(c,80,146,3,2,P.bone); ellipse(c,92,146,3,2,P.tan);
+  for(const x of [112,124,136]){ R(c,x,146,9,1,P.bone); R(c,x,151,9,1,P.bone); R(c,x,146,1,8,P.clay); }
+  return cv;
+}
+function mhReflect(src){
+  const w=src.width,h=src.height, s=src.getContext('2d').getImageData(0,0,w,h), out=document.createElement('canvas');
+  out.width=w; out.height=h; const oc=out.getContext('2d'), o=oc.createImageData(w,h);
+  const hex=MH_UMBRA.map(v=>[parseInt(v.slice(1,3),16),parseInt(v.slice(3,5),16),parseInt(v.slice(5,7),16)]);
+  for(let y=0;y<h;y++) for(let x=0;x<w;x++){
+    const si=((h-1-y)*w+x)*4, di=(y*w+x)*4; if(s.data[si+3]<128) continue;
+    const L=(.3*s.data[si]+.59*s.data[si+1]+.11*s.data[si+2]); const warm=s.data[si]>200&&s.data[si+1]>150&&s.data[si+2]<120;
+    const k=warm?7:Math.min(6,MF(L/256*7.2)); const col=hex[k];
+    o.data[di]=col[0]; o.data[di+1]=col[1]; o.data[di+2]=col[2]; o.data[di+3]=255;
+  }
+  oc.putImageData(o,0,0); return out;
+}
+SCENES.mirrorhold = {
+  w:180, h:320, seed:23, still:3.5, crop:[0,70,180,180],
+  bg(c,rnd){
+    sky(c,0,0,180,156,['#3b7dd8','#5a9be6','#86bff0','#bfe1f6']);
+    for(const [x,y,r] of [[40,30,6],[50,28,5],[58,31,4],[128,44,5],[137,42,6],[146,45,4]]) ellipse(c,x,y,r,MF(r/2)+1,P.white);
+    ridge(c,rnd,0,180,156,30,'#6fa878',.045); ridge(c,rnd,0,180,156,16,'#4b8a5c',.07);
+    R(c,0,154,180,2,P.forest); R(c,0,156,180,2,P.pine); R(c,0,158,180,2,P.brown);
+    sky(c,0,160,180,160,['#2a1d45','#1d1636','#150f28','#0e0b18']);
+    speck(c,rnd,0,170,180,150,'#3e2a5c',.01);
+    this.castle=mhCastle(rnd); this.refl=mhReflect(this.castle);
+    c.drawImage(this.castle,0,0);
+  },
+  fg(c,t,st,host){
+    const p=t%16, n = p<7?0 : p<8?(p-7) : p<15?1 : 1-(p-15);
+    // reflection with shimmer
+    for(let r=0;r<160;r++){ const dx=MR(Math.sin(r*.45+t*2.6)*(r<6?0:1)); c.drawImage(this.refl,0,r,180,1,dx,160+r,180,1); }
+    // above: night overlay + lit windows, sun/moon
+    if(n>0){ A(c,.62*n,()=>R(c,0,0,180,158,'#101433')); for(const [x,y] of [[32,80],[32,100],[32,120],[146,94],[146,114],[89,64],[89,78]]) { A(c,n,()=>R(c,x,y,2,4,P.yellow)); glow(c,x+1,y+2,4,P.amber,.25*n); } for(const [x,y] of [[20,14],[70,8],[160,22],[110,12],[150,50]]) A(c,n,()=>D(c,x,y,P.white)); A(c,n,()=>{ ellipse(c,30,24,6,6,P.bone); }); }
+    if(n<1) A(c,1-n,()=>{ ellipse(c,152,22,7,7,P.yellow); ellipse(c,152,22,5,5,'#fff6c8'); });
+    // flags on towers
+    const fl=(x,y)=>{ R(c,x,y-10,1,10,P.ink); const ph=MF(t*6)%3; for(let i=0;i<5;i++){ const dy=[0,1,0][(i+ph)%3]; R(c,x+1+i,y-10+dy,1,3,i<3?P.crimson:P.red); } };
+    fl(33,55); fl(147,69); fl(90,37);
+    // people above (day work) and their shadows below (night work)
+    const folk=[[44,156,P.bone,1],[82,156,P.forest,-1],[118,156,P.navy,1],[70,136,P.mauve,1],[112,136,P.crimson,-1],[88,116,P.navy,1]];
+    folk.forEach(([x,y,col,f],i)=>{
+      const dx = n<.5 ? MR(Math.sin(t*.8+i)*3) : 0;
+      human(c,x+dx,y,{body:col,hair:P.brown,walk: n<.5?4:0,face:f,ph:i},t);
+      c.save(); c.setTransform(1,0,0,-1,0,320);
+      const sx = n>=.5 ? MR(Math.sin(t*.8+i)*3) : 0;
+      A(c,.55+.45*n,()=>human(c,x+sx,y,{body:'#07060d',skin:'#07060d',eyes:P.cyan,walk:n>=.5?4:0,face:f,ph:i},t));
+      c.restore();
+    });
+    // forge fire above
+    flame(c,36,153,t,0); glow(c,36,151,5,P.orange,.25);
+    // below dims by day
+    if(n<1) A(c,.5*(1-n),()=>R(c,0,162,180,158,'#07060d'));
+    // the Veil
+    R(c,0,159,180,1,P.grape); R(c,0,160,180,1,P.mauve); R(c,0,161,180,1,P.grape);
+    for(let i=0;i<12;i++){ const x=MF((i*47+t*18))%180; if(x<118||x>136) D(c,x,160,i%3?P.pink:P.white); }
+    R(c,118,159,18,3,'#0e0b18'); for(let x=118;x<136;x+=2) D(c,x,160+((x+MF(t*6))%3)-1,P.mauve);
+    for(let i=0;i<6;i++){ const k=(t*9+i*5)%26; A(c,1-k/26,()=>D(c,120+((i*5)%14)+MR(Math.sin(t*2+i)*2),158-k,i%2?P.mauve:'#d9a6ff')); }
+    // umbral horrors rising
+    for(const [x,ph] of [[30,0],[72,1.7],[118,3.1],[154,.9]]){
+      const rise=6+MR((Math.sin(t*.9+ph)+1)*5)+MR(n*6), top=318-18-rise;
+      for(let y=top;y<320;y++){ const w=3+MR((y-top)/5)+(MF(y*.7+t*4+ph)%2); R(c,x-w-1,y,w*2+2,1,'#3e2a5c'); R(c,x-w,y,w*2,1,'#07060d'); }
+      for(let k=0;k<3;k++){ const tx=x-4+k*4, ty=top-2-MR((Math.sin(t*2+k+ph)+1)*3); line(c,x,top+4,tx,ty,'#07060d'); }
+      D(c,x-2,top+5,P.hot); D(c,x+1,top+5,P.hot); if(n>.5){ glow(c,x,top+5,3,P.hot,.25); }
+    }
+    // raiders by day
+    if(n<1) A(c,1-n,()=>{ for(const [x,ph] of [[160,0],[166,.5],[172,.2]]) human(c,x,156,{body:P.brown,skin:'#9fb38a',helm:P.slate,horns:1,spear:1,face:-1,walk:3,ph},t); });
+    if(host){ const lab=n<.5?'DAY: THE KEEP':'NIGHT: THE REFLECTION'; if(st.lab!==lab){ st.lab=lab; const e=host.querySelector('[data-phase]'); if(e) e.textContent=lab; } }
+  }
+};
+
+/* ===================== Round 2: vector style kit — styles ===================== */
+function hex2rgb(h){ h=h.replace('#',''); if(h.length===3) h=h.split('').map(x=>x+x).join(''); const n=parseInt(h,16); return [n>>16&255,n>>8&255,n&255]; }
+function rgb2hex(r,g,b){ return '#'+[r,g,b].map(v=>Math.max(0,Math.min(255,Math.round(v))).toString(16).padStart(2,'0')).join(''); }
+function mix(a,b,t){ const A=hex2rgb(a),B=hex2rgb(b); return rgb2hex(A[0]+(B[0]-A[0])*t,A[1]+(B[1]-A[1])*t,A[2]+(B[2]-A[2])*t); }
+function mk(w,h){ const c=document.createElement('canvas'); c.width=Math.max(1,Math.round(w)); c.height=Math.max(1,Math.round(h)); return c; }
+const ROLE={ stone:'#9aa1b3', stoneDark:'#6c7390', roof:'#9b3f55', wood:'#8a5a3c', warm:'#5e4038', cold:'#39405c', crypt:'#2d2736', glowRoom:'#5a412c',
+  earth:'#4a3a33', grass:'#5f8f4e', water:'#3f6f9e', bone:'#eee4cc', cloth:'#c9744a', cloth2:'#3f6aa0', clothDark:'#4b3f6b',
+  flesh:'#f0c9a0', metal:'#b8c2d6', ghost:'#d6ecff', shadow:'#14111c', rot:'#8fae6b', gold:'#f2c14e', glass:'#bfe3ef',
+  veil:'#c78ae8', sand:'#e2bd83', dark:'#14111c', light:'#ffe7a3', accent:'#d9534f', hill:'#6f8f6a', hill2:'#4f6f55', paper:'#efe7d6', line:'#2a2433' };
+const GLOW={ amber:'#ffb347', green:'#7dff8a', violet:'#c28bff', cyan:'#7fe7ff', red:'#ff4d5e', white:'#ffffff' };
+const LIGHT_ROLES=new Set(['bone','paper','glass','light','ghost','flesh','sand','gold']);
+const DARK_ROLES=new Set(['shadow','dark','crypt','clothDark','earth','stoneDark','cold','warm','glowRoom','line']);
+const SKY={ day:['#8fc3e8','#cfe6f3'], dusk:['#2f2d58','#8c4f7c','#f09a6b'], night:['#0e1124','#22284a','#39406a'], desert:['#e8a260','#f6d9a0'], umbra:['#2a1d45','#0e0b18'] };
+function grad(c,x0,y0,x1,y1,stops){ const g=c.createLinearGradient(x0,y0,x1,y1); stops.forEach((s,i)=>g.addColorStop(i/(stops.length-1||1),s)); return g; }
+function stars(c,rnd,W,H,n,col){ c.fillStyle=col; for(let i=0;i<n;i++){ const s=rnd()<.8?.5:.9; c.fillRect(rnd()*W,rnd()*H,s,s); } }
+function grain(c,rnd,W,H,n,col,a){ c.save(); c.globalAlpha=a; c.fillStyle=col; for(let i=0;i<n;i++) c.fillRect(rnd()*W,rnd()*H,.35+rnd()*.4,.35+rnd()*.4); c.restore(); }
+function radial(c,x,y,r,col,a){ const g=c.createRadialGradient(x,y,0,x,y,r); const [R_,G_,B_]=hex2rgb(col); g.addColorStop(0,`rgba(${R_},${G_},${B_},${a})`); g.addColorStop(1,`rgba(${R_},${G_},${B_},0)`); c.fillStyle=g; c.beginPath(); c.arc(x,y,r,0,Math.PI*2); c.fill(); }
+function hatchLines(c,W,H,h){ c.save(); c.strokeStyle=h.c; c.lineWidth=h.w||.3; c.beginPath(); const ang=(h.ang||45)*Math.PI/180, dx=Math.cos(ang), dy=Math.sin(ang), L=W+H;
+  for(let d=-L; d<L; d+=h.gap){ const px=-dy*d, py=dx*d; c.moveTo(px-dx*L,py-dy*L); c.lineTo(px+dx*L,py+dy*L); }
+  if(h.cross){ const a2=ang+Math.PI/2, ex=Math.cos(a2), ey=Math.sin(a2); for(let d=-L; d<L; d+=h.gap){ const px=-ey*d, py=ex*d; c.moveTo(px-ex*L,py-ey*L); c.lineTo(px+ex*L,py+ey*L); } }
+  c.stroke(); c.restore(); }
+function skyFill(c,sc,cols,y1){ c.fillStyle=grad(c,0,0,0,y1,cols); c.fillRect(0,0,sc.w,y1); }
+function veilGlow(c,sc,t,cols){ const y=sc.mirror; c.save(); c.fillStyle=cols[0]; c.fillRect(0,y-.7,sc.w,1.4); c.globalAlpha=.55+.25*Math.sin(t*2); radial(c,sc.w*.5,y,sc.w*.6,cols[1],.18); c.fillStyle=cols[2]; for(let i=0;i<14;i++){ const x=((i*37+t*14)%sc.w); c.fillRect(x,y-.4,1.2,.8); } c.restore(); }
+
+const STYLES={
+  flat:{ name:'Flat vector',
+    bg(c,sc){ const y1=sc.mirror ?? sc.below ?? sc.h; skyFill(c,sc,SKY[sc.sky||'dusk'],y1); if(sc.sky==='night'||sc.sky==='dusk') stars(c,c._rnd,sc.w,y1*.5,40,'rgba(255,255,255,.8)'); },
+    under(c,sc,y0){ c.fillStyle=grad(c,0,y0,0,sc.h,SKY.umbra); c.fillRect(0,y0,sc.w,sc.h-y0); },
+    fill(r,b){ const v=ROLE[r]||r; return b? mix(v,'#2a1d45',.62) : v; },
+    stroke(){ return null; }, masonry:{c:'rgba(20,16,28,.14)',w:.3},
+    glow(c,x,y,r,col,b,t){ radial(c,x,y,r*(1+.08*Math.sin(t*3)),col,.55); },
+    veil(c,sc,t){ veilGlow(c,sc,t,['#d9a6ff','#b77cff','#ffffff']); } },
+  silhouette:{ name:'Silhouette',
+    bg(c,sc){ const y1=sc.mirror ?? sc.below ?? sc.h; skyFill(c,sc,['#2a1433','#8a3b5c','#f28a55','#ffd08a'],y1); radial(c,sc.w*.72,y1*.78,sc.w*.28,'#fff1c4',.55); c.fillStyle='#ffe7b0'; c.beginPath(); c.arc(sc.w*.72,y1*.78,Math.min(sc.w,y1)*.09,0,Math.PI*2); c.fill(); },
+    under(c,sc,y0){ c.fillStyle=grad(c,0,y0,0,sc.h,['#4b2463','#1a0e26','#07050b']); c.fillRect(0,y0,sc.w,sc.h-y0); },
+    fill(r,b){ const lit={warm:'#f6a04d',cold:'#8fb2e3',glowRoom:'#ffcf6b',crypt:'#6a3b82',glass:'#cfeeff',light:'#ffe7a3',ghost:'#e8f4ff'}; if(lit[r]) return b? mix(lit[r],'#7a45c8',.55) : lit[r]; return b? '#06040a' : '#0c0a11'; },
+    stroke(){ return null; }, masonry:null,
+    glow(c,x,y,r,col,b,t){ radial(c,x,y,r*1.3*(1+.1*Math.sin(t*3)),col,.7); },
+    veil(c,sc,t){ veilGlow(c,sc,t,['#ffd6a8','#ff9a6b','#fff4e0']); } },
+  woodcut:{ name:'Woodcut',
+    bg(c,sc){ c.fillStyle='#f1eadb'; c.fillRect(0,0,sc.w,sc.h); grain(c,c._rnd,sc.w,sc.h,900,'#8a7a5c',.25); const y1=sc.mirror ?? sc.below ?? sc.h;
+      c.save(); c.beginPath(); c.rect(0,0,sc.w,y1); c.clip(); const n=sc.sky==='day'?0:(sc.sky==='dusk'?1:2); for(let y=2;y<y1;y+= (n===2?1.4:2.6)){ c.strokeStyle='#1a1612'; c.lineWidth=.28*(1-y/y1)+.06; c.beginPath(); for(let x=0;x<=sc.w;x+=4) c.lineTo(x,y+Math.sin(x*.07+y)*.25); c.stroke(); } c.restore(); },
+    under(c,sc,y0){ c.fillStyle='#16120f'; c.fillRect(0,y0,sc.w,sc.h-y0); grain(c,c._rnd,sc.w,sc.h-y0,300,'#efe6d2',.12); },
+    fill(r,b){ if(b) return '#16120f'; return DARK_ROLES.has(r)&&r!=='warm'&&r!=='cold'&&r!=='glowRoom' ? '#1a1612' : '#f1eadb'; },
+    stroke(r,b){ return {c:b?'#efe6d2':'#1a1612', w:.5}; },
+    hatch(r,b){ if(LIGHT_ROLES.has(r)) return null; if(['warm','cold','glowRoom','crypt'].includes(r)) return {c:b?'#efe6d2':'#1a1612',gap:1.25,ang:-35,w:.26}; if(DARK_ROLES.has(r)) return b?{c:'#efe6d2',gap:1.1,ang:45,w:.22,cross:true}:null; return {c:b?'#efe6d2':'#1a1612',gap:1.7,ang:45,w:.26}; },
+    masonry:{c:'#1a1612',w:.28}, masonryB:{c:'#efe6d2',w:.28},
+    glow(c,x,y,r,col,b,t){ c.save(); c.strokeStyle=b?'#efe6d2':'#1a1612'; c.lineWidth=.3; c.beginPath(); for(let i=0;i<12;i++){ const a=i/12*Math.PI*2+t*.2; c.moveTo(x+Math.cos(a)*r*.35,y+Math.sin(a)*r*.35); c.lineTo(x+Math.cos(a)*r*.7,y+Math.sin(a)*r*.7); } c.stroke(); c.restore(); },
+    veil(c,sc,t){ const y=sc.mirror; c.save(); c.strokeStyle='#1a1612'; c.lineWidth=.8; c.beginPath(); c.moveTo(0,y-.8); c.lineTo(sc.w,y-.8); c.stroke(); c.strokeStyle='#efe6d2'; c.beginPath(); c.moveTo(0,y+.8); c.lineTo(sc.w,y+.8); c.stroke(); c.restore(); } },
+  paper:{ name:'Paper cut-out',
+    bg(c,sc){ const y1=sc.mirror ?? sc.below ?? sc.h; const night=sc.sky==='night'; c.fillStyle=night?'#2e3352':(sc.sky==='dusk'?'#e8b9a0':'#d9e6ea'); c.fillRect(0,0,sc.w,y1); grain(c,c._rnd,sc.w,y1,700,night?'#ffffff':'#7a6a55',.12);
+      const rnd=c._rnd; c.save(); c.shadowColor='rgba(0,0,0,.2)'; c.shadowOffsetY=1*c._k; c.shadowBlur=2*c._k; c.fillStyle=night?'#3a4066':'#f4efe4'; for(let i=0;i<3;i++){ const x=rnd()*sc.w, y=8+rnd()*y1*.3; c.beginPath(); c.ellipse(x,y,10,3.2,0,0,Math.PI*2); c.ellipse(x+6,y-2,6,3,0,0,Math.PI*2); c.fill(); } c.restore(); },
+    under(c,sc,y0){ c.fillStyle='#3b2f5a'; c.fillRect(0,y0,sc.w,sc.h-y0); grain(c,c._rnd,sc.w,sc.h,500,'#ffffff',.06); },
+    fill(r,b){ const v=ROLE[r]||r; return b? mix(v,'#3b2f5a',.55) : mix(v,'#efe7d6',.22); },
+    stroke(r,b){ return {c:b?'rgba(255,255,255,.12)':'rgba(255,255,255,.35)', w:.25}; },
+    shadow:{c:'rgba(20,12,8,.32)',x:.5,y:.8,b:1.3}, jitter:.25, masonry:null,
+    glow(c,x,y,r,col,b,t){ c.save(); c.globalAlpha=.35+.1*Math.sin(t*2); c.fillStyle=col; c.beginPath(); c.arc(x,y,r*.55,0,Math.PI*2); c.fill(); c.restore(); },
+    veil(c,sc,t){ const y=sc.mirror; c.save(); c.fillStyle='#e9d8ff'; c.beginPath(); c.moveTo(0,y-.6); for(let x=0;x<=sc.w;x+=3) c.lineTo(x,y-.6+Math.sin(x*1.7)*.5); c.lineTo(sc.w,y+.9); c.lineTo(0,y+.9); c.fill(); c.restore(); } },
+  glass:{ name:'Stained glass',
+    bg(c,sc){ const y1=sc.mirror ?? sc.below ?? sc.h; skyFill(c,sc,['#1d2a6b','#3c3f99','#7c4fa8','#d9824a'],y1); const rnd=c._rnd; c.save(); c.strokeStyle='#15101c'; c.lineWidth=.9; c.beginPath(); for(let i=0;i<9;i++){ let x=rnd()*sc.w, y=0; c.moveTo(x,y); while(y<y1){ x+= (rnd()-.5)*sc.w*.25; y+= y1*(.15+rnd()*.2); c.lineTo(x,Math.min(y,y1)); } } for(let i=0;i<5;i++){ const y=rnd()*y1; c.moveTo(0,y); c.lineTo(sc.w,y+(rnd()-.5)*20); } c.stroke(); c.restore(); },
+    under(c,sc,y0){ c.fillStyle=grad(c,0,y0,0,sc.h,['#3a2466','#1c1236','#0c0816']); c.fillRect(0,y0,sc.w,sc.h-y0); },
+    fill(r,b){ const J={stone:'#6f8fbf',stoneDark:'#44598a',roof:'#b3263b',wood:'#b8752f',warm:'#d9892b',cold:'#2f4f8f',crypt:'#3b2a5c',glowRoom:'#e6a93a',grass:'#2f8f5b',earth:'#4a3524',flesh:'#f3c98b',cloth:'#c43b3b',cloth2:'#2f63b8',clothDark:'#3b2f7a',metal:'#9fb3cf',bone:'#f2e6c8',ghost:'#bfe6ff',shadow:'#1b1030',gold:'#f2b632',glass:'#a8e0f0',water:'#2f6fa8',rot:'#6f9f3f',accent:'#c42b4b',light:'#ffe39a',sand:'#e0b060',dark:'#1b1030'}; const v=J[r]||ROLE[r]||r; return b? mix(v,'#2a1850',.5) : v; },
+    stroke(){ return {c:'#15101c', w:.85}; }, leads:true, masonry:null,
+    glow(c,x,y,r,col,b,t){ c.save(); c.globalCompositeOperation='lighter'; radial(c,x,y,r*1.2*(1+.08*Math.sin(t*3)),col,.5); c.restore(); },
+    veil(c,sc,t){ veilGlow(c,sc,t,['#f2d27a','#ffcf6b','#ffffff']); } },
+  water:{ name:'Watercolor',
+    bg(c,sc){ c.fillStyle='#f5f0e6'; c.fillRect(0,0,sc.w,sc.h); const y1=sc.mirror ?? sc.below ?? sc.h; const rnd=c._rnd; const cols=sc.sky==='night'?['#3b4a7a','#6b6fa8']:['#9cc4e4','#f3c9a6']; for(let i=0;i<7;i++){ c.save(); c.globalAlpha=.16; c.fillStyle=cols[i%2]; c.beginPath(); c.ellipse(rnd()*sc.w,rnd()*y1*.8,sc.w*(.3+rnd()*.3),y1*(.12+rnd()*.15),rnd(),0,Math.PI*2); c.fill(); c.restore(); } grain(c,rnd,sc.w,sc.h,1200,'#8a7a66',.12); },
+    under(c,sc,y0){ c.save(); c.globalAlpha=.55; c.fillStyle=grad(c,0,y0,0,sc.h,['#5b6fa3','#3b2f6a']); c.fillRect(0,y0,sc.w,sc.h-y0); c.restore(); },
+    fill(r,b){ const v=mix(ROLE[r]||r,'#f5f0e6',.18); return b? mix(v,'#4b3f8a',.55) : v; },
+    stroke(r,b){ const v=ROLE[r]||r; return {c:(b?mix(v,'#241a4a',.6):mix(v,'#2a1f1a',.45))+'88', w:.35}; },
+    alpha:.62, passes:2, jitter:.7, masonry:null,
+    glow(c,x,y,r,col,b,t){ radial(c,x,y,r*1.2,col,.35); },
+    veil(c,sc,t){ const y=sc.mirror; c.save(); c.globalAlpha=.5; c.strokeStyle='#6b5fb0'; c.lineWidth=.8; c.beginPath(); for(let x=0;x<=sc.w;x+=2) c.lineTo(x,y+Math.sin(x*.3+t*1.5)*.5); c.stroke(); c.restore(); } },
+  blueprint:{ name:'Blueprint',
+    bg(c,sc){ c.fillStyle='#1d4c86'; c.fillRect(0,0,sc.w,sc.h); c.save(); c.strokeStyle='rgba(255,255,255,.08)'; c.lineWidth=.2; c.beginPath(); for(let x=0;x<=sc.w;x+=5){ c.moveTo(x,0); c.lineTo(x,sc.h); } for(let y=0;y<=sc.h;y+=5){ c.moveTo(0,y); c.lineTo(sc.w,y); } c.stroke(); c.strokeStyle='rgba(255,255,255,.16)'; c.beginPath(); for(let x=0;x<=sc.w;x+=25){ c.moveTo(x,0); c.lineTo(x,sc.h); } for(let y=0;y<=sc.h;y+=25){ c.moveTo(0,y); c.lineTo(sc.w,y); } c.stroke(); c.restore(); },
+    under(c,sc,y0){ c.save(); c.fillStyle='rgba(8,20,48,.35)'; c.fillRect(0,y0,sc.w,sc.h-y0); c.restore(); },
+    fill(r,b){ return (r==='earth'||r==='stoneDark')? 'rgba(255,255,255,.04)' : null; },
+    stroke(r,b){ return {c:b?'#8fb8ff':'#eaf2ff', w:.45, dash:b?[1.2,1]:null}; },
+    hatch(r){ return (r==='earth'||r==='stoneDark')? {c:'rgba(234,242,255,.35)',gap:2.2,ang:45,w:.2} : null; },
+    masonry:null,
+    glow(c,x,y,r,col,b,t){ c.save(); c.strokeStyle='#eaf2ff'; c.lineWidth=.3; c.setLineDash([.8,.8]); c.beginPath(); c.arc(x,y,r*.6,0,Math.PI*2); c.stroke(); c.restore(); },
+    veil(c,sc,t){ const y=sc.mirror; c.save(); c.strokeStyle='#ffd27a'; c.lineWidth=.5; c.setLineDash([3,1.5]); c.beginPath(); c.moveTo(0,y); c.lineTo(sc.w,y); c.stroke(); c.restore(); } }
+};
+
+/* ===================== Round 3: the keep, its reflection, day and night ===================== */
+const AG={ W:180, H:440, VEIL:176 };
+const ROOMS=[ // name, x0, x1, y (interior top; rooms are 18 tall incl. 2px floor)
+  ['library',22,60,70],['glazier',62,100,70],['chandlery',102,138,70],
+  ['chapel',22,72,88],['quarters',74,138,88],
+  ['infirmary',22,54,106],['hall',56,104,106],['barracks',106,138,106],
+  ['hearth',22,54,124],['granary',56,86,124],['forge',88,138,124],
+  ['crypt',22,62,142],['cellar',64,100,142],['gatehouse',102,138,142] ];
+const RM=Object.fromEntries(ROOMS.map(r=>[r[0],{x:r[1],w:r[2]-r[1],y:r[3],f:r[3]+16}]));
+const TWIN={ library:'Archive of the Dead', glazier:'Silvering', chandlery:'Wick Room', chapel:'Choir of Echoes', quarters:'Dreamwell', infirmary:'Threshold', hall:'Court of Shades', barracks:'Watch of the Dead', hearth:'Cold Hearth', granary:'Hollow Granary', forge:'Cold Forge', crypt:'Waking Room', cellar:'Hollow Cellar', gatehouse:'The Maw' };
+function agMirror(c,x,y,state,big){ const w=big?7:5, h=big?10:7; R(c,x,y,w,h,P.amber); R(c,x+1,y+1,w-2,h-2,'#bfe3ef'); D(c,x+1,y+1,P.white); D(c,x+2,y+2,P.white);
+  if(state==='covered'){ R(c,x-1,y-1,w+2,h-1,P.navy); D(c,x-1,y+h-2,P.navy); D(c,x+w,y+h-2,P.navy); R(c,x,y-1,w,1,P.blue); }
+  if(state==='cracked'){ D(c,x+2,y+3,P.ink); D(c,x+3,y+4,P.ink); D(c,x+2,y+5,P.ink); } }
+function agKeep(rnd){
+  const cv=mk(AG.W,AG.VEIL), c=cv.getContext('2d'), S={base:P.steel,dark:P.slate,light:P.silver};
+  bricks(c,rnd,20,68,120,92,S); crenel(c,20,68,50,P.steel,P.slate); crenel(c,90,68,50,P.steel,P.slate);
+  bricks(c,rnd,4,58,16,102,S); roof(c,12,58,9,14,P.crimson,P.plum); bricks(c,rnd,140,66,16,94,S); roof(c,148,66,9,14,P.crimson,P.plum);
+  bricks(c,rnd,70,30,20,38,S); roof(c,80,30,12,16,P.crimson,P.plum);
+  for(const [x,y] of [[11,70],[11,92],[11,116],[147,80],[147,104],[79,40],[79,54]]) R(c,x,y,2,3,P.amber);
+  bricks(c,rnd,20,160,136,16,{base:P.slate,dark:P.indigo,light:P.steel});
+  texture(c,rnd,156,160,24,16,P.brown,[[P.clay,.08],[P.plum,.08]]); R(c,156,160,24,1,P.forest);
+  const tones={library:['#3f3a58',P.indigo],glazier:['#4a3f4a',P.plum],chandlery:['#5a4038',P.brown],chapel:['#4a3a52',P.grape],quarters:['#3f3a58',P.indigo],infirmary:['#3c4a44',P.pine],hall:['#5a3a3a',P.plum],barracks:['#4a4038',P.brown],hearth:['#5a4038',P.brown],granary:['#5a4a38',P.brown],forge:['#4a2a26',P.plum],crypt:['#2a2430',P.soot],cellar:['#3a3029',P.plum],gatehouse:['#44403c',P.slate]};
+  for(const [n,x0,x1,y] of ROOMS){ const t=tones[n]; room(c,rnd,x0,y,x1-x0,18,{wall:t[0],wall2:t[1],floor:P.brown,floorTop:P.clay}); }
+  let r=RM.library; R(c,r.x+2,r.y+3,14,11,P.brown); for(let i=0;i<3;i++) for(let j=0;j<12;j++) if((i*5+j)%4) D(c,r.x+3+j,r.y+4+i*3,[P.red,P.blue,P.green,P.amber,P.bone][(i+j)%5]); R(c,r.x+24,r.y+12,10,1,P.clay); D(c,r.x+25,r.y+13,P.brown); D(c,r.x+32,r.y+13,P.brown);
+  r=RM.glazier; R(c,r.x+2,r.y+8,8,8,P.indigo); R(c,r.x+4,r.y+11,4,5,P.night); R(c,r.x+14,r.y+12,14,1,P.clay); agMirror(c,r.x+16,r.y+5,'plain'); agMirror(c,r.x+24,r.y+6,'plain'); R(c,r.x+32,r.y+13,4,3,P.tan);
+  r=RM.chandlery; R(c,r.x+2,r.y+10,8,6,P.brown); R(c,r.x+3,r.y+10,6,1,P.bone); for(let i=0;i<6;i++){ R(c,r.x+14+i*3,r.y+3,1,1,P.brown); R(c,r.x+14+i*3,r.y+4,1,5,P.bone); } R(c,r.x+13,r.y+2,18,1,P.clay);
+  r=RM.chapel; R(c,r.x+4,r.y+3,7,9,P.ink); for(let i=0;i<5;i++) for(let j=0;j<7;j++) D(c,r.x+5+i,r.y+4+j,[P.red,P.blue,P.yellow,P.green][(i+j)%4]); R(c,r.x+14,r.y+12,10,4,P.steel); D(c,r.x+15,r.y+11,P.bone); D(c,r.x+22,r.y+11,P.bone); R(c,r.x+28,r.y+13,12,3,P.brown); R(c,r.x+29,r.y+12,10,1,P.clay); agMirror(c,r.x+42,r.y+4,'covered');
+  r=RM.quarters; for(let i=0;i<4;i++){ R(c,r.x+3+i*12,r.y+13,9,3,P.clay); R(c,r.x+3+i*12,r.y+12,3,1,P.bone); R(c,r.x+6+i*12,r.y+12,6,1,P.navy); } agMirror(c,r.x+52,r.y+4,'plain');
+  r=RM.infirmary; R(c,r.x+2,r.y+13,10,3,P.silver); R(c,r.x+2,r.y+12,3,1,P.bone); R(c,r.x+16,r.y+13,10,3,P.silver); R(c,r.x+16,r.y+12,3,1,P.bone); R(c,r.x+28,r.y+3,3,8,P.pine); for(let i=0;i<3;i++) D(c,r.x+29,r.y+4+i*2,P.green);
+  r=RM.hall; R(c,r.x+2,r.y+2,6,8,P.crimson); D(c,r.x+4,r.y+5,P.amber); R(c,r.x+12,r.y+12,20,1,P.clay); D(c,r.x+13,r.y+13,P.brown); D(c,r.x+30,r.y+13,P.brown); R(c,r.x+38,r.y+7,6,9,P.amber); R(c,r.x+39,r.y+9,4,4,P.crimson); agMirror(c,r.x+22,r.y+1,'plain',1);
+  r=RM.barracks; for(let i=0;i<3;i++){ R(c,r.x+3+i*3,r.y+5,1,11,P.clay); D(c,r.x+3+i*3,r.y+4,P.silver); } R(c,r.x+16,r.y+13,12,3,P.clay); R(c,r.x+16,r.y+9,12,1,P.clay); R(c,r.x+16,r.y+9,1,7,P.brown); R(c,r.x+27,r.y+9,1,7,P.brown);
+  r=RM.hearth; R(c,r.x+2,r.y+5,10,11,P.indigo); R(c,r.x+4,r.y+9,6,7,P.night); R(c,r.x+1,r.y+4,12,1,P.slate); ellipse(c,r.x+20,r.y+13,3,2,P.ink); R(c,r.x+24,r.y+12,6,1,P.clay);
+  r=RM.granary; for(let i=0;i<4;i++) ellipse(c,r.x+5+i*6,r.y+13,2,2,i%2?P.tan:P.bone); ellipse(c,r.x+8,r.y+10,2,2,P.bone); ellipse(c,r.x+14,r.y+10,2,2,P.tan); R(c,r.x+24,r.y+10,5,6,P.clay); R(c,r.x+24,r.y+12,5,1,P.brown);
+  r=RM.forge; R(c,r.x+2,r.y+5,10,11,P.indigo); R(c,r.x+4,r.y+9,6,7,P.night); R(c,r.x+22,r.y+12,7,2,P.steel); R(c,r.x+24,r.y+14,3,2,P.indigo); agMirror(c,r.x+40,r.y+4,'plain');
+  r=RM.crypt; R(c,r.x+10,r.y+12,16,4,P.slate); R(c,r.x+10,r.y+12,16,1,P.steel); R(c,r.x+12,r.y+10,12,2,P.bone); D(c,r.x+12,r.y+9,P.bone); agMirror(c,r.x+32,r.y+4,'plain');
+  r=RM.cellar; for(let i=0;i<3;i++){ R(c,r.x+3+i*7,r.y+10,5,6,P.clay); R(c,r.x+3+i*7,r.y+12,5,1,P.brown); } R(c,r.x+26,r.y+11,6,5,P.brown);
+  r=RM.gatehouse; R(c,r.x+4,r.y+8,6,6,P.brown); ellipse(c,r.x+7,r.y+11,2,2,P.clay); R(c,138,146,18,14,P.night); for(let x=139;x<156;x+=3) R(c,x,146,1,3,P.steel); R(c,138,145,18,1,P.slate);
+  return cv;
+}
+function agSky(kind,rnd){ const cv=mk(AG.W,AG.VEIL), c=cv.getContext('2d');
+  const cols={day:['#3b7dd8','#5a9be6','#86bff0','#bfe1f6'],sunset:[P.indigo,P.grape,P.mauve,P.pink,P.amber],night:[P.void,P.night,P.ink,P.indigo],dawn:[P.ink,P.grape,P.pink,'#f7c9a8']}[kind];
+  sky(c,0,0,AG.W,AG.VEIL,cols);
+  if(kind==='day'){ for(const [x,y,r] of [[30,20,6],[40,18,5],[132,34,5],[140,32,6]]) ellipse(c,x,y,r,MF(r/2)+1,P.white); ellipse(c,150,16,6,6,P.yellow); }
+  if(kind==='night'){ speck(c,rnd,0,0,AG.W,90,P.white,.006); ellipse(c,30,20,6,6,P.bone); ellipse(c,33,18,5,5,P.void); }
+  if(kind==='sunset') ellipse(c,160,120,12,12,P.yellow);
+  ridge(c,rnd,0,AG.W,160,26,kind==='day'?'#6fa878':(kind==='night'?'#1b2a3a':'#6b3f5a'),.05);
+  return cv; }
+function agDeep(rnd){ const cv=mk(AG.W,AG.H-312), c=cv.getContext('2d'); sky(c,0,0,AG.W,cv.height,['#150f28','#0e0b18','#07050c','#07050c']);
+  speck(c,rnd,0,0,AG.W,cv.height,'#2a1d45',.02);
+  const rifts=[[34,40],[118,70],[156,26]]; for(const [x,y] of rifts){ let px=x,py=y; for(let i=0;i<9;i++){ const nx=px+MF(rnd()*5)-2, ny=py+2; line(c,px,py,nx,ny,'#3e1030'); px=nx; py=ny; } }
+  return cv; }
+const AG_RIFTS=[[34,352],[118,382],[156,338]];
+/* people by day: [room, dx, kind-options] */
+const AG_DAY=[['library',28,{body:P.navy,hair:P.bone}],['glazier',12,{body:P.clay,hair:P.brown,pick:4}],['chandlery',8,{body:P.bone,hair:P.tan}],['chapel',26,{body:P.bone,hood:P.bone,robe:1}],['chapel',36,{body:P.ink,hair:P.brown}],['chapel',40,{body:P.ink,hair:P.tan}],
+  ['infirmary',20,{body:P.forest,hair:P.brown}],['hall',40,{body:P.crimson,hair:P.amber}],['barracks',8,{body:P.navy,helm:P.silver,spear:1}],['hearth',14,{body:P.bone,hair:P.brown}],['granary',16,{body:P.clay,carry:P.bone,walk:4}],['forge',16,{body:P.brown,pick:4}],['forge',32,{body:P.clay,hair:P.tan}],['gatehouse',16,{body:P.steel,helm:P.silver,spear:1}],['gatehouse',26,{body:P.steel,helm:P.silver,spear:1,face:1}]];
+const AG_SHADES=[['crypt',16,1],['hearth',18,0],['forge',16,0],['barracks',12,0],['barracks',22,0],['chapel',18,0],['chapel',30,0],['quarters',20,0],['glazier',20,0],['library',24,0]];
+const AG_CANDLES=[['crypt',8],['crypt',30],['hearth',6],['forge',10],['forge',36],['barracks',6],['barracks',26],['chapel',8],['chapel',40],['quarters',10],['quarters',44],['glazier',6],['library',10],['hall',12],['hall',40],['gatehouse',10],['infirmary',12]];
+function twinY(y){ return 351-y; }
+function agLightMap(){ const m=new Float32Array(AG.W*AG.H); const cs=AG_CANDLES.map(([n,dx])=>{ const r=RM[n]; return [r.x+dx, twinY(r.y+12)]; });
+  for(let y=AG.VEIL;y<AG.H;y++) for(let x=0;x<AG.W;x++){ let L=0; if(y<312&&x>=4&&x<=156) L=.3; for(const [cx,cy] of cs){ const d=Math.hypot(x-cx,(y-cy)*1.15); if(d<22) L=Math.max(L,1-d/22); } const dv=Math.abs(y-AG.VEIL); if(dv<7) L=Math.max(L,.55*(1-dv/7)); for(const [rx,ry] of AG_RIFTS){ const d=Math.hypot(x-rx,y-ry); if(d<12) L=Math.max(L,.45*(1-d/12)); } m[y*AG.W+x]=L; }
+  return {m,cs}; }
+const BAYER=[0,8,2,10,12,4,14,6,3,11,1,9,15,7,13,5].map(v=>(v+.5)/16);
+const AGC={};
+function agInit(){ if(AGC.ok) return; const rnd=rngOf(71); AGC.keep=agKeep(rnd); AGC.tain=mhReflect(AGC.keep); AGC.sky={day:agSky('day',rnd),sunset:agSky('sunset',rnd),night:agSky('night',rnd),dawn:agSky('dawn',rnd)}; AGC.deep=agDeep(rnd); const L=agLightMap(); AGC.light=L.m; AGC.cands=L.cs; AGC.ok=1; }
+function agShade(c,x,yf,o,t){ c.save(); c.setTransform(1,0,0,-1,0,352); human(c,x,yf,Object.assign({body:'#07060d',skin:'#07060d',legs:'#07060d',eyes:o.eye||P.cyan},o),t); c.restore(); }
+function agUnlit(c,kind,x,y,t,ph){ const bob=MR(Math.sin(t*4+ph)); if(kind==='creeper'){ R(c,x,y-3+bob,7,3,'#050308'); D(c,x-1,y-1+bob,'#050308'); D(c,x+7,y-1+bob,'#050308'); for(let i=0;i<3;i++) D(c,x+1+i*2,y+bob,(MF(t*8)+i)%2?'#050308':'#1a0d1a'); D(c,x+5,y-2+bob,P.hot); D(c,x+3,y-2+bob,P.hot); }
+  else if(kind==='maw'){ ellipse(c,x,y-5+bob,5,5,'#050308'); R(c,x-3,y-4+bob,7,2,'#2a0d1a'); for(let i=-2;i<=2;i+=2) D(c,x+i,y-4+bob,P.bone); D(c,x-2,y-8+bob,P.hot); D(c,x+2,y-8+bob,P.hot); }
+  else { R(c,x,y-12+bob,3,12,'#050308'); R(c,x-1,y-10+bob,5,2,'#050308'); D(c,x,y-10+bob,'#b07aff'); D(c,x+2,y-10+bob,'#b07aff'); for(let i=0;i<3;i++) D(c,x+(i%3),y-6+i*2+((MF(t*3)+i)%3),'#6b4aa0'); } }
+/* phases: day | sunset | lights | rise | night */
+function agFrame(buf,phase,t){
+  agInit(); const c=buf.getContext('2d'); c.imageSmoothingEnabled=false; c.clearRect(0,0,AG.W,AG.H);
+  const skyK={day:'day',dawn:'dawn',sunset:'sunset',lights:'night',rise:'night',night:'night'}[phase]; c.drawImage(AGC.sky[skyK],0,0);
+  c.drawImage(AGC.keep,0,0);
+  if(phase==='sunset') A(c,.28,()=>R(c,0,0,AG.W,AG.VEIL,P.orange)); if(phase==='dawn') A(c,.2,()=>R(c,0,0,AG.W,AG.VEIL,P.pink));
+  if(phase!=='day'&&phase!=='sunset'&&phase!=='dawn'){ A(c,.62,()=>R(c,0,0,AG.W,AG.VEIL,'#0b0d26')); for(const n of ['quarters','infirmary','hearth','gatehouse']){ const r=RM[n]; A(c,.35,()=>R(c,r.x,r.y,r.w,16,P.amber)); } for(const [x,y] of [[11,70],[11,92],[11,116],[147,80],[147,104],[79,40],[79,54]]) R(c,x,y,2,3,P.yellow); }
+  c.drawImage(AGC.tain,0,AG.VEIL); c.drawImage(AGC.deep,0,312);
+  if(phase==='day'||phase==='sunset'||phase==='dawn') A(c,.5,()=>R(c,0,AG.VEIL,AG.W,AG.H-AG.VEIL,'#1a1826'));
+  /* the living */
+  if(phase==='day'||phase==='sunset'||phase==='dawn'){
+    AG_DAY.forEach(([n,dx,o],i)=>{ const r=RM[n]; let x=r.x+dx; if(o.walk) x+=MR((Math.sin(t*.8+i)+1)*5); if(phase==='sunset'&&!o.helm) x=r.x+MR((dx+t*6)%Math.max(8,r.w-6)); human(c,x,r.f,Object.assign({ph:i,face:(o.face||(i%2?-1:1))},o),t); });
+    human(c,24,68,{body:P.navy,helm:P.silver,bow:1,face:-1,ph:1},t); human(c,120,68,{body:P.navy,helm:P.silver,bow:1,ph:2},t);
+    R(c,RM.crypt.x+12,RM.crypt.y+10,12,2,P.bone); R(c,RM.infirmary.x+4,RM.infirmary.y+12,2,1,P.peach);
+    for(const [x,ph] of [[160,0],[168,.5],[175,.2]]) human(c,x,160,{body:P.brown,skin:'#9fb38a',helm:P.slate,horns:1,spear:1,face:-1,walk:3,ph},t);
+    R(c,RM.forge.x+41,RM.forge.y+5,3,5,'#9fe6ff'); if(MF(t*3)%2) D(c,RM.forge.x+34,RM.forge.y+8,P.cyan);
+    if(phase==='day'){ flame(c,RM.hearth.x+7,RM.hearth.y+15,t,0); flame(c,RM.forge.x+7,RM.forge.y+15,t,1); glow(c,RM.forge.x+7,RM.forge.y+12,6,P.orange,.25); }
+  } else {
+    const q=RM.quarters; for(let i=0;i<4;i++) R(c,q.x+5+i*12,q.y+11,4,1,[P.clay,P.navy,P.forest,P.bone][i]);
+    human(c,RM.gatehouse.x+16,RM.gatehouse.f,{body:P.steel,helm:P.silver,spear:1},t);
+  }
+  /* dusk: the day's dead rise */
+  if(phase==='rise'){ const cr=RM.crypt, sx=cr.x+18; const k=(t%3)/3; for(let i=0;i<6;i++){ const u=Math.min(1,k+i*.05); const y=MR(cr.y+10+(twinY(cr.y+10)-cr.y-10)*u); A(c,1-i*.13,()=>{ D(c,sx+MR(Math.sin(u*8+i)*2),y,P.cyan); D(c,sx+1,y+1,'#9fe6ff'); }); } agShade(c,sx-2,cr.f,{eye:P.cyan},t); glow(c,sx,twinY(cr.y+10),7,P.cyan,.3); }
+  /* night: shades, the Unlit */
+  if(phase==='night'||phase==='rise'){
+    if(phase==='night') AG_SHADES.forEach(([n,dx,isNew],i)=>{ const r=RM[n]; agShade(c,r.x+dx+(n==='barracks'?MR(Math.sin(t+i)*3):0),r.f,{ph:i,walk:n==='barracks'?4:0,spear:n==='barracks',pick:(n==='forge'||n==='glazier')?3:0,eye:isNew?'#bff6ff':P.cyan},t); });
+  }
+  /* lighting */
+  if(phase==='night'||phase==='rise'||phase==='lights'){ const img=c.getImageData(0,AG.VEIL,AG.W,AG.H-AG.VEIL), d=img.data, fl=.04*Math.sin(t*9)+.025*Math.sin(t*23), lit=phase==='lights'?.5:1, F=[.2,.45,.72,1];
+    for(let y=0;y<AG.H-AG.VEIL;y++) for(let x=0;x<AG.W;x++){ const L=AGC.light[(y+AG.VEIL)*AG.W+x]*lit+fl; const q=Math.max(0,Math.min(3,MF(L*3+BAYER[(y&3)*4+(x&3)]))); if(q<3){ const i=(y*AG.W+x)*4, f=F[q]; d[i]=d[i]*f+7*(1-f); d[i+1]=d[i+1]*f+5*(1-f); d[i+2]=d[i+2]*f+12*(1-f); } }
+    c.putImageData(img,0,AG.VEIL);
+    if(phase!=='lights') for(const [cx,cy] of AGC.cands){ R(c,cx,cy+1,1,2,P.bone); flame(c,cx,cy,t,cx*.3); }
+    if(phase==='night') AG_SHADES.forEach(([n,dx,isNew],i)=>{ const r=RM[n], x=r.x+dx+(n==='barracks'?MR(Math.sin(t+i)*3):0), yy=twinY(r.f-7); D(c,x+1,yy,isNew?'#ffffff':P.cyan); D(c,x+2,yy,isNew?'#ffffff':P.cyan); });
+    for(const [rx,ry] of AG_RIFTS){ A(c,.5+.3*Math.sin(t*2+rx),()=>{ D(c,rx,ry,P.hot); D(c,rx+1,ry+2,P.hot); D(c,rx-1,ry+4,P.hot); }); }
+    if(phase==='night'){ const g=RM.granary, ty=twinY(g.y+10); for(let i=0;i<3;i++){ const x=g.x+4+i*9+MR(Math.sin(t*1.3+i)*3); agUnlit(c,'creeper',x,ty+6+MR((1+Math.sin(t*.9+i))*6)+i*2,t,i); }
+      agUnlit(c,'maw',RM.gatehouse.x+24,twinY(RM.gatehouse.y+6)+14+MR(Math.sin(t)*2),t,1); agUnlit(c,'weeper',150,300+MR(Math.sin(t*.7)*4),t,2); agUnlit(c,'creeper',36,346-MR((t*6)%20),t,3); agUnlit(c,'maw',118,392-MR((t*4)%16),t,4); }
+  }
+  R(c,0,AG.VEIL-1,AG.W,1,P.grape); R(c,0,AG.VEIL,AG.W,1,P.mauve); for(let i=0;i<10;i++){ const x=MF((i*43+t*16)%AG.W); D(c,x,AG.VEIL,P.pink); }
+}
+
+/* ===================== Round 3: sprite sheet, palette, crops, icons ===================== */
+const SPRITES=[
+  ['Guard','living',(c,t)=>human(c,6,14,{body:P.steel,helm:P.silver,spear:1,walk:2},t)],
+  ['Smith','living',(c,t)=>human(c,5,14,{body:P.brown,hair:P.bone,pick:3},t)],
+  ['Priest','living',(c,t)=>human(c,6,14,{body:P.bone,hood:P.bone,robe:1,walk:2},t)],
+  ['Glazier','living',(c,t)=>human(c,6,14,{body:P.clay,hair:P.brown,carry:'#bfe3ef',walk:2},t)],
+  ['Child','living',(c,t)=>human(c,6,14,{body:P.forest,hair:P.tan,h:6,walk:3},t)],
+  ['Elder','living',(c,t)=>human(c,6,14,{body:P.navy,hair:P.silver,walk:1},t)],
+  ['Raider','enemy',(c,t)=>human(c,6,14,{body:P.brown,skin:'#9fb38a',helm:P.slate,horns:1,spear:1,face:-1,walk:2},t)],
+  ['Loyal shade','dead',(c,t)=>human(c,6,14,{body:'#07060d',skin:'#07060d',legs:'#07060d',eyes:P.cyan,walk:2},t)],
+  ['Serene shade','dead',(c,t)=>{ glow(c,8,10,6,'#9fb8ff',.25); human(c,6,14,{body:'#07060d',skin:'#07060d',legs:'#07060d',eyes:'#cfe0ff'},t); }],
+  ['Pale shade','dead',(c,t)=>human(c,6,14,{body:'#4a4466',skin:'#5a5478',legs:'#4a4466',eyes:P.white,walk:1},t)],
+  ['Restless shade','dead',(c,t)=>{ human(c,6+(MF(t*6)%2),14,{body:'#07060d',skin:'#07060d',legs:'#07060d',eyes:'#c28bff'},t); if(MF(t*6)%2) for(let i=0;i<4;i++) D(c,6+i,9+i,'#1a1330'); }],
+  ['Stranger','dead',(c,t)=>human(c,6,14,{body:'#07060d',skin:'#07060d',legs:'#07060d',eyes:P.green,horns:1,walk:2},t)],
+  ['Wraith','dead',(c,t)=>{ const b=MR(Math.sin(t*3)); R(c,5,2+b,5,11,'#07060d'); R(c,4,5+b,7,6,'#07060d'); for(let i=0;i<4;i++) D(c,4+i*2,13+b+((MF(t*4)+i)%2),'#07060d'); D(c,6,4+b,P.hot); D(c,8,4+b,P.hot); }],
+  ['Creeper','unlit',(c,t)=>agUnlit(c,'creeper',4,13,t,0)],
+  ['Maw','unlit',(c,t)=>agUnlit(c,'maw',8,14,t,1)],
+  ['Weeper','unlit',(c,t)=>agUnlit(c,'weeper',7,15,t,2)],
+];
+function spriteDraw(cv,i,t){ const c=cv.getContext('2d'); c.clearRect(0,0,16,16); const kind=SPRITES[i][1]; c.fillStyle=kind==='living'||kind==='enemy'?'#2b2f45':'#120e1f'; c.fillRect(0,0,16,16); c.fillStyle=kind==='living'||kind==='enemy'?'#3a3f5a':'#1b1530'; c.fillRect(0,14,16,2); SPRITES[i][2](c,t); }
+function lutColor(hex){ const [r,g,b]=hex2rgb(hex); const L=.3*r+.59*g+.11*b; const warm=r>200&&g>150&&b<120; const k=warm?7:Math.min(6,MF(L/256*7.2)); return MH_UMBRA[k]; }
+const PAL32=['#be4a2f','#d77643','#ead4aa','#e4a672','#b86f50','#733e39','#3e2731','#a22633','#e43b44','#f77622','#feae34','#fee761','#63c74d','#3e8948','#265c42','#193c3e','#124e89','#0099db','#2ce8f5','#ffffff','#c0cbdc','#8b9bb4','#5a6988','#3a4466','#262b44','#181425','#ff0044','#68386c','#b55088','#f6757a','#e8b796','#c28569'];
+function agCrop(cv,src,x,y,w,h){ const c=cv.getContext('2d'); c.imageSmoothingEnabled=false; c.clearRect(0,0,cv.width,cv.height); c.drawImage(src,x,y,w,h,0,0,cv.width,cv.height); }
+function agMirrorIcon(c,kind,t){ c.fillStyle='#1d1924'; c.fillRect(0,0,14,16);
+  if(kind==='uncovered'){ agMirror(c,4,4,'plain'); if(MF(t*2)%2) D(c,6,6,P.white); }
+  if(kind==='covered') agMirror(c,4,4,'covered');
+  if(kind==='cracked'){ agMirror(c,4,4,'cracked'); D(c,7,5,P.ink); }
+  if(kind==='broken'){ R(c,4,4,5,7,P.amber); R(c,5,5,3,5,'#1d1924'); D(c,5,6,'#bfe3ef'); D(c,7,8,'#bfe3ef'); D(c,3,13,'#bfe3ef'); D(c,9,12,'#bfe3ef'); D(c,6,13,'#bfe3ef'); }
+  if(kind==='great') agMirror(c,3,3,'plain',1);
+  if(kind==='black'){ R(c,3,3,8,10,P.amber); R(c,4,4,6,8,'#0b0812'); D(c,5,5,'#b07aff'); if(MF(t*2)%2) D(c,7,8,'#b07aff'); } }
+
+/* ===================== Round 3: mounting, animation, rite ===================== */
+const RED3 = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+const live3=[];
+const io3=('IntersectionObserver' in window)? new IntersectionObserver(es=>{ for(const e of es){ const it=live3.find(i=>i.el===e.target); if(it) it.visible=e.isIntersecting; } },{rootMargin:'120px'}) : null;
+function animate3(el,draw,t0,anim){ const it={el,visible:!io3,last:0,draw}; draw(t0); if(anim&&!RED3){ live3.push(it); if(io3) io3.observe(el); } return it; }
+const WBUF=mk(AG.W,AG.H);
+function worldFrame(phase,t){ agFrame(WBUF,phase,t); return WBUF; }
+document.querySelectorAll('[data-ag]').forEach(host=>{
+  const phase=host.dataset.ag, crop=host.dataset.crop!=null, cam=+(host.dataset.cam ?? (crop?host.dataset.crop:0)), h=crop?160:320;
+  const cv=document.createElement('canvas'); cv.setAttribute('aria-hidden','true'); host.insertBefore(cv,host.firstChild); const ctx=cv.getContext('2d');
+  const fit=()=>{ const r=host.getBoundingClientRect(); if(!r.width) return; const dpr=Math.min(window.devicePixelRatio||1,2.5); const k=Math.max(1,Math.round(r.width*dpr/AG.W)); cv.width=AG.W*k; cv.height=h*k; };
+  let last=2.2; const draw=(t)=>{ last=t; if(!cv.width) fit(); const b=worldFrame(phase,t); ctx.imageSmoothingEnabled=false; ctx.drawImage(b,0,cam,AG.W,h,0,0,cv.width,cv.height); };
+  fit(); if('ResizeObserver' in window) new ResizeObserver(()=>{ fit(); draw(last); }).observe(host);
+  animate3(host,draw,2.2,!host.dataset.still);
+});
+/* sprite sheet */
+const sheet=document.getElementById('sheet');
+if(sheet) SPRITES.forEach(([name,kind],i)=>{ const f=document.createElement('figure'), cv=document.createElement('canvas'); cv.width=16; cv.height=16; cv.setAttribute('aria-hidden','true'); const cap=document.createElement('figcaption'); cap.textContent=name; const k=document.createElement('i'); k.textContent={living:'Living',enemy:'Day enemy',dead:'Dead',unlit:'Unlit'}[kind]; cap.append(k); f.append(cv,cap); sheet.append(f); animate3(cv,t=>spriteDraw(cv,i,t),1+i*.3,true); });
+/* palette */
+const swd=document.getElementById('sw-day'), swt=document.getElementById('sw-tain');
+if(swd&&swt) PAL32.forEach(hx=>{ const a=document.createElement('span'); a.style.background=hx; a.title=hx; swd.append(a); const b=document.createElement('span'); const t=lutColor(hx); b.style.background=t; b.title=hx+' → '+t; swt.append(b); });
+/* reflection steps and room pairs (static crops) */
+agInit();
+const nightW=mk(AG.W,AG.H); agFrame(nightW,'night',2.6); const dayW=mk(AG.W,AG.H); agFrame(dayW,'day',2.2);
+document.querySelectorAll('canvas[data-step]').forEach(cv=>{ const c=cv.getContext('2d'); c.imageSmoothingEnabled=false; const s=+cv.dataset.step, x=86, y=122, w=52, hh=20;
+  if(s===1) c.drawImage(AGC.keep,x,y,w,hh,0,0,w,hh);
+  if(s===2){ c.save(); c.translate(0,hh); c.scale(1,-1); c.drawImage(AGC.keep,x,y,w,hh,0,0,w,hh); c.restore(); }
+  if(s===3) c.drawImage(AGC.tain,x,twinY(y+hh-1)-AG.VEIL,w,hh,0,0,w,hh);
+  if(s===4) c.drawImage(nightW,x,twinY(y+hh-1),w,hh,0,0,w,hh); });
+const PAIRS={chapel:[20,86],quarters:[72,86],forge:[86,122]};
+document.querySelectorAll('canvas[data-pair]').forEach(cv=>{ const [x,y]=PAIRS[cv.dataset.pair], w=cv.width, c=cv.getContext('2d'); c.imageSmoothingEnabled=false;
+  c.drawImage(dayW,x,y,w,20,0,0,w,20); c.fillStyle='#b55088'; c.fillRect(0,20,w,2); c.drawImage(nightW,x,twinY(y+19),w,20,0,22,w,20); });
+/* mirror icons */
+document.querySelectorAll('canvas[data-icon3]').forEach(cv=>{ const c=cv.getContext('2d'); animate3(cv,t=>{ c.clearRect(0,0,14,16); agMirrorIcon(c,cv.dataset.icon3,t); },1,true); });
+/* the rite */
+(()=>{ const root=document.getElementById('rite'); if(!root) return; const S={ada:'keep',tam:'keep',hesk:'keep',bran:'cover'}; const meter=document.getElementById('rite-dread'), fx=document.getElementById('rite-effects');
+  for(let i=0;i<5;i++) meter.append(document.createElement('span'));
+  const upd=(msg)=>{ const kept=['ada','tam','hesk'].filter(k=>S[k]==='keep').length, dread=Math.min(5,2+kept), morale=1+(S.ada==='cover'?2:0)+(S.tam==='cover'?1:0), rem=1+['ada','tam','hesk'].filter(k=>S[k]==='cover').length;
+    [...meter.children].forEach((s,i)=>{ s.className= i<dread ? (dread>=5?'on':'warn') : ''; });
+    fx.textContent=(msg?msg+' ':'')+`Tomorrow night: ${6+kept} shades · Dread ${dread}/5${dread>=5?', so the Lantern Church sends an inspector':''} · Morale +${morale} · Remembrance +${rem} · ${S.ada==='cover'?'Wil is at peace':'Wil still grieves'}`; };
+  root.querySelectorAll('.rite-row').forEach(row=>{ const who=row.dataset.who; row.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{ if(who==='bran') return; S[who]=b.dataset.v; row.querySelectorAll('button').forEach(o=>o.setAttribute('aria-pressed',String(o===b))); upd(); })); });
+  root.querySelector('.begin').addEventListener('click',()=>upd('Saved. Day 15 begins.')); upd(); })();
+/* loop */
+if(!RED3&&live3.length){ const t0=performance.now(); const tick=now=>{ for(const it of live3){ if(it.visible&&now-it.last>=50){ it.last=now; it.draw(2.2+(now-t0)/1000); } } requestAnimationFrame(tick); }; requestAnimationFrame(tick); }
+/* pins + legend + toc */
+document.querySelectorAll('figure.fig').forEach(fig=>{ const stage=fig.querySelector('.stage'), pins=[...fig.querySelectorAll('.pin')], items=[...fig.querySelectorAll('.legend li')], btn=fig.querySelector('.pins-toggle');
+  if(btn&&stage) btn.addEventListener('click',()=>{ const off=stage.classList.toggle('nopins'); btn.textContent=off?'Show labels':'Hide labels'; });
+  const hot=(i,on)=>{ if(pins[i]) pins[i].classList.toggle('hot',on); if(items[i]) items[i].classList.toggle('hot',on); };
+  items.forEach((li,i)=>{ li.addEventListener('mouseenter',()=>hot(i,true)); li.addEventListener('mouseleave',()=>hot(i,false)); });
+  pins.forEach((p,i)=>{ p.addEventListener('mouseenter',()=>hot(i,true)); p.addEventListener('mouseleave',()=>hot(i,false)); }); });
+(()=>{ const links=[...document.querySelectorAll('.toc a')], map=new Map(links.map(a=>[a.getAttribute('href').slice(1),a])); if(!('IntersectionObserver' in window)) return;
+  const obs=new IntersectionObserver(es=>{ for(const e of es) if(e.isIntersecting){ links.forEach(a=>a.removeAttribute('aria-current')); const a=map.get(e.target.id); if(a){ a.setAttribute('aria-current','true'); a.scrollIntoView({block:'nearest',inline:'nearest'}); } } },{rootMargin:'-35% 0px -60% 0px'});
+  map.forEach((a,id)=>{ const s=document.getElementById(id); if(s) obs.observe(s); }); })();
+</script>
+</body>
+</html>

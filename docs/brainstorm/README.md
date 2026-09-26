@@ -4,6 +4,8 @@ Open [`index.html`](index.html) in a browser for the full version: animated pixe
 
 **Round two:** Deadhold and Mirrorhold were chosen as finalists. Ten follow-up ideas are in [`round-2/`](round-2/README.md).
 
+**Round three:** Mourning Glass, renamed **Afterglass**, worked through in depth with pixel mockups: [`round-3/`](round-3/README.md).
+
 ## The problem with the pitch
 
 "Fallout Shelter–style side view, Elder Scrolls–style fantasy, build and defend a castle" already exists twice on Google Play:
