@@ -4,17 +4,17 @@
 
 import { TICKS_PER_SEC, DAY_ROOMS, WORK_ROOMS, TWINS, KINDS, MIRRORS, CAUSES, MAP, BOND_OTHER, TUNING, BUILDABLE } from './slice/data.js';
 import {
-  newSeason, step, act, retune, playerTuning, upgrade, jobCap, jobCount, nextSlot, ritePreview, crossingPreview, capacity, canWork, defense, roomPower, bear, priests, funeralCap, eatRate,
+  newSeason, step, act, retune, playerTuning, jobCap, jobCount, nextSlot, ritePreview, crossingPreview, capacity, canWork, defense, roomPower, bear, priests, funeralCap, eatRate,
   dayTicks, nightTicks, isNewMoon, choicesFor, byId, isTwinnedLiving, isTwinnedShade, lastSeason, SAVE_VERSION, fmt, mirrorCap,
   postRoom,
 } from './slice/sim.js';
 import { geo, feet, floorAtY, roomAt, typeAt, typeOf, roomSpan, roomsOf, lightMap, isLit, unitAt, DEEP_FLOOR, lineSpots as lineOf, guardLit } from './slice/geo.js';
 import { drawScene } from './slice/draw.js';
 import { epitaph, ordinal, RESTING, LOST } from './slice/book.js';
+import { SLOTS, slotKey, openIndex, loadSlot, saveSlot, useSlot, deleteSlot, keepFromFile, summary, mergeIndex, isIndexKey } from './slice/saves.js';
 
-const SAVE_KEY = 'afterglass-season/save/v1';
 const PREF_KEY = 'afterglass-season/prefs/v1';
-const REDUCED = !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+const SYS_REDUCED = !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 const { W, VEIL } = MAP;
 
 const store = {
@@ -29,30 +29,55 @@ const store = {
   set(key, value) {
     try {
       localStorage.setItem(key, JSON.stringify(value));
+      return true;
     } catch {
       // Storage blocked or full: the season still runs, it just won't resume after a reload.
+      return false;
+    }
+  },
+  remove(key) {
+    try {
+      localStorage.removeItem(key);
+    } catch {
+      // Nothing to do: blocked storage has nothing to remove either.
     }
   },
 };
 
 const prefs = { speed: 1, mode: 'reflection', labels: true, tab: 'log', autoPause: true, introDone: false, guide: false, guideSeen: {}, ...(store.get(PREF_KEY) || {}) };
 const savePrefs = () => store.set(PREF_KEY, prefs);
+// Less motion: the device's setting, unless the player chose in Settings.
+const REDUCED_NOW = () => (prefs.motion === 'reduce' ? true : prefs.motion === 'full' ? false : SYS_REDUCED);
+// The stylesheets' animations follow the same choice.
+const applyMotion = () => {
+  document.documentElement.dataset.motion = REDUCED_NOW() ? 'reduce' : 'full';
+};
+applyMotion();
 
+// The keeps: three save slots (src/slice/saves.js). The page opens the one played last.
+const saves = openIndex(store, Date.now());
 let retuned = 0;
-function loadGame() {
-  const g = store.get(SAVE_KEY);
-  if (!g || g.v !== SAVE_VERSION || g.mode !== 'season' || !Array.isArray(g.shades)) return null;
+function loadGame(n) {
+  // Brought up to this build as it loads: what an older save predates, it gets (that's how the Maws reach
+  // older saves), and a save from before seasons started from two rooms keeps the whole original keep.
+  const g = loadSlot(store, n);
+  if (!g) return null;
   g.alerts = [];
-  // What an older save predates, it gets: a tuning number its default (that's how the Maws reach older
-  // saves), and a save from before seasons started from two rooms keeps the whole original keep.
-  upgrade(g);
   // Numbers the player never set in Settings follow this build's defaults.
   retuned = retune(g, TUNING);
   return g;
 }
-const saveGame = () => store.set(SAVE_KEY, { ...s, alerts: [] });
+window.addEventListener('storage', (e) => {
+  if (isIndexKey(e.key) && mergeIndex(store, saves)) bump();
+});
+let saveWarned = false;
+function saveGame() {
+  if (saveSlot(store, saves, saves.current, s, Date.now()) || saveWarned) return;
+  saveWarned = true;
+  toast("The keep couldn't be saved: this browser's storage is full or blocked. Export it from Menu, then Saves.", 'bad');
+}
 
-let s = loadGame() || newSeason();
+let s = loadGame(saves.current) || newSeason();
 // This keep's geometry (it grows as rooms are built), and the top row of its roof.
 const K = () => geo(s);
 const roofTop = () => K().top - 24;
@@ -190,7 +215,7 @@ function barHTML() {
     const P = ritePreview(s);
     tools = `${flip}<button class="btn sm primary" id="bar-day" data-act="begin-day"${P.errors.length ? ' disabled' : ''}>Begin day ${s.day + 1}</button>`;
   } else if (s.phase === 'over') tools = flip;
-  const menu = [['phase', SHEET_NAME(), attention()], ['people', 'People', false], ['records', 'Records', false]]
+  const menu = [['phase', SHEET_NAME(), attention()], ['people', 'People', false], ['records', 'Records', false], ['menu', 'Menu', false]]
     .map(([k, label, dot]) => `<button class="btn sm gm" id="open-${k}" data-act="sheet" data-sheet="${k}" aria-pressed="${ui.sheet === k}" aria-controls="sheet">${label}${dot ? '<span class="dot" aria-label="needs you"></span>' : ''}</button>`)
     .join('');
   return `<div class="gtools ${PH[s.phase]}">${tools}</div><div class="gmenu">${menu}</div>`;
@@ -511,7 +536,7 @@ function endPanel() {
 
 function newKeepControls() {
   if (!ui.confirmNew) return '<div class="row"><button class="btn" id="btn-new" data-act="new">New season from day 1</button></div>';
-  return `<div class="confirm"><p>Start over from season 1, day 1? This replaces the saved game. Copy the playtest export first if you want it.</p>
+  return `<div class="confirm"><p>Start keep ${saves.current} over from season 1, day 1? This one is gone unless you export it first, from Menu, then Saves; a new keep can go in another slot there instead.</p>
     <div class="row"><button class="btn primary" id="btn-new-yes" data-act="new-yes">Start over</button><button class="btn" id="btn-new-no" data-act="new-no">Cancel</button></div></div>`;
 }
 
@@ -686,20 +711,83 @@ const TUNE = [
   ['steelFight', 'How much harder shades fight with grave-steel'],
   ['lineGuard', 'Shades in the light at the stairs up to the Veil only guard and keep the Watch (1 on, 0 off)'],
 ];
+const KEYS = [
+  ['Space', 'play or pause'], ['1, 2, 4', 'speed'], ['C, M, W, H', 'candle, move, ward, hush (at night)'], ['V', 'turn the Tain upright'],
+  ['+ and −, 0', 'zoom, and fit the castle again'], ['Arrows', 'pan'], ['K, P, R, B', 'this phase, People, Records, Build'], ['L', 'room names'],
+  ['Esc', 'the Menu, or close a panel'],
+];
 function settingsTab() {
-  return `<div class="fields">${TUNE.map(([k, label]) => `<label for="tune-${k}">${esc(label)}<input type="number" id="tune-${k}" data-act="tune" data-key="${k}" value="${s.tuning[k]}" min="0" step="any"></label>`).join('')}</div>
-    <p class="hint">Changes apply from the next tick or the next dusk, and are recorded so exports still replay.</p>
+  const radio = (name, v, label, cur) => `<label class="row" for="${name}-${v}"><input type="radio" name="${name}" id="${name}-${v}" data-act="${name}" value="${v}"${cur === v ? ' checked' : ''}>${label}</label>`;
+  const motion = prefs.motion || 'system';
+  return `<section class="settings">
+    <h3>Play</h3>
     <label class="row" for="autopause"><input type="checkbox" id="autopause" data-act="autopause"${prefs.autoPause ? ' checked' : ''}>Pause for raids, catches and the Hollow</label>
-    <label class="row" for="labels-on"><input type="checkbox" id="labels-on" data-act="labels"${prefs.labels ? ' checked' : ''}>Show room names on the castle</label>
     <label class="row" for="guide-on"><input type="checkbox" id="guide-on" data-act="guide-toggle"${prefs.guide ? ' checked' : ''}>Guide me through the first season (turning it on starts it over)</label>
+    <h3>The castle</h3>
+    <fieldset><legend>The Tain at night</legend>${radio('camera', 'reflection', 'Reflected, upside down, as the lake shows it', prefs.mode)}${radio('camera', 'flipped', 'Turned upright', prefs.mode)}</fieldset>
+    <label class="row" for="labels-on"><input type="checkbox" id="labels-on" data-act="labels"${prefs.labels ? ' checked' : ''}>Show room names on the castle</label>
+    <fieldset><legend>Motion</legend>${radio('motion', 'system', `As this device is set (now: ${SYS_REDUCED ? 'less motion' : 'full motion'})`, motion)}${radio('motion', 'reduce', 'Less motion: the camera cuts, nothing flickers or sways, the crossing is skipped', motion)}${radio('motion', 'full', 'Full motion', motion)}</fieldset>
+    <h3>Keys</h3>
+    <dl class="keys">${KEYS.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl>
     ${installHTML('settings')}
-    <p class="hint">Seed ${s.seed}. Keys: space to play or pause, 1, 2 and 4 for speed; at night C candle, M move, W ward, H hush, V flip; + and − zoom, 0 fits the castle again, arrow keys pan; K, P and R open the panels, B the build list; L room names; Esc closes a panel.</p>
-    ${newKeepControls()}`;
+    <details class="advanced" id="advanced"${ui.advanced ? ' open' : ''}><summary>Advanced: the playtest numbers</summary>
+      <div class="fields">${TUNE.map(([k, label]) => `<label for="tune-${k}">${esc(label)}<input type="number" id="tune-${k}" data-act="tune" data-key="${k}" value="${s.tuning[k]}" min="0" step="any"></label>`).join('')}</div>
+      <p class="hint">These are this keep's numbers. Changes apply from the next tick or the next dusk, and are recorded, so exports still replay. A new keep keeps only the ones you set. Seed ${s.seed}.</p>
+    </details>
+  </section>`;
 }
-const TABS = [['book', 'Book of the Dead'], ['log', 'Log'], ['days', 'Days'], ['playtest', 'Playtest'], ['settings', 'Settings']];
+// The keeps in their slots: the one being played, and the rest.
+const agoText = (ms) => {
+  const m = Math.round((Date.now() - ms) / 60000);
+  if (m < 1) return 'just now';
+  if (m < 60) return `${m} minute${m === 1 ? '' : 's'} ago`;
+  const h = Math.round(m / 60);
+  if (h < 24) return `${h} hour${h === 1 ? '' : 's'} ago`;
+  const d = Math.round(h / 24);
+  return `${d} day${d === 1 ? '' : 's'} ago`;
+};
+function whereText(m) {
+  if (m.lost) return `fallen on day ${m.day}`;
+  if (m.phase === 'end') return 'the season is over';
+  if (m.phase === 'night') return `night ${m.day}`;
+  if (m.phase === 'dusk') return `dusk, day ${m.day}`;
+  if (m.phase === 'dawn') return m.day === 0 ? 'the first dawn' : `dawn after night ${m.day}`;
+  return `day ${m.day}`;
+}
+function savesTab() {
+  const slots = Array.from({ length: SLOTS }, (_, i) => i + 1).map((n) => {
+    const here = n === saves.current;
+    const m = here ? summary(s, Date.now()) : saves.slots[n];
+    const ask = ui.confirmSlot?.n === n ? ui.confirmSlot : null;
+    const file = `<input type="file" id="import-${n}" class="visually-hidden" data-act="import" data-n="${n}" accept=".json,application/json"><label class="btn sm" for="import-${n}">Load a file</label>`;
+    let acts;
+    if (ask) {
+      const q = ask.kind === 'delete' ? `Delete keep ${n}? It can't be brought back unless you exported it.` : ask.kind === 'import' ? `Replace keep ${n} with the one in the file?` : `Start keep ${n} over from season 1, day 1? This keep is lost unless you exported it.`;
+      acts = `<p class="note bad">${esc(q)}</p><div class="row"><button class="btn sm primary" id="slot-yes-${n}" data-act="slot-yes" data-n="${n}">${ask.kind === 'delete' ? 'Delete' : ask.kind === 'import' ? 'Replace' : 'Start over'}</button><button class="btn sm" id="slot-no-${n}" data-act="slot-no">Cancel</button></div>`;
+    } else if (here) acts = `<div class="row"><button class="btn sm" id="slot-export-${n}" data-act="slot-export" data-n="${n}">Export</button>${file}<button class="btn sm" id="slot-over-${n}" data-act="slot-over" data-n="${n}">Start over</button></div>`;
+    else if (m) acts = `<div class="row"><button class="btn sm primary" id="slot-play-${n}" data-act="slot-play" data-n="${n}">Continue</button><button class="btn sm" id="slot-export-${n}" data-act="slot-export" data-n="${n}">Export</button>${file}<button class="btn sm" id="slot-delete-${n}" data-act="slot-delete" data-n="${n}">Delete</button></div>`;
+    else acts = `<div class="row"><button class="btn sm primary" id="slot-new-${n}" data-act="slot-new" data-n="${n}">New keep</button>${file}</div>`;
+    const what = m
+      ? `<p><b>Season ${m.season}, ${esc(whereText(m))}</b></p><p class="hint">${plural(m.rooms, 'room')} · ${m.living} living · ${plural(m.shades, 'shade')}${here ? '' : ` · played ${esc(agoText(m.saved))}`}</p>`
+      : '<p class="hint">Empty.</p>';
+    return `<div class="slot${here ? ' is-here' : ''}" id="slot-${n}"><div class="slot-head"><span class="eyebrow">Keep ${n}</span>${here ? '<span class="tag">Playing</span>' : ''}</div>${what}${acts}</div>`;
+  }).join('');
+  return `<section class="saves">
+    <p class="note">Each keep saves itself as you play. Export writes a keep to a file you can keep or send; Load a file takes that file back, or a tester's playtest export, which is replayed into the keep it came from.</p>
+    <div class="slots">${slots}</div>
+    ${ui.slotMsg ? `<p class="note bad" role="alert">${esc(ui.slotMsg)}</p>` : ''}
+  </section>`;
+}
+const MENU_TABS = [['settings', 'Settings'], ['saves', 'Saves']];
+function menuHTML() {
+  const tab = ui.menuTab === 'saves' ? 'saves' : 'settings';
+  return `<div class="tabs" role="tablist" aria-label="Menu">${MENU_TABS.map(([k, l]) => `<button class="tab" role="tab" id="menu-tab-${k}" data-act="menu-tab" data-tab="${k}" aria-selected="${k === tab}" aria-controls="menupanel">${l}</button>`).join('')}</div>
+    <div class="tabpanel" role="tabpanel" id="menupanel" aria-labelledby="menu-tab-${tab}">${tab === 'saves' ? savesTab() : settingsTab()}</div>`;
+}
+const TABS = [['book', 'Book of the Dead'], ['log', 'Log'], ['days', 'Days'], ['playtest', 'Playtest']];
 function recordsHTML() {
   const tab = TABS.some(([k]) => k === prefs.tab) ? prefs.tab : 'log';
-  const body = { book: bookTab, log: logTab, days: daysTab, playtest: playtestTab, settings: settingsTab }[tab]();
+  const body = { book: bookTab, log: logTab, days: daysTab, playtest: playtestTab }[tab]();
   return `<div class="tabs" role="tablist" aria-label="Records">${TABS.map(([k, l]) => `<button class="tab" role="tab" id="tab-${k}" data-act="tab" data-tab="${k}" aria-selected="${k === tab}" aria-controls="tabpanel">${l}</button>`).join('')}</div>
     <div class="tabpanel" role="tabpanel" id="tabpanel" aria-labelledby="tab-${tab}">${body}</div>`;
 }
@@ -843,7 +931,7 @@ function fitView() {
 
 function moveCamera(dt) {
   aimCamera();
-  if (view.snap || REDUCED) {
+  if (view.snap || REDUCED_NOW()) {
     view.x = view.tx;
     view.y = view.ty;
     view.snap = false;
@@ -997,14 +1085,14 @@ function draw(alpha, now) {
     fade.night = night;
     view.panX = 0;
     view.panY = 0;
-    if (!REDUCED) {
+    if (!REDUCED_NOW()) {
       fade.cv.width = canvas.width;
       fade.cv.height = canvas.height;
       fade.cv.getContext('2d').drawImage(canvas, 0, 0);
       fade.until = now + 900;
     }
   }
-  const t = REDUCED ? 0 : now / 1000;
+  const t = REDUCED_NOW() ? 0 : now / 1000;
   drawScene(canvas, s, {
     night,
     flip: flipped(),
@@ -1112,6 +1200,7 @@ const SHEETS = {
   phase: [null, () => `<section class="phase ${PH[s.phase]}">${phaseHTML()}</section>`],
   people: ['People', rosterHTML],
   records: ['Records', () => `<section class="records">${recordsHTML()}</section>`],
+  menu: ['Menu', () => `<section class="menu">${menuHTML()}</section>`],
 };
 function sheetHTML() {
   if (!ui.sheet) return '';
@@ -1214,6 +1303,10 @@ function render(alpha, now) {
 }
 
 function openSheet(name) {
+  if (name === 'menu' && running() && !ui.paused) {
+    ui.paused = true;
+    ui.resume = true;
+  }
   ui.sheet = name;
   bump();
   requestAnimationFrame(() => document.getElementById('sheet-close')?.focus({ preventScroll: true }));
@@ -1221,6 +1314,12 @@ function openSheet(name) {
 function closeSheet() {
   const was = ui.sheet;
   ui.sheet = null;
+  ui.confirmSlot = null;
+  ui.slotMsg = '';
+  if (ui.resume) {
+    ui.resume = false;
+    if (running()) ui.paused = false;
+  }
   if (was === 'intro') {
     prefs.introDone = true;
     savePrefs();
@@ -1391,7 +1490,7 @@ function afterSunset() {
   bump();
 }
 function startSouls(plan) {
-  if (REDUCED || !plan.length) return;
+  if (REDUCED_NOW() || !plan.length) return;
   ui.cross = { stage: 'souls', t0: performance.now(), souls: plan.map((x) => ({ up: x.to === 'funeral', flashed: false })) };
 }
 function crossingDone(now) {
@@ -1448,7 +1547,7 @@ function onPhase() {
   if (!running()) ui.paused = true;
   if (s.phase === 'dusk') {
     ui.tool = 'candle';
-    if (!REDUCED && seenPhaseWas === 'day') ui.cross = { stage: 'sunset', t0: performance.now() };
+    if (!REDUCED_NOW() && seenPhaseWas === 'day') ui.cross = { stage: 'sunset', t0: performance.now() };
     else if (s.dusk.step === 'crypt') openSheet('phase');
     if (s.dusk.step !== 'crypt' && ui.sheet === 'phase') closeSheet();
   } else if (s.phase === 'dawn' || s.phase === 'end' || s.phase === 'over') openSheet('phase');
@@ -1517,6 +1616,7 @@ function game(a) {
 function togglePlay() {
   if (!running()) return;
   ui.paused = !ui.paused;
+  ui.resume = false; // played or paused by hand: closing the Menu leaves it so
   if (ui.paused) ui.rush = false;
   bump();
 }
@@ -1538,6 +1638,94 @@ function copyExport() {
     done(blocked, true);
   }
 }
+// The keeps in the slots. Whatever is being played is saved before another is put in play.
+const waiting = () => s.phase === 'dawn' || s.phase === 'end' || s.phase === 'over' || (s.phase === 'dusk' && s.dusk.step === 'crypt');
+function playKeep(n, g, lead) {
+  if (n !== saves.current) saveGame();
+  useSlot(store, saves, n);
+  s = g;
+  seenPhase = s.phase;
+  seenPhaseWas = s.phase;
+  acc = 0;
+  Object.assign(ui, { paused: true, resume: false, confirmNew: false, selected: null, person: null, hover: null, tool: 'candle', showExport: false, copied: '', rush: false, cross: null });
+  view.panX = 0;
+  view.panY = 0;
+  view.snap = true;
+  saveWarned = false;
+  saveGame();
+  closeSheet();
+  if (waiting()) openSheet('phase');
+  toast(`${lead} Season ${s.season}: ${phaseLabel()}.`, 'rite');
+  if (retuned) toast(`This version changed ${retuned} of the keep's numbers; yours from Settings are kept.`, 'rite');
+  retuned = 0;
+  return bump();
+}
+function playSlot(n) {
+  if (n === saves.current) return closeSheet();
+  const g = loadGame(n);
+  if (g) return playKeep(n, g, `Keep ${n}.`);
+  ui.slotMsg = `Keep ${n} couldn't be read.`;
+  return bump();
+}
+function newKeep(n) {
+  retuned = 0;
+  return playKeep(n, newSeason(Date.now() >>> 0, playerTuning(s)), `A new keep in slot ${n}.`);
+}
+function confirmSlot(n) {
+  const ask = ui.confirmSlot;
+  ui.confirmSlot = null;
+  if (!ask || ask.n !== n) return bump();
+  if (ask.kind === 'over') return newKeep(n);
+  if (ask.kind === 'import') {
+    retuned = retune(ask.g, TUNING);
+    return playKeep(n, ask.g, `Keep ${n}, from ${ask.name}.`);
+  }
+  if (ask.kind !== 'delete' || n === saves.current) return bump(); // the keep being played is never deleted
+  deleteSlot(store, saves, n);
+  toast(`Keep ${n} is deleted.`);
+  return bump();
+}
+// A keep as a file: the save itself, which Load a file (here or on another device) takes back exactly.
+function exportSlot(n) {
+  const g = n === saves.current ? { ...s, alerts: [] } : store.get(slotKey(n));
+  if (!g) return undefined;
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(g)], { type: 'application/json' }));
+  a.download = `afterglass-keep-${n}-season-${g.season}-day-${g.day}.json`;
+  document.body.append(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 60000);
+  toast(`Keep ${n} is saved as ${a.download}.`);
+  return undefined;
+}
+function importSlot(n, el) {
+  const file = el.files?.[0];
+  el.value = '';
+  if (!file) return undefined;
+  ui.slotMsg = '';
+  file.text().then(
+    (text) => {
+      const r = keepFromFile(text);
+      if (r.error) {
+        ui.slotMsg = r.error;
+        return bump();
+      }
+      if (n === saves.current || saves.slots[n]) {
+        ui.confirmSlot = { n, kind: 'import', g: r.s, name: file.name };
+        return bump();
+      }
+      retuned = retune(r.s, TUNING);
+      return playKeep(n, r.s, `Keep ${n}, from ${file.name}.`);
+    },
+    () => {
+      ui.slotMsg = "That file couldn't be read.";
+      bump();
+    },
+  );
+  return undefined;
+}
+
 // On a phone the panels cover the castle: close them when the next tap belongs on the castle.
 const toStage = () => {
   if (!wide()) closeSheet();
@@ -1570,6 +1758,32 @@ function onAct(name, el) {
       savePrefs();
       drawnLabels = '';
       return bump();
+    case 'camera':
+      if (el.value === prefs.mode) return undefined;
+      return onAct('flip', el);
+    case 'motion':
+      prefs.motion = el.value;
+      savePrefs();
+      applyMotion();
+      view.snap = true;
+      return bump();
+    case 'menu-tab':
+      ui.menuTab = el.dataset.tab;
+      ui.confirmSlot = null;
+      ui.slotMsg = '';
+      return bump();
+    case 'slot-play': return playSlot(Number(el.dataset.n));
+    case 'slot-new': return newKeep(Number(el.dataset.n));
+    case 'slot-over':
+    case 'slot-delete':
+      ui.confirmSlot = { n: Number(el.dataset.n), kind: name === 'slot-over' ? 'over' : 'delete' };
+      return bump();
+    case 'slot-no':
+      ui.confirmSlot = null;
+      return bump();
+    case 'slot-yes': return confirmSlot(Number(el.dataset.n));
+    case 'slot-export': return exportSlot(Number(el.dataset.n));
+    case 'import': return importSlot(Number(el.dataset.n), el);
     case 'sheet':
       return ui.sheet === el.dataset.sheet ? closeSheet() : openSheet(el.dataset.sheet);
     case 'sheet-close': return closeSheet();
@@ -1674,14 +1888,7 @@ function onAct(name, el) {
     case 'new-no':
       ui.confirmNew = false;
       return bump();
-    case 'new-yes':
-      s = newSeason(Date.now() >>> 0, playerTuning(s));
-      seenPhase = s.phase;
-      Object.assign(ui, { paused: true, confirmNew: false, selected: null, person: null, tool: 'candle', showExport: false, copied: '', rush: false });
-      saveGame();
-      closeSheet();
-      toast('A new season. Day 1.', 'day');
-      return bump();
+    case 'new-yes': return newKeep(saves.current);
     case 'copy': return copyExport();
     case 'show-export':
       ui.showExport = !ui.showExport;
@@ -1703,6 +1910,10 @@ function onAct(name, el) {
 }
 
 document.addEventListener('click', (e) => {
+  // Advanced's open state is kept in ui as it's clicked: the toggle event comes a task later, after a
+  // render may already have replaced the element.
+  const sum = e.target.closest('#advanced > summary');
+  if (sum) ui.advanced = !sum.parentElement.open;
   const el = e.target.closest('[data-act]');
   if (el && !el.matches('select, input, textarea')) onAct(el.dataset.act, el);
 });
@@ -1710,6 +1921,9 @@ document.addEventListener('change', (e) => {
   const el = e.target.closest('[data-act]');
   if (el && el.matches('select, input')) onAct(el.dataset.act, el);
 });
+document.addEventListener('toggle', (e) => {
+  if (e.target.id === 'advanced') ui.advanced = e.target.open;
+}, true);
 let noteTimer = 0;
 document.addEventListener('input', (e) => {
   if (!e.target.matches('[data-note]')) return;
@@ -1723,8 +1937,9 @@ document.addEventListener('input', (e) => {
   }, 400);
 });
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && ui.sheet) {
-    closeSheet();
+  if (e.key === 'Escape') {
+    if (ui.sheet) closeSheet();
+    else if (!e.target.closest('input, select, textarea')) openSheet('menu');
     return;
   }
   const k = e.key.toLowerCase();
@@ -1846,7 +2061,7 @@ if ('ResizeObserver' in window) {
 render(1, performance.now());
 layout();
 if (!prefs.introDone) openSheet('intro');
-else if (s.phase === 'dawn' || s.phase === 'end' || s.phase === 'over' || (s.phase === 'dusk' && s.dusk.step === 'crypt')) openSheet('phase');
+else if (waiting()) openSheet('phase');
 if (s.day > 1 || s.season > 1 || s.phase !== 'day') toast(`Welcome back. Season ${s.season}: ${phaseLabel()}.`, 'rite');
 if (retuned) toast(`This version changed ${retuned} of the keep's numbers; yours from Settings are kept.`, 'rite');
 requestAnimationFrame(frame);

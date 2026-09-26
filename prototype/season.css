@@ -261,10 +261,56 @@ table.days { min-width: 680px; }
 .gcoach .row { gap: 6px; }
 .is-coached { outline: 3px solid var(--day); outline-offset: 2px; animation: coach 1.2s ease-in-out infinite; }
 @keyframes coach { 50% { outline-color: transparent; } }
-@media (prefers-reduced-motion: reduce) { .is-coached { animation: none; } }
+:root[data-motion="reduce"] .is-coached { animation: none; }
 
 /* The build list: each room with what it does by day and by night, and its button. */
 .build-list { list-style: none; margin: 0.6rem 0 0; padding: 0; display: grid; gap: 0.5rem; }
 .build-row { display: flex; gap: 0.75rem; align-items: flex-start; justify-content: space-between; padding: 0.5rem 0.6rem; border: 1px solid var(--line, #2c2640); border-radius: 8px; }
 .build-row .note { margin: 0.2rem 0 0; }
 .build-row .btn { flex: none; }
+
+/* ---------- the Menu: Settings and Saves */
+.menu { border: 1px solid var(--line); background: var(--box); border-radius: 6px; min-width: 0; }
+.settings, .saves { display: grid; gap: 10px; min-width: 0; }
+.settings h3 {
+  margin: 8px 0 0;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+.settings h3:first-child { margin-top: 0; }
+.settings fieldset { border: 0; margin: 0; padding: 0; display: grid; gap: 6px; min-width: 0; }
+/* A long label wraps beside its box, not under it. */
+.settings label.row { flex-wrap: nowrap; align-items: flex-start; }
+.settings label.row input { flex: none; margin-top: 3px; }
+.settings legend { padding: 0; margin-bottom: 4px; font-size: 14px; font-weight: 700; }
+.keys { margin: 0; display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 4px 12px; font-size: 13px; }
+.keys div { display: contents; }
+.keys dt { font-family: var(--font-num); color: var(--ink); }
+.keys dd { margin: 0; color: var(--ink-2); }
+.advanced { border-top: 1px solid var(--line); padding-top: 8px; }
+.advanced summary { cursor: pointer; font-weight: 700; padding: 4px 0; }
+.advanced[open] summary { margin-bottom: 8px; }
+.advanced .hint { margin: 8px 0 0; }
+.slots { display: grid; gap: 10px; }
+.slot { border: 1px solid var(--line-2); border-radius: 6px; padding: 10px 12px; display: grid; gap: 6px; background: var(--panel); }
+.slot.is-here { border-color: var(--rite); box-shadow: inset 3px 0 0 var(--rite); }
+.slot p { margin: 0; }
+.slot b { color: var(--ink); }
+label.btn { display: inline-flex; align-items: center; }
+.slot-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.slot .tag { color: var(--rite-ink); border-color: var(--rite); background: var(--rite-tint); }
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.visually-hidden:focus-visible + label { outline: 2px solid var(--focus); outline-offset: 2px; }

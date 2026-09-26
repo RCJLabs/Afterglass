@@ -583,8 +583,10 @@ table.ledger { border-collapse: collapse; width: 100%; font-size: 13px; min-widt
 .toast.wake, .toast.night { --tone: var(--night); }
 .toast.day { --tone: var(--day); }
 
+/* The season sets data-motion from its Motion setting, which can override the device either way. */
+:root[data-motion="reduce"] * { transition: none !important; scroll-behavior: auto !important; }
 @media (prefers-reduced-motion: reduce) {
-  * { transition: none !important; scroll-behavior: auto !important; }
+  :root:not([data-motion="full"]) * { transition: none !important; scroll-behavior: auto !important; }
 }
 
 /* ---------- phones: keep the sticky header short */
