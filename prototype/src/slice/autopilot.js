@@ -263,10 +263,13 @@ function tendNight(s, plan) {
     }
   }
   // The last tide of the two biggest nights before the new moon: ward the stairs of the line if the
-  // Choir has sung enough essence. Warded stairs turn the whole tide back.
+  // Choir has sung enough essence, beyond what the new moon needs to ward every stair against the Hollow.
+  // Warded stairs turn the whole tide back. (Spending that reserve lost the Hollow's night: in season 2 the
+  // Hollow got through 50 times in 180 with it spent, 11 without.)
   const last = n.tides[n.tides.length - 1];
   const unwarded = LINE.filter((st) => st.id && !n.wards.includes(st.id));
-  if (plan !== 'double' && s.day >= T.seasonDays - 2 && s.day < T.seasonDays && s.t >= last - 60 && s.t <= last && unwarded.length && s.res.essence >= unwarded.length * wardCost(s)) {
+  const reserve = G.stairs.length * wardCost(s);
+  if (plan !== 'double' && s.day >= T.seasonDays - 2 && s.day < T.seasonDays && s.t >= last - 60 && s.t <= last && unwarded.length && s.res.essence >= unwarded.length * wardCost(s) + reserve) {
     for (const st of unwarded) doAct(s, { type: 'ward', target: st.id });
   }
   // The Hollow: ward the stairs above it while the essence lasts, and meet it with fighters near the top.

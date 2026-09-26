@@ -53,10 +53,9 @@ export const TUNING = {
   dreadPerWraith: 2,
   dreadPerCrack: 1,
   dreadPerBroken: 1, // each room a Maw broke in the night haunts the keep: Dread at dawn
-  // One Dread borne per this many living. At 3, the autopilot almost never had to cover a shade, so which
-  // one it kept (traits) made no difference; at 4 it covers about 3 a season and reading traits is worth
-  // about 10 more second seasons in 190 (README, traits). It also makes second seasons harder.
-  dreadLivingPer: 4,
+  // One Dread borne per this many living. 4 was tried, to make the rite bite: it made every plan finish a few
+  // points fewer second seasons and showed no gain from reading traits (README, problem 8).
+  dreadLivingPer: 3,
   dreadMax: 5,
   vigilCost: 3,
   bindCost: 3,

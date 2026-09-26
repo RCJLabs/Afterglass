@@ -7,7 +7,7 @@ Round three's ten-week plan is built: four prototypes, ending in a one-season ve
 - **Nobody has played it yet.** The slice's question, *do people want to play a second season?*, is unanswered. Everything below comes from autopilot runs (a scripted player, 40 to 200 seeds a result) and scripted runs in Chromium.
 - **The night collapses onto the line's floor.** The static defense no longer wins: over 200 seeds the reacting plan and a doubled line finish 176 and 179 second seasons on the two-room start, and 179 and 171 on the four-floor keep. But the best play either way keeps nearly everyone on the line's floor. Below it only the Choir is worth working at night, so most twin rooms' night jobs don't matter on a built-up keep.
 - **Both seasons may be too easy.** The autopilot finishes 98–99% of first seasons and about 90% of the second seasons it reaches. People will do worse than a script that knows the rules, but by how much is unknown.
-- **Keep or cover at dawn is only just becoming a choice.** Traits make each shade different, and with harsher Dread, reading them pays for the autopilot, though the evidence is thin. The rite is meant to be the game's best decision; whether it feels like one needs people.
+- **Keep or cover at dawn is still not shown to be a choice.** Traits make each shade different, but an autopilot that reads them does no better than one blind to them. The rite is meant to be the game's best decision; whether it feels like one needs people.
 - **The new moon turns on a couple of candles.** When a room a Maw broke also lost its day's work, the balanced plan fell from 95% to 67% of first seasons on the four-floor keep, almost all of it through the Chandlery broken the night before the new moon.
 - **Colour blindness is checked only in simulation.** Red eyes on a dark night all but vanished for anyone who can't see red; each Unlit eye now has a pale glint that stays bright.
 
@@ -19,10 +19,10 @@ Sizes were my estimates when the list was made: S, M, L.
 |---|---|---|---|
 | | **Fixes for problems already measured** | | |
 | 1 | Break the fixed stair setup that won nights 1–5 | M | Built. The static line no longer wins; the night now centres on the line's floor (below) |
-| 2 | Make the rite bite: traits such as Devout turning Bitter, and fire by day | M | Part built: traits, a Bitter shade costing 3 Dread, and harsher Dread. No fire by day |
+| 2 | Make the rite bite: traits such as Devout turning Bitter, and fire by day | M | Part built: traits, with a Bitter shade costing 3 Dread. No fire by day |
 | 3 | Colour-blind-safe eyes: Creepers and Strangers told apart by shape | S | Built. The real problem was red eyes vanishing in the dark; each eye now has a pale glint |
 | | **Designed in round three, not built yet** | | |
-| 4 | Traits that invert at death: 8 pairs, each with a night effect | M | Built. Reading them pays only under harsher Dread, and the evidence is thin |
+| 4 | Traits that invert at death: 8 pairs, each with a night effect | M | Built. Reading them made no measurable difference to the autopilot |
 | 5 | Quarters and the Dreamwell; Weepers give the sleepers nightmares | M | Not built |
 | 6 | The black mirror: tomorrow's raid and tonight's Creeper waves | S | Not built. The Dusk panel already lists the night's tides |
 | 7 | Whispers and the great glass: shades coach the living, or step through by day | M | Not built |
@@ -54,9 +54,9 @@ My picks for playtest readiness were 1, 11, 12, 17 and 18. All five are built. B
 - **Guarding the line (to fix 1):** a rule that shades in the light at the stairs do no work but keep the Watch. It took the balanced plan from 92% to 73% of first seasons and barely moved the doubled line (98% to 95%). It's off, as a switch in Settings.
 - **Building (9):** stone from masons in the Yard, 6 stone a room, three workers a room, a Forge and a Cellar, and a keep that starts as the Hearth and the Crypt. The autopilot's results depend heavily on build order: swapping the Chapel and the Chandlery once took it from 93% to 30%.
 - **Traits (2 and 4):** everyone has one of eight, and death turns it over.
-  - **At the old Dread, traits didn't matter.** An autopilot that reads them did no better than one blind to them, or one judging them backwards, because it seldom had to cover anyone.
-  - **Under harsher Dread they did.** With the living bearing one Dread per 4 of them instead of 3, reading traits won about 10 more second seasons in 190 (about two standard errors, so suggestive rather than proven).
-  - **The costs of the harsher Dread.** It punishes both extremes, keeping everyone and covering freely, and makes second seasons harder. It also puts the doubled line ahead again, 179 second seasons to 166.
+  - **Reading them made no measurable difference.** An autopilot that reads traits finished 178 second seasons of 193, against 175 for one blind to them.
+  - **A claim I retracted.** I first reported a lead of about 10 for reading traits under a harsher Dread (the living bearing one per 4 of them instead of 3), and made that Dread the default. The lead came from an autopilot mistake: it spent the essence the new moon needs on the tides of nights 5 and 6. With that fixed the lead vanished, and the default went back.
+  - **The doubled line.** The same mistake had put it ahead again, by 13–15 second seasons. It now leads by 10 on the two-room start (about 1.7 standard errors, not proven) and trails by 10 on the four-floor keep.
 - **The crossing, the guide, the Book and installing (11, 17, 12, 18)** work in scripted runs. None has been tried by a person.
 
 ## Decisions only you can make
@@ -73,7 +73,7 @@ The Maw name, the fourth open question from before, is settled: they break rooms
 2. **The doubled line.** Done: the gap was my autopilot's. With it playing sensibly the reacting plan levels with the doubled line on the two-room start and beats it on the four-floor keep.
 3. **Colour-blind-safe eyes (3).** Done, checked in simulation.
 4. **The playtest.**
-5. **Traits that make the rite bite (2 and 4).** Done, with harsher Dread, which the choice needs. The doubled line's lead came back with it and needs a look.
+5. **Traits that make the rite bite (2 and 4).** Built; they don't yet show a measurable effect on the rite for the autopilot. What they change is which shade costs what; whether that matters is for the playtest.
 
 ## What's checked
 
