@@ -9,7 +9,7 @@ Round three's ten-week plan is built: four prototypes, ending in a one-season ve
 - **Both seasons may be too easy.** The autopilot finishes 98–99% of first seasons and about 90% of the second seasons it reaches. People will do worse than a script that knows the rules, but by how much is unknown.
 - **Keep or cover at dawn is still mostly a Dread valve** in the first season. The rite is meant to be the game's best decision.
 - **The new moon turns on a couple of candles.** When a room a Maw broke also lost its day's work, the balanced plan fell from 95% to 67% of first seasons on the four-floor keep, almost all of it through the Chandlery broken the night before the new moon.
-- **Creeper red against Stranger green** is a colour-blindness risk.
+- **Colour blindness is checked only in simulation.** Red eyes on a dark night all but vanished for anyone who can't see red; each Unlit eye now has a pale glint that stays bright.
 
 ## The candidates
 
@@ -20,7 +20,7 @@ Sizes were my estimates when the list was made: S, M, L.
 | | **Fixes for problems already measured** | | |
 | 1 | Break the fixed stair setup that won nights 1–5 | M | Built. The static line no longer wins; the night now centres on the line's floor (below) |
 | 2 | Make the rite bite: traits such as Devout turning Bitter, and fire by day | M | Not built; queued after the playtest |
-| 3 | Colour-blind-safe eyes: Creepers and Strangers told apart by shape | S | Not built; queued |
+| 3 | Colour-blind-safe eyes: Creepers and Strangers told apart by shape | S | Built. The real problem was red eyes vanishing in the dark; each eye now has a pale glint |
 | | **Designed in round three, not built yet** | | |
 | 4 | Traits that invert at death: 8 pairs, each with a night effect | M | Not built |
 | 5 | Quarters and the Dreamwell; Weepers give the sleepers nightmares | M | Not built |
@@ -66,7 +66,7 @@ The Maw name, the fourth open question from before, is settled: they break rooms
 
 1. This write-up. Done.
 2. **The doubled line.** Done: the gap was my autopilot's. With it playing sensibly the reacting plan levels with the doubled line on the two-room start and beats it on the four-floor keep.
-3. **Colour-blind-safe eyes (3).**
+3. **Colour-blind-safe eyes (3).** Done, checked in simulation.
 4. **The playtest.**
 5. **Traits that make the rite bite (2 and 4).**
 

@@ -532,12 +532,19 @@ function creeperSprite(c, u, x, y, t) {
   for (let i = 0; i < 3; i++) D(c, bx + 1 + i * 2, by + bob, (MF(t * 8) + i) % 2 ? '#050308' : '#1a0d1a');
   if (u.temper === 'snuff') D(c, bx + 3, by - 4 + bob, '#050308');
 }
-function creeperEyes(c, u, x, y, t) {
+// The Unlit's eyes. Red alone goes dark to anyone who can't see red (protanopia, deuteranopia), and a Creeper
+// is nothing but its eyes in the dark, so each eye has a pale glint above it that stays bright whatever the
+// colour vision. It also makes a Creeper's eyes two small upright marks near the floor, unlike a shade's
+// level pair at head height.
+export const UNLIT_EYES = { red: P.hot, gnaw: P.orange, glint: '#ffc2d1' };
+export function creeperEyes(c, u, x, y, t) {
   const bx = Math.round(x - 3);
   const bob = u.climb ? 0 : Math.round(Math.sin(t * 4 + u.x));
-  const col = u.gnawing ? P.orange : P.hot;
-  D(c, bx + 2, Math.round(y) - 2 + bob, col);
-  D(c, bx + 4, Math.round(y) - 2 + bob, col);
+  const col = u.gnawing ? UNLIT_EYES.gnaw : UNLIT_EYES.red;
+  for (const ex of [bx + 2, bx + 4]) {
+    D(c, ex, Math.round(y) - 3 + bob, UNLIT_EYES.glint);
+    D(c, ex, Math.round(y) - 2 + bob, col);
+  }
 }
 function wraithSprite(c, x, y, t) {
   const bx = Math.round(x - 3);
@@ -587,7 +594,7 @@ function hollowEyes(c, x, y, t) {
   const cy = Math.round(y) - 6;
   for (let i = 0; i < 5; i++) {
     const a = (i / 5) * Math.PI * 2 + t * 0.3;
-    D(c, cx + Math.round(Math.cos(a) * 3), cy + Math.round(Math.sin(a) * 2), MF(t * 2 + i) % 3 ? P.hot : P.red);
+    D(c, cx + Math.round(Math.cos(a) * 3), cy + Math.round(Math.sin(a) * 2), MF(t * 2 + i) % 3 ? UNLIT_EYES.red : UNLIT_EYES.glint);
   }
 }
 function candleStick(c, k) {
