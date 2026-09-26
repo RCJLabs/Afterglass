@@ -159,6 +159,12 @@ export const TUNING = {
   // The Unlit take any dark way up, however long, and gnaw only a light that bars every way (1 on, 0 off).
   // Off, they gnaw the first light on their shortest way, so a room lit below the line took a whole tide.
   goAround: 1,
+
+  // Breaking a mirror, an emergency open at any time: everyone in it is freed at once, Dread falls by
+  // breakDread for each, and the next badLuckDays days are unlucky: sickness comes badLuck times as often.
+  breakDread: 1,
+  badLuckDays: 7,
+  badLuck: 2,
 };
 
 // Traits, from round three: each of the living has one, which helps or hinders at a job, and death turns it

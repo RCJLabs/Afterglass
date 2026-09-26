@@ -26,7 +26,7 @@ Sizes were my estimates when the list was made: S, M, L.
 | 5 | Quarters and the Dreamwell; Weepers give the sleepers nightmares | M | Queued, 7th |
 | 6 | The black mirror: tomorrow's raid and tonight's Creeper waves | S | Built, inside the threat preview (16): tonight's waves by rift and tide, and tomorrow's raid as a range |
 | 7 | Whispers and the great glass: shades coach the living, or step through by day | M | Queued, 8th |
-| 8 | Break a mirror in an emergency: it frees its shades and curses the room | S | Queued, 5th |
+| 8 | Break a mirror in an emergency: it frees its shades and curses the room | S | Built. Frees everyone in it and lifts 1 Dread each, then 7 days of bad luck. Used blindly against censures it's slightly worse than taking them |
 | 9 | Build your own rooms | L | Built, and the keep now starts as two rooms. No choosing a slot, no tearing down |
 | 10 | A full year: shifting days and nights, the Long Night, the eclipse | L | Queued, 9th; the eclipse stays on round three's cut list |
 | 11 | The dusk crossing in the season | S | Built |
@@ -92,7 +92,7 @@ The candidates not built yet when the queue was made, in the order I'd build the
 2. **Watch a replay (15).** S–M. Parked for later, your call. A tester's export already replays exactly. A viewer that plays it back lets you see where they struggled, which is most of what a playtest can tell beyond its one question.
 3. **A season recap card (13).** S. One image per season to share, drawn from the season summary and the Book of the Dead.
 4. **A daily seed (14).** S. Everyone plays the same keep each day. Worth it once there are players to compare.
-5. **Break a mirror in an emergency (8).** S. A last resort on a bad night: it frees its shades and curses the room. A new decision, and cheap.
+5. **Break a mirror in an emergency (8).** S. Done. Everyone in it goes free at once and Dread falls 1 for each, so it can turn a censure into a warning, or free a caught shade at night. The mirror is lost and 7 days of bad luck follow (sickness twice as often). The keeper plan breaking one to stop every censure finished 80 second seasons in 99 against 86 without; without the bad luck it's about even.
 6. **Fire by day (the rest of 2).** M. More deaths by day, so the rite has more shades to decide on. If testers find the rite a formality, this moves to the top.
 7. **Quarters and the Dreamwell; Weepers (5).** M. Where the living sleep, and a night threat that reaches them. A second thing to defend at night would also pull the night further from the line.
 8. **Whispers and the great glass (7).** M. Shades coach the living, or step through by day: day work for the dead.

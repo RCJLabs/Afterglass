@@ -21,6 +21,8 @@ const BLIND = !!globalThis.process?.env?.AP_BLIND;
 // AP_BELOW=1 also works the rooms below the line on the Choir's side of the keep, leaving the other side dark
 // as the Unlit's way up (to measure whether working below the line pays).
 const BELOW = !!globalThis.process?.env?.AP_BELOW;
+// AP_BREAK=1 breaks a mirror to stop a censure (to measure whether that pays).
+const BREAK = globalThis.process?.env?.AP_BREAK;
 const LT = (s, p) => (BLIND ? null : livingTrait(s, p));
 const ST = (s, d) => (BLIND ? null : shadeTrait(s, d));
 // How well someone does a job, by their trait.
@@ -107,6 +109,16 @@ function dayMoves(s) {
   }
   const I = s.inspection;
   if (I && !I.done && I.day === s.day) while (s.dread >= 2 && doAct(s, { type: 'vigil' }));
+  // A censure coming at noon that vigils can't stop: break the mirror that brings Dread under it for the
+  // fewest shades, rather than let the Church carry off the fullest.
+  if (BREAK && I && !I.done && I.day === s.day && s.dread >= 4) {
+    const need = Math.ceil((s.dread - 3) / s.tuning.breakDread);
+    const all = s.mirrors.map((x) => ({ x, n: s.shades.filter((d) => d.mirror === x.id).length }));
+    const m = all.filter((e) => e.n >= need).sort((a, b) => a.n - b.n)[0];
+    // What the censure would carry off: the fullest mirror.
+    const taken = Math.max(0, ...all.map((e) => e.n));
+    if (m && (BREAK !== 'smart' || taken - m.n >= 2)) doAct(s, { type: 'break', id: m.x.id });
+  }
 }
 
 /* ---------------------------------------------------------------- dusk */

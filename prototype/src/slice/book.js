@@ -43,6 +43,7 @@ export function epitaph(e, { traits = false } = {}) {
   const at = e.endDay ? ` ${whenText(e.endSeason || e.season, e.endDay, e.season)}` : '';
   const end = {
     covered: `Released when their mirror was covered${at}.`,
+    freed: `Freed when their mirror was broken${at}.`,
     released: `Released from the edge of the Deep${at}.`,
     faded: `Faded to nothing in the glass${at}.`,
     drained: `Drained to nothing by the Unlit${at}.`,
@@ -56,5 +57,5 @@ export function epitaph(e, { traits = false } = {}) {
   }
   return out.join(' ');
 }
-export const RESTING = ['funeral', 'covered', 'released'];
+export const RESTING = ['funeral', 'covered', 'released', 'freed'];
 export const LOST = ['faded', 'drained', 'banished', 'taken'];

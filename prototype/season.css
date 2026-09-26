@@ -207,10 +207,12 @@ body.game-page {
 .question textarea { background: var(--box); }
 details.card > summary { cursor: pointer; }
 details.card .facts li { display: block; }
-.mirror .ways { margin: 0.5rem 0; padding-left: 1.2rem; }
-.mirror .ways li { margin: 0.3rem 0; }
-.mirror .ways li.bad { color: var(--bad); font-weight: 700; }
-.mirror .row { align-items: flex-start; font-size: 14px; }
+.scry .ways { margin: 0.5rem 0; padding-left: 1.2rem; }
+.scry .ways li { margin: 0.3rem 0; }
+.scry .ways li.bad { color: var(--bad); font-weight: 700; }
+.scry .row { align-items: flex-start; font-size: 14px; }
+.break-ask { display: grid; gap: 4px; max-width: 34rem; }
+.break-ask .note { margin: 0; }
 table.days { min-width: 680px; }
 
 @media (max-width: 560px) {
@@ -302,14 +304,14 @@ table.days { min-width: 680px; }
 .advanced summary { cursor: pointer; font-weight: 700; padding: 4px 0; }
 .advanced[open] summary { margin-bottom: 8px; }
 .advanced .hint { margin: 8px 0 0; }
-.slots { display: grid; gap: 10px; }
-.slot { border: 1px solid var(--line-2); border-radius: 6px; padding: 10px 12px; display: grid; gap: 6px; background: var(--panel); }
-.slot.is-here { border-color: var(--rite); box-shadow: inset 3px 0 0 var(--rite); }
-.slot p { margin: 0; }
-.slot b { color: var(--ink); }
+.kslots { display: grid; gap: 10px; }
+.kslot { border: 1px solid var(--line-2); border-radius: 6px; padding: 10px 12px; display: grid; gap: 6px; background: var(--panel); }
+.kslot.is-here { border-color: var(--rite); box-shadow: inset 3px 0 0 var(--rite); }
+.kslot p { margin: 0; }
+.kslot b { color: var(--ink); }
 label.btn { display: inline-flex; align-items: center; }
-.slot-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.slot .tag { color: var(--rite-ink); border-color: var(--rite); background: var(--rite-tint); }
+.kslot-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.kslot .tag { color: var(--rite-ink); border-color: var(--rite); background: var(--rite-tint); }
 .visually-hidden {
   position: absolute;
   width: 1px;

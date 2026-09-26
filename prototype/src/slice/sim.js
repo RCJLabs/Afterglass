@@ -61,6 +61,7 @@ export function newSeason(seed = Date.now() >>> 0, overrides = {}) {
     keep: { floors: startKeep(tuning.startFloors).floors.map((fl) => fl.map((r) => ({ ...r }))) },
     steel: false,
     haunted: [], // rooms (ids) a Maw broke last night, haunted until dusk
+    badLuck: 0, // unlucky days to come, from a broken mirror
     dreamt: 0, // a Wistful shade's good dreams: what the living work at the day after, or 0
     dread: 0,
     cracks: 0,
@@ -337,7 +338,10 @@ function rollDay(s) {
   s.raid = null;
   const base = T.raidDays[s.day];
   if (base) s.raid = newRaid(s, base * hard(s), Math.round(T.raidWarnAt * D), Math.round(T.raidHitAt * D));
-  if (chance(s, T.sickChance)) s.events.push({ at: Math.round((0.1 + rand(s) * 0.5) * D), type: 'sick' });
+  // A broken mirror's bad luck: sickness more likely, from the same one throw of the dice.
+  const luck = s.badLuck > 0 ? T.badLuck : 1;
+  if (s.badLuck > 0) s.badLuck--;
+  if (chance(s, Math.min(1, T.sickChance * luck))) s.events.push({ at: Math.round((0.1 + rand(s) * 0.5) * D), type: 'sick' });
   for (const p of s.living) {
     if (p.age === 'old' && chance(s, T.oldAgeChance)) s.events.push({ at: Math.round((0.15 + rand(s) * 0.8) * D), type: 'oldage', id: p.id });
   }
@@ -1681,6 +1685,33 @@ const ACTIONS = {
     for (const c of s.night.foes) c.replan = 0;
     cue(s, 'ward');
   },
+  // Breaking a mirror, in an emergency: everyone in it is freed at once, as if covered (remembrance, and
+  // peace for their kin), even out of a Creeper's grip at night. Dread falls for each, which covering at
+  // the rite can't do, so it can turn a censure into a warning. The mirror is gone, and seven days of bad
+  // luck follow.
+  break(s, { id }) {
+    const T = s.tuning;
+    if (s.phase === 'over' || s.phase === 'end') return 'Not now.';
+    const m = byId(s.mirrors, id);
+    if (!m) return 'No such mirror.';
+    const ds = s.shades.filter((d) => d.mirror === m.id);
+    if (!ds.length) return `The ${m.name} holds no one.`;
+    for (const d of ds) {
+      if (s.night) {
+        for (const f of s.night.foes) if (f.grab === d.id) f.grab = null;
+        s.night.foes = s.night.foes.filter((f) => f.shade !== d.id); // a Wraith freed is gone from the Tain
+      }
+      if (s.rite) delete s.rite.choice[d.id];
+      release(s, d, 'freed', `${d.name} is freed as the ${m.name} breaks.`);
+    }
+    gain(s, 'remembrance', ds.length);
+    const was = s.dread;
+    s.dread = Math.max(0, s.dread - T.breakDread * ds.length);
+    s.mirrors.splice(s.mirrors.indexOf(m), 1);
+    s.badLuck = Math.max(s.badLuck || 0, T.badLuckDays);
+    say(s, `The ${m.name} is broken and everyone in it is free. Dread ${was} → ${s.dread}. ${T.badLuckDays} days of bad luck follow: sickness comes ${T.badLuck === 2 ? 'twice' : `${fmt(T.badLuck)} times`} as often.`, 'bad', true);
+    cue(s, 'shatter');
+  },
   hush(s, { on }) {
     if (s.phase !== 'night') return 'Hush is for the night.';
     s.night.hush = !!on;
@@ -1820,6 +1851,7 @@ export function upgrade(g) {
   for (const t of [g.tuning, g.tuning0]) if (t) for (const [k, v] of Object.entries(TUNING)) if (!(k in t)) t[k] = v;
   g.res.stone ??= 0;
   g.haunted ??= [];
+  g.badLuck ??= 0;
   if (g.night) g.night.broken ??= [];
   return g;
 }

@@ -39,7 +39,7 @@ The pages load ES modules, so they need a web server; GitHub Pages works as is. 
 | `src/slice/` | The season slice: `data.js` (content, tuning and the traits), `geo.js` (the geometry of any keep the player builds: floors, stairs, light, routes and cameras), `sim.js` (the whole season as one state), `autopilot.js`, `draw.js` (the art, built on `src/px/`), `people.js` (the living and the dead as pixel figures), `book.js` (the Book of the Dead's pages), `saves.js` (the save slots, and loading a keep from a file), `sound.js` (every sound, made with Web Audio as it plays), `threats.js` (the black mirror: tonight's threats, read at dusk) |
 | `src/slice-ui.js` | The season page |
 | `sw.js`, `season.webmanifest`, `icons/` | The installable season: the service worker that keeps it playable offline, the manifest, and the icons `tools/icons.mjs` draws |
-| `test/` | 16 weeks 1–2 tests, 15 night tests, 8 pixel tests, 39 season tests, 13 for traits, 11 for the save slots, 6 for sound, 10 for the black mirror, 3 for the people sprites, 1 for colour-blind eyes and 2 for the installable app, including soak runs |
+| `test/` | 16 weeks 1–2 tests, 15 night tests, 8 pixel tests, 39 season tests, 13 for traits, 11 for the save slots, 6 for sound, 10 for the black mirror, 7 for breaking mirrors, 3 for the people sprites, 1 for colour-blind eyes and 2 for the installable app, including soak runs |
 | `tools/` | Balance reports, the single-file bundler and the icon drawer |
 
 Everything is seeded and every action is logged, so `replay()` (in `src/sim.js` and `src/slice/sim.js`) and `replayNight()` rebuild any session exactly, including one from a playtester's export.
@@ -98,6 +98,15 @@ The vertical slice: seven days in one keep, ending on the night of the new moon,
     - **The guide** is 13 cards of my text, each shown once, when its moment first comes. The first raid, the first night, the Church, the first Maw and the new moon pause the clock. Whether a newcomer can play from the cards alone is the question.
     - **The crossing** adds about 5 seconds to each dusk. A tap, space or Enter skips it, and reduced motion turns it off. A tap on the castle while it runs only skips it.
     - **The Book's pages** are sentence templates filled from the ledger, so their shapes will repeat within a few seasons.
+12. **Breaking a mirror doesn't pay when it's used blindly.** Measured with the keeper plan, which never covers and so meets a censure about once a season. Two seasons, 100 seeds; `AP_BREAK=1` breaks the smallest mirror that stops each censure:
+
+    | | Mirrors broken | Censures | Sickness deaths | Second seasons |
+    |---|---|---|---|---|
+    | Never breaks | 0 | 1.11 | 1.88 | 86 of 99 |
+    | Breaks to stop every censure | 0.72 | 0.38 | 2.11 | 80 of 99 |
+    | The same, with no bad luck | 0.73 | 0.36 | 1.84 | 84 of 99 |
+
+    Breaks replace censures one for one and inspections don't come more often. Without the bad luck, breaking is about even with a censure; the extra sickness makes it a little worse. Over 200 seeds it was 158 second seasons against 170, milder bad luck (1.5×) 160, and two Dread off per shade 156. It should pay when the censure would carry off more shades, or better ones, than you'd free. My autopilot fills its mirrors evenly, so that case never comes up, and a person's choice of which shades to lose is untested. The balanced plan never needs it.
 12. **Installing has limits I can't test here.** I checked it in Chromium only: it's installable, every file is cached, and it plays with the server gone.
     - Safari on an iPhone has no install prompt, so the page says Share, then Add to Home Screen. I haven't checked whether iOS honours full screen.
     - Google Play, as a Trusted Web Activity, needs Digital Asset Links at `https://rcjlabs.github.io/.well-known/assetlinks.json`. That's the root of the domain, which a project site like this can't serve. Without it the app shows a URL bar. The fix is an `rcjlabs.github.io` repository or a custom domain.
@@ -153,6 +162,7 @@ The vertical slice: seven days in one keep, ending on the night of the new moon,
   - drains any shade beside it, and has 6 strength, so two shades fighting it cut it down fast and one Loyal shade can just about hold it;
   - is held below by a ward on a stair.
 - **Dawn: the Rite** (paused). Keep or cover, release or bind, banish or leave, as in weeks 1–2. Fading happens, and names and remembrance can be bought, as in weeks 3–4. Each Veil crack from the night adds 1 Dread, and so does each room a Maw broke.
+- **Breaking a mirror** (at any time, asked twice). Everyone in it goes free at once, as if covered: +1 remembrance each, and their bonded living at peace. Dread falls 1 for each, which covering can't do, so breaking one before noon can turn a censure into a warning. At night it frees a caught shade from the Creeper's grip, and a freed Wraith leaves the Tain. The mirror is lost, and the next 7 days are unlucky: sickness comes twice as often, carried into the next season if need be. The Day panel's mirrors have a Break button, the Rite opens a Break a mirror section by itself when the inspector is coming, and the Night panel offers it for a caught shade.
 - **Day 5: the Lantern Church.** It is announced the dawn before, and it comes again the same day whenever Dread reaches 5. The inspector judges Dread at noon:
 
   | Dread | Verdict |
@@ -213,6 +223,7 @@ The vertical slice: seven days in one keep, ending on the night of the new moon,
    - what the Cellar keeps.
 
    The doc's Library, Quarters, Hall and Gatehouse aren't built.
+10. **Breaking a mirror's rules are mine.** The doc says only that breaking a mirror frees everyone in it at once, in an emergency, and that its room then has seven seasons of bad luck. The slice's mirrors aren't in rooms, so the keep carries the bad luck, for seven days rather than seasons. What the bad luck does (sickness twice as often), the Dread it lifts, and that it can be done at any time are my choices.
 10. **Traits: the pairs and their night effects are the doc's; the rest is mine.** The day effects of the living traits are mine; the doc gives only the night side. So are all the numbers, and Bitter's cost in Dread, which comes from my round-four note. Wistful's "better dreams in the Dreamwell" became a day's better work, because there's no Dreamwell yet. A Reckless shade lunges and hits harder rather than charging into the dark: my first version left the light, got caught, and killed less than an ordinary shade. Hoarding leaves the last 4 candles because taking 2 of a store's last 2.5 lost a keep on its first night.
 
 **What the numbers say so far.** From `npm run balance:season -- 100 1`, on the two-room start. Every plan but Idle builds in the same order (a Barracks, a Chapel, a Chandlery, a Glazier, an Infirmary, a second Barracks, a Forge, a Granary, a Cellar), stands guards only on raid days, holds the stairs to the Veil, relights candles, and posts nobody below the line's floor at night except in the Choir. All but Double and Idle pull a second fighter to each stair for each tide from that stair's own room, ward the line for the last tide of nights 5 and 6 when the essence is there, and send help against a Maw. The first three differ in how they treat the dead; Double treats them like Balanced.
