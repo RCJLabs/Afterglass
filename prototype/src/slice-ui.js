@@ -591,7 +591,11 @@ const TUNE = [
   ['creepersBase', 'Creepers on night 0'],
   ['creepersPerNight', 'Creepers added per night'],
   ['hollowHp', 'The Hollow’s strength'],
+  ['hollowAt', 'When the Hollow rises, as a share of the night'],
+  ['hollowReach', 'How far the Hollow eats light, pixels'],
+  ['hollowEat', 'Wax the Hollow eats per second'],
   ['wardHold', 'Seconds a ward holds the Hollow'],
+  ['newMoonCreepers', 'Creepers on the new moon, as a share of the night before'],
   ['dreadLivingPer', 'Living per point of Dread borne'],
   ['fadePerNight', 'Memory every shade loses per night'],
   ['cracksMax', 'Veil cracks that lose the keep'],
@@ -602,7 +606,7 @@ function settingsTab() {
     <p class="hint">Changes apply from the next tick or the next dusk, and are recorded so exports still replay.</p>
     <label class="row" for="autopause"><input type="checkbox" id="autopause" data-act="autopause"${prefs.autoPause ? ' checked' : ''}>Pause for raids, catches and the Hollow</label>
     <label class="row" for="labels-on"><input type="checkbox" id="labels-on" data-act="labels"${prefs.labels ? ' checked' : ''}>Show room names on the castle</label>
-    <p class="hint">Seed ${s.seed}. Keys: space to play or pause, 1, 2 and 4 for speed; at night C candle, M move, W ward, H hush, V flip; K, P and R open the panels; L room names; Esc closes a panel.</p>
+    <p class="hint">Seed ${s.seed}. Keys: space to play or pause, 1, 2 and 4 for speed; at night C candle, M move, W ward, H hush, V flip; + and − zoom, 0 fits the castle again, arrow keys pan; K, P and R open the panels; L room names; Esc closes a panel.</p>
     ${newKeepControls()}`;
 }
 const TABS = [['log', 'Log'], ['days', 'Days'], ['ledger', 'The dead'], ['playtest', 'Playtest'], ['settings', 'Settings']];
@@ -624,9 +628,13 @@ const barEl = document.getElementById('bar');
 const sheetEl = document.getElementById('sheet');
 const WIDE = window.matchMedia('(min-width: 900px)');
 const wide = () => WIDE.matches;
-// World pixels on the canvas, and the camera's top-left corner in world pixels.
-const view = { cw: 0, ch: 0, x: 0, y: 0, tx: 0, ty: 0, snap: true };
+// World pixels on the canvas; the camera's top-left corner in world pixels (x, y), where it's heading
+// (tx, ty), and how far the player has dragged it from where it would sit on its own (panX, panY).
+const view = { cw: 0, ch: 0, x: 0, y: 0, tx: 0, ty: 0, panX: 0, panY: 0, snap: true };
+const MAX_ZOOM = 10;
 
+// The scale that fits the castle is ui.fit; the player's zoom is kept as whole steps from it, so turning
+// a phone sideways keeps the zoom sensible.
 function layout() {
   const vw = window.innerWidth;
   const vh = window.innerHeight;
@@ -635,7 +643,8 @@ function layout() {
   gameEl.style.setProperty('--hud-h', `${hudH}px`);
   gameEl.style.setProperty('--bar-h', `${barH}px`);
   const freeH = Math.max(160, vh - hudH - barH);
-  ui.scale = Math.max(1, Math.min(6, Math.floor((vw - 8) / (W + 4)), Math.floor(freeH / (VEIL + 4))));
+  ui.fit = Math.max(1, Math.min(6, Math.floor((vw - 8) / (W + 4)), Math.floor(freeH / (VEIL + 4))));
+  ui.scale = Math.max(1, Math.min(MAX_ZOOM, ui.fit + (prefs.zoomStep || 0)));
   view.cw = Math.ceil(vw / ui.scale) + 1;
   view.ch = Math.ceil(vh / ui.scale) + 1;
   if (canvas.width !== view.cw || canvas.height !== view.ch) {
@@ -660,18 +669,83 @@ function freeRect() {
   return r;
 }
 
-// Centres the keep by day, or the Tain by night, in the free part of the screen.
-function aimCamera() {
+// Where the camera sits on its own: the keep by day, or the Tain by night, centred in the free part of
+// the screen.
+function autoTarget() {
   const fr = freeRect();
   const fx = W / 2;
   // A little above the Tain's middle at night, so more of the keep shows than of the empty Deep.
   const fy = nightView() ? VEIL + VEIL / 2 - 6 : VEIL / 2 - 4;
   const sx = (fr.left + fr.right) / 2 / ui.scale;
   const sy = (fr.top + fr.bottom) / 2 / ui.scale;
-  view.tx = fx - sx;
-  view.ty = flipped() ? fy - view.ch + sy : fy - sy;
+  return { x: fx - sx, y: flipped() ? fy - view.ch + sy : fy - sy };
+}
+// Keeps a dragged camera's centre over the castle (and the Tain at night), so it can't get lost.
+function clampPan(a) {
+  const [y0, y1] = nightView() ? [VEIL / 2, 2 * VEIL + 30] : [-40, VEIL + 20];
+  const cx = a.x + view.panX + view.cw / 2;
+  const cy = a.y + view.panY + view.ch / 2;
+  if (cx < -30) view.panX += -30 - cx;
+  else if (cx > W + 30) view.panX -= cx - (W + 30);
+  if (cy < y0) view.panY += y0 - cy;
+  else if (cy > y1) view.panY -= cy - y1;
+}
+function aimCamera() {
+  const a = autoTarget();
+  clampPan(a);
+  view.tx = a.x + view.panX;
+  view.ty = a.y + view.panY;
+}
+// Puts the camera where it's heading at once, so several zoom or drag steps in one frame add up right.
+function snapCamera() {
+  aimCamera();
+  view.x = view.tx;
+  view.y = view.ty;
+  view.snap = false;
 }
 const flipped = () => nightView() && prefs.mode === 'flipped';
+const zoomed = () => (prefs.zoomStep || 0) !== 0 || Math.abs(view.panX) > 0.5 || Math.abs(view.panY) > 0.5;
+
+// The world point under a screen point, exactly (screen = viewport CSS pixels; the stage fills it).
+function screenToWorld(sx, sy) {
+  const y = sy / ui.scale;
+  return { x: view.x + sx / ui.scale, y: flipped() ? view.y + view.ch - y : view.y + y };
+}
+// Zooms to scale s1, keeping the world point under (sx, sy) where it is on screen.
+function zoomTo(s1, sx, sy) {
+  s1 = Math.max(1, Math.min(MAX_ZOOM, s1));
+  if (s1 === ui.scale) return;
+  const w = screenToWorld(sx, sy);
+  prefs.zoomStep = s1 - ui.fit;
+  savePrefs();
+  layout();
+  const a = autoTarget();
+  view.panX = w.x - sx / ui.scale - a.x;
+  view.panY = (flipped() ? w.y - view.ch + sy / ui.scale : w.y - sy / ui.scale) - a.y;
+  snapCamera();
+  drawnLabels = '';
+  bump();
+}
+function zoomBy(d) {
+  const fr = freeRect();
+  zoomTo(ui.scale + d, (fr.left + fr.right) / 2, (fr.top + fr.bottom) / 2);
+}
+// Drags the castle by a distance in CSS pixels.
+function panBy(dx, dy) {
+  view.panX -= dx / ui.scale;
+  view.panY -= (flipped() ? -dy : dy) / ui.scale;
+  snapCamera();
+}
+function fitView() {
+  prefs.zoomStep = 0;
+  savePrefs();
+  view.panX = 0;
+  view.panY = 0;
+  layout();
+  snapCamera();
+  drawnLabels = '';
+  bump();
+}
 
 function moveCamera(dt) {
   aimCamera();
@@ -687,8 +761,17 @@ function moveCamera(dt) {
   if (Math.abs(view.tx - view.x) < 0.2) view.x = view.tx;
   if (Math.abs(view.ty - view.y) < 0.2) view.y = view.ty;
 }
-const camX = () => Math.round(view.x);
-const camY = () => Math.round(view.y);
+// The picture is drawn at whole world pixels; the canvas slides by the fraction left over, so the camera
+// glides instead of stepping a whole (scaled) pixel at a time. Flipped, it rounds the other way so the
+// slide never uncovers an edge.
+const camX = () => Math.floor(view.x);
+const camY = () => (flipped() ? Math.ceil(view.y) : Math.floor(view.y));
+function slideCanvas() {
+  const fx = (view.x - camX()) * ui.scale;
+  const fy = (view.y - camY()) * ui.scale;
+  const tr = `translate(${(-fx).toFixed(2)}px, ${(flipped() ? fy : -fy).toFixed(2)}px)`;
+  if (canvas.style.transform !== tr) canvas.style.transform = tr;
+}
 
 // World to screen (CSS pixels, relative to the canvas) and back.
 function worldToScreen(wx, wy) {
@@ -721,7 +804,7 @@ function stageAt(clientX, clientY) {
 let drawnLabels = '';
 function placeLabels() {
   const night = nightView();
-  const key = `${prefs.labels}|${night}|${prefs.mode}|${ui.scale}|${camX()}|${camY()}|${view.ch}`;
+  const key = `${prefs.labels}|${night}|${prefs.mode}|${ui.scale}|${view.x.toFixed(2)}|${view.y.toFixed(2)}|${view.ch}`;
   if (key === drawnLabels) return;
   drawnLabels = key;
   labelsEl.hidden = !prefs.labels;
@@ -813,6 +896,8 @@ function draw(alpha, now) {
   const night = nightView();
   if (night !== fade.night) {
     fade.night = night;
+    view.panX = 0;
+    view.panY = 0;
     if (!REDUCED) {
       fade.cv.width = canvas.width;
       fade.cv.height = canvas.height;
@@ -839,7 +924,10 @@ function draw(alpha, now) {
     c.drawImage(fade.cv, 0, 0);
     c.globalAlpha = 1;
   }
+  slideCanvas();
   placeLabels();
+  const z = document.getElementById('zoom-fit');
+  if (z && z.disabled === zoomed()) z.disabled = !zoomed();
 }
 
 // For scripted tests: where a spot in the keep or the Tain is on screen, in client pixels.
@@ -1098,8 +1186,13 @@ function onAct(name, el) {
     case 'flip':
       prefs.mode = prefs.mode === 'flipped' ? 'reflection' : 'flipped';
       savePrefs();
+      view.panX = 0;
+      view.panY = 0;
       view.snap = true;
       return bump();
+    case 'zoom-in': return zoomBy(1);
+    case 'zoom-out': return zoomBy(-1);
+    case 'zoom-fit': return fitView();
     case 'labels':
       prefs.labels = !prefs.labels;
       savePrefs();
@@ -1224,8 +1317,10 @@ document.addEventListener('keydown', (e) => {
     closeSheet();
     return;
   }
-  if (e.altKey || e.ctrlKey || e.metaKey || e.target.closest('input, select, textarea, button, a')) return;
   const k = e.key.toLowerCase();
+  // Typing in a field is left alone; a focused button keeps space and enter for itself.
+  if (e.altKey || e.ctrlKey || e.metaKey || e.target.closest('input, select, textarea')) return;
+  if (e.target.closest('button, a') && (k === ' ' || k === 'enter')) return;
   if (k === ' ') {
     e.preventDefault();
     togglePlay();
@@ -1236,20 +1331,90 @@ document.addEventListener('keydown', (e) => {
   } else if (k === 'h' && s.phase === 'night') game({ type: 'hush', on: !s.night.hush });
   else if (k === 'v') onAct('flip', { dataset: {} });
   else if (k === 'l') onAct('labels', { dataset: {} });
+  else if (k === '+' || k === '=') zoomBy(1);
+  else if (k === '-' || k === '_') zoomBy(-1);
+  else if (k === '0') fitView();
+  else if (k.startsWith('arrow')) {
+    e.preventDefault();
+    const step = 12 * ui.scale;
+    panBy(k === 'arrowleft' ? step : k === 'arrowright' ? -step : 0, k === 'arrowup' ? step : k === 'arrowdown' ? -step : 0);
+  }
   else if (k === 'k' || k === 'p' || k === 'r') {
     const name = { k: 'phase', p: 'people', r: 'records' }[k];
     if (ui.sheet === name) closeSheet();
     else openSheet(name);
   }
 });
-canvas.addEventListener('pointerdown', onStage);
+// One finger or the mouse: a tap acts on release, a drag pans. Two fingers pinch to zoom. The wheel zooms
+// toward the pointer. Zoom moves in whole-pixel steps so the art stays sharp.
+const pointers = new Map();
+let gesture = null;
+const DRAG = 6;
+const spread = () => {
+  const [a, b] = [...pointers.values()];
+  return { d: Math.hypot(a.x - b.x, a.y - b.y), x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+};
+canvas.addEventListener('pointerdown', (e) => {
+  if (e.pointerType === 'mouse' && e.button !== 0 && e.button !== 1) return;
+  try {
+    canvas.setPointerCapture(e.pointerId);
+  } catch {
+    // Some pointers can't be captured (synthetic ones, or a finger already lifted); moves still arrive.
+  }
+  pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (pointers.size === 1) gesture = { kind: 'press', x0: e.clientX, y0: e.clientY, lx: e.clientX, ly: e.clientY, button: e.button };
+  else if (pointers.size === 2) gesture = { kind: 'pinch', d0: Math.max(10, spread().d), s0: ui.scale };
+});
 canvas.addEventListener('pointermove', (e) => {
-  if (e.pointerType !== 'mouse') return;
-  ui.hover = stageAt(e.clientX, e.clientY);
+  const p = pointers.get(e.pointerId);
+  if (!p) {
+    if (e.pointerType === 'mouse') ui.hover = stageAt(e.clientX, e.clientY);
+    return;
+  }
+  p.x = e.clientX;
+  p.y = e.clientY;
+  if (gesture?.kind === 'pinch' && pointers.size >= 2) {
+    const sp = spread();
+    zoomTo(Math.round(gesture.s0 * (sp.d / gesture.d0)), sp.x, sp.y);
+    return;
+  }
+  if (!gesture || gesture.kind === 'done') return;
+  if (gesture.kind === 'press' && Math.hypot(e.clientX - gesture.x0, e.clientY - gesture.y0) > DRAG) {
+    gesture.kind = 'pan';
+    ui.hover = null;
+    canvas.classList.add('is-panning');
+  }
+  if (gesture.kind === 'pan') panBy(e.clientX - gesture.lx, e.clientY - gesture.ly);
+  gesture.lx = e.clientX;
+  gesture.ly = e.clientY;
 });
-canvas.addEventListener('pointerleave', () => {
-  ui.hover = null;
+function endPointer(e, cancelled) {
+  if (!pointers.has(e.pointerId)) return;
+  pointers.delete(e.pointerId);
+  if (!cancelled && gesture?.kind === 'press' && pointers.size === 0 && gesture.button === 0) onStage(e);
+  if (pointers.size === 0) {
+    gesture = null;
+    canvas.classList.remove('is-panning');
+  } else if (gesture?.kind === 'pinch') gesture = { kind: 'done' };
+}
+canvas.addEventListener('pointerup', (e) => endPointer(e, false));
+canvas.addEventListener('pointercancel', (e) => endPointer(e, true));
+canvas.addEventListener('pointerleave', (e) => {
+  if (e.pointerType === 'mouse' && !pointers.size) ui.hover = null;
 });
+let wheel = 0;
+canvas.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  wheel += e.deltaY * (e.deltaMode === 1 ? 33 : e.deltaMode === 2 ? 400 : 1);
+  while (wheel <= -80) {
+    zoomTo(ui.scale + 1, e.clientX, e.clientY);
+    wheel += 80;
+  }
+  while (wheel >= 80) {
+    zoomTo(ui.scale - 1, e.clientX, e.clientY);
+    wheel -= 80;
+  }
+}, { passive: false });
 window.addEventListener('resize', layout);
 if ('ResizeObserver' in window) {
   const ro = new ResizeObserver(() => {

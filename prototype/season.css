@@ -22,6 +22,8 @@ body.game-page {
   cursor: crosshair;
   border-radius: 0;
   background: #0e0b18;
+  transform-origin: 0 0;
+  will-change: transform;
 }
 
 /* Room names, placed from the camera each frame. */
@@ -94,6 +96,28 @@ body.game-page {
   background: var(--dusk);
   box-shadow: 0 0 0 2px rgb(10 8 18 / 0.8);
 }
+
+/* Zoom, on the right edge above the bar. Pinch, the wheel and dragging do the same on the castle. */
+.gzoom {
+  position: absolute;
+  right: calc(var(--free-right, 0px) + max(10px, env(safe-area-inset-right, 0px)));
+  bottom: calc(var(--bar-h) + 64px);
+  z-index: 4;
+  display: grid;
+  gap: 6px;
+}
+.gzoom .btn.sm {
+  min-width: 40px;
+  min-height: 40px;
+  padding: 4px;
+  font-size: 18px;
+  line-height: 1;
+  background: rgb(10 8 18 / 0.78);
+  border-color: rgb(255 255 255 / 0.18);
+  color: #ebe9f3;
+}
+.gzoom #zoom-fit { font-size: 12px; font-weight: 700; }
+#stage.is-panning { cursor: grabbing; }
 
 /* A hint above the bar about what the next tap does. */
 .ghint {
