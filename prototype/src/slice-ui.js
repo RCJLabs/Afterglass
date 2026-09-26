@@ -12,6 +12,7 @@ import { geo, feet, floorAtY, roomAt, typeAt, typeOf, roomSpan, roomsOf, lightMa
 import { drawScene } from './slice/draw.js';
 import { epitaph, ordinal, RESTING, LOST } from './slice/book.js';
 import { SLOTS, slotKey, openIndex, loadSlot, saveSlot, useSlot, deleteSlot, keepFromFile, summary, mergeIndex, isIndexKey } from './slice/saves.js';
+import { createSound, SOUNDS } from './slice/sound.js';
 
 const PREF_KEY = 'afterglass-season/prefs/v1';
 const SYS_REDUCED = !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
@@ -44,7 +45,10 @@ const store = {
   },
 };
 
-const prefs = { speed: 1, mode: 'reflection', labels: true, tab: 'log', autoPause: true, introDone: false, guide: false, guideSeen: {}, ...(store.get(PREF_KEY) || {}) };
+const prefs = {
+  speed: 1, mode: 'reflection', labels: true, tab: 'log', autoPause: true, introDone: false, guide: false, guideSeen: {}, sound: true, sfx: 0.8, amb: 0.5, haptics: true,
+  ...(store.get(PREF_KEY) || {}),
+};
 const savePrefs = () => store.set(PREF_KEY, prefs);
 // Less motion: the device's setting, unless the player chose in Settings.
 const REDUCED_NOW = () => (prefs.motion === 'reduce' ? true : prefs.motion === 'full' ? false : SYS_REDUCED);
@@ -53,6 +57,39 @@ const applyMotion = () => {
   document.documentElement.dataset.motion = REDUCED_NOW() ? 'reduce' : 'full';
 };
 applyMotion();
+
+// Sound (src/slice/sound.js) and vibration. Browsers start sound only from a tap or a key; phones that can't
+// vibrate for a web page (iPhones and iPads) simply don't.
+const sound = createSound();
+sound.set({ on: prefs.sound, fx: prefs.sfx, amb: prefs.amb });
+for (const type of ['pointerup', 'touchend', 'keydown']) document.addEventListener(type, () => sound.unlock(), { capture: true, passive: true });
+document.addEventListener('visibilitychange', () => sound.hide(document.hidden));
+const CAN_BUZZ = typeof navigator.vibrate === 'function';
+let buzzAt = 0;
+function buzz(pattern) {
+  if (!pattern || !prefs.haptics || !CAN_BUZZ) return;
+  const now = performance.now();
+  // Small buzzes (a candle, a post) at most every 150 ms; big ones (a crack, a death) always.
+  if (pattern.reduce((a, b) => a + b, 0) < 100 && now - buzzAt < 150) return;
+  buzzAt = now;
+  try {
+    navigator.vibrate(pattern);
+  } catch {
+    // Some browsers throw instead of ignoring a vibration they won't make.
+  }
+}
+// A cue's sound, panned to where it happened, and its vibration.
+const heard = []; // the last sounds played, for the checks
+function sfx(name, x) {
+  const pan = x === undefined ? 0 : Math.max(-0.7, Math.min(0.7, (x / W) * 1.4 - 0.7));
+  if (sound.play(name, { pan }) && heard.push(name) > 60) heard.shift();
+  buzz(SOUNDS[name]?.haptic);
+}
+// The sim reports cues only to a keep that listens.
+const listen = (g) => {
+  g.cues = [];
+  return g;
+};
 
 // The keeps: three save slots (src/slice/saves.js). The page opens the one played last.
 const saves = openIndex(store, Date.now());
@@ -77,13 +114,13 @@ function saveGame() {
   toast("The keep couldn't be saved: this browser's storage is full or blocked. Export it from Menu, then Saves.", 'bad');
 }
 
-let s = loadGame(saves.current) || newSeason();
+let s = listen(loadGame(saves.current) || newSeason());
 // This keep's geometry (it grows as rooms are built), and the top row of its roof.
 const K = () => geo(s);
 const roofTop = () => K().top - 24;
 const ui = {
   paused: true, rev: 0, tool: 'candle', selected: null, person: null, hover: null, toasts: [], toastRev: 0, confirmNew: false,
-  copied: '', showExport: false, rush: false, flash: 0, scale: 3, sheet: null, cross: null,
+  copied: '', showExport: false, rush: false, flash: 0, scale: 3, sheet: null, cross: null, open: {},
 };
 const bump = () => {
   ui.rev++;
@@ -714,7 +751,7 @@ const TUNE = [
 const KEYS = [
   ['Space', 'play or pause'], ['1, 2, 4', 'speed'], ['C, M, W, H', 'candle, move, ward, hush (at night)'], ['V', 'turn the Tain upright'],
   ['+ and −, 0', 'zoom, and fit the castle again'], ['Arrows', 'pan'], ['K, P, R, B', 'this phase, People, Records, Build'], ['L', 'room names'],
-  ['Esc', 'the Menu, or close a panel'],
+  ['S', 'sound on or off'], ['Esc', 'the Menu, or close a panel'],
 ];
 function settingsTab() {
   const radio = (name, v, label, cur) => `<label class="row" for="${name}-${v}"><input type="radio" name="${name}" id="${name}-${v}" data-act="${name}" value="${v}"${cur === v ? ' checked' : ''}>${label}</label>`;
@@ -727,10 +764,19 @@ function settingsTab() {
     <fieldset><legend>The Tain at night</legend>${radio('camera', 'reflection', 'Reflected, upside down, as the lake shows it', prefs.mode)}${radio('camera', 'flipped', 'Turned upright', prefs.mode)}</fieldset>
     <label class="row" for="labels-on"><input type="checkbox" id="labels-on" data-act="labels"${prefs.labels ? ' checked' : ''}>Show room names on the castle</label>
     <fieldset><legend>Motion</legend>${radio('motion', 'system', `As this device is set (now: ${SYS_REDUCED ? 'less motion' : 'full motion'})`, motion)}${radio('motion', 'reduce', 'Less motion: the camera cuts, nothing flickers or sways, the crossing is skipped', motion)}${radio('motion', 'full', 'Full motion', motion)}</fieldset>
+    <h3>Sound</h3>
+    <label class="row" for="sound-on"><input type="checkbox" id="sound-on" data-act="sound"${prefs.sound ? ' checked' : ''}>Sound</label>
+    <label class="slider" for="vol-sfx"><span>Effects</span><input type="range" id="vol-sfx" data-act="volume" data-key="sfx" min="0" max="100" step="5" value="${Math.round(prefs.sfx * 100)}"${prefs.sound ? '' : ' disabled'}></label>
+    <label class="slider" for="vol-amb"><span>Ambience: wind by day, the drone of the Tain at night</span><input type="range" id="vol-amb" data-act="volume" data-key="amb" min="0" max="100" step="5" value="${Math.round(prefs.amb * 100)}"${prefs.sound ? '' : ' disabled'}></label>
+    ${CAN_BUZZ ? `<label class="row" for="haptics-on"><input type="checkbox" id="haptics-on" data-act="haptics"${prefs.haptics ? ' checked' : ''}>Vibrate: a tick for each candle, more for raids, deaths, cracks in the Veil and the Hollow (Android phones)</label>` : '<p class="hint">This browser can\'t vibrate. iPhones and iPads don\'t allow it for web pages.</p>'}
+    <details class="hear" id="hear" data-keep="hear"${ui.open.hear ? ' open' : ''}><summary>What each sound means</summary>
+      ${prefs.sound ? '' : '<p class="hint">Sound is off.</p>'}
+      <div class="hear-list">${Object.entries(SOUNDS).map(([k, S]) => `<button class="btn sm" id="hear-${k}" data-act="hear" data-cue="${k}"${prefs.sound ? '' : ' disabled'}>${esc(S.label)}</button>`).join('')}</div>
+    </details>
     <h3>Keys</h3>
     <dl class="keys">${KEYS.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl>
     ${installHTML('settings')}
-    <details class="advanced" id="advanced"${ui.advanced ? ' open' : ''}><summary>Advanced: the playtest numbers</summary>
+    <details class="advanced" id="advanced" data-keep="advanced"${ui.open.advanced ? ' open' : ''}><summary>Advanced: the playtest numbers</summary>
       <div class="fields">${TUNE.map(([k, label]) => `<label for="tune-${k}">${esc(label)}<input type="number" id="tune-${k}" data-act="tune" data-key="${k}" value="${s.tuning[k]}" min="0" step="any"></label>`).join('')}</div>
       <p class="hint">These are this keep's numbers. Changes apply from the next tick or the next dusk, and are recorded, so exports still replay. A new keep keeps only the ones you set. Seed ${s.seed}.</p>
     </details>
@@ -1128,6 +1174,7 @@ window.__season = {
     return { x: box.left + p.x, y: box.top + p.y };
   },
   get crossing() { return !!ui.cross; },
+  get sound() { return { state: sound.state, bed: sound.bed, heard: [...heard] }; },
 };
 
 /* ---------------------------------------------------------------- the installed app */
@@ -1555,6 +1602,16 @@ function onPhase() {
   if (s.phase !== 'night' && s.phase !== 'dusk') ui.selected = null;
 }
 
+// The bed of sound for the moment, how near the Hollow is to the mirrors (its heart beats only while the night
+// runs), and the danger: how many of the Unlit are about, and how cracked the Veil is.
+function moodNow() {
+  const bed = { day: 'day', dusk: 'dusk', night: 'night', dawn: 'rite', end: 'rite' }[s.phase] || 'none';
+  if (s.phase !== 'night') return { bed };
+  const n = s.night;
+  const h = !ui.paused && n.foes.find((f) => f.type === 'hollow' && f.hp > 0 && !f.rising);
+  return { bed, hollow: h ? h.f / Math.max(1, K().veil) : null, danger: Math.min(1, n.foes.length / 12 + (0.5 * s.cracks) / s.tuning.cracksMax) };
+}
+
 let lastNow = 0;
 let acc = 0;
 let seenPhase = s.phase;
@@ -1576,6 +1633,8 @@ function frame(now) {
     }
   }
   takeAlerts(false);
+  for (const c of s.cues.splice(0)) sfx(c.name, c.x);
+  if (sound.mood(moodNow()) === 'beat') buzz(SOUNDS.heartbeat.haptic);
   if (ui.cross && crossingDone(now)) {
     if (ui.cross.stage === 'sunset') afterSunset();
     else {
@@ -1608,7 +1667,10 @@ setInterval(() => {
 
 function game(a) {
   const r = act(s, a);
-  if (!r.ok) toast(r.error, 'bad');
+  if (!r.ok) {
+    toast(r.error, 'bad');
+    sfx('nope');
+  }
   takeAlerts(false);
   bump();
   return r.ok;
@@ -1643,7 +1705,7 @@ const waiting = () => s.phase === 'dawn' || s.phase === 'end' || s.phase === 'ov
 function playKeep(n, g, lead) {
   if (n !== saves.current) saveGame();
   useSlot(store, saves, n);
-  s = g;
+  s = listen(g);
   seenPhase = s.phase;
   seenPhaseWas = s.phase;
   acc = 0;
@@ -1687,7 +1749,7 @@ function confirmSlot(n) {
 }
 // A keep as a file: the save itself, which Load a file (here or on another device) takes back exactly.
 function exportSlot(n) {
-  const g = n === saves.current ? { ...s, alerts: [] } : store.get(slotKey(n));
+  const g = n === saves.current ? { ...s, alerts: [], cues: undefined } : store.get(slotKey(n));
   if (!g) return undefined;
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([JSON.stringify(g)], { type: 'application/json' }));
@@ -1761,6 +1823,31 @@ function onAct(name, el) {
     case 'camera':
       if (el.value === prefs.mode) return undefined;
       return onAct('flip', el);
+    case 'sound':
+      prefs.sound = typeof el.checked === 'boolean' ? el.checked : !prefs.sound;
+      savePrefs();
+      sound.set({ on: prefs.sound });
+      if (prefs.sound) {
+        sound.unlock();
+        setTimeout(() => sfx('good'), 120);
+      }
+      if (typeof el.checked !== 'boolean') toast(prefs.sound ? 'Sound on.' : 'Sound off. S turns it back on.');
+      return bump();
+    case 'volume':
+      prefs[el.dataset.key] = Number(el.value) / 100;
+      savePrefs();
+      sound.set({ fx: prefs.sfx, amb: prefs.amb });
+      if (el.dataset.key === 'sfx') sfx('good');
+      return undefined;
+    case 'haptics':
+      prefs.haptics = el.checked;
+      savePrefs();
+      buzz([30]);
+      return bump();
+    case 'hear':
+      sound.unlock();
+      sfx(el.dataset.cue);
+      return undefined;
     case 'motion':
       prefs.motion = el.value;
       savePrefs();
@@ -1910,10 +1997,10 @@ function onAct(name, el) {
 }
 
 document.addEventListener('click', (e) => {
-  // Advanced's open state is kept in ui as it's clicked: the toggle event comes a task later, after a
+  // A <details> keeps its open state in ui as it's clicked: the toggle event comes a task later, after a
   // render may already have replaced the element.
-  const sum = e.target.closest('#advanced > summary');
-  if (sum) ui.advanced = !sum.parentElement.open;
+  const sum = e.target.closest('details[data-keep] > summary');
+  if (sum) ui.open[sum.parentElement.dataset.keep] = !sum.parentElement.open;
   const el = e.target.closest('[data-act]');
   if (el && !el.matches('select, input, textarea')) onAct(el.dataset.act, el);
 });
@@ -1922,10 +2009,15 @@ document.addEventListener('change', (e) => {
   if (el && el.matches('select, input')) onAct(el.dataset.act, el);
 });
 document.addEventListener('toggle', (e) => {
-  if (e.target.id === 'advanced') ui.advanced = e.target.open;
+  if (e.target.dataset?.keep) ui.open[e.target.dataset.keep] = e.target.open;
 }, true);
 let noteTimer = 0;
 document.addEventListener('input', (e) => {
+  if (e.target.matches('[data-act="volume"]')) {
+    prefs[e.target.dataset.key] = Number(e.target.value) / 100;
+    sound.set({ fx: prefs.sfx, amb: prefs.amb });
+    return;
+  }
   if (!e.target.matches('[data-note]')) return;
   const value = e.target.value;
   clearTimeout(noteTimer);
@@ -1961,6 +2053,7 @@ document.addEventListener('keydown', (e) => {
   } else if (k === 'h' && s.phase === 'night') game({ type: 'hush', on: !s.night.hush });
   else if (k === 'v') onAct('flip', { dataset: {} });
   else if (k === 'l') onAct('labels', { dataset: {} });
+  else if (k === 's') onAct('sound', { dataset: {} });
   else if (k === '+' || k === '=') zoomBy(1);
   else if (k === '-' || k === '_') zoomBy(-1);
   else if (k === '0') fitView();

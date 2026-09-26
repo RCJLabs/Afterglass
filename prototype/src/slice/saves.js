@@ -48,7 +48,7 @@ export function loadSlot(store, n) {
 
 // Writes a keep to a slot and its line in the index. False if the browser wouldn't store it.
 export function saveSlot(store, index, n, s, now) {
-  if (!store.set(slotKey(n), { ...s, alerts: [] })) return false;
+  if (!store.set(slotKey(n), { ...s, alerts: [], cues: undefined })) return false;
   index.slots[n] = summary(s, now);
   return store.set(INDEX_KEY, index);
 }

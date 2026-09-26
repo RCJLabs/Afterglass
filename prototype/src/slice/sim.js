@@ -146,6 +146,12 @@ function say(s, text, tone = '', alert = false) {
   if (alert) s.alerts.push({ text, tone });
   s.rev++;
 }
+// Sounds and vibration: a side channel for the page, never read by the rules. It exists only while a page
+// listens (the page sets s.cues to an array and empties it each frame), so replays, tests and the autopilot
+// never fill it. A cue with a place (floor and x) can be panned to where it happened.
+function cue(s, name, f, x) {
+  if (s.cues && s.cues.length < 64) s.cues.push(f === undefined ? { name } : { name, f, x });
+}
 function gain(s, res, n) {
   s.res[res] += n;
   s.today.made[res] = (s.today.made[res] || 0) + n;
@@ -276,6 +282,7 @@ function heal(s, amount) {
     p.sick = 0;
     s.heal -= 1;
     say(s, `${p.name} recovered in the infirmary.`, 'good');
+    cue(s, 'good');
   }
 }
 
@@ -287,6 +294,7 @@ function eat(s, D) {
       s.hungry = false;
       s.starve = 0;
       say(s, 'There is food in the larder again.', 'good');
+      cue(s, 'good');
     }
     return;
   }
@@ -294,6 +302,7 @@ function eat(s, D) {
   if (!s.hungry) {
     s.hungry = true;
     say(s, 'The larder is empty. Everyone works hungry, and the weakest will starve.', 'bad', true);
+    cue(s, 'warn');
   }
   s.starve += 1 / D;
   if (s.starve >= s.tuning.starveDays - EPS) {
@@ -335,6 +344,7 @@ function fire(s, e) {
     const p = pick(s, well);
     p.sick = Math.round(s.tuning.sickDays * dayTicks(s));
     say(s, `${p.name} has fallen sick. Untreated, the sickness kills within ${fmt(s.tuning.sickDays)} days.`, 'bad', true);
+    cue(s, 'warn');
   } else if (e.type === 'oldage') {
     const p = byId(s.living, e.id);
     if (p) kill(s, p, 'oldage');
@@ -343,6 +353,7 @@ function fire(s, e) {
     if (!r || r.state !== 'coming') return;
     r.warned = true;
     say(s, `Raiders on the road: ${r.count} of the Ashen Host, strength ${fmt(r.strength)}. Your defense is ${fmt(defense(s))}.`, 'bad', true);
+    cue(s, 'horn');
   } else if (e.type === 'raidHit') {
     resolveRaid(s);
   } else if (e.type === 'inspect') {
@@ -377,6 +388,7 @@ function resolveRaid(s) {
   }
   r.state = held ? 'held' : 'breached';
   s.today.raid = { strength: r.strength, defense: r1(def), held };
+  cue(s, held ? 'held' : 'breached');
   say(
     s,
     held ? `The gate held against ${r.count} raiders (defense ${fmt(def)} against strength ${fmt(r.strength)}).` : `The raiders broke through (defense ${fmt(def)} against strength ${fmt(r.strength)}).${loot}`,
@@ -441,6 +453,7 @@ function inspect(s) {
   s.inspections.push({ season: s.season, day: s.day, reason: I.reason, verdict, dread: d });
   s.today.inspection = { verdict, dread: d };
   say(s, text, verdict === 'blessed' ? 'good' : 'bad', true);
+  cue(s, verdict === 'blessed' ? 'blessed' : 'censured');
 }
 
 /* ---------------------------------------------------------------- death */
@@ -468,6 +481,7 @@ export function kill(s, p, cause, how) {
     grief = ` ${q.name} grieves.`;
   }
   say(s, `${p.name} ${b.how}.${guided ? ' The Threshold eased the passing.' : ''}${grief}`, 'death', true);
+  cue(s, 'knell');
   if (!s.living.length) lose(s, 'fallen', 'No one living is left. The keep has fallen.');
   return b;
 }
@@ -518,6 +532,7 @@ function lose(s, reason, text) {
   s.over = { reason, season: s.season, day: s.day };
   closeSeason(s, s.night ? s.night.stats.cracks : 0, reason);
   say(s, text, 'bad', true);
+  cue(s, 'over');
 }
 
 /* ---------------------------------------------------------------- dusk: the Crossing */
@@ -532,6 +547,7 @@ function endDay(s) {
   s.night = newNight(s);
   const n = s.bodies.length;
   say(s, n ? `Dusk. ${n} ${n === 1 ? 'body lies' : 'bodies lie'} in the crypt. Hold funerals or let them wake.` : 'Dusk. Set the candles and post the shades.', 'dusk', true);
+  cue(s, 'dusk');
 }
 
 export function crossingPreview(s) {
@@ -557,6 +573,7 @@ function bury(s, b) {
   if (e) e.woke = 'funeral';
   endLedger(s, b.id, 'funeral');
   say(s, b.from === 'raider' ? `${b.name} was burned with the Host's dead.` : `${b.name} was laid to rest.`, 'rest');
+  cue(s, 'rest');
   restFor(s, b.id, true);
 }
 
@@ -596,6 +613,7 @@ function rise(s, b, x) {
   if (e) e.woke = x.to === 'overflow' ? 'overflow' : d.kind;
   s.shades.push(d);
   say(s, text, d.mirror ? 'wake' : 'bad');
+  cue(s, d.mirror ? 'wake' : d.kind === 'wraith' ? 'wraith' : 'restless');
 }
 
 /* ---------------------------------------------------------------- the night */
@@ -646,7 +664,9 @@ function startNight(s) {
     s.night.stats.wraiths++;
   }
   say(s, `Night ${s.day}${isNewMoon(s) ? ': the new moon. The Hollow will rise' : ''}. ${s.night.spawns.filter((x) => x.type === 'creeper').length} Creepers will come before dawn.`, 'night', isNewMoon(s));
+  cue(s, 'night');
   if (s.night.stats.wraiths) say(s, `${listNames(s.shades.filter((d) => d.kind === 'wraith').map((d) => d.name))} ${s.night.stats.wraiths === 1 ? 'rises' : 'rise'} as a Wraith in the Waking Room.`, 'bad', true);
+  if (s.night.stats.wraiths) cue(s, 'wraith');
 }
 
 export function addFoe(s, type, f, x, extra = {}) {
@@ -710,6 +730,7 @@ function nightTick(s) {
   if (s.phase !== 'night') return;
   for (const f of n.foes) if (f.hp <= 0) foeDown(s, f);
   n.foes = n.foes.filter((f) => f.hp > 0);
+  for (const c of n.candles) if (c.wax <= 0) cue(s, 'snuff', c.f, c.x);
   n.candles = n.candles.filter((c) => c.wax > 0);
   if (s.t >= nightTicks(s)) endNight(s);
 }
@@ -727,6 +748,7 @@ function spawnFoes(s, L) {
         const [f, id, a, b] = pick(s, dark);
         at = { f, x: a + (b - a) * (0.25 + 0.5 * rand(s)) };
         say(s, `The Unlit seep up in the ${TWINS[typeOf(geo(s), id)].name}. It has no candle.`, 'bad', n.foes.length < 3);
+        cue(s, 'seep', at.f, at.x);
       } else if (!rift) {
         // Every rift warded and every room lit: they come up wherever the light doesn't reach.
         const gaps = darkGaps(geo(s), L);
@@ -745,10 +767,12 @@ function spawnFoes(s, L) {
       n.foes[n.foes.length - 1].rising = Math.round(s.tuning.mawRise * TICKS_PER_SEC);
       const side = at.x < MAP.W / 2 ? 'left' : 'right';
       say(s, `A Maw is hauling itself out of the ${side} rift. It will go for whatever is worth most for the least fight.`, 'bad', true);
+      cue(s, 'maw', at.f, at.x);
     }
     if (sp.type === 'hollow') {
       n.stats.hollow = 'rose';
       say(s, 'The Hollow rises out of the Deep. It eats the light around it and makes for the mirrors.', 'bad', true);
+      cue(s, 'hollow', at.f, at.x);
     }
   }
 }
@@ -867,6 +891,7 @@ function foeTick(s, L, c) {
       d.path = [];
       n.stats.grabbed++;
       say(s, `${c.type === 'wraith' ? 'A Wraith' : 'A Creeper'} has caught ${d.name} in the dark of the ${TWINS[typeAt(geo(s), d.f, d.x) || 'crypt'].name}.`, 'bad', true);
+      cue(s, 'caught', d.f, d.x);
     }
   }
   if (c.mode === 'gnaw' && !c.path.length) {
@@ -1012,6 +1037,7 @@ function breakRoom(s, m, id) {
   const type = typeOf(G, id);
   n.broken.push(id);
   say(s, `A Maw has broken the ${TWINS[type].name}. Nobody works there tonight, and the ${DAY_ROOMS[type].name} is haunted: ${hauntCost(s)}.`, 'bad', true);
+  cue(s, 'broken', m.f, m.x);
   m.target = null;
   m.breaking = 0;
   m.replan = 0;
@@ -1049,6 +1075,7 @@ function mawTick(s, L, m) {
       if (!m.smashing) {
         m.smashing = true;
         say(s, `A Maw is tearing down the candle in the ${TWINS[typeAt(G, k.f, k.x)].name}.`, 'bad', true);
+        cue(s, 'smash', k.f, k.x);
       }
       k.wax -= T.mawSmash * DT;
       m.gnawing = true;
@@ -1061,7 +1088,10 @@ function mawTick(s, L, m) {
     }
     if (tg.kind === 'room' && roomAt(G, m.f, m.x) === tg.id) {
       const type = typeOf(G, tg.id);
-      if (!m.breaking) say(s, `A Maw is breaking the ${TWINS[type].name}. Cut it down, or the ${DAY_ROOMS[type].name} is haunted: ${hauntCost(s)}.`, 'bad', true);
+      if (!m.breaking) {
+        say(s, `A Maw is breaking the ${TWINS[type].name}. Cut it down, or the ${DAY_ROOMS[type].name} is haunted: ${hauntCost(s)}.`, 'bad', true);
+        cue(s, 'breaking', m.f, m.x);
+      }
       m.breaking = (m.breaking || 0) + 1;
       m.gnawing = true;
       if (m.breaking >= Math.round(T.mawBreak * TICKS_PER_SEC)) breakRoom(s, m, tg.id);
@@ -1104,6 +1134,7 @@ function hollowTick(s, L, h) {
       n.wards = n.wards.filter((w) => w !== h.batter);
       delete n.wardHold[h.batter];
       say(s, 'The Hollow breaks the ward on the stair.', 'bad', true);
+      cue(s, 'ward-break', h.f, h.x);
       h.batter = null;
       h.replan = 0;
       for (const c of n.foes) c.replan = 0;
@@ -1126,8 +1157,12 @@ function cross(s, c, m, cracks) {
   if (c.type === 'hollow') {
     n.stats.hollow = 'crossed';
     say(s, `The Hollow reached the mirror in the ${where} and tore through the Veil: ${cracks} cracks.`, 'bad', true);
+    cue(s, 'torn', c.f, m.x);
     if (s.cracks < s.tuning.cracksMax && s.living.length) takeLiving(s, pick(s, s.living));
-  } else say(s, `A Creeper slipped through the Veil at the mirror in the ${where}. The Veil cracks: ${s.cracks} of ${s.tuning.cracksMax}.`, 'bad', true);
+  } else {
+    say(s, `A Creeper slipped through the Veil at the mirror in the ${where}. The Veil cracks: ${s.cracks} of ${s.tuning.cracksMax}.`, 'bad', true);
+    cue(s, 'crack', c.f, m.x);
+  }
   if (s.phase === 'night' && s.cracks >= s.tuning.cracksMax) lose(s, 'veil', 'The Veil has broken. The Unlit are loose in the keep above.');
 }
 
@@ -1146,12 +1181,14 @@ function takeLiving(s, p) {
     q.peace = 0;
   }
   say(s, `It came up into the keep and took ${p.name} from their bed. There is no body to wake.${q ? ` ${q.name} grieves.` : ''}`, 'death', true);
+  cue(s, 'knell');
   if (!s.living.length) lose(s, 'fallen', 'No one living is left. The keep has fallen.');
 }
 
 function foeDown(s, f) {
   const n = s.night;
   n.stats.killed++;
+  if (f.type === 'creeper' || f.type === 'maw') cue(s, f.type === 'maw' ? 'maw-down' : 'foe-down', f.f, f.x);
   const hero = f.lastHit && ledgerOf(s, f.lastHit);
   if (hero) hero.kills = (hero.kills || 0) + 1;
   const d = f.grab && byId(s.shades, f.grab);
@@ -1163,12 +1200,14 @@ function foeDown(s, f) {
       endLedger(s, w.id, 'banished');
       restFor(s, w.id, false);
       say(s, `${w.name}'s Wraith is cut down and sinks into the Deep for good.`, 'good', true);
+      cue(s, 'wraith-down', f.f, f.x);
     }
   }
   if (f.type === 'hollow') {
     n.stats.hollow = 'driven back';
     gain(s, 'remembrance', s.tuning.hollowReward);
     say(s, `The Hollow is driven back into the Deep. The keep will tell of it: +${s.tuning.hollowReward} remembrance.`, 'good', true);
+    cue(s, 'hollow-down', f.f, f.x);
   }
 }
 
@@ -1184,6 +1223,7 @@ function fadeAway(s, d, text, how = 'faded') {
   endLedger(s, d.id, how);
   restFor(s, d.id, false);
   say(s, text, 'death', true);
+  cue(s, 'fade', d.f, d.x);
 }
 
 /* ---------------------------------------------------------------- dawn */
@@ -1213,6 +1253,7 @@ function endNight(s) {
   // Grave-steel forged through half the night arms every shade the next night.
   s.steel = steel;
   if (steel) say(s, 'Grave-steel from the Cold Forge: tomorrow night every shade fights harder.', 'good');
+  if (steel) cue(s, 'forge');
   // The Restless: calmed by the Choir, or a night closer to turning Wraith.
   for (const d of s.shades.filter((x) => x.kind === 'restless').sort((a, b) => b.restless - a.restless)) {
     if (calm > 0) {
@@ -1226,6 +1267,7 @@ function endNight(s) {
       const e = ledgerOf(s, d.id);
       if (e) e.turned = s.day;
       say(s, `${d.name} has turned Wraith.`, 'bad', true);
+      cue(s, 'wraith');
     }
   }
   // Fading.
@@ -1275,6 +1317,7 @@ function toRite(s, cracks) {
   s.t = 0;
   s.rite = { choice: Object.fromEntries(s.shades.map((d) => [d.id, defaultChoice(d)])), vigils: 0, cracks, broken: (s.haunted || []).length };
   say(s, 'Dawn. The Unlit withdraw and the shades go back into the glass. Decide who stays.', 'rite', true);
+  cue(s, 'dawn');
 }
 
 export function ritePreview(s) {
@@ -1335,6 +1378,7 @@ function release(s, d, how, text) {
   s.shades.splice(s.shades.indexOf(d), 1);
   endLedger(s, d.id, how);
   say(s, text, 'rest');
+  cue(s, 'rest');
   restFor(s, d.id, true);
 }
 
@@ -1352,6 +1396,7 @@ function beginDay(s) {
     endLedger(s, d.id, 'banished');
     restFor(s, d.id, false);
     say(s, `${d.name} is banished into the Deep.`);
+    cue(s, 'banish');
   }
   for (const d of P.bind) {
     const m = freeMirror(s);
@@ -1359,6 +1404,7 @@ function beginDay(s) {
     const e = ledgerOf(s, d.id);
     if (e) e.bound = { season: s.season, day: s.day, kind: d.kind };
     say(s, `${d.name} is bound to the ${m.name} and settles as ${KINDS[d.kind].name}.`, 'wake');
+    cue(s, 'wake');
   }
   s.res.essence = Math.max(0, s.res.essence - P.essence);
   gain(s, 'remembrance', P.rem);
@@ -1375,6 +1421,7 @@ function beginDay(s) {
   if (s.dread >= T.dreadMax && (!s.inspection || s.inspection.done)) {
     s.inspection = { day: s.day, reason: 'dread', done: false };
     say(s, 'Dread has reached its height. The Lantern Church sends an inspector; it arrives at noon.', 'bad', true);
+    cue(s, 'warn');
   } else if (s.day === T.firstInspection - 1 && (!s.inspection || s.inspection.done)) {
     s.inspection = { day: T.firstInspection, reason: 'season', done: false };
     say(s, 'Word comes from the Lantern Church: an inspector will visit tomorrow at noon and judge how the keep keeps its dead.', 'rite', true);
@@ -1382,9 +1429,11 @@ function beginDay(s) {
   if (s.day % T.newcomerEvery === 0 && s.living.length < T.maxLiving) newcomer(s);
   rollDay(s);
   say(s, `Season ${s.season}, day ${s.day}${isNewMoon(s) ? ': tonight is the new moon' : ''}.`, 'day');
+  cue(s, 'day');
   const haunted = (s.haunted || []).map((id) => DAY_ROOMS[typeOf(geo(s), id)].name);
   const half = T.hauntWork < 1 ? ` Whoever works there manages ${Math.round(100 * T.hauntWork)}% until dusk.` : '';
   if (haunted.length) say(s, `The ${listNames(haunted)} ${haunted.length === 1 ? 'is' : 'are'} haunted today.${half}`, 'bad', true);
+  if (haunted.length) cue(s, 'warn');
   return null;
 }
 
@@ -1393,6 +1442,7 @@ function newcomer(s) {
   s.living.push(p);
   s.today.arrivals.push(p.id);
   say(s, `${p.name} (${p.age}) arrives at the gate and asks to stay. Assign a job.`, 'good', true);
+  cue(s, 'arrive');
 }
 
 /* ---------------------------------------------------------------- the season */
@@ -1429,6 +1479,7 @@ function endSeason(s, cracks) {
   s.t = 0;
   closeSeason(s, cracks);
   say(s, `The new moon has passed. Season ${s.season} is over.`, 'rite', true);
+  cue(s, 'end');
 }
 
 function nextSeason(s) {
@@ -1444,6 +1495,7 @@ function nextSeason(s) {
   s.haunted = [];
   toRite(s, cracks);
   say(s, `Season ${s.season} begins with the dawn.${mended ? ' The Veil has knit whole again.' : ''} The Host will come harder, and so will the Unlit.`, 'rite', true);
+  cue(s, 'dawn');
 }
 
 /* ---------------------------------------------------------------- player actions */
@@ -1495,6 +1547,7 @@ const ACTIONS = {
       s.keep = { floors: [keep.floors[0].map((r, i) => (i === at.slot ? made : r)), ...keep.floors.slice(1)] };
     }
     say(s, `The masons raise a ${DAY_ROOMS[room].name} on top of the keep. By night its twin, the ${TWINS[room].name}, is the Tain's deepest room.`, 'good', true);
+    cue(s, 'build');
   },
   build(s, { mirror }) {
     const M = MIRRORS[mirror];
@@ -1503,6 +1556,7 @@ const ACTIONS = {
     s.res.glass = Math.max(0, s.res.glass - M.glass);
     const m = addMirror(s, mirror, nextPlace(s));
     say(s, `The ${m.name} is finished: room for ${M.cap} more ${M.cap === 1 ? 'shade' : 'shades'}.`, 'good');
+    cue(s, 'mirror');
   },
   wardGate(s) {
     const r = s.raid;
@@ -1512,6 +1566,7 @@ const ACTIONS = {
     s.res.essence -= s.tuning.wardGateCost;
     r.ward = s.tuning.wardGateDefense;
     say(s, `The gate is warded with essence: defense +${r.ward}.`, 'good');
+    cue(s, 'ward');
   },
   // A vigil by day lowers Dread straight away; at dawn, vigils count in the rite's reckoning.
   vigil(s) {
@@ -1521,6 +1576,7 @@ const ACTIONS = {
     s.res.remembrance -= s.tuning.vigilCost;
     s.dread--;
     say(s, `A vigil in the Chapel eases the keep. Dread ${s.dread + 1} → ${s.dread}.`, 'good');
+    cue(s, 'vigil');
   },
   vigils(s, { n }) {
     if (s.phase !== 'dawn') return 'The rite is at dawn.';
@@ -1554,6 +1610,7 @@ const ACTIONS = {
     s.res.candles--;
     s.night.candles.push({ id: 'k' + s.nextId++, f, x, wax: s.tuning.candleWax, max: s.tuning.candleWax });
     s.night.stats.candles++;
+    cue(s, 'light', f, x);
   },
   move(s, { id, f, x }) {
     const d = byId(s.shades, id);
@@ -1562,6 +1619,7 @@ const ACTIONS = {
     if (!onFloor(s, f, x) || !roomAt(geo(s), f, x)) return 'That is not a place in the Tain.';
     if (s.phase === 'dusk' || s.phase === 'dawn' || s.phase === 'day') {
       Object.assign(d, { post: { f, x }, f, x, ox: x, of: f, path: [], climb: 0 });
+      cue(s, 'post', f, x);
       return undefined;
     }
     if (s.phase !== 'night') return 'Not now.';
@@ -1571,6 +1629,7 @@ const ACTIONS = {
     if (!r) return 'No way there.';
     d.path = r.path;
     d.post = { f, x };
+    cue(s, 'post', f, x);
   },
   ward(s, { target }) {
     if (s.phase !== 'night' && s.phase !== 'dusk') return 'Wards are set at dusk or during the night.';
@@ -1582,11 +1641,13 @@ const ACTIONS = {
     if (geo(s).stairs.some((x) => x.id === target)) s.night.wardHold[target] = s.tuning.wardHold;
     s.night.stats.wards++;
     for (const c of s.night.foes) c.replan = 0;
+    cue(s, 'ward');
   },
   hush(s, { on }) {
     if (s.phase !== 'night') return 'Hush is for the night.';
     s.night.hush = !!on;
     say(s, on ? 'Hush. The shades go silent; the Unlit pass them by, and all work stops.' : 'The hush ends.', on ? 'night' : '');
+    cue(s, on ? 'hush' : 'unhush');
   },
   startNight(s) {
     if (s.phase !== 'dusk') return 'The night begins at dusk.';
@@ -1611,6 +1672,7 @@ const ACTIONS = {
     const e = ledgerOf(s, d.id);
     if (e) e.named = true;
     say(s, `${d.name} is written in the ledger and will fade half as fast.`, 'good');
+    cue(s, 'good');
   },
   remember(s, { id }) {
     if (s.phase !== 'dawn') return 'Remembrance is spent at dawn.';

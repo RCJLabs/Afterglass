@@ -38,10 +38,10 @@ Sizes were my estimates when the list was made: S, M, L.
 | 16 | A threat preview at dusk: likely Creeper routes and the Hollow's path | M | Not built |
 | 17 | A guided first season | M | Built |
 | 18 | An installable app, the first step toward Google Play | S–M | Built; Chromium only |
-| 19 | Sound and haptics | M | Not built |
+| 19 | Sound and haptics | M | Built; levels measured, not yet heard by a person |
 | 20 | A Menu with Settings and save slots: three keeps, export and import as a file | S–M | Built; Chromium only |
 
-My picks for playtest readiness were 1, 11, 12, 17 and 18. All five are built. Building rooms (9), people that read as people, and the Menu with save slots (20) came after, at your request.
+My picks for playtest readiness were 1, 11, 12, 17 and 18. All five are built. Building rooms (9), people that read as people, the Menu with save slots (20), and sound and haptics (19) came after, at your request.
 
 ## What the builds showed
 
