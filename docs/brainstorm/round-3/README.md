@@ -37,4 +37,4 @@ Afterglass returned no game matches in a web search. Tainhold and Candlewake are
 
 ## Prototype
 
-The weeks 1–2 greybox (two rosters and the rite) is in [`prototype/`](../../../prototype/README.md).
+All four prototypes, from the weeks 1–2 greybox to the weeks 7–10 season slice, are in [`prototype/`](../../../prototype/README.md). What came after this plan is in [round four](../round-4/README.md).

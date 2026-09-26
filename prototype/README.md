@@ -147,7 +147,7 @@ The vertical slice: seven days in one keep, ending on the night of the new moon,
 5. **Veil cracks heal one a dawn**, and each crack costs 1 Dread. Five open at once lose the keep, and a new season starts with none.
 6. **The cycle is compressed:** a season is 21 minutes at 1× plus the paused phases, against the doc's much longer days.
 7. **The Maws** now break twin rooms, as the doc has them, but they arrive on night 3 of the first season rather than the second, a ward on a stair holds them, and their haunting costs Dread rather than work (problem 2). Weighing targets, the climb out of the rift and the candle they can also tear down are mine.
-8. **The Book of the Dead, the guide and installing** come from the round-four brainstorm, not the design doc. The crossing follows the pixel pass's, cut from about 10 seconds to about 5 and made skippable.
+8. **The Book of the Dead, the guide and installing** come from the [round-four brainstorm](../docs/brainstorm/round-4/README.md), not the design doc. The crossing follows the pixel pass's, cut from about 10 seconds to about 5 and made skippable.
 9. **Building's rules are mine.** The doc says only "carve rooms into the keep's cross-section; every room you build has a twin in the Tain", and lists stone among the day's resources. These are my choices:
    - starting from the ground floor alone, the Hearth and the Crypt;
    - stone and masons as the cost;

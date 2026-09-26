@@ -6,6 +6,8 @@ Open [`index.html`](index.html) in a browser for the full version: animated pixe
 
 **Round three:** Mourning Glass, renamed **Afterglass**, worked through in depth with pixel mockups: [`round-3/`](round-3/README.md).
 
+**Round four:** **After the Slice**, what to build once round three's plan was playable: nineteen candidates, what got built, what it showed, and the queue: [`round-4/`](round-4/README.md).
+
 ## The problem with the pitch
 
 "Fallout Shelter–style side view, Elder Scrolls–style fantasy, build and defend a castle" already exists twice on Google Play:

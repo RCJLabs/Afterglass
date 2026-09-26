@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>After the Slice</title>
+<meta name="description" content="Afterglass design round four: what to build after the one-season slice, what got built, what it showed, and the queue.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jacquard+24&family=Alegreya+Sans:ital,wght@0,400;0,500;0,700;0,800;1,400&display=swap">
+<style>
+:root{
+  --bg:#ECEAF0; --surface:#F8F7FB; --surface-2:#E1DEE9; --ink:#1B2230; --ink-2:#465262; --ink-3:#687384;
+  --rule:#C8CFCC; --accent:#9E2B25; --gold:#8A5F0E; --gold-fill:#EBCB78; --link:#2A5A8C; --ok:#3E7A50; --tain:#6A4FA0;
+  --display:'Jacquard 24','Alegreya Sans',Georgia,serif;
+  --body:'Alegreya Sans','Gill Sans','Segoe UI',system-ui,sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --bg:#110F17; --surface:#1A1722; --surface-2:#25212F; --ink:#E4E8EE; --ink-2:#AAB4C1; --ink-3:#7F8A9A;
+    --rule:#2C3542; --accent:#E27468; --gold:#E6BC62; --gold-fill:#5B4718; --link:#90B8E8; --ok:#6FB083; --tain:#B39BE6;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#110F17; --surface:#1A1722; --surface-2:#25212F; --ink:#E4E8EE; --ink-2:#AAB4C1; --ink-3:#7F8A9A;
+  --rule:#2C3542; --accent:#E27468; --gold:#E6BC62; --gold-fill:#5B4718; --link:#90B8E8; --ok:#6FB083; --tain:#B39BE6;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+@media (prefers-reduced-motion: reduce){html{scroll-behavior:auto}}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:17.5px;line-height:1.55;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1120px;margin:0 auto;padding-inline:20px;padding-block:28px 80px}
+@media (max-width:480px){.wrap{padding-inline:16px}}
+a{color:var(--link);text-underline-offset:2px}
+a:focus-visible{outline:2px solid var(--link);outline-offset:2px;border-radius:3px}
+h1,h2,h3{text-wrap:balance;line-height:1.1;margin:0}
+p{margin:0}
+.eyebrow{font-size:13px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3);font-weight:700}
+.eyebrow.flag{color:var(--accent)}
+strong{font-weight:800}
+
+.masthead{display:grid;gap:14px;padding-block:8px 26px;border-bottom:1px solid var(--rule)}
+.masthead h1{font-family:var(--display);font-weight:400;font-size:clamp(60px,11vw,124px);letter-spacing:.01em;line-height:.9}
+.masthead .lede{font-size:20px;color:var(--ink-2);max-width:62ch}
+.play{justify-self:start;display:inline-block;font-weight:800;text-decoration:none;color:var(--bg);background:var(--ink);padding:8px 14px;border-radius:4px}
+.play:hover{background:var(--tain)}
+
+.toc{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:color-mix(in srgb,var(--bg) 92%,transparent);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);border-bottom:1px solid var(--rule);margin-inline:-20px;padding-inline:20px}
+.toc ol{list-style:none;display:flex;gap:4px;margin:0;padding:8px 0;overflow-x:auto;scrollbar-width:none}
+.toc ol::-webkit-scrollbar{display:none}
+.toc a{display:block;white-space:nowrap;text-decoration:none;color:var(--ink-2);font-size:14.5px;font-weight:500;padding:4px 10px;border-radius:999px}
+.toc a:hover{background:var(--surface-2);color:var(--ink)}
+.toc a[aria-current="true"]{background:var(--ink);color:var(--bg)}
+@media (max-width:480px){.toc{margin-inline:-16px;padding-inline:16px}}
+
+section{scroll-margin-top:64px}
+.sec{padding-block:56px 8px}
+.sec>h2{font-size:clamp(28px,4vw,38px);font-weight:800;letter-spacing:-.01em;margin-bottom:6px}
+.sec>.sub{color:var(--ink-2);font-size:18px;max-width:66ch;margin-bottom:26px}
+
+.fixes{display:grid;border-top:2px solid var(--ink)}
+.fixes .row{display:grid;grid-template-columns:minmax(160px,1fr) 2fr;gap:18px;padding:12px 0;border-bottom:1px solid var(--rule)}
+.fixes .row b{font-weight:800;color:var(--accent)}
+.fixes .row p{font-size:16px}
+@media (max-width:640px){.fixes .row{grid-template-columns:1fr;gap:4px}}
+
+.table-wrap{overflow-x:auto;border:1px solid var(--rule);border-radius:6px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:15.5px;line-height:1.4}
+th,td{text-align:left;vertical-align:top;padding:9px 12px;border-bottom:1px solid var(--rule)}
+thead th{font-size:12.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3);font-weight:700;background:var(--surface-2);white-space:nowrap}
+tbody tr:last-child td{border-bottom:0}
+tr.group td{font-size:12.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3);font-weight:800;background:var(--surface-2);padding-block:7px}
+td.n{font-variant-numeric:tabular-nums;color:var(--ink-3);width:2.5em}
+td.idea b{font-weight:700}
+td.idea small{display:block;color:var(--ink-3);font-size:13.5px;margin-top:2px}
+td.num{font-variant-numeric:tabular-nums;white-space:nowrap}
+table.results thead th{white-space:normal}
+table.results th+th,table.results td+td{width:6.5em}
+.lvl{display:inline-block;font-size:12px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;padding:1px 6px;border-radius:3px;white-space:nowrap}
+.lvl.ok{background:color-mix(in srgb,var(--ok) 20%,transparent);color:var(--ok)}
+.lvl.md{background:color-mix(in srgb,var(--gold) 18%,transparent);color:var(--gold)}
+.lvl.lo{background:var(--surface-2);color:var(--ink-2)}
+.lvl.next{background:color-mix(in srgb,var(--tain) 18%,transparent);color:var(--tain)}
+td.status .lvl{margin-bottom:3px}
+td.status span.why{display:block;font-size:14px;color:var(--ink-2)}
+.note{font-size:14.5px;color:var(--ink-3);margin-top:10px;max-width:80ch}
+
+.pillars{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin-top:22px}
+.pillars div{background:var(--surface);border:1px solid var(--rule);border-radius:6px;padding:12px 14px}
+.pillars b{display:block;font-size:16.5px;font-weight:800;margin-bottom:4px}
+.pillars p{font-size:15.5px;color:var(--ink-2)}
+.pillars p+p{margin-top:6px}
+
+.queue{list-style:none;margin:0;padding:0;display:grid;gap:0;border-top:2px solid var(--ink);counter-reset:q}
+.queue li{display:grid;grid-template-columns:2.2em 1fr;gap:10px;padding:12px 0;border-bottom:1px solid var(--rule);counter-increment:q}
+.queue li::before{content:counter(q);font-family:var(--display);font-size:34px;line-height:.9;color:var(--ink-3)}
+.queue li.done::before{color:var(--ok)}
+.queue li b{font-weight:800}
+.queue li p{font-size:16px;color:var(--ink-2)}
+
+.assume{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:18px;margin-top:6px}
+.assume div{border-top:1px solid var(--rule);padding-top:10px}
+.assume h3{font-size:17px;font-weight:800;margin-bottom:4px}
+.assume p{font-size:16px;color:var(--ink-2)}
+
+footer{margin-top:56px;padding-top:16px;border-top:1px solid var(--rule);font-size:15px;color:var(--ink-3)}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header class="masthead">
+  <p class="eyebrow">Base-Manager · round four · follows <a href="../round-3/index.html">Afterglass</a></p>
+  <h1>After the Slice</h1>
+  <p class="lede">Round three's ten-week plan is built: four prototypes, ending in a season you can play. This round asks what to build next, before and after the playtest the slice exists for. Here is every candidate from the brainstorm with its status, what the builds showed, and the queue.</p>
+  <a class="play" href="../../../prototype/season.html">Play the season</a>
+</header>
+
+<nav class="toc" aria-label="Sections">
+  <ol>
+    <li><a href="#stands">Where it stands</a></li><li><a href="#candidates">Candidates</a></li><li><a href="#builds">What the builds showed</a></li><li><a href="#decide">Your decisions</a></li><li><a href="#next">Next</a></li><li><a href="#ledger">What's checked</a></li>
+  </ol>
+</nav>
+
+<section id="stands" class="sec" style="padding-top:36px">
+  <p class="eyebrow flag">Read this first</p>
+  <h2>Where it stands</h2>
+  <p class="sub">Everything on this page comes from an autopilot (a scripted player, 40 to 200 seeds a result) and scripted runs in Chromium. Nobody has played it yet.</p>
+  <div class="fixes">
+    <div class="row"><b>The slice's question is unanswered.</b><p>It exists to ask <em>do people want to play a second season?</em> The page asks at the end of a season and saves the answer in the playtest export, but no tester has seen it.</p></div>
+    <div class="row"><b>A static line still wins on a keep built from two rooms.</b><p>Two fighters on each stair up to the Veil, never moved, finish 98% of first seasons and 89% of the second seasons they reach. The balanced plan, which reacts, finishes 95% and 73%. On the original four-floor keep the Maws now beat that line.</p></div>
+    <div class="row"><b>The dawn rite isn't a real choice yet.</b><p>In the first season, keeping or covering a shade is mostly a way to manage Dread. The rite is meant to be the game's best decision.</p></div>
+    <div class="row"><b>The new moon turns on a couple of candles.</b><p>When a room a Maw broke also lost its day's work, the balanced plan fell from 95% to 67% of first seasons on the four-floor keep. Almost all of that was the Chandlery, broken the night before the new moon.</p></div>
+    <div class="row"><b>Two colours carry too much.</b><p>Creeper red against Stranger green is the main way to tell an enemy from your own shade in the dark: a colour-blindness risk.</p></div>
+  </div>
+</section>
+
+<section id="candidates" class="sec">
+  <h2>The candidates</h2>
+  <p class="sub">The brainstorm's nineteen ideas, in its three groups. Sizes were my estimates at the time: S, M or L.</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>#</th><th>Idea</th><th>Status</th></tr></thead>
+      <tbody>
+        <tr class="group"><td colspan="3">Fixes for problems already measured</td></tr>
+        <tr><td class="n">1</td><td class="idea"><b>Break the fixed stair setup</b> that won nights 1–5<small>M</small></td><td class="status"><span class="lvl md">Half solved</span><span class="why">Built twice; see what the builds showed.</span></td></tr>
+        <tr><td class="n">2</td><td class="idea"><b>Make the rite bite:</b> traits such as Devout turning Bitter, and fire by day<small>M</small></td><td class="status"><span class="lvl next">Queued</span><span class="why">After the playtest.</span></td></tr>
+        <tr><td class="n">3</td><td class="idea"><b>Colour-blind-safe eyes:</b> Creepers and Strangers told apart by shape<small>S</small></td><td class="status"><span class="lvl next">Queued</span><span class="why">Before the playtest.</span></td></tr>
+        <tr class="group"><td colspan="3">Designed in round three, not built yet</td></tr>
+        <tr><td class="n">4</td><td class="idea"><b>Traits that invert at death:</b> 8 pairs, each with a night effect<small>M</small></td><td class="status"><span class="lvl next">Queued</span><span class="why">With 2, after the playtest.</span></td></tr>
+        <tr><td class="n">5</td><td class="idea"><b>Quarters and the Dreamwell;</b> Weepers give the sleepers nightmares<small>M</small></td><td class="status"><span class="lvl lo">Not built</span></td></tr>
+        <tr><td class="n">6</td><td class="idea"><b>The black mirror:</b> tomorrow's raid and tonight's Creeper waves<small>S</small></td><td class="status"><span class="lvl lo">Not built</span><span class="why">The Dusk panel already lists the night's tides.</span></td></tr>
+        <tr><td class="n">7</td><td class="idea"><b>Whispers and the great glass:</b> shades coach the living, or step through by day<small>M</small></td><td class="status"><span class="lvl lo">Not built</span></td></tr>
+        <tr><td class="n">8</td><td class="idea"><b>Break a mirror in an emergency:</b> it frees its shades and curses the room<small>S</small></td><td class="status"><span class="lvl lo">Not built</span></td></tr>
+        <tr><td class="n">9</td><td class="idea"><b>Build your own rooms</b><small>L</small></td><td class="status"><span class="lvl ok">Built</span><span class="why">The keep now starts as two rooms. No choosing a slot, no tearing down.</span></td></tr>
+        <tr><td class="n">10</td><td class="idea"><b>A full year:</b> shifting days and nights, the Long Night, the eclipse<small>L</small></td><td class="status"><span class="lvl lo">Not built</span><span class="why">The eclipse is on round three's cut list.</span></td></tr>
+        <tr><td class="n">11</td><td class="idea"><b>The dusk crossing</b> in the season<small>S</small></td><td class="status"><span class="lvl ok">Built</span></td></tr>
+        <tr class="group"><td colspan="3">New ideas</td></tr>
+        <tr><td class="n">12</td><td class="idea"><b>The Book of the Dead:</b> each shade's story<small>S</small></td><td class="status"><span class="lvl ok">Built</span></td></tr>
+        <tr><td class="n">13</td><td class="idea"><b>A season recap card</b> to share<small>S</small></td><td class="status"><span class="lvl lo">Not built</span></td></tr>
+        <tr><td class="n">14</td><td class="idea"><b>A daily seed</b> everyone plays<small>S</small></td><td class="status"><span class="lvl lo">Not built</span><span class="why">Replays are already exact from a seed.</span></td></tr>
+        <tr><td class="n">15</td><td class="idea"><b>Watch a replay</b> of a season or a tester's export<small>S–M</small></td><td class="status"><span class="lvl lo">Not built</span></td></tr>
+        <tr><td class="n">16</td><td class="idea"><b>A threat preview at dusk:</b> likely Creeper routes and the Hollow's path<small>M</small></td><td class="status"><span class="lvl lo">Not built</span></td></tr>
+        <tr><td class="n">17</td><td class="idea"><b>A guided first season</b><small>M</small></td><td class="status"><span class="lvl ok">Built</span></td></tr>
+        <tr><td class="n">18</td><td class="idea"><b>An installable app,</b> the first step toward Google Play<small>S–M</small></td><td class="status"><span class="lvl ok">Built</span><span class="why">Checked in Chromium only.</span></td></tr>
+        <tr><td class="n">19</td><td class="idea"><b>Sound and haptics</b><small>M</small></td><td class="status"><span class="lvl lo">Not built</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="note">My picks for playtest readiness were 1, 11, 12, 17 and 18; all five are built. Building rooms (9) and people that read as people came after, at your request.</p>
+</section>
+
+<section id="builds" class="sec">
+  <h2>What the builds showed</h2>
+  <p class="sub">The static line is the thread through all of it. The Maws were built to break it; how that went depends on the keep you start with.</p>
+  <div class="table-wrap">
+    <table class="results">
+      <thead><tr><th>Seasons finished, of 200 seeds</th><th>Doubled line</th><th>Balanced</th></tr></thead>
+      <tbody>
+        <tr><td>Four-floor keep, second seasons, before the Maws broke rooms</td><td class="num">133</td><td class="num">116</td></tr>
+        <tr><td>Four-floor keep, second seasons, Maws break rooms</td><td class="num">116</td><td class="num">123</td></tr>
+        <tr><td>Four-floor keep, second seasons, and a better autopilot</td><td class="num">165</td><td class="num">173</td></tr>
+        <tr><td>Two-room start, first seasons</td><td class="num">196</td><td class="num">190</td></tr>
+        <tr><td>Two-room start, second seasons</td><td class="num">174</td><td class="num">138</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="note">A second season counts only if the first was finished too. "Doubled line": two fighters on each stair up to the Veil on every Maw night, never moved. "Balanced": reacts to tides and Maws.</p>
+  <div class="pillars">
+    <div><b>The first Maws</b><p>They tore down the candle holding the line. That made the line cost something, but a doubled line beat them outright: 96 first seasons in 100 against 95, and 0.2 shades lost a season against 2.4.</p></div>
+    <div><b>An easier second season</b><p>At ×1.35 difficulty a season, the second finished 35% of the time. At ×1.2, with the Maws on their own multiplier, it's 73% for the balanced plan on the two-room start.</p></div>
+    <div><b>Maws that break rooms</b><p>They weigh the candle barring the way against every room where people work, count the fighters on the way, and go for the most worth for the least fight. A broken room loses its night's work and costs 1 Dread.</p><p>On the four-floor keep that reversed the static line's lead. On the two-room start it didn't: the first floor you build is always the line's floor, so a doubled line stands in working rooms.</p></div>
+    <div><b>Guarding the line</b><p>A rule that shades in the light at the stairs do no work but keep the Watch. It took the balanced plan from 92% to 73% of first seasons and barely moved the doubled line, from 98% to 95%. It's off, as a switch in Settings.</p></div>
+    <div><b>Building</b><p>Stone from masons in the Yard, 6 stone a room, three workers a room, a Forge and a Cellar, and a keep that starts as the Hearth and the Crypt. The autopilot's results depend heavily on its build order: swapping the Chapel and the Chandlery once took it from 93% to 30%.</p></div>
+    <div><b>The crossing, the guide, the Book, installing</b><p>They work in scripted runs: the crossing animates, the guide's cards fire, the Book tells every death, and the app installs and plays offline in Chromium. None of it has been tried by a person.</p></div>
+  </div>
+</section>
+
+<section id="decide" class="sec">
+  <h2>Decisions only you can make</h2>
+  <p class="sub">The first two stand between the slice and its playtest.</p>
+  <div class="fixes">
+    <div class="row"><b>Play it on a real phone.</b><p>Installing, real fingers, the guide's clarity and iOS are all unchecked. Your notes should decide what gets fixed before testers see it.</p></div>
+    <div class="row"><b>How testers send results back.</b><p>Today they copy a block of JSON from Records, then Playtest. That works for three to five people; a form or an email link would lose fewer answers beyond that.</p></div>
+    <div class="row"><b>Google Play.</b><p>An installed app with no URL bar needs <code>assetlinks.json</code> at <code>rcjlabs.github.io/.well-known/</code>: an <code>rcjlabs.github.io</code> repository or a custom domain, and the signing fingerprint from your Play Console.</p></div>
+  </div>
+  <p class="note">Settled since the list was made: the Maws keep their name. They break rooms now, as round three's Maws do.</p>
+</section>
+
+<section id="next" class="sec">
+  <h2>Next, in order</h2>
+  <ol class="queue">
+    <li class="done"><div><b>This write-up.</b><p>Round four, next to the other three.</p></div></li>
+    <li><div><b>The static line.</b><p>Make the reacting autopilot play sensibly (reinforce each stair from its own side, keep singers singing), then measure again. That shows whether the gap belongs to the rules or to the autopilot.</p></div></li>
+    <li><div><b>Colour-blind-safe eyes.</b><p>Tell Creepers and Strangers apart by shape, not only by red and green.</p></div></li>
+    <li><div><b>The playtest.</b><p>After you've played it on a phone and picked how results come back.</p></div></li>
+    <li><div><b>Traits that make the rite bite.</b><p>Candidates 2 and 4, so that keeping or covering a shade is a real choice.</p></div></li>
+  </ol>
+</section>
+
+<section id="ledger" class="sec">
+  <h2>What's checked and what isn't</h2>
+  <div class="assume">
+    <div><h3>Established</h3><p>The autopilot numbers on this page, each from 40 to 200 seeds, and scripted Chromium checks of the game, the guide, building, installing and offline play.</p></div>
+    <div><h3>Judgment</h3><p>The sizes, the order of the queue, and what counts as a fair second season.</p></div>
+    <div><h3>Unknown until people play</h3><p>Whether they want a second season, whether the guide teaches the game, whether the Tain reads on a phone, and whether a real player turtles on the line the way the autopilot's doubled line does.</p></div>
+  </div>
+</section>
+
+<footer>
+  <p>The prototypes and their numbers are in the <a href="https://github.com/RCJLabs/Base-Manager/blob/main/prototype/README.md">prototype README</a>. Earlier rounds: <a href="../round-3/index.html">Afterglass</a>, <a href="../round-2/index.html">Bone &amp; Glass</a>, <a href="../index.html">Five Keeps</a>.</p>
+</footer>
+</div>
+<script>
+(() => {
+  const links = [...document.querySelectorAll('.toc a')];
+  const map = new Map(links.map((a) => [a.getAttribute('href').slice(1), a]));
+  if (!('IntersectionObserver' in window)) return;
+  const obs = new IntersectionObserver((es) => {
+    for (const e of es) if (e.isIntersecting) {
+      links.forEach((a) => a.removeAttribute('aria-current'));
+      const a = map.get(e.target.id);
+      if (a) { a.setAttribute('aria-current', 'true'); a.scrollIntoView({ block: 'nearest', inline: 'nearest' }); }
+    }
+  }, { rootMargin: '-35% 0px -60% 0px' });
+  document.querySelectorAll('section[id]').forEach((s) => obs.observe(s));
+})();
+</script>
+</body>
+</html>
