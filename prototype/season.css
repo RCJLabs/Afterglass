@@ -227,3 +227,37 @@ table.days { min-width: 680px; }
   .game .toasts { right: 8px; width: calc(100vw - 16px); gap: 6px; }
   .toast { font-size: 13px; padding: 6px 8px 6px 10px; }
 }
+
+/* The Book of the Dead. */
+.book { display: grid; gap: 8px; }
+.book + .book { margin-top: 6px; }
+.bookpage { border: 1px solid var(--line); background: var(--box); border-radius: 4px; padding: 10px 12px; display: grid; gap: 6px; }
+.bookpage header { display: flex; flex-wrap: wrap; gap: 6px; align-items: baseline; }
+.bookpage header b { font: 700 19px/1.2 var(--font-display); color: var(--ink); }
+.bookpage p { font-size: 14px; line-height: 1.55; color: var(--ink-2); max-width: 68ch; }
+.bookpage.is-raider header b { color: var(--ink-2); }
+.roster-head .btn.sm { margin-left: auto; }
+
+/* The guide: one card above the bar (or above an open sheet), and a pulse on what it points at. */
+.gcoach {
+  position: absolute;
+  left: calc((100% - var(--free-right, 0px)) / 2);
+  bottom: calc(var(--bar-h) + var(--sheet-h, 0px) + 10px);
+  transform: translateX(-50%);
+  z-index: 7;
+  width: min(460px, calc(100% - var(--free-right, 0px) - 24px));
+  display: grid;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--day);
+  background: rgb(22 18 34 / 0.95);
+  color: #ece6ff;
+  font-size: 14px;
+  line-height: 1.45;
+  box-shadow: 0 8px 30px rgb(0 0 0 / 0.45);
+}
+.gcoach .row { gap: 6px; }
+.is-coached { outline: 3px solid var(--day); outline-offset: 2px; animation: coach 1.2s ease-in-out infinite; }
+@keyframes coach { 50% { outline-color: transparent; } }
+@media (prefers-reduced-motion: reduce) { .is-coached { animation: none; } }

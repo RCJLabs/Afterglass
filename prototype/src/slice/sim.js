@@ -8,7 +8,7 @@
 
 import {
   TICKS_PER_SEC, TUNING, DAY_ROOMS, WORK_ROOMS, TWINS, MAP, DEEP_FLOOR, VEIL_FLOOR, KINDS, WORKING, CAUSES, GUIDE_UP,
-  MIRRORS, START_MIRRORS, MIRROR_PLACES, CAST, BONDS, START_SHADES, NAMES, RAIDER_NAMES,
+  MIRRORS, START_MIRRORS, MIRROR_PLACES, CAST, BONDS, START_SHADES, BOND_OTHER, NAMES, RAIDER_NAMES,
 } from './data.js';
 import {
   roomAt, roomSpan, lightMap, isLit, spanAt, darkBetween, darkRooms, darkGaps, route, firstLight, fleePath, touching, mirrorGoals,
@@ -89,12 +89,17 @@ export function newSeason(seed = Date.now() >>> 0, overrides = {}) {
     s.used.push(x.name);
     d.mirror = s.mirrors[0].id;
     if (x.bond) {
+      // A bond's rel says what the partner is to this one: Osk's bond says Garrick is his parent.
       const p = cast[x.bond[0]];
       p.bond = { with: d.id, rel: x.bond[1] };
-      d.bond = { with: p.id, rel: x.bond[1] };
+      d.bond = { with: p.id, rel: BOND_OTHER[x.bond[1]] };
     }
     s.shades.push(d);
-    s.ledger.push({ id: d.id, name: d.name, from: 'before', season: 0, day: 0, cause: x.cause, how: CAUSES[x.cause].text, kind: x.kind, guided: false, job: null, woke: x.kind, end: null, endDay: null, nights: 0 });
+    s.ledger.push({
+      id: d.id, name: d.name, from: 'before', season: 0, day: 0, cause: x.cause, how: CAUSES[x.cause].text, kind: x.kind, guided: false, job: x.job,
+      age: x.age, bond: x.bond ? { name: x.bond[0], rel: x.bond[1] } : null, woke: x.kind, end: null, endDay: null, nights: 0, kills: 0,
+      posts: {}, named: x.named, memory: x.memory,
+    });
   }
   rollDay(s);
   say(s, `Season 1, day 1. The new moon is ${tuning.seasonDays} days off. Anyone who dies inside the walls wakes at dusk as a shade.`, 'day');
@@ -107,7 +112,7 @@ function blankToday() {
 
 function newPerson(s, name, age, job = null) {
   if (!s.used.includes(name)) s.used.push(name);
-  return { id: 'p' + s.nextId++, name, age, job, bond: null, sick: 0, grief: null, peace: 0, joined: s.day };
+  return { id: 'p' + s.nextId++, name, age, job, bond: null, sick: 0, grief: null, peace: 0, joined: { season: s.season, day: s.day } };
 }
 function bond(a, b, rel) {
   a.bond = { with: b.id, rel };
@@ -410,7 +415,7 @@ export function kill(s, p, cause, how) {
     s.guidance--;
     guided = true;
   }
-  const b = { id: p.id, name: p.name, age: p.age, job: p.job, bond: p.bond, cause, kind, guided, how: how || CAUSES[cause].text, day: s.day, funeral: false, from: 'living' };
+  const b = { id: p.id, name: p.name, age: p.age, job: p.job, bond: p.bond, joined: p.joined, cause, kind, guided, how: how || CAUSES[cause].text, day: s.day, funeral: false, from: 'living' };
   s.bodies.push(b);
   s.today.deaths.push(p.id);
   addLedger(s, b);
@@ -433,8 +438,19 @@ function raiderBody(s) {
   s.bodies.push(b);
   addLedger(s, b);
 }
+// Everything the Book of the Dead tells about someone, from the day they die.
 function addLedger(s, b) {
-  s.ledger.push({ id: b.id, name: b.name, from: b.from, season: s.season, day: b.day, cause: b.cause, how: b.how, kind: b.kind, guided: b.guided, job: b.job, woke: null, end: null, endDay: null, nights: 0 });
+  s.ledger.push({
+    id: b.id, name: b.name, from: b.from, season: s.season, day: b.day, cause: b.cause, how: b.how, kind: b.kind, guided: b.guided, job: b.job,
+    age: b.age, bond: bondOf(s, b.bond), joined: b.joined ?? null, woke: null, end: null, endDay: null, nights: 0, kills: 0, posts: {}, named: false,
+    memory: null,
+  });
+}
+// A bond as the Book records it: the partner's name, and what they were to the dead.
+function bondOf(s, bond) {
+  if (!bond) return null;
+  const other = byId(s.living, bond.with) || byId(s.shades, bond.with) || ledgerOf(s, bond.with);
+  return other ? { name: other.name, rel: BOND_OTHER[bond.rel] || bond.rel } : null;
 }
 export const ledgerOf = (s, id) => s.ledger.find((e) => e.id === id);
 function endLedger(s, id, end) {
@@ -442,6 +458,7 @@ function endLedger(s, id, end) {
   if (e && !e.end) {
     e.end = end;
     e.endDay = s.day;
+    e.endSeason = s.season;
   }
 }
 function restFor(s, deadId, peace) {
@@ -557,11 +574,18 @@ function newNight(s) {
       snuff: chance(s, T.snuffShare), rift: pick(s, MAP.rifts).id,
     });
   }
+  // Maws rise just ahead of the last tide, to open a way for the Creepers behind them, from night mawFrom.
+  // The new moon belongs to the Hollow.
+  if (s.day >= T.mawFrom && !isNewMoon(s)) {
+    const maws = Math.round(T.mawsPerNight);
+    const order = [...tides].sort((a, b) => b - a);
+    for (let i = 0; i < maws; i++) spawns.push({ at: Math.round(clamp(order[i % order.length] - 0.03, 0.02, 0.9) * N), type: 'maw', seep: false, snuff: false, rift: pick(s, MAP.rifts).id });
+  }
   if (isNewMoon(s)) spawns.push({ at: Math.round(T.hollowAt * N), type: 'hollow', seep: false, snuff: false, rift: pick(s, MAP.rifts).id });
   spawns.sort((a, b) => a.at - b.at);
   return {
     candles: [], foes: [], spawns, tides: tides.map((x) => Math.round(x * N)).sort((a, b) => a - b), wards: [], wardHold: {}, hush: false,
-    stats: { spawned: 0, killed: 0, crossed: 0, cracks: 0, grabbed: 0, drained: 0, essence: 0, glass: 0, wick: 0, guidance: 0, candles: 0, wards: 0, lost: [], hollow: null, taken: null, wraiths: 0 },
+    stats: { spawned: 0, killed: 0, crossed: 0, cracks: 0, grabbed: 0, drained: 0, essence: 0, glass: 0, wick: 0, guidance: 0, candles: 0, wards: 0, lost: [], hollow: null, taken: null, wraiths: 0, maws: 0, smashed: 0 },
   };
 }
 
@@ -582,12 +606,12 @@ function startNight(s) {
   if (s.night.stats.wraiths) say(s, `${listNames(s.shades.filter((d) => d.kind === 'wraith').map((d) => d.name))} ${s.night.stats.wraiths === 1 ? 'rises' : 'rise'} as a Wraith in the Waking Room.`, 'bad', true);
 }
 
-function addFoe(s, type, f, x, extra = {}) {
+export function addFoe(s, type, f, x, extra = {}) {
   const T = s.tuning;
-  const hp = type === 'hollow' ? T.hollowHp * hard(s) : type === 'wraith' ? T.wraithHp : T.creeperHp;
+  const hp = type === 'hollow' ? T.hollowHp * hard(s) : type === 'maw' ? T.mawHp * hard(s) : type === 'wraith' ? T.wraithHp : T.creeperHp;
   const foe = {
     id: 'c' + s.nextId++, type, f, x, ox: x, of: f, hp, max: hp, path: [], climb: 0, climbTotal: 0, temper: extra.temper || 'climb',
-    mode: 'climb', prey: null, gnaw: null, gnawing: false, grab: null, replan: 0, shade: extra.shade || null, batter: null,
+    mode: 'climb', prey: null, gnaw: null, gnawing: false, grab: null, replan: 0, shade: extra.shade || null, batter: null, smashing: false,
   };
   s.night.foes.push(foe);
   return foe;
@@ -654,7 +678,7 @@ function spawnFoes(s, L) {
     const open = MAP.rifts.filter((r) => !n.wards.includes(r.id));
     const rift = open.find((r) => r.id === sp.rift) || open[0] || null;
     let at = null;
-    if (sp.type !== 'hollow' && (sp.seep || !rift)) {
+    if (sp.type === 'creeper' && (sp.seep || !rift)) {
       const dark = darkRooms(L);
       if (dark.length) {
         const [f, id, a, b] = pick(s, dark);
@@ -669,10 +693,14 @@ function spawnFoes(s, L) {
         }
       }
     }
-    // Wards can't hold the new moon: the Hollow breaks through its rift whatever seals it.
+    // Wards can't hold the new moon or a Maw: they break up through their rift whatever seals it.
     if (!at) at = { f: DEEP_FLOOR, x: (rift || byId(MAP.rifts, sp.rift)).x };
     addFoe(s, sp.type, at.f, at.x, { temper: sp.snuff ? 'snuff' : 'climb' });
     n.stats.spawned++;
+    if (sp.type === 'maw') {
+      n.stats.maws++;
+      if (n.stats.maws === 1) say(s, 'A Maw climbs out of the Deep. It walks through light to tear down the candles that bar the way up.', 'bad', true);
+    }
     if (sp.type === 'hollow') {
       n.stats.hollow = 'rose';
       say(s, 'The Hollow rises out of the Deep. It eats the light around it and makes for the mirrors.', 'bad', true);
@@ -684,7 +712,7 @@ function drainShade(s, d, amount) {
   d.memory -= amount;
   d.drained += amount;
   s.night.stats.drained += amount;
-  if (d.memory <= 0) fadeAway(s, d, `${d.name} was drained to nothing in the ${TWINS[roomAt(d.f, d.x) || 'crypt'].name} and is gone.`);
+  if (d.memory <= 0) fadeAway(s, d, `${d.name} was drained to nothing in the ${TWINS[roomAt(d.f, d.x) || 'crypt'].name} and is gone.`, 'drained');
 }
 
 function shadeTick(s, L, d) {
@@ -720,6 +748,7 @@ function shadeTick(s, L, d) {
     .sort((a, b) => Math.abs(a.x - d.x) - Math.abs(b.x - d.x))[0];
   if (foe) {
     foe.hp -= T.fightDps * K.fight * p * DT;
+    foe.lastHit = d.id;
     return;
   }
   if (d.path.length || d.post.f !== d.f || Math.abs(d.post.x - d.x) > 1.5 || !isLit(L, d.f, d.x)) return;
@@ -746,6 +775,10 @@ function foeTick(s, L, c) {
   c.gnawing = false;
   if (c.type === 'hollow') {
     hollowTick(s, L, c);
+    return;
+  }
+  if (c.type === 'maw') {
+    mawTick(s, L, c);
     return;
   }
   const lit = !c.climb && isLit(L, c.f, c.x);
@@ -853,6 +886,52 @@ function plan(s, L, c) {
   c.path = cut.path;
 }
 
+// A Maw goes for the light that bars the Creepers' way up (where their path first meets a candle), or
+// else the nearest candle it can reach. Light doesn't burn it and it walks straight in; wards on the stairs
+// do stop it. Reaching the candle, it tears it down, and it hits any shade standing where it is.
+function mawTarget(s, L, m) {
+  const n = s.night;
+  if (!n.candles.length) return null;
+  const open = route(L, m, mirrorGoals(), { creeper: true, ignoreLight: true, wards: n.wards });
+  const cut = open && firstLight(L, m, open.path);
+  const barring = cut && byId(n.candles, cut.candle);
+  const goals = (barring ? [barring] : n.candles).map((k) => ({ f: k.f, x: k.x, candle: k.id }));
+  const r = route(L, m, goals, { creeper: true, ignoreLight: true, wards: n.wards });
+  return r ? { path: r.path, candle: r.goal.candle } : null;
+}
+function mawTick(s, L, m) {
+  const T = s.tuning;
+  const n = s.night;
+  if (!n.hush) {
+    for (const d of s.shades) {
+      if (canWork(d) && s.shades.includes(d) && !d.climb && d.f === m.f && Math.abs(d.x - m.x) <= 3) drainShade(s, d, T.mawHit * DT);
+    }
+  }
+  if (!m.climb && --m.replan <= 0) {
+    m.replan = 10;
+    const to = mawTarget(s, L, m);
+    m.gnaw = to ? to.candle : null;
+    m.path = to ? to.path : [];
+    m.mode = to ? 'smash' : 'idle';
+  }
+  const k = m.gnaw && byId(n.candles, m.gnaw);
+  if (k && !m.climb && !m.path.length && k.f === m.f && Math.abs(k.x - m.x) <= 2) {
+    if (!m.smashing) {
+      m.smashing = true;
+      say(s, `A Maw is tearing down the candle in the ${TWINS[roomAt(k.f, k.x)].name}.`, 'bad', true);
+    }
+    k.wax -= T.mawSmash * DT;
+    m.gnawing = true;
+    if (k.wax <= 0) {
+      n.stats.smashed++;
+      m.smashing = false;
+      m.replan = 0;
+    }
+    return;
+  }
+  advance(m, T.mawSpeed, Math.round(T.creeperClimb * 2 * TICKS_PER_SEC));
+}
+
 // The Hollow makes for the mirrors whatever the light, eating candles and draining shades as it goes.
 // A ward on a stair only holds it a while; only shades standing and fighting drive it back.
 function hollowTick(s, L, h) {
@@ -917,7 +996,10 @@ function cross(s, c, m, cracks) {
 function takeLiving(s, p) {
   s.living.splice(s.living.indexOf(p), 1);
   s.today.deaths.push(p.id);
-  s.ledger.push({ id: p.id, name: p.name, from: 'living', season: s.season, day: s.day, cause: 'hollow', how: CAUSES.hollow.text, kind: null, guided: false, job: p.job, woke: 'taken', end: 'taken', endDay: s.day, nights: 0 });
+  s.ledger.push({
+    id: p.id, name: p.name, from: 'living', season: s.season, day: s.day, cause: 'hollow', how: CAUSES.hollow.text, kind: null, guided: false, job: p.job,
+    age: p.age, bond: bondOf(s, p.bond), joined: p.joined, woke: 'taken', end: 'taken', endDay: s.day, nights: 0, kills: 0, posts: {}, named: false, memory: null,
+  });
   s.night.stats.taken = p.name;
   const q = p.bond ? byId(s.living, p.bond.with) : null;
   if (q) {
@@ -931,6 +1013,8 @@ function takeLiving(s, p) {
 function foeDown(s, f) {
   const n = s.night;
   n.stats.killed++;
+  const hero = f.lastHit && ledgerOf(s, f.lastHit);
+  if (hero) hero.kills = (hero.kills || 0) + 1;
   const d = f.grab && byId(s.shades, f.grab);
   if (d && d.grabbedBy === f.id) d.grabbedBy = null;
   if (f.type === 'wraith' && f.shade) {
@@ -949,14 +1033,16 @@ function foeDown(s, f) {
   }
 }
 
-function fadeAway(s, d, text) {
+function fadeAway(s, d, text, how = 'faded') {
   s.shades = s.shades.filter((x) => x !== d);
   for (const c of s.night?.foes || []) {
     if (c.grab === d.id) c.grab = null;
     if (c.prey === d.id) c.prey = null;
   }
   s.night?.stats.lost.push(d.name);
-  endLedger(s, d.id, 'faded');
+  const e = ledgerOf(s, d.id);
+  if (e) e.memory = 0;
+  endLedger(s, d.id, how);
   restFor(s, d.id, false);
   say(s, text, 'death', true);
 }
@@ -1007,7 +1093,15 @@ function endNight(s) {
     d.memory = Math.round((d.memory - loss) * 100) / 100;
     d.nights++;
     const e = ledgerOf(s, d.id);
-    if (e) e.nights = d.nights;
+    if (e) {
+      e.nights = d.nights;
+      e.memory = Math.max(0, d.memory);
+      const room = postRoom(d);
+      if (room) {
+        e.posts ||= {};
+        e.posts[room] = (e.posts[room] || 0) + 1;
+      }
+    }
     fading.push({ id: d.id, name: d.name, fade: loss, drained: Math.round(d.drained * 10) / 10, rested, memory: d.memory });
     if (d.memory <= 0) fadeAway(s, d, `${d.name} has faded. Nothing is left in the glass.`);
   }
@@ -1115,6 +1209,8 @@ function beginDay(s) {
   for (const d of P.bind) {
     const m = freeMirror(s);
     Object.assign(d, { mirror: m.id, kind: d.trueKind, trueKind: null, restless: 0, post: wakingSpot(s) });
+    const e = ledgerOf(s, d.id);
+    if (e) e.bound = { season: s.season, day: s.day, kind: d.kind };
     say(s, `${d.name} is bound to the ${m.name} and settles as ${KINDS[d.kind].name}.`, 'wake');
   }
   s.res.essence = Math.max(0, s.res.essence - P.essence);
@@ -1318,6 +1414,8 @@ const ACTIONS = {
     if (s.res.remembrance + EPS < s.tuning.nameCost) return `Naming costs ${s.tuning.nameCost} remembrance.`;
     s.res.remembrance -= s.tuning.nameCost;
     d.named = true;
+    const e = ledgerOf(s, d.id);
+    if (e) e.named = true;
     say(s, `${d.name} is written in the ledger and will fade half as fast.`, 'good');
   },
   remember(s, { id }) {

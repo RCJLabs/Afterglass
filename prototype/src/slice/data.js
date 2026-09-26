@@ -86,13 +86,21 @@ export const TUNING = {
   hollowAt: 0.3,
   hollowReward: 3,
   wardHold: 20, // seconds a ward on a stair holds the Hollow back
+  // Maws, the round-three brutes: they walk through light to the candle holding the way up and tear it
+  // down, hitting any shade in their way. One lone Loyal shade can just about stop one; a Serene can't.
+  mawFrom: 3,
+  mawsPerNight: 1,
+  mawHp: 6,
+  mawSpeed: 6,
+  mawSmash: 20, // wax a second torn from a candle a Maw has reached
+  mawHit: 2, // memory a second from each shade standing where a Maw is
   shadeSpeed: 9,
   shadeClimb: 1,
   reach: 6,
   fightDps: 1,
   drainPerSec: 4,
   creepersBase: 4,
-  creepersPerNight: 2.5,
+  creepersPerNight: 2.2,
   newMoonCreepers: 0.6, // the new moon brings the Hollow and fewer Creepers than the night before
   stragglers: 0.3, // the share that come alone; the rest come in tides
   tideEvery: 3, // one more tide every this many nights
@@ -224,6 +232,8 @@ export const BONDS = [
 // The last keeper's dead, already in the Chapel glass when the season opens, posted at the feet of the
 // two stairs up to the Veil. Garrick is Osk's father: posted in the Wick Room he and Osk both work x1.25.
 export const START_SHADES = [
-  { name: 'Garrick', kind: 'loyal', cause: 'duty', memory: 80, named: false, bond: ['Osk', 'parent'], post: [2, 18] },
-  { name: 'Hesper', kind: 'serene', cause: 'oldage', memory: 60, named: true, bond: null, post: [2, 94] },
+  { name: 'Garrick', age: 'adult', job: 'barracks', kind: 'loyal', cause: 'duty', memory: 80, named: false, bond: ['Osk', 'parent'], post: [2, 18] },
+  { name: 'Hesper', age: 'old', job: 'chapel', kind: 'serene', cause: 'oldage', memory: 60, named: true, bond: null, post: [2, 94] },
 ];
+// What each side of a bond is to the other: Garrick is Osk's parent, so Osk is Garrick's child.
+export const BOND_OTHER = { parent: 'child', child: 'parent', sibling: 'sibling', spouse: 'spouse', friend: 'friend' };

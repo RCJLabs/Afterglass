@@ -146,6 +146,17 @@ function tendNight(s) {
   }
   // Free the caught.
   for (const d of s.shades) if (d.grabbedBy && s.res.candles > 0) doAct(s, { type: 'candle', f: d.f, x: d.x });
+  // A Maw going for a candle: send the best free fighter to stand with whoever holds it.
+  for (const m of n.foes.filter((f) => f.type === 'maw' && f.gnaw)) {
+    const k = n.candles.find((c) => c.id === m.gnaw);
+    if (!k) continue;
+    const near = s.shades.filter((d) => canWork(d) && d.f === k.f && Math.abs(d.x - k.x) <= 8);
+    if (near.length >= 2) continue;
+    const help = s.shades
+      .filter((d) => canWork(d) && !near.includes(d) && !d.grabbedBy && !d.climb && d.memory > 30 && !LINE.some((st) => d.post.f === st.f && d.post.x === st.x))
+      .sort((a, b) => fighter(b) * b.memory - fighter(a) * a.memory)[0];
+    if (help && !(help.post.f === k.f && Math.abs(help.post.x - k.x) <= 8)) doAct(s, { type: 'move', id: help.id, f: k.f, x: k.x + (help.x < k.x ? -2 : 2) });
+  }
   // The Hollow: ward the stairs above it while the essence lasts, and meet it with fighters near the top.
   const h = n.foes.find((f) => f.type === 'hollow');
   if (h && !h.climb) {

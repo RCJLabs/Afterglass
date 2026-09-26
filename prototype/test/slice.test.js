@@ -2,9 +2,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   newSeason, step, act, replay, ritePreview, crossingPreview, capacity, canWork, defense, bear, dayTicks, nightTicks, addCreeper,
-  lastSeason, kill, byId,
+  lastSeason, kill, byId, addFoe,
 } from '../src/slice/sim.js';
 import { runSeasonAuto, autoStep, PLANS } from '../src/slice/autopilot.js';
+import { epitaph } from '../src/slice/book.js';
 import { MAP, TUNING, DEEP_FLOOR, VEIL_FLOOR, START_SHADES } from '../src/slice/data.js';
 import { lightMap, isLit, roomAt, route, darkRooms, darkGaps, roomSpan, feet, MODES, toView, fromView, floorAtY, unitAt, VIEW_H } from '../src/slice/geo.js';
 
@@ -248,6 +249,60 @@ test('Dread at its height brings an inspector the same day', () => {
   assert.equal(s.inspection.day, s.day);
 });
 
+// A night with the two stairs up to the Veil lit, and a Maw on the floor below them.
+function mawNight(seed, posts) {
+  const s = newSeason(seed, quiet);
+  emptyNight(s);
+  ok(s, { type: 'candle', f: 2, x: 16 });
+  ok(s, { type: 'candle', f: 2, x: 96 });
+  s.shades.forEach((d, i) => Object.assign(d, posts[i] ? { f: posts[i].f, x: posts[i].x, post: posts[i] } : { f: 3, x: 70 + i * 6, post: { f: 3, x: 70 + i * 6 } }));
+  const maw = addFoe(s, 'maw', 1, 30);
+  return { s, maw };
+}
+
+test('a Maw walks through the light to the candle barring the way up, and tears it down unopposed', () => {
+  const { s, maw } = mawNight(21, []);
+  const line = s.night.candles.find((k) => k.f === 2 && k.x === 16);
+  stepFor(s, 4);
+  assert.equal(maw.gnaw, line.id, 'it goes for the candle on the Creepers\' way up');
+  stepFor(s, 20);
+  assert.ok(!s.night.candles.includes(line), 'the candle is torn down');
+  assert.equal(s.night.stats.smashed, 1);
+  assert.ok(maw.hp > 0, 'light does not burn it');
+});
+
+test('a Loyal shade holding the light cuts a Maw down before it finishes', () => {
+  const { s, maw } = mawNight(22, [{ f: 2, x: 16 }]);
+  const line = s.night.candles.find((k) => k.f === 2 && k.x === 16);
+  stepFor(s, 25);
+  assert.ok(maw.hp <= 0 || !s.night.foes.includes(maw), 'the Maw is cut down');
+  assert.ok(s.night.candles.includes(line) && line.wax > 0, 'the candle survives');
+  assert.equal(s.night.stats.smashed, 0);
+});
+
+test('wards on the stairs keep a Maw below them', () => {
+  const { s } = mawNight(23, []);
+  s.res.essence = 20;
+  ok(s, { type: 'ward', target: 's3' });
+  ok(s, { type: 'ward', target: 's4' });
+  stepFor(s, 25);
+  assert.equal(s.night.stats.smashed, 0);
+  assert.equal(s.night.candles.length, 2);
+});
+
+test('Maws come one a night from night 3, but not on the new moon', () => {
+  const count = (day) => {
+    const s = newSeason(24, quiet);
+    s.day = day;
+    toDusk(s);
+    return s.night.spawns.filter((x) => x.type === 'maw').length;
+  };
+  assert.equal(count(2), 0);
+  assert.equal(count(3), TUNING.mawsPerNight);
+  assert.equal(count(6), TUNING.mawsPerNight);
+  assert.equal(count(7), 0);
+});
+
 test('the Hollow: wards hold it a while, it eats light, and at the Veil it takes one of the living', () => {
   const s = newSeason(11, quiet);
   s.day = 7;
@@ -339,6 +394,28 @@ test('both cameras map taps back to the right floor, and climbers slide between 
   const u = { f: 1, x: 40, ox: 40, of: 1, climb: 5, climbTotal: 10, path: [{ f: 2, x: 40, climb: 's3' }] };
   const mid = unitAt(u, 0);
   assert.ok(mid.y > feet(1) && mid.y < feet(2), 'halfway up the stair');
+});
+
+test('the Book of the Dead tells every death as a story', () => {
+  for (const seed of [8, 9]) {
+    const s = runSeasonAuto(seed, { plan: 'balanced', seasons: 2 });
+    for (const e of s.ledger) {
+      const text = epitaph(e);
+      assert.ok(text.length > 30, text);
+      assert.ok(!/undefined|null|NaN|\[object/.test(text), text);
+      assert.ok(!/season of the \w+ season/.test(text), text);
+    }
+  }
+  const s = newSeason(1);
+  const garrick = s.ledger.find((e) => e.name === 'Garrick');
+  assert.equal(epitaph(garrick), "Of the last keeper's household, a guard, parent of Osk. Died on duty before you came. Still in the glass.");
+  const osk = s.living.find((p) => p.name === 'Osk');
+  kill(s, osk, 'duty', 'died holding the gate');
+  const e = s.ledger.find((x) => x.name === 'Osk');
+  assert.equal(epitaph(e), 'A young chandler of the keep, child of Garrick. Died holding the gate on day 1 of the first season. Lies in the crypt, waiting for dusk.');
+  e.woke = 'funeral';
+  e.end = 'funeral';
+  assert.match(epitaph(e), /Was given a funeral and laid to rest\.$/);
 });
 
 test('night and day ticks match the tuning', () => {

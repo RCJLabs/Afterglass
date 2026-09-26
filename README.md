@@ -14,6 +14,8 @@ A side-view base-builder in development. You hold a keep on the Veil: by day the
 
 Every push to `main` runs the prototype tests and publishes the repository root to GitHub Pages (`.github/workflows/pages.yml`). Other branches and pull requests run the tests only (`.github/workflows/test.yml`). No build step: the pages are static files.
 
+The season (`prototype/season.html`) installs as an app. Its service worker (`prototype/sw.js`) goes to the network first, so a deploy reaches installed copies on their next load with a connection. A new file the season loads must be added to the worker's `CORE` list; the tests fail until it is.
+
 ```sh
 cd prototype && npm test   # Node 20+, no dependencies
 ```

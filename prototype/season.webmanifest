@@ -1,0 +1,19 @@
+{
+  "id": "./season.html",
+  "name": "Afterglass: a season on the Veil",
+  "short_name": "Afterglass",
+  "description": "Keep a castle on the Veil for one season: the living work it by day, the dead defend its reflection by night.",
+  "lang": "en",
+  "start_url": "./season.html",
+  "scope": "./",
+  "display": "fullscreen",
+  "display_override": ["fullscreen", "standalone"],
+  "background_color": "#0e0b18",
+  "theme_color": "#0e0b18",
+  "categories": ["games"],
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

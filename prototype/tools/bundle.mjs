@@ -58,6 +58,10 @@ const js = order
   .map((m) => `// ${relative(root, m.path)}\nconst ${m.name} = (() => {\n${m.code}\nreturn { ${m.exports.join(', ')} };\n})();`)
   .join('\n\n');
 html = html.replace(/<link rel="stylesheet" href="(?!https?:)([^"]+)">/g, (_, href) => `<style>\n${readFileSync(resolve(root, href), 'utf8')}</style>`);
+// One file can't be an installable app: drop the manifest (the page then skips its service worker too)
+// and the home-screen icon, and carry the favicon inline.
+html = html.replace(/<link rel="(manifest|apple-touch-icon)"[^>]*>\s*/g, '');
+html = html.replace(/<link rel="icon" href="(?!https?:|data:)([^"]+)"/g, (_, href) => `<link rel="icon" href="data:image/png;base64,${readFileSync(resolve(root, href)).toString('base64')}"`);
 html = html.replace(script[0], () => `<script>\n'use strict';\n${js}\n</script>`);
 
 if (fragment) {

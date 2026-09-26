@@ -337,7 +337,7 @@ function person(c, p, i, x, y, t, dim = 0) {
 
 // Everything alive in the keep by day, in world coordinates: fires, the living at work, the dead in the
 // crypt, the Church's inspector, and a raid coming over the hills.
-function dayActors(c, s, t) {
+function dayActors(c, s, t, dusk = 0) {
   const h = span('hearth');
   const hy = feet(VEIL_FLOOR);
   glow(c, h.x0 + 38, hy - 3, 6, P.orange, 0.25);
@@ -353,10 +353,12 @@ function dayActors(c, s, t) {
     ps.forEach((p, i) => {
       const home = x0 + 4 + ((i + 0.5) * (x1 - x0 - 12)) / n;
       const x = home + (p.sick > 0 ? 0 : Math.sin(t * 0.5 + i * 1.7 + p.name.length) * 3);
-      person(c, p, i, x, feet(f), t);
+      person(c, p, i, x, feet(f), t, Math.min(1, dusk * 1.6));
     });
   }
   const cr = span('crypt');
+  // At dusk the dead on the slab glow faintly, the only light left in the crypt.
+  if (dusk > 0 && s.bodies.length) glow(c, cr.x0 + 11, top('crypt') + 12, 7, '#cfe0ff', 0.25 * dusk);
   s.bodies.slice(0, 4).forEach((b, i) => {
     if (i === 0) {
       R(c, cr.x0 + 5, top('crypt') + 12, 11, 2, P.bone);
@@ -392,11 +394,11 @@ function dayActors(c, s, t) {
       D(c, x + 3, y - 6, (MF(t * 6) + i) % 2 ? P.orange : P.yellow);
     }
   }
-  if (r && r.state === 'breached') {
+  if (r && r.state === 'breached' && dusk < 1) {
     for (let i = 0; i < 5; i++) {
       const x = 10 + i * 22 + Math.sin(t + i) * 2;
       const y = 16 - ((t * 3 + i * 5) % 18);
-      A(c, 0.5, () => ellipse(c, x, y, 2, 1, P.slate));
+      A(c, 0.5 * (1 - dusk), () => ellipse(c, x, y, 2, 1, P.slate));
     }
   }
 }
@@ -444,6 +446,27 @@ function wraithEyes(c, x, y, t) {
   const bx = Math.round(x - 3) + Math.round(Math.sin(t * 3 + x));
   D(c, bx + 2, Math.round(y) - 10, P.white);
   D(c, bx + 4, Math.round(y) - 10, P.white);
+}
+// A Maw: a hunched brute, wider and taller than a Creeper, with a mouth that opens as it tears at a candle.
+function mawSprite(c, u, x, y, t) {
+  const bx = Math.round(x - 4);
+  const by = Math.round(y);
+  const step = u.climb ? 0 : MF(t * 3 + u.x) % 2;
+  const col = '#040206';
+  R(c, bx + 2, by - 9, 5, 2, col);
+  R(c, bx, by - 7, 9, 5, col);
+  R(c, bx + 1, by - 2, 2, 2 - step, col);
+  R(c, bx + 6, by - 2, 2, 1 + step, col);
+  R(c, bx - 1, by - 6, 1, 4, col);
+  R(c, bx + 9, by - 6, 1, 4, col);
+}
+function mawEyes(c, u, x, y, t) {
+  const bx = Math.round(x - 4);
+  const by = Math.round(y);
+  D(c, bx + 3, by - 8, P.orange);
+  D(c, bx + 5, by - 8, P.orange);
+  const open = u.gnawing ? MF(t * 8) % 2 : 0;
+  R(c, bx + 2, by - 5, 5, 1 + open, u.gnawing ? P.hot : P.crimson);
 }
 function hollowSprite(c, x, y, t) {
   const cx = Math.round(x);
@@ -515,6 +538,7 @@ function composeTain(s, t, opts = {}) {
   for (const { u, x, y } of foes) {
     if (u.type === 'creeper') creeperSprite(c, u, x, y, t);
     else if (u.type === 'wraith') wraithSprite(c, x, y, t);
+    else if (u.type === 'maw') mawSprite(c, u, x, y, t);
     else hollowSprite(c, x, y, t);
   }
   const hollow = foes.find((f) => f.u.type === 'hollow');
@@ -582,7 +606,14 @@ function composeTain(s, t, opts = {}) {
   for (const { u, x, y } of foes) {
     if (u.type === 'creeper') creeperEyes(c, u, x, y, t);
     else if (u.type === 'wraith') wraithEyes(c, x, y, t);
+    else if (u.type === 'maw') mawEyes(c, u, x, y, t);
     else hollowEyes(c, x, y, t);
+  }
+  // Guide marks: pulsing rings on the spots a guide card is talking about.
+  for (const m of opts.marks || []) {
+    const r = 5 + (MF(t * 4) % 3);
+    ring(c, Math.round(m.x), feet(m.f) - 5, r, P.yellow);
+    ring(c, Math.round(m.x), feet(m.f) - 5, r + 1, P.amber, (dx, dy) => (dx + dy) % 2 === 0);
   }
   // The Restless wait at the edge of the Deep, flickering by the rifts.
   const restless = s.shades.filter((d) => d.kind === 'restless');
@@ -626,14 +657,37 @@ function dayScene(c, w, h, s, v) {
     const u = ctxOf(up);
     u.setTransform(1, 0, 0, 1, -cx, -yTop);
     u.clearRect(cx, yTop, w, upH);
+    // Dusk (0 to 1) carries the keep from sunset into night: sky, hills and keep darken, the living go to bed.
+    const dk = v.dusk || 0;
+    const sunset = Math.max(v.sunset || 0, Math.min(1, dk * 2));
     bands(u, cx, w, yTop, VEIL, DAY_SKY);
-    if (v.sunset > 0) A(u, v.sunset, () => bands(u, cx, w, yTop, VEIL, SUNSET_SKY));
-    clouds(u, cx, w, t);
-    ridge(u, cx, w, RIDGES.far, v.sunset > 0.5 ? '#7a6a8a' : '#8fb4a4');
-    ridge(u, cx, w, RIDGES.near, v.sunset > 0.5 ? '#5a4a6a' : '#6fa878');
+    if (sunset > 0) A(u, sunset, () => bands(u, cx, w, yTop, VEIL, SUNSET_SKY));
+    if (dk > 0.5) {
+      A(u, (dk - 0.5) * 2, () => {
+        bands(u, cx, w, yTop, VEIL, NIGHT_SKY);
+        stars(u, cx, w, yTop, VEIL - 30, t);
+      });
+    }
+    A(u, 1 - dk, () => clouds(u, cx, w, t));
+    ridge(u, cx, w, RIDGES.far, sunset > 0.5 ? '#7a6a8a' : '#8fb4a4');
+    ridge(u, cx, w, RIDGES.near, sunset > 0.5 ? '#5a4a6a' : '#6fa878');
+    if (dk > 0) {
+      A(u, dk, () => {
+        ridge(u, cx, w, RIDGES.far, '#141c2a');
+        ridge(u, cx, w, RIDGES.near, '#1a2430');
+      });
+    }
     u.drawImage(L.keep, 0, 0);
-    if (v.sunset > 0) A(u, 0.25 * v.sunset, () => R(u, cx, yTop, w, upH, P.orange));
-    dayActors(u, s, t);
+    if (dk > 0) A(u, dk, () => u.drawImage(L.nightKeep, 0, 0));
+    if (sunset > 0 && dk < 0.6) A(u, 0.25 * sunset * (1 - dk / 0.6), () => R(u, cx, yTop, w, upH, P.orange));
+    dayActors(u, s, t, dk);
+    // Souls of the dead crossing: down through the Veil to wake, or up and away to rest.
+    for (const sl of v.souls || []) {
+      A(u, sl.a, () => {
+        glow(u, Math.round(sl.x), Math.round(sl.y), 4, sl.up ? '#fff3c4' : '#cfe0ff', 0.55);
+        R(u, Math.round(sl.x) - 1, Math.round(sl.y) - 1, 2, 3, P.white);
+      });
+    }
     c.drawImage(up, 0, yTop - cy);
     if (wet > 0) {
       const y0 = Math.max(VEIL, cy);
@@ -647,8 +701,11 @@ function dayScene(c, w, h, s, v) {
         c.drawImage(up, 0, sy - yTop, w, 1, dx, wy - cy, w, 1);
       }
       c.globalAlpha = 1;
-      A(c, 0.3, () => R(c, 0, y0 - cy, w, cy + h - y0, '#0e1826'));
-      if (VEIL >= cy) R(c, 0, VEIL - cy, w, 1, P.steel);
+      A(c, 0.3 + 0.4 * dk, () => R(c, 0, y0 - cy, w, cy + h - y0, '#0e1826'));
+      if (VEIL >= cy) {
+        R(c, 0, VEIL - cy, w, 1, dk > 0.6 ? P.mauve : P.steel);
+        if (v.veilFlash > 0) A(c, v.veilFlash, () => R(c, 0, VEIL - cy - 1, w, 3, '#f0b0ff'));
+      }
     }
   }
 }

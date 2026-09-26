@@ -15,15 +15,16 @@ All four are live on GitHub Pages at https://rcjlabs.github.io/Base-Manager/ (ev
 
 ```sh
 cd prototype
-npm test                        # 57 tests: rules, replay, save and load, soak runs, the pixel quiz (Node 20+, no dependencies)
+npm test                        # 64 tests: rules, replay, save and load, soak runs, the pixel quiz, the app's file list (Node 20+, no dependencies)
 npm run serve                   # then open http://localhost:8080, /night.html, /pixel.html or /season.html (any static server works)
 npm run bundle                  # dist/afterglass-greybox.html, -night, -pixel and -season.html: single files that open from disk
 npm run balance -- 20 40        # weeks 1-2 autopilot report: 40 seeds x 20 days per policy
 npm run balance:night -- 8 30   # weeks 3-4 autopilot report: 30 seeds x 8 nights per plan
 npm run balance:season -- 100 1 # weeks 7-10 autopilot report: 100 seeds x 1 season per plan (try 40 2 for season 2)
+npm run icons                   # redraws the season's app icons into icons/ (they're committed; only needed when the art changes)
 ```
 
-The pages load ES modules, so they need a web server; GitHub Pages works as is. The bundles have no such limit.
+The pages load ES modules, so they need a web server; GitHub Pages works as is. The bundles have no such limit. A bundle can't install as an app: it drops the manifest and never registers the service worker.
 
 ## Files
 
@@ -35,36 +36,55 @@ The pages load ES modules, so they need a web server; GitHub Pages works as is. 
 | `src/autopilot.js`, `src/night-autopilot.js` | Crude players for tests and balance runs |
 | `src/px/` | The pixel pass: `kit.js` (palette and drawing primitives from the round-three mockups), `lut.js` (the palette lookup and dithered light), `scene.js` (geometry, cameras, the quiz), `draw.js` (the art) |
 | `src/pixel-ui.js` | The pixel page: day, crossing, night and the readability test |
-| `src/slice/` | The season slice: `data.js` (content and tuning), `geo.js` (the keep's geometry, light, routes and cameras), `sim.js` (the whole season as one state), `autopilot.js`, `draw.js` (the art, built on `src/px/`) |
+| `src/slice/` | The season slice: `data.js` (content and tuning), `geo.js` (the keep's geometry, light, routes and cameras), `sim.js` (the whole season as one state), `autopilot.js`, `draw.js` (the art, built on `src/px/`), `book.js` (the Book of the Dead's pages) |
 | `src/slice-ui.js` | The season page |
-| `test/` | 16 weeks 1–2 tests, 15 night tests, 8 pixel tests and 18 season tests, including soak runs |
-| `tools/` | Balance reports and the single-file bundler |
+| `sw.js`, `season.webmanifest`, `icons/` | The installable season: the service worker that keeps it playable offline, the manifest, and the icons `tools/icons.mjs` draws |
+| `test/` | 16 weeks 1–2 tests, 15 night tests, 8 pixel tests, 23 season tests and 2 for the installable app, including soak runs |
+| `tools/` | Balance reports, the single-file bundler and the icon drawer |
 
 Everything is seeded and every action is logged, so `replay()` (in `src/sim.js` and `src/slice/sim.js`) and `replayNight()` rebuild any session exactly, including one from a playtester's export.
 
 ## Weeks 7–10: one season
 
-The vertical slice: seven days in one keep, ending on the night of the new moon, when the Hollow rises. The weeks 1–2 day, the weeks 3–4 night and the weeks 5–6 art now run as one game, with raids that escalate and the Lantern Church's first inspection. The question is **do people want to play a second season?** The page asks it when the season ends (or the keep falls), with a box for why, and saves the answer in the playtest export.
+The vertical slice: seven days in one keep, ending on the night of the new moon, when the Hollow rises. The weeks 1–2 day, the weeks 3–4 night and the weeks 5–6 art run as one game, with raids that escalate, Maws that go for the line from night 3, and the Lantern Church's first inspection. The question is **do people want to play a second season?** The page asks it when the season ends (or the keep falls), with a box for why, and saves the answer in the playtest export. It installs as an app and plays offline.
 
-**Problems it has already shown.** From 100-seed autopilot runs and my own reading of the rules. Nobody else has played it yet.
+**Problems it has already shown.** From 100-seed autopilot runs, scripted runs in Chromium and my own reading of the rules. Nobody else has played it yet.
 
-1. **A static line solves nights 1–5.** Two candles at the feet of the two stairs up to the Veil floor, each held by a good fighter, stop every Creeper the autopilot meets on those nights: no crossings and almost no shades caught across 100 seasons. Tides, seeps and candle-hunters didn't break the line; they only harass the rooms where shades work. So the first five nights test candles and staffing, not tactics. The weeks 3–4 greybox hit the same flaw on its own map. The real fix is in the map (a third way up) or in Unlit that attack the line itself.
-2. **Night 7 was a wall; it's now softened for first seasons.** The balanced autopilot used to lose 30 seasons in 100, 27 of them on night 7. That risked testers answering "would you try again?" instead of "would you play a second season?". The Hollow now:
-   - rises 30% into the night instead of 20%;
-   - eats light within 10 pixels at 8 wax a second, instead of 18 pixels at 12;
-   - has 14 strength instead of 24.
+1. **The Maws contest the static line; they don't break it.** Two candles at the feet of the two stairs up to the Veil floor, each held by a good fighter, used to stop everything on nights 1–5. From night 3, one Maw a night now walks through the light to the candle barring the way to a mirror. Unless shades cut it down first, it tears the candle down, in about 6 seconds if the candle is fresh. The balanced autopilot answers by sending a second fighter. On each of nights 3–5 it still:
+   - loses 0.7–0.9 candles to the Maw;
+   - has 0.2–0.7 shades caught;
+   - has 20–42 memory drained;
+   - sees 0–0.2 crossings.
 
-   The new moon also brings 60% of the night before's Creepers instead of 70%. The autopilot now finishes 96 seasons in 100, and 93 when it never wards. Left alone, the Hollow still reaches the Veil and takes someone in 58 of the 96. It may now be too soft for people; that's for the playtest to say. Every one of these numbers is in Settings.
-3. **Dread rarely forces a choice.** A season kills about 4 of your people, and nearly one of those is taken by the Hollow, which leaves no body. With 2 starting shades and about 3 new ones, the living bear most of the Dread. The balanced autopilot is blessed at every inspection by covering shades before day 5, and a plan that never covers anyone is censured in only 8 seasons of 100. Keep or cover is still mostly a Dread valve, as in weeks 1–2. Fading makes kept shades cost something, but not enough to force the choice. Two levers: more deaths per day, or fewer points of Dread borne per living.
-4. **Shades are hard to find in the dark.** They're 4 by 8 pixel silhouettes (12 by 24 CSS pixels at 3×). Each now has a faint glow, and the Unlit show only their eyes. Creeper red against Stranger green is still a colour-blindness risk; a gnawing Creeper's eyes turn orange.
-5. **On a phone, the panels cover most of the castle.** Dusk and dawn open a sheet over about two-thirds of the screen, so you can't see the Tain while deciding who stays. Close the sheet to look, or play on a wider screen, where the panel is a drawer beside the castle.
-6. **Season 2 is ×1.35 harder** in raids, Creeper counts and the Hollow. The autopilot finishes about half of the second seasons it reaches. That's a guess at "harder but fair", nothing more.
+   So the line now costs something and needs a response, but it holds until night 6. Nights 1 and 2 have no Maws and are as static as before. **Untested:** posting two fighters on each stair from night 3. That may be the new static answer, paid for with the rooms' work.
+2. **These Maws aren't round three's.** The design doc's Maws break twin rooms, which then haunt the day room above. They arrive from the second season, and wards and grave-steel counter them. Mine go for the candle holding the line and drain the shades beside them. They arrive on night 3 of the first season, and a ward on a stair holds them. I changed them to answer problem 1. The doc's room-breaking Maw is still unbuilt.
+3. **The Maws made the season harder, and season 2 much harder.** The balanced autopilot finishes 90 seasons in 100, down from 96. It loses 5 on night 6, 4 on night 7 and 1 on night 4. It finishes 13 of the 37 second seasons it reaches (35%, down from 53%); the keeper plan finishes 7 of 38. Season 2 is ×1.35 harder in raids, Creeper counts and the Hollow. That multiplier was a guess at "harder but fair", and it now looks too hard. The Maws' numbers are in Settings.
+4. **The Hollow usually gets through.** On the new moon it reaches the Veil and takes someone in 69 of the 90 finished seasons. Shades drive it back in 16, and it withdraws at dawn in 5. Whether that's too soft or too hard for people is for the playtest.
+5. **Dread rarely forces a choice in the first season.** A season kills about 4 of your people. The balanced plan is blessed at every inspection by covering shades before day 5. A plan that never covers anyone is censured in only 6 seasons of 100, and warned in 15. It bites in season 2, where that plan is censured 22 times in 38 seasons. In season 1, keep or cover is still mostly a Dread valve.
+6. **Shades are hard to find in the dark.** They're 4 by 8 pixel silhouettes (12 by 24 CSS pixels at 3×) with a faint glow, and the Unlit show only their eyes. Creeper red against Stranger green is still a colour-blindness risk; a gnawing Creeper's eyes turn orange.
+7. **On a phone, the panels cover most of the castle.** Dusk and dawn open a sheet over about two-thirds of the screen. Close it to look, or play on a wider screen, where the panel is a drawer beside the castle.
+8. **The guide, the crossing and the Book are untested with people.**
+   - **The guide** is 12 cards of my text, each shown once, when its moment first comes. The first raid, the first night, the Church, the first Maw and the new moon pause the clock. Whether a newcomer can play from the cards alone is the question.
+   - **The crossing** adds about 5 seconds to each dusk. A tap, space or Enter skips it, and reduced motion turns it off. A tap on the castle while it runs only skips it.
+   - **The Book's pages** are sentence templates filled from the ledger, so their shapes will repeat within a few seasons.
+9. **Installing has limits I can't test here.** I checked it in Chromium only: it's installable, every file is cached, and it plays with the server gone.
+   - Safari on an iPhone has no install prompt, so the page says Share, then Add to Home Screen. I haven't checked whether iOS honours full screen.
+   - Google Play, as a Trusted Web Activity, needs Digital Asset Links at `https://rcjlabs.github.io/.well-known/assetlinks.json`. That's the root of the domain, which a project site like this can't serve. Without it the app shows a URL bar. The fix is an `rcjlabs.github.io` repository or a custom domain.
+   - The worker goes to the network first on every load, so a deploy shows at once. On a slow connection, though, the app waits for the network before it falls back to its copy.
 
 **How a season plays**
 
-- **The screen.** The castle fills the window at the largest whole-pixel scale that fits: 3× on a 390-pixel phone, up to 6× on a desktop. By day it's the keep on its lake. From dusk to dawn it's the dark keep above the Veil with the Tain below it, the keep's reflection, where the night happens. The camera slides between the two. A HUD on top shows the phase, the clock, play and speed, the stores, Dread and the Veil. The bar at the bottom holds the tools for the moment (Candle, Move, Ward, Hush, Flip, or the phase's next step) and opens three panels: this phase (Day, Crossing, Dusk, Night, Rite or Season), People, and Records. Panels are a sheet from the bottom on phones and a drawer on the right on wide screens. They open by themselves when a decision is waiting, at the crypt, the rite and the season's end. **Zoom and pan:** pinch or the mouse wheel zooms in whole-pixel steps toward your fingers or the pointer, from 1× to 10×. Dragging pans, while a tap still acts, since it's judged on release. The +, − and Fit buttons at the right edge do the same. Panning is kept near the castle and resets when day turns to night. Keys: space, 1, 2 and 4 for time; C, M, W, H and V for the tools; + and − to zoom, 0 to fit, arrows to pan; K, P and R for the panels; L for room names; Esc to close.
-- **Day** (60 s at 1×). Eight living work six rooms. The Chandlery now makes the night's candles, and raiders who break in take only half as much food, thanks to the Granary. Raids come on days 2, 4 and 6 at strength about 4, 7 and 11 (±1.5). War banners go up over the turrets when one is on the road. Sickness, old age and an empty larder kill as before, and a newcomer arrives every second day. Jobs are in People; pick a name there, then tap a room on the castle, or use the job list.
-- **Dusk** (paused). The dead wake as in weeks 1–2, into the Waking Room of the Tain. Then set candles and post shades on the Tain, reflected or flipped upright, and begin. The Dusk panel lists when tonight's tides are due.
+- **The screen.** The castle fills the window at the largest whole-pixel scale that fits: 3× on a 390-pixel phone, up to 6× on a desktop. By day it's the keep on its lake. From dusk to dawn it's the dark keep above the Veil with the Tain below it, the keep's reflection, where the night happens. The camera slides between the two.
+  - **The HUD** on top shows the phase, the clock, play and speed, the stores, Dread and the Veil.
+  - **The bar** at the bottom holds the tools for the moment (Candle, Move, Ward, Hush, Flip, or the phase's next step). It also opens three panels: this phase (Day, Crossing, Dusk, Night, Rite or Season), People, and Records. Panels are a sheet from the bottom on phones and a drawer on the right on wide screens. They open by themselves when a decision is waiting, at the crypt, the rite and the season's end.
+  - **Zoom and pan.** Pinch or the mouse wheel zooms in whole-pixel steps toward your fingers or the pointer, from 1× to 10×. Dragging pans, and a tap still acts, since it's judged on release. The +, − and Fit buttons at the right edge do the same. Panning stays near the castle and resets when day turns to night.
+  - **Keys:** space, 1, 2 and 4 for time; C, M, W, H and V for the tools; + and − to zoom, 0 to fit, arrows to pan; K, P and R for the panels; L for room names; Esc to close.
+- **Day** (60 s at 1×). Eight living work six rooms. The Chandlery makes the night's candles, and thanks to the Granary, raiders who break in take only half as much food. Raids come on days 2, 4 and 6 at strength about 4, 7 and 11 (±1.5). War banners go up over the turrets when one is on the road. Sickness, old age and an empty larder kill as before, and a newcomer arrives every second day. Jobs are in People; pick a name there, then tap a room on the castle, or use the job list.
+- **Dusk** (paused). The crossing:
+  1. The sun sets over the keep and its lights go out.
+  2. At the crypt you choose funerals, then wake the dead. Their souls sink through the Veil into the Waking Room of the Tain, or rise away for a funeral.
+  3. The camera follows them down.
+  4. You set candles, post shades on the Tain (reflected or flipped upright) and begin. The Dusk panel lists when tonight's tides are due.
 - **Night** (120 s at 1×). The weeks 3–4 engine on this keep's Tain: 4 floors of twin rooms, 2 stairs between each pair of floors, 2 rifts in the deepest floor, 2 mirrors under the Veil. Every twin room has its job for a lit shade at its post:
   - the Choir sings essence, and a shade that sings through half the night calms one Restless shade;
   - the Silvering makes glass;
@@ -73,7 +93,11 @@ The vertical slice: seven days in one keep, ending on the night of the new moon,
   - the Watch adds to tomorrow's defense;
   - the Cold Hearth halves fading.
 
-  Wraiths rise in the Waking Room and hunt; cutting one down banishes it for good.
+  Wraiths rise in the Waking Room and hunt; cutting one down banishes it for good. **Maws** come from night 3, one a night with a tide, but none on the new moon. A Maw:
+  - walks through light, straight for the candle barring the way to a mirror;
+  - tears that candle down, draining any shade beside it;
+  - has 6 strength, so two shades fighting it cut it down fast and one Loyal shade can just about hold it;
+  - is held below by a ward on a stair.
 - **Dawn: the Rite** (paused). Keep or cover, release or bind, banish or leave, as in weeks 1–2. Fading happens, and names and remembrance can be bought, as in weeks 3–4. Each Veil crack from the night adds 1 Dread.
 - **Day 5: the Lantern Church.** It is announced the dawn before, and it comes again the same day whenever Dread reaches 5. The inspector judges Dread at noon:
 
@@ -84,13 +108,16 @@ The vertical slice: seven days in one keep, ending on the night of the new moon,
   | 4–5 | Censured: the fullest mirror is covered and carried off with its shades, and Dread drops to 2 |
 
   Vigils by day lower Dread at once.
-- **Night 7: the new moon.** It brings fewer Creepers and the Hollow, which:
+- **Night 7: the new moon.** It brings fewer Creepers, no Maw, and the Hollow, which:
   - walks toward the nearest mirror whatever the light;
   - eats candles near it and drains shades beside it;
   - is held by a ward on a stair for 20 seconds, then breaks it;
   - can only be driven back by shades fighting it (+3 remembrance);
   - if it reaches the Veil, cracks it and takes one of the living, leaving no body to wake.
 - **The end.** A season summary, the question, and **Begin season 2**.
+- **Records.** The Book of the Dead has a page for everyone who has died in this keep, grouped by season. A page tells who they were, how they died and what they woke as, the nights they served and where, what they cut down, and how it ended. Records also holds the log, each day's numbers, the playtest export and Settings.
+- **The guide.** The intro offers to begin with a guide or without. With it, a card above the bar explains each thing the first time it happens, and pulses the button or the spots on the Tain it means. Settings turns it off, or on again from the start.
+- **Installing.** In Chrome, Edge and Samsung Internet, an Install button appears in the intro and in Settings; on an iPhone or iPad, use Share, then Add to Home Screen. Installed, it runs full screen from the home screen and plays offline after its first load: `sw.js` keeps a copy of every file it needs, and of the fonts. Only the season installs.
 
 **Where this goes beyond the design doc.** These are my calls; test them rather than trust them.
 
@@ -100,22 +127,25 @@ The vertical slice: seven days in one keep, ending on the night of the new moon,
 4. **Tides.** Most Creepers come in waves, with one more wave every third night, instead of evenly through the night.
 5. **Veil cracks heal one a dawn**, and each crack costs 1 Dread. Five open at once lose the keep.
 6. **The cycle is compressed:** a season is 21 minutes at 1× plus the paused phases, against the doc's much longer days.
+7. **The Maws** go against the doc (problem 2).
+8. **The Book of the Dead, the guide and installing** come from the round-four brainstorm, not the design doc. The crossing follows the pixel pass's, cut from about 10 seconds to about 5 and made skippable.
 
-**What the numbers say so far.** From `npm run balance:season -- 100 1`. Every plan but Idle holds the stairs to the Veil and relights candles; they differ in how they treat the dead.
+**What the numbers say so far.** From `npm run balance:season -- 100 1`. Every plan but Idle holds the stairs to the Veil, relights candles and sends help against a Maw. The plans differ in how they treat the dead.
 
 | | Balanced | Keeper (never covers) | Mourner (every funeral, covers to keep Dread at 1) | Idle (no candles, no posts) |
 |---|---|---|---|---|
-| Seasons finished | 96% | 97% | 94% | 0% |
-| Lost on night 6 / night 7 | 3 / 1 | 1 / 2 | 0 / 6 | all on night 1 |
-| Your deaths per season | 3.5 | 3.5 | 4.4 | – |
-| Raids held | 80% | 80% | 68% | – |
-| Church: blessed / warned / censured | 100 / 0 / 0 | 82 / 11 / 8 | 100 / 0 / 0 | – |
-| Shades lost at night per season | 1.6 | 1.9 | 0.6 | – |
-| The Hollow: reached the Veil / driven back / withdrew | 58 / 19 / 19 | 59 / 20 / 18 | 81 / 10 / 3 | – |
+| Seasons finished | 90% | 91% | 91% | 0% |
+| Lost on night 4 / 5 / 6 / 7 | 1 / 0 / 5 / 4 | 1 / 1 / 3 / 4 | 0 / 0 / 0 / 9 | all on night 1 |
+| Your deaths per season | 3.8 | 3.8 | 4.6 | – |
+| Raids held | 72% | 71% | 61% | – |
+| Church: blessed / warned / censured | 99 / 0 / 0 | 80 / 15 / 6 | 100 / 0 / 0 | – |
+| Shades lost at night per season | 2.1 | 2.5 | 1.4 | – |
+| The Hollow, in finished seasons: reached the Veil / driven back / withdrew | 69 / 16 / 5 | 73 / 14 / 4 | 85 / 6 / 0 | – |
 
-- **Keeping seems to pay.** The mourner holds fewer shades, holds fewer raids and fails to drive the Hollow back more often. The likely links are the Watch's defense bonus and fewer fighters on the line, but I haven't isolated them.
-- **Nights 1–5 barely touch the autopilot** (problem 1): no crossings, and at most 0.1 shades caught a night. Night 6, after the strongest raid, is now the hardest: it averages 1.4 shades lost and 0.9 crossings. Night 7 averages 0.8 crossings, the Hollow's included.
-- **Season 2** (`-- 40 2`): the balanced plan finishes 20 of the 38 second seasons it reaches, losing them across nights 3 to 7.
+- **Per night** (balanced): nights 1 and 2 see no crossings and no shades caught, and nights 3–5 are as in problem 1. Night 6, after the strongest raid, is the hardest: it averages 2.2 shades caught, 1.5 lost and 1.2 crossings. Night 7 averages 1.2 crossings, the Hollow's included.
+- **Keeping against mourning is now mixed.** The mourner loses no season before night 7 but loses 9 there. It also holds fewer raids (61% against 72%) and loses more of its living (4.6 against 3.8). The keeping plans lose on night 6 instead. I haven't isolated why. My guess, untested: with fewer shades at night the mourner has fewer for the Maws and night 6's crowd to catch, but also fewer to fight the Hollow and to add the Watch's defense by day.
+- **Raids held fell from 80% to 72%** when the Maws came in, though Maws only come at night. A likely link is the Watch: a shade pulled off its post to fight a Maw, or lost, adds less to the next day's defense. That isn't isolated either.
+- **Season 2** (`-- 40 2`): the balanced plan finishes 13 of the 37 second seasons it reaches (35%), the keeper 7 of 38 (18%) and the mourner 14 of 35 (40%).
 
 ## Weeks 5–6: the pixel pass
 
@@ -227,7 +257,7 @@ From `npm run balance -- 20 40`, 40 seeds x 20 days per autopilot policy. The au
 
 ## Not done
 
-- No sound, save slots or offline service worker. Each prototype saves to this browser only.
+- No sound or save slots. Each prototype saves to this browser only. Only the season installs and plays offline.
 - The earlier prototypes stay as they were: the weeks 1–2 night is abstract, the night greybox has no day, and the pixel pass draws generated scenes. The season slice is the only one that runs day and night together.
-- Not in the season: traits, the Maws, Weepers and the Drowned, a dusk crossing animation, and a camera that pans across a keep wider than the phone.
-- Checked with the tests, the soak runs and scripted click-throughs in Chromium at desktop and phone widths, including the bundled season file. Not tested on a real phone, in Safari, or with a screen reader. The night stages and the pixel test are pointer-only. The season's pinch zoom was tested with synthetic touch events, not real fingers.
+- Not in the season: traits, Weepers, the Drowned, grave-steel, and the design doc's room-breaking Maws.
+- Checked with the tests, the soak runs and scripted click-throughs in Chromium at desktop and phone widths, including the bundled season file, the guide, the installed app with its server gone, and saves from the previous version. Not tested on a real phone, in Safari, or with a screen reader. The night stages and the pixel test are pointer-only. The season's pinch zoom was tested with synthetic touch events, not real fingers, and the Install button with a synthetic install prompt.

@@ -2,14 +2,15 @@
 // bar at the bottom, and everything else opens in a panel over the castle. Like the greyboxes it changes
 // the game only through act(), so every session replays from its seed and action log.
 
-import { TICKS_PER_SEC, DAY_ROOMS, WORK_ROOMS, TWINS, KINDS, MIRRORS, CAUSES, MAP, DEEP_FLOOR } from './slice/data.js';
+import { TICKS_PER_SEC, DAY_ROOMS, WORK_ROOMS, TWINS, KINDS, MIRRORS, CAUSES, MAP, DEEP_FLOOR, BOND_OTHER, TUNING } from './slice/data.js';
 import {
   newSeason, step, act, ritePreview, crossingPreview, capacity, canWork, defense, roomPower, bear, priests, funeralCap, eatRate,
   dayTicks, nightTicks, isNewMoon, choicesFor, byId, isTwinnedLiving, isTwinnedShade, lastSeason, SAVE_VERSION, fmt, mirrorCap,
   postRoom,
 } from './slice/sim.js';
-import { FLOORS, feet, floorAtY, roomAt, lightMap, isLit, unitAt } from './slice/geo.js';
+import { FLOORS, feet, floorAtY, roomAt, roomSpan, lightMap, isLit, unitAt } from './slice/geo.js';
 import { drawScene } from './slice/draw.js';
+import { epitaph, ordinal, RESTING, LOST } from './slice/book.js';
 
 const SAVE_KEY = 'afterglass-season/save/v1';
 const PREF_KEY = 'afterglass-season/prefs/v1';
@@ -34,13 +35,15 @@ const store = {
   },
 };
 
-const prefs = { speed: 1, mode: 'reflection', labels: true, tab: 'log', autoPause: true, introDone: false, ...(store.get(PREF_KEY) || {}) };
+const prefs = { speed: 1, mode: 'reflection', labels: true, tab: 'log', autoPause: true, introDone: false, guide: false, guideSeen: {}, ...(store.get(PREF_KEY) || {}) };
 const savePrefs = () => store.set(PREF_KEY, prefs);
 
 function loadGame() {
   const g = store.get(SAVE_KEY);
   if (!g || g.v !== SAVE_VERSION || g.mode !== 'season' || !Array.isArray(g.shades)) return null;
   g.alerts = [];
+  // A save from before a tuning number existed takes its default (that's how the Maws reach older saves).
+  for (const t of [g.tuning, g.tuning0]) if (t) for (const [k, v] of Object.entries(TUNING)) if (!(k in t)) t[k] = v;
   return g;
 }
 const saveGame = () => store.set(SAVE_KEY, { ...s, alerts: [] });
@@ -48,14 +51,20 @@ const saveGame = () => store.set(SAVE_KEY, { ...s, alerts: [] });
 let s = loadGame() || newSeason();
 const ui = {
   paused: true, rev: 0, tool: 'candle', selected: null, person: null, hover: null, toasts: [], toastRev: 0, confirmNew: false,
-  copied: '', showExport: false, rush: false, flash: 0, scale: 3, sheet: null,
+  copied: '', showExport: false, rush: false, flash: 0, scale: 3, sheet: null, cross: null,
 };
 const bump = () => {
   ui.rev++;
 };
 const running = () => s.phase === 'day' || s.phase === 'night';
 // The castle shows the living keep by day and at the season's end; the Tain from dusk to dawn.
-const nightView = () => s.phase !== 'day' && s.phase !== 'end';
+// The crossing at dusk keeps the living keep in view (sunset, lights out, the dead on the slab) until the
+// dead have crossed; only then does the camera go down into the Tain.
+const nightView = () => {
+  if (s.phase === 'day' || s.phase === 'end') return false;
+  if (s.phase === 'dusk' && (ui.cross || s.dusk.step === 'crypt')) return false;
+  return true;
+};
 
 /* ---------------------------------------------------------------- words */
 
@@ -172,6 +181,8 @@ function barHTML() {
 
 function hintText() {
   const T = s.tuning;
+  if (ui.guide) return '';
+  if (ui.cross) return ui.cross.stage === 'sunset' ? 'Dusk falls on the keep. Tap to skip.' : '';
   if (ui.sheet && !wide()) return '';
   if (s.phase === 'day') {
     const p = byId(s.living, ui.person);
@@ -203,7 +214,9 @@ function introHTML() {
       <li><b>The Lantern Church</b> inspects on day 5, and again whenever Dread reaches 5. Low Dread is blessed; high Dread costs you a mirror and the shades in it.</li>
     </ul>
     <p class="note">The castle is the screen. The bar at the bottom holds the tools for the moment and opens the panels: this phase, the people, and the records. Pause any time.</p>
-    <div class="row"><button class="btn primary" id="btn-intro" data-act="intro-close">Begin</button></div>
+    <div class="row"><button class="btn primary" id="btn-intro-guide" data-act="intro-guide">Begin with a guide</button><button class="btn" id="btn-intro" data-act="intro-close">Begin without</button></div>
+    <p class="hint">The guide shows a short card the first time each thing happens: the jobs, a raid, the Crossing, the Tain, the Maws, the Church and the new moon. You can switch it off in Settings.</p>
+    ${installHTML('intro')}
   </div>`;
 }
 
@@ -318,8 +331,9 @@ function duskPlace() {
   const ds = s.shades.filter(canWork);
   const dark = ds.filter((d) => !isLit(L, d.post.f, d.post.x));
   const creepers = n.spawns.filter((x) => x.type === 'creeper').length;
+  const maws = n.spawns.filter((x) => x.type === 'maw').length;
   const wraiths = s.shades.filter((d) => d.kind === 'wraith');
-  return `<header class="ph-head"><h2>Dusk: set the night</h2><p>${plural(creepers, 'Creeper')} will climb out of the Deep tonight, most of them in tides around ${tidesText()}.${isNewMoon(s) ? ' <b>Tonight is the new moon: the Hollow rises.</b>' : ''} Set candles and post the shades, then begin.</p></header>
+  return `<header class="ph-head"><h2>Dusk: set the night</h2><p>${plural(creepers, 'Creeper')} will climb out of the Deep tonight, most of them in tides around ${tidesText()}.${maws ? ` ${maws === 1 ? 'A Maw comes' : `${maws} Maws come`} with the last tide.` : ''}${isNewMoon(s) ? ' <b>Tonight is the new moon: the Hollow rises.</b>' : ''} Set candles and post the shades, then begin.</p></header>
     <ul class="facts">
       <li><span>Candles set tonight</span><b class="num">${n.candles.length}, ${floor1(s.res.candles)} left</b></li>
       <li><span>Shades posted in the dark</span><b class="num">${dark.length}</b></li>
@@ -334,6 +348,7 @@ function duskPlace() {
         <li><span>A shade standing in light fights anything at its edge. In the dark, shades get caught and drained.</span></li>
         <li><span>Each twin room has a night job for a lit shade at its post: the Choir sings essence, the Silvering makes glass, the Wick Room saves candles, the Threshold readies gentler deaths, the Watch adds to tomorrow's defense and the Cold Hearth halves fading.</span></li>
         <li><span>From night ${T.seepFrom}, some Unlit seep up in rooms with no candle at all.</span></li>
+        <li><span>From night ${T.mawFrom}, a Maw comes with the last tide. It walks through light to tear down the candle barring the way up, and hits the shades there. A lone Serene can't stop one.</span></li>
       </ul></details>
     <div class="row"><button class="btn primary" id="btn-start" data-act="start">Begin the night</button></div>`;
 }
@@ -350,6 +365,7 @@ function nightPanel() {
       <li><span>Essence sung, glass silvered</span><b class="num"><span data-live="t-ess">${fmt(n.stats.essence)}</span>, <span data-live="t-glass">${fmt(n.stats.glass)}</span></b></li>
     </ul>
     ${h ? `<p class="note bad">The Hollow is in the ${esc(roomName(roomAt(h.f, h.x) || 'chapel', true))}${h.mode === 'batter' ? ', battering a ward' : ''}. It eats light and drains shades near it. Only shades fighting it drive it back.</p>` : ''}
+    ${n.foes.filter((f) => f.type === 'maw').map((m) => `<p class="note bad">A Maw is ${m.gnawing ? 'tearing down' : 'heading for'} the candle in the ${esc(roomName(roomAt(m.f, m.x) || 'chapel', true))}. One strong fighter in the light can stop it; a second makes sure. Relight if it falls.</p>`).join('')}
     ${caught.map((d) => `<p class="note bad">${esc(d.name)} is caught in the ${esc(roomName(roomAt(d.f, d.x) || 'crypt', true))}. Drop a candle on the spot or send a fighter.</p>`).join('')}
     ${n.hush ? '<p class="note">Hushed: no work, no fighting, and the Unlit pass the shades by.</p>' : ''}`;
 }
@@ -389,7 +405,7 @@ function riteRow(d) {
     : '';
   const bonded = d.bond && byId(s.living, d.bond.with);
   return `<div class="rite-row${c === 'cover' || c === 'release' || c === 'banish' ? ' is-cover' : ''}">
-    <div class="who"><div><b>${esc(d.name)}</b>${kindTag(d.kind)}${bonded ? `<small>${esc(bonded.name)}'s ${esc(d.bond.rel)}</small>` : ''}</div><small>${note}</small></div>
+    <div class="who"><div><b>${esc(d.name)}</b>${kindTag(d.kind)}${bonded ? `<small>${esc(bonded.name)}'s ${esc(BOND_OTHER[d.bond.rel] || d.bond.rel)}</small>` : ''}</div><small>${note}</small></div>
     <div class="opts">${opts}</div>${acts}</div>`;
 }
 
@@ -452,7 +468,7 @@ function endPanel() {
   const e = lastSeason(s);
   return `<header class="ph-head"><h2>Season ${e.season} is over</h2><p>The new moon has passed. The keep stands.</p></header>
     ${questionHTML(e)}
-    <div class="card"><h3>The season</h3>${summaryHTML(e)}</div>
+    <div class="card"><h3>The season</h3>${summaryHTML(e)}<div class="row"><button class="btn sm" id="end-book" data-act="book">Read the Book of the Dead</button></div></div>
     <div class="row"><button class="btn primary" id="btn-next-season" data-act="next-season">Begin season ${e.season + 1}</button><span class="hint">Raids and the Unlit come ×${s.tuning.hardness} harder.</span></div>`;
 }
 
@@ -496,7 +512,7 @@ function livingRows() {
         isTwinnedLiving(s, p) ? '<span class="tag twin">Twinned</span>' : '',
       ].join('');
       const b = p.bond ? byId(s.living, p.bond.with) || byId(s.shades, p.bond.with) : null;
-      const bond = b ? `${b.name}'s ${p.bond.rel}${byId(s.shades, b.id) ? ' (a shade)' : ''}` : '';
+      const bond = b ? `${b.name}'s ${BOND_OTHER[p.bond.rel] || p.bond.rel}${byId(s.shades, b.id) ? ' (a shade)' : ''}` : '';
       return `<div class="prow${ui.person === p.id ? ' is-selected' : ''}" id="prow-${p.id}">
         <div class="pname"><button class="linkish" id="pick-${p.id}" data-act="person" data-id="${p.id}" aria-pressed="${ui.person === p.id}"><b>${esc(p.name)}</b></button><small>${p.age}</small></div>
         <div class="pwork"><select id="job-${p.id}" data-act="assign" data-id="${p.id}" aria-label="Job for ${esc(p.name)}"${s.phase === 'day' || s.phase === 'dusk' || s.phase === 'dawn' ? '' : ' disabled'}>${opts(p)}</select></div>
@@ -525,7 +541,7 @@ function shadeRows() {
 
 function rosterHTML() {
   const cap = capacity(s);
-  const dead = `<div class="roster dead"><div class="roster-head"><h2>The dead</h2><span class="count">${s.shades.length}</span><p>${cap.used} of ${cap.cap} mirror places taken. Loyal shades fight hardest; Serene ones work best. Memory weakens both.</p></div>
+  const dead = `<div class="roster dead"><div class="roster-head"><h2>The dead</h2><span class="count">${s.shades.length}</span><button class="btn sm" id="people-book" data-act="book">Book of the Dead</button><p>${cap.used} of ${cap.cap} mirror places taken. Loyal shades fight hardest; Serene ones work best. Memory weakens both.</p></div>
     <div class="rows">${shadeRows() || '<p class="empty" style="padding:12px">The glass is empty.</p>'}</div></div>`;
   const living = `<div class="roster"><div class="roster-head"><h2>The living</h2><span class="count">${s.living.length}</span><p>${priests(s)} ${priests(s) === 1 ? 'priest' : 'priests'}, defense ${fmt(defense(s))}. Bonded pairs split across the Veil work ×${s.tuning.twinMult} when the shade is posted in the twin of the living one's room.</p></div>
     <div class="rows">${livingRows()}</div></div>`;
@@ -551,13 +567,24 @@ function daysTab() {
     .join('');
   return `<div class="table-wrap" id="days-wrap"><table class="ledger days"><thead><tr><th>Day</th><th>Deaths</th><th>Raid</th><th>Church</th><th>Creepers</th><th>Through</th><th>Caught</th><th>Lost</th><th>Hollow</th><th>Dread</th></tr></thead><tbody>${rows}</tbody></table></div>`;
 }
-function ledgerTab() {
-  if (!s.ledger.length) return '<p class="hint">Every death gets a line: how, what it woke as, and how it ended.</p>';
-  const rows = [...s.ledger]
-    .reverse()
-    .map((e) => `<tr class="${e.from === 'raider' ? 'raider' : ''}"><td><b>${esc(e.name)}</b><small>${e.from === 'raider' ? 'raider' : e.from === 'before' ? 'the last keeper\'s dead' : esc(e.job ? DAY_ROOMS[e.job].name : 'no job')}</small></td><td>${e.season ? `${e.season}.${e.day}` : '—'}</td><td>${esc(e.how)}</td><td>${e.woke ? esc(e.woke) : '—'}</td><td>${e.end ? `${esc(e.end)}${e.endDay ? `, day ${e.endDay}` : ''}` : 'in the glass'}</td></tr>`)
-    .join('');
-  return `<div class="table-wrap"><table class="ledger"><thead><tr><th>Name</th><th>Died</th><th>How</th><th>Woke</th><th>End</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+function bookTab() {
+  const book = s.ledger;
+  if (!book.length) return '<p class="hint">No one has died yet. When they do, their story is written here.</p>';
+  const still = book.filter((e) => !e.end && e.woke && e.woke !== 'funeral').length;
+  const rest = book.filter((e) => RESTING.includes(e.end)).length;
+  const lost = book.filter((e) => LOST.includes(e.end)).length;
+  const seasons = [...new Set(book.map((e) => e.season))].sort((a, b) => b - a);
+  const title = (k) => (k === 0 ? 'Before you came' : `The ${ordinal(k)} season`);
+  return `<p class="note">${plural(book.length, 'name')}: ${still} still bound, ${rest} at rest, ${lost} lost.</p>
+    ${seasons
+      .map((k) => `<section class="book"><h3 class="eyebrow">${title(k)}</h3>${book
+        .filter((e) => e.season === k)
+        .sort((a, b) => a.day - b.day)
+        .map((e) => `<article class="bookpage${e.end && e.end !== 'funeral' ? ' is-ended' : ''}${e.from === 'raider' ? ' is-raider' : ''}">
+          <header><b>${esc(e.name)}</b>${e.woke && KINDS[e.woke] ? kindTag(e.woke) : ''}${e.named ? '<span class="tag peace">Named</span>' : ''}</header>
+          <p>${esc(epitaph(e))}</p></article>`)
+        .join('')}</section>`)
+      .join('')}`;
 }
 function exportJSON() {
   return JSON.stringify(
@@ -590,6 +617,10 @@ const TUNE = [
   ['nightSecs', 'Night length, seconds at 1×'],
   ['creepersBase', 'Creepers on night 0'],
   ['creepersPerNight', 'Creepers added per night'],
+  ['mawFrom', 'First night with a Maw'],
+  ['mawsPerNight', 'Maws a night (none on the new moon)'],
+  ['mawHp', 'A Maw’s strength'],
+  ['mawSmash', 'Wax a second a Maw tears from a candle'],
   ['hollowHp', 'The Hollow’s strength'],
   ['hollowAt', 'When the Hollow rises, as a share of the night'],
   ['hollowReach', 'How far the Hollow eats light, pixels'],
@@ -606,13 +637,15 @@ function settingsTab() {
     <p class="hint">Changes apply from the next tick or the next dusk, and are recorded so exports still replay.</p>
     <label class="row" for="autopause"><input type="checkbox" id="autopause" data-act="autopause"${prefs.autoPause ? ' checked' : ''}>Pause for raids, catches and the Hollow</label>
     <label class="row" for="labels-on"><input type="checkbox" id="labels-on" data-act="labels"${prefs.labels ? ' checked' : ''}>Show room names on the castle</label>
+    <label class="row" for="guide-on"><input type="checkbox" id="guide-on" data-act="guide-toggle"${prefs.guide ? ' checked' : ''}>Guide me through the first season (turning it on starts it over)</label>
+    ${installHTML('settings')}
     <p class="hint">Seed ${s.seed}. Keys: space to play or pause, 1, 2 and 4 for speed; at night C candle, M move, W ward, H hush, V flip; + and − zoom, 0 fits the castle again, arrow keys pan; K, P and R open the panels; L room names; Esc closes a panel.</p>
     ${newKeepControls()}`;
 }
-const TABS = [['log', 'Log'], ['days', 'Days'], ['ledger', 'The dead'], ['playtest', 'Playtest'], ['settings', 'Settings']];
+const TABS = [['book', 'Book of the Dead'], ['log', 'Log'], ['days', 'Days'], ['playtest', 'Playtest'], ['settings', 'Settings']];
 function recordsHTML() {
   const tab = TABS.some(([k]) => k === prefs.tab) ? prefs.tab : 'log';
-  const body = { log: logTab, days: daysTab, ledger: ledgerTab, playtest: playtestTab, settings: settingsTab }[tab]();
+  const body = { book: bookTab, log: logTab, days: daysTab, playtest: playtestTab, settings: settingsTab }[tab]();
   return `<div class="tabs" role="tablist" aria-label="Records">${TABS.map(([k, l]) => `<button class="tab" role="tab" id="tab-${k}" data-act="tab" data-tab="${k}" aria-selected="${k === tab}" aria-controls="tabpanel">${l}</button>`).join('')}</div>
     <div class="tabpanel" role="tabpanel" id="tabpanel" aria-labelledby="tab-${tab}">${body}</div>`;
 }
@@ -666,6 +699,8 @@ function freeRect() {
   }
   const right = `${Math.round(window.innerWidth - r.right)}px`;
   if (gameEl.style.getPropertyValue('--free-right') !== right) gameEl.style.setProperty('--free-right', right);
+  const below = `${Math.round(window.innerHeight - barEl.offsetHeight - r.bottom)}px`;
+  if (gameEl.style.getPropertyValue('--sheet-h') !== below) gameEl.style.setProperty('--sheet-h', below);
   return r;
 }
 
@@ -849,6 +884,7 @@ function wardNear(at) {
 }
 
 function onStage(e) {
+  if (skipCrossing()) return;
   const at = stageAt(e.clientX, e.clientY);
   if (!at) return;
   if (s.phase === 'day') {
@@ -912,6 +948,9 @@ function draw(alpha, now) {
     cam: { x: camX(), y: camY() },
     t,
     sunset: s.phase === 'day' ? Math.max(0, (s.t / dayTicks(s) - 0.82) / 0.18) : s.phase === 'end' ? 0.35 : 0,
+    dusk: duskAmount(now),
+    souls: soulSpots(now),
+    marks: night && ui.guide?.marks ? ui.guide.marks() : null,
     alpha: s.phase === 'night' && !ui.paused ? alpha : 1,
     selected: ui.selected,
     ghost: ghost(),
@@ -937,7 +976,42 @@ window.__season = {
     const p = worldToScreen(x + 0.5, keepToWorldY(feet(f) - 5) + (nightView() ? -0.5 : 0.5));
     return { x: box.left + p.x, y: box.top + p.y };
   },
+  get crossing() { return !!ui.cross; },
 };
+
+/* ---------------------------------------------------------------- the installed app */
+
+// The season installs as an app where the browser allows it (season.webmanifest, sw.js). Chrome, Edge and
+// Samsung Internet offer an install prompt the page can hold and show from its own button; Safari on an
+// iPhone or iPad installs only from Share, Add to Home Screen, so there the page says so. The bundled
+// single-file build has no manifest, so it neither registers the worker nor offers to install.
+const INSTALLABLE = !!document.querySelector('link[rel="manifest"]') && 'serviceWorker' in navigator && /^https?:$/.test(location.protocol);
+const IOS = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const installed = () => matchMedia('(display-mode: fullscreen), (display-mode: standalone)').matches || navigator.standalone === true;
+let installPrompt = null;
+if (INSTALLABLE) {
+  const register = () => navigator.serviceWorker.register('sw.js').catch(() => {});
+  if (document.readyState === 'complete') register();
+  else window.addEventListener('load', register);
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    installPrompt = e;
+    bump();
+  });
+  window.addEventListener('appinstalled', () => {
+    installPrompt = null;
+    toast('Installed. The season opens from your home screen or app list now, and plays offline.', 'day');
+    bump();
+  });
+}
+function installHTML(where) {
+  if (!INSTALLABLE) return '';
+  if (installed()) return where === 'settings' ? '<p class="hint">Running as an installed app. It plays offline.</p>' : '';
+  if (installPrompt) return `<div class="row"><button class="btn" id="btn-install-${where}" data-act="install">Install the app</button><span class="hint">Full screen, from your home screen, and it plays offline.</span></div>`;
+  if (IOS) return '<p class="hint">To install it on an iPhone or iPad: Share, then Add to Home Screen.</p>';
+  if (where !== 'settings') return '';
+  return '<p class="hint">This browser hasn\'t offered to install the season here (it may already be installed). In Chrome or Edge, look for Install in the address bar or the menu; in Firefox on Android, the menu has Install; on an iPhone or iPad, Share, then Add to Home Screen.</p>';
+}
 
 /* ---------------------------------------------------------------- the page */
 
@@ -1056,6 +1130,123 @@ function closeSheet() {
   if (was) requestAnimationFrame(() => document.getElementById(`open-${was}`)?.focus({ preventScroll: true }));
 }
 
+/* ---------------------------------------------------------------- the guide */
+
+// One card at a time, the first time each thing happens in the first season. A card can point at a
+// button (a pulsing outline) or at spots on the Tain (pulsing rings), and some pause the clock to be read.
+const seen = (id) => !!prefs.guideSeen?.[id];
+const first = () => s.season === 1;
+const LINE_SPOTS = MAP.stairs.filter((st) => st.f === 2).map((st) => ({ f: st.f, x: st.x }));
+const litAt = (f, x) => !!s.night && isLit(lightMap(s.tuning, s.night.candles), f, x);
+const GUIDE = [
+  {
+    id: 'welcome', target: '#btn-play',
+    when: () => first() && s.phase === 'day' && s.day === 1,
+    done: () => running() && !ui.paused,
+    text: 'This is your keep on the Veil. Eight people work its rooms by day. Press Play to start the day, and pause whenever you like.',
+  },
+  {
+    id: 'jobs', target: '#open-people',
+    when: () => first() && s.phase === 'day' && s.day === 1 && s.t > dayTicks(s) * 0.15,
+    done: () => ui.sheet === 'people',
+    text: "People holds everyone's jobs. Cooks feed the keep, chandlers make tonight's candles, glaziers make mirrors for the dead, and guards hold the gate.",
+  },
+  {
+    id: 'raid', target: '#open-phase', pause: true,
+    when: () => first() && s.phase === 'day' && s.raid?.warned && s.raid.state === 'coming',
+    done: () => ui.sheet === 'phase',
+    text: 'Raiders on the road. Your defense (two for each guard) has to match their strength. The Day panel has the numbers: move people to the Barracks, or ward the gate with essence.',
+  },
+  {
+    id: 'crypt', target: '#bar-wake',
+    when: () => first() && s.phase === 'dusk' && s.dusk.step === 'crypt' && !ui.cross,
+    text: 'Dusk. Whoever died today wakes tonight as a shade, and how they died decides what kind. A priest can give one a funeral instead: they rest, and you gain remembrance.',
+  },
+  {
+    id: 'tain',
+    when: () => first() && s.phase === 'dusk' && s.dusk.step === 'place' && nightView(),
+    marks: () => [...MAP.rifts.map((r) => ({ f: 0, x: r.x })), ...MAP.mirrors.map((m) => ({ f: 3, x: m.x }))],
+    text: "This is the Tain, the keep's reflection. The Unlit climb from the red rifts in the Deep up to the two mirrors under the Veil. They can't cross candlelight.",
+  },
+  {
+    id: 'line', target: '#tool-candle',
+    when: () => first() && seen('tain') && s.phase === 'dusk' && s.dusk.step === 'place' && nightView(),
+    marks: () => LINE_SPOTS.filter((p) => !litAt(p.f, p.x)),
+    done: () => LINE_SPOTS.every((p) => litAt(p.f, p.x)),
+    text: 'Light the feet of the two stairs up to the Veil (marked), with a shade at each. Creepers stopped there gnaw at the edge of the light, and a shade standing in it cuts them down.',
+  },
+  {
+    id: 'begin', target: '#bar-start',
+    when: () => first() && seen('line') && s.phase === 'dusk' && s.dusk.step === 'place',
+    done: () => s.phase === 'night',
+    text: 'Candles you post in a room let the shade there work its night job. Candles you keep carry over to tomorrow. Begin the night when you are ready.',
+  },
+  {
+    id: 'night', target: '#btn-hush', pause: true,
+    when: () => first() && s.phase === 'night' && s.t > 30,
+    text: 'Watch the edges of the light. If a shade is caught in the dark, drop a candle on it. Hush makes the Unlit pass the shades by, but stops all work.',
+  },
+  {
+    id: 'rite', target: '#bar-day',
+    when: () => first() && s.phase === 'dawn',
+    text: "Dawn: the Rite. Keep a shade and it works again tonight, but the keep's Dread rises. Cover its mirror to let it rest. Every shade fades a little each night; naming one halves that.",
+  },
+  {
+    id: 'church', target: '#open-phase', pause: true,
+    when: () => first() && s.phase === 'day' && s.inspection && !s.inspection.done,
+    text: 'The Lantern Church inspects at noon. Dread 0 or 1 is blessed; 4 or 5 costs your fullest mirror and the shades in it. A vigil in the Day panel lowers Dread for 3 remembrance.',
+  },
+  {
+    id: 'maw', target: '#tool-move', pause: true,
+    when: () => first() && s.phase === 'night' && s.night.foes.some((f) => f.type === 'maw'),
+    text: 'A Maw. It walks through light to tear down the candle holding the stairs, and hits the shades there. Move a second fighter to stand with the one holding it, and relight if it falls.',
+  },
+  {
+    id: 'moon', target: '#open-phase', pause: true,
+    when: () => first() && s.phase === 'day' && isNewMoon(s),
+    text: 'Tonight is the new moon. The Hollow walks to the mirrors whatever the light. A ward on a stair holds it a while; shades fighting it drive it back. If it reaches the Veil, it takes one of the living.',
+  },
+];
+let coachId = null;
+const coachEl = document.getElementById('coach');
+function guideStep() {
+  if (!prefs.guide || ui.sheet === 'intro') return null;
+  return GUIDE.find((g) => !seen(g.id) && g.when()) || null;
+}
+function markSeen(id) {
+  prefs.guideSeen = { ...(prefs.guideSeen || {}), [id]: true };
+  savePrefs();
+  bump();
+}
+function showCoach(step) {
+  const id = step?.id || null;
+  if (id === coachId) return;
+  // A card the player has moved past (the moment it was about is over) counts as read.
+  const was = GUIDE.find((g) => g.id === coachId);
+  if (was && !seen(was.id) && !was.when()) prefs.guideSeen = { ...(prefs.guideSeen || {}), [was.id]: true };
+  coachId = id;
+  bump();
+  coachEl.hidden = !step;
+  coachEl.innerHTML = step
+    ? `<p>${esc(step.text)}</p><div class="row"><button class="btn sm primary" id="coach-ok" data-act="guide-ok" data-id="${step.id}">Got it</button><button class="btn sm" id="coach-off" data-act="guide-off">Skip the guide</button></div>`
+    : '';
+  if (step?.pause && running() && !ui.paused) {
+    ui.paused = true;
+    bump();
+  }
+}
+function tickGuide() {
+  let step = guideStep();
+  if (step?.done?.()) {
+    markSeen(step.id);
+    step = guideStep();
+  }
+  showCoach(step);
+  for (const el of document.querySelectorAll('.is-coached')) if (!step?.target || !el.matches(step.target)) el.classList.remove('is-coached');
+  if (step?.target) document.querySelector(step.target)?.classList.add('is-coached');
+  return step;
+}
+
 /* ---------------------------------------------------------------- the clock */
 
 let toastSeq = 0;
@@ -1065,7 +1256,7 @@ function toast(text, tone = '', open = null) {
   if (ui.toasts.length > room) ui.toasts.splice(0, ui.toasts.length - room);
   ui.toastRev++;
 }
-const STOPS = /has caught|The Hollow rises|Raiders on the road|inspector|has turned Wraith/;
+const STOPS = /has caught|The Hollow rises|Raiders on the road|inspector|has turned Wraith|A Maw is tearing/;
 const OPENS = /Raiders on the road|inspector|fallen sick|larder is empty|arrives at the gate/;
 function takeAlerts(fromClock) {
   let stop = false;
@@ -1083,12 +1274,78 @@ function takeAlerts(fromClock) {
 }
 
 // Which panel a new phase opens: the ones with decisions in them.
+/* The Crossing, the round-three signature moment: sunset and lights out over the keep, then the day's
+   dead rise off the slab and sink through the Veil (or, given a funeral, rise away to rest), and the camera
+   follows them down into the Tain. Any tap on the castle skips ahead. */
+const CROSS = { sunset: 2600, rise: 500, sink: 1000, gap: 280 };
+function afterSunset() {
+  if (s.phase === 'dusk' && s.dusk.step === 'crypt') {
+    ui.cross = null;
+    openSheet('phase');
+  } else ui.cross = null;
+  bump();
+}
+function startSouls(plan) {
+  if (REDUCED || !plan.length) return;
+  ui.cross = { stage: 'souls', t0: performance.now(), souls: plan.map((x) => ({ up: x.to === 'funeral', flashed: false })) };
+}
+function crossingDone(now) {
+  const c = ui.cross;
+  if (!c) return false;
+  if (c.stage === 'sunset') return now - c.t0 >= CROSS.sunset;
+  return now - c.t0 >= CROSS.rise + CROSS.sink + CROSS.gap * c.souls.length + 200;
+}
+function skipCrossing() {
+  if (!ui.cross) return false;
+  if (ui.cross.stage === 'sunset') afterSunset();
+  else {
+    ui.cross = null;
+    bump();
+  }
+  return true;
+}
+function duskAmount(now) {
+  if (s.phase !== 'dusk') return 0;
+  if (ui.cross?.stage === 'sunset') return Math.min(1, (now - ui.cross.t0) / CROSS.sunset);
+  return 1;
+}
+// Where each crossing soul is now, in world pixels, and how bright.
+function soulSpots(now) {
+  const c = ui.cross;
+  if (c?.stage !== 'souls') return [];
+  const cr = roomSpan('crypt');
+  const slab = FLOORS[cr.f].y + 11;
+  const out = [];
+  c.souls.forEach((sl, i) => {
+    const t = now - c.t0 - i * CROSS.gap;
+    if (t < 0) return;
+    const x = cr.x0 + 7 + (i % 4) * 3;
+    if (t < CROSS.rise) {
+      out.push({ x, y: slab - (6 * t) / CROSS.rise, a: t / CROSS.rise, up: sl.up });
+      return;
+    }
+    const k = Math.min(1, (t - CROSS.rise) / CROSS.sink);
+    if (sl.up) {
+      out.push({ x, y: slab - 6 - k * (slab + 40), a: 1 - k, up: true });
+      return;
+    }
+    const y = slab - 6 + k * (MAP.VEIL - slab + 8);
+    if (y >= MAP.VEIL && !sl.flashed) {
+      sl.flashed = true;
+      ui.flash = now + 600;
+    }
+    out.push({ x, y, a: y < MAP.VEIL ? 1 : Math.max(0, 1 - (y - MAP.VEIL) / 8), up: false });
+  });
+  return out;
+}
+
 function onPhase() {
   if (!running()) ui.paused = true;
   if (s.phase === 'dusk') {
     ui.tool = 'candle';
-    if (s.dusk.step === 'crypt') openSheet('phase');
-    else if (ui.sheet === 'phase') closeSheet();
+    if (!REDUCED && seenPhaseWas === 'day') ui.cross = { stage: 'sunset', t0: performance.now() };
+    else if (s.dusk.step === 'crypt') openSheet('phase');
+    if (s.dusk.step !== 'crypt' && ui.sheet === 'phase') closeSheet();
   } else if (s.phase === 'dawn' || s.phase === 'end' || s.phase === 'over') openSheet('phase');
   else if (ui.sheet === 'phase') closeSheet();
   if (s.phase !== 'night' && s.phase !== 'dusk') ui.selected = null;
@@ -1097,6 +1354,7 @@ function onPhase() {
 let lastNow = 0;
 let acc = 0;
 let seenPhase = s.phase;
+let seenPhaseWas = s.phase;
 function frame(now) {
   const dt = lastNow ? Math.min(0.25, (now - lastNow) / 1000) : 0;
   lastNow = now;
@@ -1114,7 +1372,15 @@ function frame(now) {
     }
   }
   takeAlerts(false);
+  if (ui.cross && crossingDone(now)) {
+    if (ui.cross.stage === 'sunset') afterSunset();
+    else {
+      ui.cross = null;
+      bump();
+    }
+  }
   if (s.phase !== seenPhase) {
+    seenPhaseWas = seenPhase;
     seenPhase = s.phase;
     acc = 0;
     ui.rush = false;
@@ -1126,6 +1392,7 @@ function frame(now) {
   ui.toasts = ui.toasts.filter((t) => t.until > now);
   if (ui.toasts.length !== before) ui.toastRev++;
   moveCamera(dt);
+  ui.guide = tickGuide();
   render(ui.paused || !running() ? 1 : Math.min(1, acc), now);
   requestAnimationFrame(frame);
 }
@@ -1211,12 +1478,15 @@ function onAct(name, el) {
     case 'vigil': return game({ type: 'vigil' });
     case 'build': return game({ type: 'build', mirror: el.dataset.mirror });
     case 'funeral': return game({ type: 'funeral', id, on: el.getAttribute('aria-pressed') !== 'true' });
-    case 'wake':
+    case 'wake': {
+      const plan = crossingPreview(s);
       if (game({ type: 'wake' })) {
         ui.tool = 'candle';
         closeSheet();
+        startSouls(plan);
       }
       return undefined;
+    }
     case 'start':
       if (game({ type: 'startNight' })) {
         ui.paused = false;
@@ -1253,11 +1523,45 @@ function onAct(name, el) {
       prefs.tab = el.dataset.tab;
       savePrefs();
       return bump();
+    case 'book':
+      prefs.tab = 'book';
+      savePrefs();
+      return openSheet('records');
     case 'autopause':
       prefs.autoPause = el.checked;
       savePrefs();
       return bump();
-    case 'intro-close': return closeSheet();
+    case 'intro-close':
+      prefs.guide = false;
+      return closeSheet();
+    case 'intro-guide':
+      prefs.guide = true;
+      prefs.guideSeen = {};
+      return closeSheet();
+    case 'guide-ok':
+      markSeen(el.dataset.id);
+      return undefined;
+    case 'guide-off':
+      prefs.guide = false;
+      savePrefs();
+      showCoach(null);
+      return bump();
+    case 'install': {
+      const p = installPrompt;
+      if (!p) return undefined;
+      installPrompt = null;
+      try {
+        Promise.resolve(p.prompt()).catch(() => {});
+      } catch {
+        // Already shown, or the browser refused it; Chrome offers the event again on a later visit.
+      }
+      return bump();
+    }
+    case 'guide-toggle':
+      prefs.guide = el.checked;
+      if (prefs.guide) prefs.guideSeen = {};
+      savePrefs();
+      return bump();
     case 'new':
       ui.confirmNew = true;
       return bump();
@@ -1318,6 +1622,11 @@ document.addEventListener('keydown', (e) => {
     return;
   }
   const k = e.key.toLowerCase();
+  if (ui.cross && (k === ' ' || k === 'enter') && !e.target.closest('input, select, textarea, button, a')) {
+    e.preventDefault();
+    skipCrossing();
+    return;
+  }
   // Typing in a field is left alone; a focused button keeps space and enter for itself.
   if (e.altKey || e.ctrlKey || e.metaKey || e.target.closest('input, select, textarea')) return;
   if (e.target.closest('button, a') && (k === ' ' || k === 'enter')) return;
