@@ -49,11 +49,16 @@ The vertical slice: seven days in one keep, ending on the night of the new moon,
 **Problems it has already shown.** From 100-seed autopilot runs and my own reading of the rules. Nobody else has played it yet.
 
 1. **A static line solves nights 1–5.** Two candles at the feet of the two stairs up to the Veil floor, each held by a good fighter, stop every Creeper the autopilot meets on those nights: no crossings and almost no shades caught across 100 seasons. Tides, seeps and candle-hunters didn't break the line; they only harass the rooms where shades work. So the first five nights test candles and staffing, not tactics. The weeks 3–4 greybox hit the same flaw on its own map. The real fix is in the map (a third way up) or in Unlit that attack the line itself.
-2. **The new moon is a wall.** The balanced autopilot loses 30 of 100 seasons, 27 of them on night 7. The Hollow reaches the Veil in 64 of the 70 seasons the autopilot survives. The autopilot plays that night badly (it spends essence on wards and walks fighters into the Hollow's drain), so a person should do better, but by how much is unknown. If most testers lose on night 7, they are answering "would you try again?" rather than "would you play a second season?". `hollowHp` and `wardHold` are in Settings.
+2. **Night 7 was a wall; it's now softened for first seasons.** The balanced autopilot used to lose 30 seasons in 100, 27 of them on night 7. That risked testers answering "would you try again?" instead of "would you play a second season?". The Hollow now:
+   - rises 30% into the night instead of 20%;
+   - eats light within 10 pixels at 8 wax a second, instead of 18 pixels at 12;
+   - has 14 strength instead of 24.
+
+   The new moon also brings 60% of the night before's Creepers instead of 70%. The autopilot now finishes 96 seasons in 100, and 93 when it never wards. Left alone, the Hollow still reaches the Veil and takes someone in 58 of the 96. It may now be too soft for people; that's for the playtest to say. Every one of these numbers is in Settings.
 3. **Dread rarely forces a choice.** A season kills about 4 of your people, and nearly one of those is taken by the Hollow, which leaves no body. With 2 starting shades and about 3 new ones, the living bear most of the Dread. The balanced autopilot is blessed at every inspection by covering shades before day 5, and a plan that never covers anyone is censured in only 8 seasons of 100. Keep or cover is still mostly a Dread valve, as in weeks 1–2. Fading makes kept shades cost something, but not enough to force the choice. Two levers: more deaths per day, or fewer points of Dread borne per living.
 4. **Shades are hard to find in the dark.** They're 4 by 8 pixel silhouettes (12 by 24 CSS pixels at 3×). Each now has a faint glow, and the Unlit show only their eyes. Creeper red against Stranger green is still a colour-blindness risk; a gnawing Creeper's eyes turn orange.
 5. **On a phone, the panels cover most of the castle.** Dusk and dawn open a sheet over about two-thirds of the screen, so you can't see the Tain while deciding who stays. Close the sheet to look, or play on a wider screen, where the panel is a drawer beside the castle.
-6. **Season 2 is ×1.35 harder** in raids, Creeper counts and the Hollow. The autopilot finishes about a third of the second seasons it reaches. That's a guess at "harder but fair", nothing more.
+6. **Season 2 is ×1.35 harder** in raids, Creeper counts and the Hollow. The autopilot finishes about half of the second seasons it reaches. That's a guess at "harder but fair", nothing more.
 
 **How a season plays**
 
@@ -100,16 +105,17 @@ The vertical slice: seven days in one keep, ending on the night of the new moon,
 
 | | Balanced | Keeper (never covers) | Mourner (every funeral, covers to keep Dread at 1) | Idle (no candles, no posts) |
 |---|---|---|---|---|
-| Seasons finished | 70% | 72% | 57% | 0% |
-| Lost on night 6 / night 7 | 3 / 27 | 1 / 27 | 0 / 43 | all on night 1 |
-| Your deaths per season | 3.8 | 3.8 | 4.5 | – |
+| Seasons finished | 96% | 97% | 94% | 0% |
+| Lost on night 6 / night 7 | 3 / 1 | 1 / 2 | 0 / 6 | all on night 1 |
+| Your deaths per season | 3.5 | 3.5 | 4.4 | – |
 | Raids held | 80% | 80% | 68% | – |
 | Church: blessed / warned / censured | 100 / 0 / 0 | 82 / 11 / 8 | 100 / 0 / 0 | – |
-| Shades lost at night per season | 1.6 | 2.0 | 0.7 | – |
+| Shades lost at night per season | 1.6 | 1.9 | 0.6 | – |
+| The Hollow: reached the Veil / driven back / withdrew | 58 / 19 / 19 | 59 / 20 / 18 | 81 / 10 / 3 | – |
 
-- **Keeping seems to pay.** The mourner holds fewer shades, holds fewer raids and loses more seasons on the new moon. The likely links are the Watch's defense bonus and fewer fighters on the line, but I haven't isolated them.
-- **Nights 1–5 barely touch the autopilot** (problem 1): no crossings, and at most 0.1 shades caught a night. Night 6, after the strongest raid, averages 1.4 shades lost and 0.9 crossings. On night 7 the Hollow reaches the Veil in 90 of 97 runs, and crossings average 2.2, the Hollow's included.
-- **Season 2** (`-- 40 2`): the balanced plan finishes 9 of the 28 second seasons it reaches.
+- **Keeping seems to pay.** The mourner holds fewer shades, holds fewer raids and fails to drive the Hollow back more often. The likely links are the Watch's defense bonus and fewer fighters on the line, but I haven't isolated them.
+- **Nights 1–5 barely touch the autopilot** (problem 1): no crossings, and at most 0.1 shades caught a night. Night 6, after the strongest raid, is now the hardest: it averages 1.4 shades lost and 0.9 crossings. Night 7 averages 0.8 crossings, the Hollow's included.
+- **Season 2** (`-- 40 2`): the balanced plan finishes 20 of the 38 second seasons it reaches, losing them across nights 3 to 7.
 
 ## Weeks 5–6: the pixel pass
 

@@ -75,13 +75,15 @@ export const TUNING = {
   wraithHp: 6,
   wraithSpeed: 8,
   wraithDrain: 6,
-  hollowHp: 24,
+  // The new moon, tuned so a first season usually survives it: the Hollow rises later, eats less light and
+  // can be driven back by two good fighters, but left alone it still reaches the Veil and takes someone.
+  hollowHp: 14,
   hollowSpeed: 3,
-  hollowReach: 18, // candles this close to the Hollow on its floor lose their wax fast
-  hollowEat: 12,
+  hollowReach: 10, // candles this close to the Hollow on its floor lose their wax fast
+  hollowEat: 8,
   hollowDrain: 4,
   hollowCracks: 1,
-  hollowAt: 0.2,
+  hollowAt: 0.3,
   hollowReward: 3,
   wardHold: 20, // seconds a ward on a stair holds the Hollow back
   shadeSpeed: 9,
@@ -91,7 +93,7 @@ export const TUNING = {
   drainPerSec: 4,
   creepersBase: 4,
   creepersPerNight: 2.5,
-  newMoonCreepers: 0.7, // the new moon brings the Hollow and fewer Creepers than the night before
+  newMoonCreepers: 0.6, // the new moon brings the Hollow and fewer Creepers than the night before
   stragglers: 0.3, // the share that come alone; the rest come in tides
   tideEvery: 3, // one more tide every this many nights
   tideSpread: 0.08, // how long a tide takes to rise, as a share of the night
