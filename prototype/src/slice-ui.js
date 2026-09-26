@@ -2,13 +2,13 @@
 // bar at the bottom, and everything else opens in a panel over the castle. Like the greyboxes it changes
 // the game only through act(), so every session replays from its seed and action log.
 
-import { TICKS_PER_SEC, DAY_ROOMS, WORK_ROOMS, TWINS, KINDS, MIRRORS, CAUSES, MAP, BOND_OTHER, TUNING } from './slice/data.js';
+import { TICKS_PER_SEC, DAY_ROOMS, WORK_ROOMS, TWINS, KINDS, MIRRORS, CAUSES, MAP, BOND_OTHER, TUNING, BUILDABLE } from './slice/data.js';
 import {
-  newSeason, step, act, retune, playerTuning, ritePreview, crossingPreview, capacity, canWork, defense, roomPower, bear, priests, funeralCap, eatRate,
+  newSeason, step, act, retune, playerTuning, jobCap, jobCount, nextSlot, ritePreview, crossingPreview, capacity, canWork, defense, roomPower, bear, priests, funeralCap, eatRate,
   dayTicks, nightTicks, isNewMoon, choicesFor, byId, isTwinnedLiving, isTwinnedShade, lastSeason, SAVE_VERSION, fmt, mirrorCap,
   postRoom,
 } from './slice/sim.js';
-import { geo, feet, floorAtY, roomAt, typeAt, typeOf, roomSpan, lightMap, isLit, unitAt, DEEP_FLOOR } from './slice/geo.js';
+import { geo, feet, floorAtY, roomAt, typeAt, typeOf, roomSpan, roomsOf, lightMap, isLit, unitAt, DEEP_FLOOR } from './slice/geo.js';
 import { drawScene } from './slice/draw.js';
 import { epitaph, ordinal, RESTING, LOST } from './slice/book.js';
 
@@ -45,6 +45,7 @@ function loadGame() {
   g.alerts = [];
   // A save from before a tuning number existed takes its default (that's how the Maws reach older saves).
   for (const t of [g.tuning, g.tuning0]) if (t) for (const [k, v] of Object.entries(TUNING)) if (!(k in t)) t[k] = v;
+  g.res.stone ??= 0;
   // Numbers the player never set in Settings follow this build's defaults.
   retuned = retune(g, TUNING);
   return g;
@@ -146,6 +147,7 @@ function hudHTML() {
     ${res('food', 'Food', 'Food', floor1(s.res.food))}
     ${res('candles', 'Candles', 'Cand', floor1(s.res.candles))}
     ${res('glass', 'Glass', 'Glass', floor1(s.res.glass))}
+    ${res('stone', 'Stone', 'Stone', floor1(s.res.stone || 0))}
     ${res('essence', 'Essence', 'Ess', floor1(s.res.essence))}
     ${res('rem', 'Remembrance', 'Rem', floor1(s.res.remembrance))}
     <div><dt>Dread</dt><dd>${pips(s.dread, T.dreadMax, s.dread >= 4)}</dd></div>
@@ -172,7 +174,10 @@ function barHTML() {
   const tool = (id, label) => `<button class="btn sm" id="tool-${id}" data-act="tool" data-tool="${id}" aria-pressed="${ui.tool === id}">${label}</button>`;
   const flip = `<button class="btn sm" id="btn-flip" data-act="flip" aria-pressed="${prefs.mode === 'flipped'}" title="Turn the Tain upright (V)">Flip</button>`;
   let tools = '';
-  if (s.phase === 'day') tools = `<button class="btn sm" id="btn-rush" data-act="rush" aria-pressed="${ui.rush}">${ui.rush ? 'Hurrying…' : 'Hurry to dusk'}</button>`;
+  if (s.phase === 'day') {
+    tools = `<button class="btn sm" id="btn-rush" data-act="rush" aria-pressed="${ui.rush}">${ui.rush ? 'Hurrying…' : 'Hurry to dusk'}</button>`;
+    tools += `<button class="btn sm" id="btn-build" data-act="sheet" data-sheet="build" aria-pressed="${ui.sheet === 'build'}" title="Raise a room on top of the keep (B)">Build</button>`;
+  }
   else if (s.phase === 'dusk' && s.dusk.step === 'crypt') tools = `<button class="btn sm primary" id="bar-wake" data-act="wake">Let them wake</button>`;
   else if (place) {
     tools = `${tool('candle', `Candle ${floor1(s.res.candles)}`)}${tool('move', 'Move')}${tool('ward', `Ward ${s.tuning.wardCost}`)}`;
@@ -282,11 +287,12 @@ function dayPanel() {
   const pw = roomPower(s);
   const sick = s.living.filter((p) => p.sick > 0);
   const moon = T.seasonDays - s.day;
-  const rows = WORK_ROOMS.map((id) => {
+  const rows = WORK_ROOMS.filter((id) => jobCap(s, id) > 0 || jobCount(s, id) > 0).map((id) => {
     const R = DAY_ROOMS[id];
-    const n = s.living.filter((p) => p.job === id).length;
-    const out = id === 'infirmary' ? `heals ${fmt(pw[id] * R.rate)}/day` : id === 'barracks' ? `defense ${fmt(pw[id] * R.rate)}` : `${fmt(pw[id] * R.rate)} ${R.out}/day`;
-    return `<li><span>${R.name} <small class="muted">${plural(n, R.role)}</small></span><span class="num">${out}</span></li>`;
+    const n = jobCount(s, id);
+    const cap = jobCap(s, id);
+    const out = id === 'infirmary' ? `heals ${fmt(pw[id] * R.rate)}/day` : R.out === 'defense' ? `defense ${fmt(pw[id] * R.rate)}` : `${fmt(pw[id] * R.rate)} ${R.out}/day`;
+    return `<li><span>${R.name} <small class="muted">${plural(n, R.role)}${Number.isFinite(cap) ? ` of ${cap}` : ''}</small></span><span class="num">${out}</span></li>`;
   }).join('');
   return `<header class="ph-head"><h2>Day ${s.day}</h2><p>${moon > 0 ? `The new moon is ${plural(moon, 'night')} off.` : 'Tonight is the new moon. The Hollow will rise.'} The living work; anyone who dies inside the walls wakes at dusk.</p></header>
     ${raidCard()}
@@ -512,7 +518,13 @@ function phaseHTML() {
 
 function livingRows() {
   const opts = (p) =>
-    `<option value=""${p.job ? '' : ' selected'}>No job</option>${WORK_ROOMS.map((id) => `<option value="${id}"${p.job === id ? ' selected' : ''}>${DAY_ROOMS[id].name}</option>`).join('')}`;
+    `<option value=""${p.job ? '' : ' selected'}>No job</option>${WORK_ROOMS.filter((id) => jobCap(s, id) > 0 || p.job === id)
+      .map((id) => {
+        const cap = jobCap(s, id);
+        const full = p.job !== id && jobCount(s, id) >= cap;
+        return `<option value="${id}"${p.job === id ? ' selected' : ''}${full ? ' disabled' : ''}>${DAY_ROOMS[id].name}${Number.isFinite(cap) ? ` ${jobCount(s, id)}/${cap}` : ''}</option>`;
+      })
+      .join('')}`;
   return s.living
     .map((p) => {
       const tags = [
@@ -642,6 +654,10 @@ const TUNE = [
   ['cracksMax', 'Veil cracks that lose the keep'],
   ['hardness', 'How much harder each season is (raids, Creepers, the Hollow)'],
   ['mawHardness', 'How much stronger a Maw is each season'],
+  ['roomStone', 'Stone a room costs'],
+  ['roomCap', 'Workers a room holds'],
+  ['startStone', 'Stone a new keep starts with'],
+  ['steelFight', 'How much harder shades fight with grave-steel'],
 ];
 function settingsTab() {
   return `<div class="fields">${TUNE.map(([k, label]) => `<label for="tune-${k}">${esc(label)}<input type="number" id="tune-${k}" data-act="tune" data-key="${k}" value="${s.tuning[k]}" min="0" step="any"></label>`).join('')}</div>
@@ -650,7 +666,7 @@ function settingsTab() {
     <label class="row" for="labels-on"><input type="checkbox" id="labels-on" data-act="labels"${prefs.labels ? ' checked' : ''}>Show room names on the castle</label>
     <label class="row" for="guide-on"><input type="checkbox" id="guide-on" data-act="guide-toggle"${prefs.guide ? ' checked' : ''}>Guide me through the first season (turning it on starts it over)</label>
     ${installHTML('settings')}
-    <p class="hint">Seed ${s.seed}. Keys: space to play or pause, 1, 2 and 4 for speed; at night C candle, M move, W ward, H hush, V flip; + and − zoom, 0 fits the castle again, arrow keys pan; K, P and R open the panels; L room names; Esc closes a panel.</p>
+    <p class="hint">Seed ${s.seed}. Keys: space to play or pause, 1, 2 and 4 for speed; at night C candle, M move, W ward, H hush, V flip; + and − zoom, 0 fits the castle again, arrow keys pan; K, P and R open the panels, B the build list; L room names; Esc closes a panel.</p>
     ${newKeepControls()}`;
 }
 const TABS = [['book', 'Book of the Dead'], ['log', 'Log'], ['days', 'Days'], ['playtest', 'Playtest'], ['settings', 'Settings']];
@@ -687,7 +703,11 @@ function layout() {
   gameEl.style.setProperty('--hud-h', `${hudH}px`);
   gameEl.style.setProperty('--bar-h', `${barH}px`);
   const freeH = Math.max(160, vh - hudH - barH);
-  ui.fit = Math.max(1, Math.min(6, Math.floor((vw - 8) / (W + 4)), Math.floor(freeH / (VEIL - roofTop() + 4))));
+  // The largest whole scale the width allows, and the height too, but never below 3× for height alone:
+  // a keep built taller than the screen pans rather than shrinking everyone in it.
+  const byWidth = Math.floor((vw - 8) / (W + 4));
+  const byHeight = Math.floor(freeH / (VEIL - roofTop() + 4));
+  ui.fit = Math.max(1, Math.min(6, byWidth, Math.max(byHeight, Math.min(3, byWidth))));
   ui.scale = Math.max(1, Math.min(MAX_ZOOM, ui.fit + (prefs.zoomStep || 0)));
   view.cw = Math.ceil(vw / ui.scale) + 1;
   view.ch = Math.ceil(vh / ui.scale) + 1;
@@ -902,6 +922,7 @@ function onStage(e) {
   if (!at) return;
   if (s.phase === 'day') {
     const p = byId(s.living, ui.person);
+    if (at.room === 'empty') return openSheet('build');
     if (p && at.room && DAY_ROOMS[at.room].out) {
       if (game({ type: 'assign', id: p.id, room: at.room })) {
         toast(`${p.name} now works in the ${DAY_ROOMS[at.room].name}.`, 'day');
@@ -1028,7 +1049,36 @@ function installHTML(where) {
 
 /* ---------------------------------------------------------------- the page */
 
+// Raising rooms on top of the keep: what stone buys, and where the next room goes.
+function buildHTML() {
+  const T = s.tuning;
+  const stone = s.res.stone || 0;
+  const at = nextSlot(s);
+  const top = K().floors[0].rooms;
+  const where = !at
+    ? 'The keep can rise no higher.'
+    : at.newFloor
+      ? 'The next room starts a new floor on top of the keep, with a bare hall beside it.'
+      : `The next room goes into the bare hall beside the ${roomName(top[1 - at.slot][0])}.`;
+  const masons = jobCount(s, 'yard');
+  const can = s.phase === 'day' && !!at && stone + 1e-9 >= T.roomStone;
+  const rows = BUILDABLE.map((type) => {
+    const R = DAY_ROOMS[type];
+    const tw = TWINS[type];
+    const have = roomsOf(K(), type).length;
+    return `<li class="build-row"><div><b>${esc(R.name)}</b>${have ? ` <small class="muted">you have ${have}</small>` : ''}<p class="note">${esc(R.job(R))} By night, the ${esc(tw.name)}: ${esc(tw.note)}</p></div>
+      <button class="btn sm" id="raise-${type}" data-act="raise" data-room="${type}"${can ? '' : ' disabled'}>Build, ${T.roomStone} stone</button></li>`;
+  }).join('');
+  return `<section class="build">
+    <p>Stone <b data-live="stone">${floor1(stone)}</b>. ${masons ? `${esc(plural(masons, 'mason'))} in the Yard quarry ${fmt(masons * DAY_ROOMS.yard.rate)} a day.` : 'Nobody is quarrying: put someone in the Yard, in People, for 2 stone a day.'}</p>
+    <p class="note">${esc(where)} Each room holds ${T.roomCap} workers, so another Barracks lets more guards stand. What you build on top by day is the Tain's deepest room by night, nearest the rifts.</p>
+    ${s.phase === 'day' ? '' : '<p class="note">Masons build by day.</p>'}
+    <ul class="build-list">${rows}</ul>
+  </section>`;
+}
+
 const SHEETS = {
+  build: ['Build', buildHTML],
   intro: ['About', introHTML],
   phase: [null, () => `<section class="phase ${PH[s.phase]}">${phaseHTML()}</section>`],
   people: ['People', rosterHTML],
@@ -1051,6 +1101,7 @@ const LIVE = {
   food: () => floor1(s.res.food),
   candles: () => floor1(s.res.candles),
   glass: () => floor1(s.res.glass),
+  stone: () => floor1(s.res.stone || 0),
   essence: () => floor1(s.res.essence),
   rem: () => floor1(s.res.remembrance),
   defense: () => fmt(defense(s)),
@@ -1071,6 +1122,12 @@ const BARS = {
 };
 
 function render(alpha, now) {
+  // A new room changes the keep's height, so the scale that fits it.
+  if (layout.keep !== K().key) {
+    layout.keep = K().key;
+    layout();
+    drawnLabels = '';
+  }
   const key = `${s.rev}|${ui.rev}`;
   let changed = false;
   for (const [id, html] of Object.entries(SECTIONS)) {
@@ -1203,6 +1260,12 @@ const GUIDE = [
     id: 'rite', target: '#bar-day',
     when: () => first() && s.phase === 'dawn',
     text: "Dawn: the Rite. Keep a shade and it works again tonight, but the keep's Dread rises. Cover its mirror to let it rest. Every shade fades a little each night; naming one halves that.",
+  },
+  {
+    id: 'build', target: '#btn-build',
+    when: () => first() && s.phase === 'day' && s.day >= 2 && s.t > dayTicks(s) * 0.3,
+    done: () => ui.sheet === 'build',
+    text: 'Build raises a room on top of the keep for 8 stone; masons in the Yard quarry 2 a day each. A room holds three workers, so a second Barracks lets more guards stand. What you build on top by day is the Tain\'s deepest room by night, next to the rifts.',
   },
   {
     id: 'church', target: '#open-phase', pause: true,
@@ -1487,6 +1550,7 @@ function onAct(name, el) {
       if (ui.person) toStage();
       return bump();
     case 'assign': return game({ type: 'assign', id, room: el.value || null });
+    case 'raise': return game({ type: 'raise', room: el.dataset.room });
     case 'wardgate': return game({ type: 'wardGate' });
     case 'vigil': return game({ type: 'vigil' });
     case 'build': return game({ type: 'build', mirror: el.dataset.mirror });
@@ -1661,8 +1725,8 @@ document.addEventListener('keydown', (e) => {
     const step = 12 * ui.scale;
     panBy(k === 'arrowleft' ? step : k === 'arrowright' ? -step : 0, k === 'arrowup' ? step : k === 'arrowdown' ? -step : 0);
   }
-  else if (k === 'k' || k === 'p' || k === 'r') {
-    const name = { k: 'phase', p: 'people', r: 'records' }[k];
+  else if (k === 'k' || k === 'p' || k === 'r' || k === 'b') {
+    const name = { k: 'phase', p: 'people', r: 'records', b: 'build' }[k];
     if (ui.sheet === name) closeSheet();
     else openSheet(name);
   }

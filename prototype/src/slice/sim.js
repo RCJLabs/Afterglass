@@ -8,10 +8,10 @@
 
 import {
   TICKS_PER_SEC, TUNING, DAY_ROOMS, WORK_ROOMS, TWINS, MAP, KINDS, WORKING, CAUSES, GUIDE_UP,
-  MIRRORS, START_MIRRORS, MIRROR_PLACES, CAST, BONDS, START_SHADES, BOND_OTHER, NAMES, RAIDER_NAMES,
+  MIRRORS, START_MIRRORS, MIRROR_PLACES, CAST, BONDS, START_SHADES, BOND_OTHER, NAMES, RAIDER_NAMES, BUILDABLE,
 } from './data.js';
 import {
-  geo, roomAt, roomSpan, typeOf, typeAt, lightMap, isLit, spanAt, darkBetween, darkRooms, darkGaps, route, firstLight, fleePath, touching,
+  geo, START_KEEP, MAX_FLOORS, roomsOf, roomAt, roomSpan, typeOf, typeAt, lightMap, isLit, spanAt, darkBetween, darkRooms, darkGaps, route, firstLight, fleePath, touching,
   mirrorGoals, GNAW_GAP, DEEP_FLOOR,
 } from './geo.js';
 import { rand, randInt, pick, chance } from '../rng.js';
@@ -46,7 +46,10 @@ export function newSeason(seed = Date.now() >>> 0, overrides = {}) {
     phase: 'day', // day → dusk (paused) → night → dawn (the rite, paused) → day …; 'end' after the new moon; 'over' if lost
     t: 0,
     rev: 0,
-    res: { food: tuning.startFood, candles: tuning.startCandles, glass: tuning.startGlass, essence: 0, remembrance: 0 },
+    res: { food: tuning.startFood, candles: tuning.startCandles, glass: tuning.startGlass, essence: 0, remembrance: 0, stone: tuning.startStone },
+    // The keep's layout, top floor first. Never changed in place: building replaces it.
+    keep: { floors: START_KEEP.floors.map((fl) => fl.map((r) => ({ ...r }))) },
+    steel: false,
     dread: 0,
     cracks: 0,
     living: [],
@@ -189,7 +192,23 @@ export function roomPower(s) {
   for (const p of s.living) if (p.job) out[p.job] += livingMult(s, p);
   return out;
 }
-export const defense = (s) => roomPower(s).barracks * DAY_ROOMS.barracks.rate + (s.raid?.ward || 0) + (s.watchBonus || 0);
+export const defense = (s) => {
+  const pw = roomPower(s);
+  return pw.barracks * DAY_ROOMS.barracks.rate + pw.forge * DAY_ROOMS.forge.rate + (s.raid?.ward || 0) + (s.watchBonus || 0);
+};
+// How many can work a job: roomCap in each room of its kind. The Yard is outdoors and holds any number.
+export function jobCap(s, type) {
+  if (DAY_ROOMS[type]?.outdoors) return Infinity;
+  return roomsOf(geo(s), type).length * s.tuning.roomCap;
+}
+export const jobCount = (s, type) => s.living.filter((p) => p.job === type).length;
+// Where the next room goes: the top floor's bare hall if it has one, else a new floor on top.
+export function nextSlot(s) {
+  const keep = s.keep || START_KEEP;
+  const i = keep.floors[0].findIndex((r) => r.type === 'empty');
+  if (i >= 0) return { newFloor: false, slot: i };
+  return keep.floors.length >= MAX_FLOORS ? null : { newFloor: true, slot: 0 };
+}
 export const priests = (s) => s.living.filter((p) => p.job === 'chapel').length;
 export const funeralCap = priests;
 export const eatRate = (s) => s.living.length * s.tuning.eatPerDay;
@@ -328,8 +347,9 @@ function resolveRaid(s) {
     const civ = s.living.filter((p) => p.job !== 'barracks');
     if (civ.length) fallen.push({ p: pick(s, civ), how: 'was cut down in the yard' });
     const food = Math.floor(s.res.food * T.raidLoot * 0.5); // the Granary keeps half the food out of their hands
-    const glass = Math.floor(s.res.glass * T.raidLoot);
-    const candles = Math.floor(s.res.candles * T.raidLoot);
+    const kept = roomsOf(geo(s), 'cellar').length ? 0.5 : 1; // a Cellar keeps half the candles and glass out of their hands
+    const glass = Math.floor(s.res.glass * T.raidLoot * kept);
+    const candles = Math.floor(s.res.candles * T.raidLoot * kept);
     s.res.food -= food;
     s.res.glass -= glass;
     s.res.candles -= candles;
@@ -585,7 +605,7 @@ function newNight(s) {
   if (isNewMoon(s)) spawns.push({ at: Math.round(T.hollowAt * N), type: 'hollow', seep: false, snuff: false, rift: pick(s, MAP.rifts).id });
   spawns.sort((a, b) => a.at - b.at);
   return {
-    candles: [], foes: [], spawns, tides: tides.map((x) => Math.round(x * N)).sort((a, b) => a - b), wards: [], wardHold: {}, hush: false,
+    candles: [], foes: [], spawns, tides: tides.map((x) => Math.round(x * N)).sort((a, b) => a - b), wards: [], wardHold: {}, hush: false, steel: !!s.steel,
     stats: { spawned: 0, killed: 0, crossed: 0, cracks: 0, grabbed: 0, drained: 0, essence: 0, glass: 0, wick: 0, guidance: 0, candles: 0, wards: 0, lost: [], hollow: null, taken: null, wraiths: 0, maws: 0, smashed: 0 },
   };
 }
@@ -595,7 +615,7 @@ function startNight(s) {
   s.t = 0;
   s.dusk = null;
   for (const d of s.shades) {
-    Object.assign(d, { path: [], climb: 0, grabbedBy: null, rest: 0, sang: 0, watch: 0, drained: 0 });
+    Object.assign(d, { path: [], climb: 0, grabbedBy: null, rest: 0, sang: 0, watch: 0, drained: 0, forged: 0 });
     if (canWork(d)) Object.assign(d, { f: d.post.f, x: d.post.x, ox: d.post.x, of: d.post.f });
   }
   const { f, x0 } = roomSpan(geo(s), 'crypt');
@@ -748,7 +768,7 @@ function shadeTick(s, L, d) {
     .filter((c) => c.f === d.f && !c.climb && c.hp > 0 && Math.abs(c.x - d.x) <= T.reach)
     .sort((a, b) => Math.abs(a.x - d.x) - Math.abs(b.x - d.x))[0];
   if (foe) {
-    foe.hp -= T.fightDps * K.fight * p * DT;
+    foe.hp -= T.fightDps * K.fight * p * (n.steel ? T.steelFight : 1) * DT;
     foe.lastHit = d.id;
     return;
   }
@@ -767,6 +787,7 @@ function shadeTick(s, L, d) {
   else if (job === 'guidance') n.stats.guidance += T.guidePerSec * w;
   else if (job === 'watch') d.watch++;
   else if (job === 'rest') d.rest++;
+  else if (job === 'steel') d.forged = (d.forged || 0) + 1;
 }
 
 function foeTick(s, L, c) {
@@ -1064,12 +1085,17 @@ function endNight(s) {
   if (g) s.guidance = Math.min(T.guidanceMax, s.guidance + g);
   let watch = 0;
   let calm = 0;
+  let steel = false;
   for (const d of s.shades) {
     if (!canWork(d)) continue;
     watch += KINDS[d.kind].fight * perf(d) * DAY_ROOMS.barracks.rate * (d.watch / N);
     if (d.sang >= N / 2) calm++;
+    if ((d.forged || 0) >= N / 2) steel = true;
   }
   s.watchBonus = r1(watch);
+  // Grave-steel forged through half the night arms every shade the next night.
+  s.steel = steel;
+  if (steel) say(s, 'Grave-steel from the Cold Forge: tomorrow night every shade fights harder.', 'good');
   // The Restless: calmed by the Choir, or a night closer to turning Wraith.
   for (const d of s.shades.filter((x) => x.kind === 'restless').sort((a, b) => b.restless - a.restless)) {
     if (calm > 0) {
@@ -1304,7 +1330,46 @@ const ACTIONS = {
     const p = byId(s.living, id);
     if (!p) return 'No one living by that name.';
     if (room !== null && !(DAY_ROOMS[room] && DAY_ROOMS[room].out)) return 'No one works there.';
+    if (room !== null && room !== p.job) {
+      const cap = jobCap(s, room);
+      const name = DAY_ROOMS[room].name;
+      if (!cap) return `There is no ${name} yet. Build one first.`;
+      if (jobCount(s, room) >= cap) return `The ${name} is full: ${cap} work there. Build another ${name}.`;
+    }
     p.job = room;
+  },
+  // Raise a room on top of the keep: into the top floor's bare hall, or as a new floor with a bare hall
+  // beside it. By day, for roomStone stone.
+  raise(s, { room }) {
+    if (s.phase !== 'day') return 'Masons build by day.';
+    if (!BUILDABLE.includes(room)) return 'That cannot be built.';
+    const T = s.tuning;
+    const at = nextSlot(s);
+    if (!at) return 'The keep can rise no higher.';
+    if ((s.res.stone || 0) + EPS < T.roomStone) return `A room takes ${T.roomStone} stone.`;
+    s.res.stone -= T.roomStone;
+    const keep = s.keep || START_KEEP;
+    const ids = new Set(keep.floors.flat().map((r) => r.id));
+    const idFor = (type) => {
+      let k = 2;
+      while (ids.has(`${type}${k}`)) k++;
+      ids.add(`${type}${k}`);
+      return `${type}${k}`;
+    };
+    const made = { id: ids.has(room) ? idFor(room) : (ids.add(room), room), type: room };
+    if (at.newFloor) {
+      s.keep = { floors: [[made, { id: idFor('empty'), type: 'empty' }], ...keep.floors] };
+      // Every floor index moves down one; the shades keep their places.
+      for (const d of s.shades) {
+        d.f += 1;
+        d.of += 1;
+        if (d.post) d.post = { f: d.post.f + 1, x: d.post.x };
+        d.path = (d.path || []).map((st) => ({ ...st, f: st.f + 1 }));
+      }
+    } else {
+      s.keep = { floors: [keep.floors[0].map((r, i) => (i === at.slot ? made : r)), ...keep.floors.slice(1)] };
+    }
+    say(s, `The masons raise a ${DAY_ROOMS[room].name} on top of the keep. By night its twin, the ${TWINS[room].name}, is the Tain's deepest room.`, 'good', true);
   },
   build(s, { mirror }) {
     const M = MIRRORS[mirror];

@@ -69,6 +69,8 @@ export const OUTFITS = {
   infirmary: { tunic: P.white, legs: P.white, belt: P.red, shoes: P.brown, robe: 1, hood: P.silver, cross: P.red },
   barracks: { tunic: P.steel, legs: P.ink, belt: P.brown, shoes: P.night, tabard: P.crimson, helm: P.silver, prop: 'spear' },
   hearth: { tunic: P.clay, legs: P.brown, belt: P.brown, shoes: P.earth, apron: P.bone, cap: P.bone },
+  forge: { tunic: P.ink, legs: P.brown, belt: P.brown, shoes: P.earth, apron: P.brown, prop: 'hammer' },
+  yard: { tunic: P.ochre, legs: P.brown, belt: P.earth, shoes: P.earth, prop: 'hammer' },
   none: { tunic: P.slate, legs: P.brown, belt: P.earth, shoes: P.earth },
 };
 
@@ -248,6 +250,10 @@ export function figure(c, x, y, o, t) {
   } else if (!sil && o.prop === 'candle' && o.pose === 'work') {
     px(hand.j, hand.i - 1, P.bone);
     px(hand.j, hand.i - 2, MF(t * 6 + ph) % 2 ? P.amber : P.yellow);
+  } else if (!sil && o.prop === 'hammer' && o.pose === 'work') {
+    px(hand.j, hand.i - 1, P.brown);
+    px(hand.j, hand.i - 2, P.steel);
+    px(hand.j + 1, hand.i - 2, P.steel);
   } else if (!sil && o.prop === 'lantern') {
     px(hand.j, hand.i + 1, P.brown);
     px(hand.j, hand.i + 2, P.yellow);

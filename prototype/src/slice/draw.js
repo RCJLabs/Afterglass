@@ -28,6 +28,7 @@ export const ctxOf = (cv) => {
 const TONES = {
   chapel: ['#4a3a52', P.grape], glazier: ['#39485a', P.indigo], chandlery: ['#5a4632', P.brown], infirmary: ['#4c5361', P.slate],
   barracks: ['#4a3e36', P.brown], granary: ['#5a4a38', P.brown], hearth: ['#5a4038', P.brown], crypt: ['#2a2430', P.soot],
+  forge: ['#3e3436', P.soot], cellar: ['#3a3028', P.earth], empty: ['#55575f', P.slate],
 };
 // The keep being drawn: its geometry, set at the start of every frame (it grows as rooms are built).
 let G = geoOf();
@@ -135,6 +136,48 @@ const FURNISH = {
     D(c, x + 6, y + 5, P.green);
     if (f === G.veil) mirrorFrame(c, MAP.mirrors[0].x - 2, y + 4);
   },
+  forge(c, x, y) {
+    // The forge fire under its hood, the anvil, a rack of blades and the quench tub.
+    R(c, x + 4, y + 4, 9, 4, P.indigo);
+    R(c, x + 3, y + 8, 11, 10, P.slate);
+    R(c, x + 3, y + 8, 11, 1, P.steel);
+    R(c, x + 5, y + 11, 7, 5, P.night);
+    R(c, x + 6, y + 14, 5, 2, P.orange);
+    D(c, x + 8, y + 13, P.yellow);
+    R(c, x + 20, y + 13, 9, 2, P.steel);
+    D(c, x + 28, y + 13, P.silver);
+    R(c, x + 22, y + 15, 4, 3, P.slate);
+    R(c, x + 33, y + 15, 11, 1, P.brown);
+    for (let i = 0; i < 4; i++) {
+      R(c, x + 34 + i * 3, y + 6, 1, 9, P.silver);
+      D(c, x + 34 + i * 3, y + 15, P.brown);
+    }
+    R(c, x + 44, y + 13, 3, 5, P.brown);
+    R(c, x + 44, y + 13, 3, 1, P.blue);
+  },
+  cellar(c, x, y) {
+    // Barrels, stacked crates and a shelf of candle boxes and glass.
+    for (let i = 0; i < 3; i++) {
+      R(c, x + 2 + i * 7, y + 11, 6, 7, P.brown);
+      R(c, x + 2 + i * 7, y + 13, 6, 1, P.clay);
+      R(c, x + 2 + i * 7, y + 16, 6, 1, P.clay);
+    }
+    R(c, x + 25, y + 12, 8, 6, P.clay);
+    R(c, x + 25, y + 12, 8, 1, P.tan);
+    R(c, x + 27, y + 7, 6, 5, P.tan);
+    D(c, x + 29, y + 9, P.brown);
+    R(c, x + 37, y + 9, 9, 1, P.brown);
+    for (let i = 0; i < 3; i++) R(c, x + 38 + i * 3, y + 7, 2, 2, i === 1 ? '#86bff0' : P.bone);
+  },
+  empty(c, x, y) {
+    // Bare stone: scaffolding and a pile of cut blocks.
+    for (const dx of [8, 38]) R(c, x + dx, y + 2, 1, 16, P.brown);
+    R(c, x + 7, y + 9, 33, 1, P.clay);
+    for (const [dx, dy] of [[18, 15], [23, 15], [28, 15], [20, 12], [25, 12]]) {
+      R(c, x + dx, y + dy, 4, 3, P.steel);
+      R(c, x + dx, y + dy, 4, 1, P.silver);
+    }
+  },
   crypt(c, x, y, f) {
     for (const [dx, dy] of [[2, 4], [2, 9], [7, 4], [30, 4], [30, 9]]) {
       R(c, x + dx, y + dy, 4, 3, P.night);
@@ -147,7 +190,20 @@ const FURNISH = {
 };
 
 // Details only a room's twin has, for room types beyond the original eight (keyed by type).
-const TWIN_ART = {};
+const TWIN_ART = {
+  // The Cold Forge: the blades on its rack are grave-steel, and glint.
+  forge(c, x, y) {
+    for (let i = 0; i < 4; i++) {
+      R(c, x + 34 + i * 3, y + 6, 1, 9, UMBRA[6]);
+      D(c, x + 34 + i * 3, y + 6, UMBRA[7]);
+    }
+  },
+  // The Hollow Cellar: the stores gone, like the Hollow Granary's.
+  cellar(c, x, y) {
+    R(c, x + 2, y + 10, 32, 8, UMBRA[2]);
+    for (let i = 0; i < 3; i++) R(c, x + 2 + i * 7, y + 11, 6, 7, UMBRA[3]);
+  },
+};
 
 function ladder(c, st) {
   const y0 = feet(st.f);
@@ -365,9 +421,23 @@ function dayActors(c, s, t, dusk = 0) {
     flame(c, h.x0 + 36, hy - 1, t + 0.4, 1);
   }
   for (const g of every('glazier')) flame(c, g.x0 + 7, feet(g.f) - 2, t, 2);
+  for (const g of every('forge')) {
+    glow(c, g.x0 + 8, feet(g.f) - 4, 5, P.orange, 0.3);
+    flame(c, g.x0 + 8, feet(g.f) - 3, t, 4);
+  }
+  // Masons work the wall walk on the roof, either side of the tower, among their cut stone.
+  const masons = s.living.filter((p) => p.job === 'yard');
+  const walk = roofY() + 20;
+  if (masons.length) {
+    for (const [dx, dy] of [[34, -2], [38, -2], [36, -4], [76, -2]]) {
+      R(c, dx, walk + dy, 4, 2, P.steel);
+      R(c, dx, walk + dy, 4, 1, P.silver);
+    }
+  }
+  masons.forEach((p, i) => person(c, { ...p, job: 'yard' }, i, [18, 90, 28, 100, 12, 82][i % 6], walk, t, Math.min(1, dusk * 1.6)));
   // Workers of a type fill its rooms in turn, as many as a room holds; the idle wait by the first hearth.
   const byType = {};
-  for (const p of s.living) (byType[p.job || 'hearth'] ||= []).push(p);
+  for (const p of s.living) if (p.job !== 'yard') (byType[p.job || 'hearth'] ||= []).push(p);
   const cap = s.tuning.roomCap || 99;
   const byRoom = new Map();
   for (const [type, ps] of Object.entries(byType)) {
@@ -586,6 +656,7 @@ function composeTain(s, t, opts = {}) {
     flame(c, h.x0 + 38, feet(h.f) - 1, t, 3, [P.cyan, '#9fe6ff', P.blue]);
     flame(c, h.x0 + 36, feet(h.f) - 1, t + 0.3, 5, [P.cyan, '#9fe6ff', P.blue]);
   }
+  for (const g of every('forge')) flame(c, g.x0 + 8, feet(g.f) - 3, t, 6, [P.cyan, '#9fe6ff', P.blue]);
   for (const wk of every('chandlery')) for (let i = 0; i < 3; i++) flame(c, wk.x0 + 3 + i * 4, G.floors[wk.f].y + 9 + Math.round(Math.sin(t * 2 + i)), t, i, [P.cyan, '#9fe6ff', P.blue]);
   for (const rf of MAP.rifts) {
     const pulse = 0.25 + 0.2 * Math.sin(t * 2 + rf.x);

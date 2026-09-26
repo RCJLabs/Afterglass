@@ -126,6 +126,14 @@ export const TUNING = {
   // answers it more than one who stacks the line, which is backwards.
   hardness: 1.2,
   mawHardness: 1,
+
+  // Building. Masons in the Yard quarry stone; a room costs roomStone and goes on top of the keep. Each room
+  // holds roomCap workers, so a job needs another room of its kind to grow. Grave-steel from the Cold Forge
+  // makes every shade fight steelFight times harder the next night.
+  startStone: 4,
+  roomStone: 8,
+  roomCap: 3,
+  steelFight: 1.25,
 };
 
 // Day rooms. out is what a worker makes each day at full strength.
@@ -138,7 +146,14 @@ export const DAY_ROOMS = {
   granary: { name: 'Granary', out: null, job: () => 'Stores. Raiders who break in take half as much food.' },
   hearth: { name: 'Hearth', out: 'food', rate: 4, role: 'cook', job: (R) => `Cooks: ${R.rate} food a day each.` },
   crypt: { name: 'Crypt', out: null, job: () => "The day's dead wait here for dusk." },
+  // Built rooms and the Yard.
+  forge: { name: 'Forge', out: 'defense', rate: 1, role: 'smith', job: (R) => `Smiths: ${R.rate} defense each, arming the guards.` },
+  cellar: { name: 'Cellar', out: null, job: () => 'Stores. Raiders who break in take half as many candles and half as much glass.' },
+  empty: { name: 'Bare hall', out: null, job: () => 'Unfinished stone. The next room built goes here.' },
+  yard: { name: 'Yard', out: 'stone', rate: 2, role: 'mason', outdoors: true, job: (R) => `Masons: ${R.rate} stone a day each, to build with. The Yard holds any number.` },
 };
+// What can be built on top of the keep, in the order the build list shows them.
+export const BUILDABLE = ['barracks', 'chandlery', 'hearth', 'forge', 'cellar', 'chapel', 'glazier', 'infirmary', 'granary'];
 export const WORK_ROOMS = Object.keys(DAY_ROOMS).filter((k) => DAY_ROOMS[k].out);
 
 // Each room's twin in the Tain, and what a lit shade standing there does.
@@ -151,6 +166,9 @@ export const TWINS = {
   granary: { name: 'Hollow Granary', job: null, note: 'Empty and dark: a weak spot.' },
   hearth: { name: 'Cold Hearth', job: 'rest', note: 'Resting here halves the night’s fading.' },
   crypt: { name: 'Waking Room', job: null, note: 'Where the dead wake.' },
+  forge: { name: 'Cold Forge', job: 'steel', note: 'Grave-steel: a shade who forges through half the night arms every shade the next night.' },
+  cellar: { name: 'Hollow Cellar', job: null, note: 'Empty and dark: a weak spot.' },
+  empty: { name: 'Hollow Hall', job: null, note: 'Bare and dark: a weak spot until something is built.' },
 };
 
 // The keep a season starts with, top to bottom in its upright (day) layout. The Tain is the same rooms

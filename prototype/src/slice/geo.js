@@ -18,8 +18,10 @@ export const START_KEEP = { floors: MAP.floors.map((fl) => fl.rooms.map(([id]) =
 export const SLOTS = MAP.floors[0].rooms.map(([, a, b]) => [a, b]);
 
 // Stairs by level, counting up from the pair that joins the Veil floor to the floor above. The first three
-// are the original keep's; later ones alternate so no two flights line up.
-const STAIR_XS = [[16, 96], [40, 72], [24, 88], [32, 80], [20, 92], [44, 68], [28, 84], [36, 76], [12, 100], [48, 64]];
+// are the original keep's. A built floor's stairs come up by the outer or the inner walls, clear of a
+// candle in the middle of the room above (candlelight reaches 20 pixels): a stair whose top is lit can
+// be gnawed from the floor below, where no shade in the light can reach the gnawer.
+const STAIR_XS = [[16, 96], [40, 72], [24, 88], [8, 104], [52, 60], [10, 102], [50, 62], [8, 104], [52, 60], [10, 102]];
 const STAIR_IDS = [['s5', 's6'], ['s3', 's4'], ['s1', 's2']];
 export const MAX_FLOORS = MAP.floors.length + STAIR_XS.length - 3;
 

@@ -2,13 +2,13 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   newSeason, step, act, replay, ritePreview, crossingPreview, capacity, canWork, defense, bear, dayTicks, nightTicks, addCreeper,
-  lastSeason, kill, byId, addFoe, retune, playerTuning,
+  lastSeason, kill, byId, addFoe, retune, playerTuning, jobCap, jobCount, nextSlot,
 } from '../src/slice/sim.js';
 import { runSeasonAuto, autoStep, PLANS } from '../src/slice/autopilot.js';
 import { epitaph } from '../src/slice/book.js';
-import { MAP, TUNING, START_SHADES } from '../src/slice/data.js';
+import { MAP, TUNING, START_SHADES, BUILDABLE } from '../src/slice/data.js';
 import {
-  geoOf, geo, lightMap, isLit, roomAt, route, darkRooms, darkGaps, roomSpan, feet as feetG, MODES, toView, fromView, floorAtY as floorAtYG,
+  geoOf, geo, typeAt, roomsOf, mirrorGoals, MAX_FLOORS, lightMap, isLit, roomAt, route, darkRooms, darkGaps, roomSpan, feet as feetG, MODES, toView, fromView, floorAtY as floorAtYG,
   unitAt as unitAtG, VIEW_H, DEEP_FLOOR,
 } from '../src/slice/geo.js';
 
@@ -395,6 +395,138 @@ test('an older save takes the current defaults, keeps the player\'s own settings
   const fresh = newSeason(1, playerTuning(s));
   assert.equal(fresh.tuning.creepersPerNight, TUNING.creepersPerNight, 'a new keep starts from the current defaults');
   assert.equal(fresh.tuning.daySecs, 30, 'with the player\'s own settings');
+});
+
+test('masons raise rooms on top of the keep: a floor with a bare hall, then the hall, and the shades keep their places', () => {
+  const s = newSeason(4, quiet);
+  const T = s.tuning;
+  assert.equal(s.res.stone, T.startStone);
+  assert.equal(act(s, { type: 'raise', room: 'barracks' }).error, `A room takes ${T.roomStone} stone.`);
+  s.res.stone = 3 * T.roomStone;
+  assert.match(act(s, { type: 'raise', room: 'crypt' }).error, /cannot be built/);
+  const before = s.shades.map((d) => typeAt(geo(s), d.post.f, d.post.x));
+  ok(s, { type: 'raise', room: 'barracks' });
+  let G = geo(s);
+  assert.equal(G.n, 5);
+  assert.deepEqual(s.keep.floors[0].map((r) => r.type), ['barracks', 'empty']);
+  assert.equal(s.keep.floors[0][0].id, 'barracks2', 'a second Barracks gets its own id');
+  assert.deepEqual(s.shades.map((d) => typeAt(G, d.post.f, d.post.x)), before, 'every post is still in the same room');
+  assert.equal(s.res.stone, 2 * T.roomStone);
+  ok(s, { type: 'raise', room: 'forge' });
+  G = geo(s);
+  assert.equal(G.n, 5, 'the bare hall is built into, not a new floor');
+  assert.deepEqual(s.keep.floors[0].map((r) => r.id), ['barracks2', 'forge']);
+  ok(s, { type: 'raise', room: 'cellar' });
+  assert.equal(geo(s).n, 6);
+  assert.deepEqual(nextSlot(s), { newFloor: false, slot: 1 });
+  toDusk(s);
+  assert.match(act(s, { type: 'raise', room: 'cellar' }).error, /by day/);
+});
+
+test('a built keep keeps its shape: rifts on the top floor, mirrors under the Veil, two stairs between every pair of floors', () => {
+  const s = newSeason(4, quiet);
+  s.res.stone = 99;
+  for (let i = 0; i < 5; i++) ok(s, { type: 'raise', room: BUILDABLE[i % BUILDABLE.length] });
+  const G = geo(s);
+  assert.equal(G.n, 7);
+  assert.equal(G.veil, G.n - 1);
+  assert.equal(G.floors[G.veil].y, MAP.floors[3].y, 'the ground floor stays where it was');
+  for (let f = 0; f < G.n - 1; f++) assert.equal(G.stairs.filter((st) => st.f === f).length, 2, `floor ${f}`);
+  assert.equal(new Set(G.stairs.map((st) => st.id)).size, G.stairs.length);
+  assert.equal(new Set(Object.keys(G.rooms)).size, 2 * G.n);
+  // In the dark, a Creeper from the Deep finds a way to a mirror; with the line lit, no dark way remains.
+  const dark = lightMap(G, s.tuning, []);
+  assert.ok(route(G, dark, { f: 0, x: 12 }, mirrorGoals(G), { creeper: true }));
+  const line = G.stairs.filter((st) => st.f === G.veil - 1).map((st, i) => ({ id: 'k' + i, f: st.f, x: st.x, wax: 120, max: 120 }));
+  assert.equal(route(G, lightMap(G, s.tuning, line), { f: 0, x: 12 }, mirrorGoals(G), { creeper: true }), null);
+  // Nothing past the top.
+  while (nextSlot(s)) {
+    s.res.stone = 99;
+    ok(s, { type: 'raise', room: 'granary' });
+  }
+  assert.equal(geo(s).n, MAX_FLOORS);
+  assert.match(act(s, { type: 'raise', room: 'granary' }).error, /no higher/);
+});
+
+test('each room holds three workers; building another lets the job grow, and the Yard takes anyone', () => {
+  const s = newSeason(4, quiet);
+  const T = s.tuning;
+  const others = s.living.filter((p) => p.job !== 'barracks');
+  let guards = jobCount(s, 'barracks');
+  for (const p of others) {
+    if (guards >= jobCap(s, 'barracks')) break;
+    ok(s, { type: 'assign', id: p.id, room: 'barracks' });
+    guards++;
+  }
+  assert.equal(jobCount(s, 'barracks'), T.roomCap);
+  const extra = s.living.find((p) => p.job !== 'barracks');
+  assert.match(act(s, { type: 'assign', id: extra.id, room: 'barracks' }).error, /Barracks is full: 3 work there/);
+  assert.match(act(s, { type: 'assign', id: extra.id, room: 'forge' }).error, /no Forge yet/);
+  s.res.stone = 99;
+  ok(s, { type: 'raise', room: 'barracks' });
+  ok(s, { type: 'assign', id: extra.id, room: 'barracks' });
+  assert.equal(jobCap(s, 'barracks'), 2 * T.roomCap);
+  for (const p of s.living) ok(s, { type: 'assign', id: p.id, room: 'yard' });
+  assert.equal(jobCount(s, 'yard'), s.living.length);
+  const stone = s.res.stone;
+  while (s.phase === 'day') step(s);
+  assert.ok(Math.abs(s.res.stone - (stone + s.living.length * 2)) < 0.01, 'masons quarry 2 stone a day each');
+});
+
+test('grave-steel: a shade who forges through half the night arms the dead for the next night', () => {
+  const s = newSeason(4, { ...quiet, creepersBase: 0, creepersPerNight: 0, mawFrom: 99 });
+  s.res.stone = 99;
+  ok(s, { type: 'raise', room: 'forge' });
+  const G = geo(s);
+  const forge = roomsOf(G, 'forge')[0];
+  toDusk(s);
+  if (s.dusk.step === 'crypt') ok(s, { type: 'wake' });
+  const smith = s.shades.find((d) => d.mirror && d.kind === 'serene');
+  ok(s, { type: 'move', id: smith.id, f: forge.f, x: forge.x0 + 30 });
+  ok(s, { type: 'candle', f: forge.f, x: forge.x0 + 30 });
+  ok(s, { type: 'startNight' });
+  assert.equal(s.night.steel, false);
+  toDawn(s);
+  assert.equal(s.steel, true);
+  assert.ok(s.log.some((l) => /Grave-steel/.test(l.text)));
+  ok(s, { type: 'beginDay' });
+  toNight(s);
+  assert.equal(s.night.steel, true, 'this night the dead fight harder');
+});
+
+test('a Cellar keeps half the candles and glass from raiders who break in', () => {
+  const loot = (cellar) => {
+    const s = newSeason(9, { ...quiet, raidDays: { 2: 40, 4: 0, 6: 0 }, raidSpread: 0 });
+    if (cellar) {
+      s.res.stone = 99;
+      ok(s, { type: 'raise', room: 'cellar' });
+    }
+    emptyNight(s);
+    toDawn(s);
+    ok(s, { type: 'beginDay' });
+    assert.equal(s.day, 2);
+    s.res.candles = 20;
+    s.res.glass = 20;
+    while (!s.today.raid && s.phase === 'day') step(s);
+    assert.equal(s.today.raid.held, false);
+    const [, glass, candles] = s.log.map((l) => l.text.match(/carried off \d+ food, (\d+) glass and (\d+) candles/)).find(Boolean);
+    return [Number(candles), Number(glass)];
+  };
+  const [c0, g0] = loot(false);
+  const [c1, g1] = loot(true);
+  assert.ok(c0 > 0 && g0 > 0);
+  assert.equal(c1, Math.floor(c0 / 2));
+  assert.equal(g1, Math.floor(g0 / 2));
+});
+
+test('a season with building replays exactly', () => {
+  const s = runSeasonAuto(12, { plan: 'balanced' });
+  assert.ok(s.actions.some(({ a }) => a.type === 'raise'), 'the autopilot built something');
+  const r = replay(s.seed, s.tuning0, s.actions);
+  while (r.phase === 'day' || r.phase === 'night') step(r); // the season ran on after its last action
+  assert.deepEqual(r.keep, s.keep);
+  for (const k of ['season', 'day', 'phase', 't', 'rng', 'dread', 'cracks']) assert.equal(r[k], s[k], k);
+  assert.deepEqual(r.res, s.res);
 });
 
 test('soak: every plan runs whole seasons without breaking the rules', () => {

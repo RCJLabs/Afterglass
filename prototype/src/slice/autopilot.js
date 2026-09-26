@@ -7,15 +7,25 @@
 //            line and never sends anyone to meet a Maw: the static answer the Maws are meant to break
 //   idle     works the day but leaves the night alone: no candles, no posts (a baseline)
 
-import { step, act, newSeason, ritePreview, crossingPreview, capacity, canWork, defense, funeralCap, choicesFor } from './sim.js';
+import { step, act, newSeason, ritePreview, crossingPreview, capacity, canWork, defense, funeralCap, choicesFor, jobCap, jobCount } from './sim.js';
 import { DAY_ROOMS, MIRRORS, KINDS } from './data.js';
-import { geo, roomSpan, roomAt } from './geo.js';
+import { geo, roomSpan, roomAt, roomsOf } from './geo.js';
 
 export const PLANS = ['balanced', 'keeper', 'mourner', 'double', 'idle'];
 
 const doAct = (s, a) => act(s, a).ok;
 
 /* ---------------------------------------------------------------- day */
+
+// What it builds, in order: a second Barracks (one holds only three guards), a Forge for grave-steel, then
+// a Cellar. A crude player: nothing past that.
+function nextBuild(s) {
+  const has = (type) => roomsOf(geo(s), type).length;
+  if (has('barracks') < 2) return 'barracks';
+  if (!has('forge')) return 'forge';
+  if (!has('cellar')) return 'cellar';
+  return null;
+}
 
 function wantedJobs(s) {
   const n = s.living.length;
@@ -28,12 +38,13 @@ function wantedJobs(s) {
     infirmary: s.living.some((p) => p.sick > 0) ? 1 : 0,
     chandlery: threat ? 0 : s.res.candles < 8 ? 2 : 1,
     glazier: threat || n < 6 ? 0 : 1,
+    yard: !threat && nextBuild(s) && s.res.stone < s.tuning.roomStone ? 1 : 0,
   };
 }
 
 function staff(s) {
   const want = wantedJobs(s);
-  const order = ['hearth', 'chapel', 'infirmary', 'chandlery', 'glazier'];
+  const order = ['hearth', 'chapel', 'infirmary', 'chandlery', 'glazier', 'yard'];
   const count = Object.fromEntries(order.map((k) => [k, 0]));
   const free = [];
   for (const p of s.living) {
@@ -49,10 +60,16 @@ function staff(s) {
       count[k]++;
     }
   }
-  for (const p of free) if (p.job !== 'barracks') doAct(s, { type: 'assign', id: p.id, room: 'barracks' });
+  // The rest hold the gate, as many as the barracks hold; anyone left over quarries stone.
+  for (const p of free) {
+    const room = p.job === 'barracks' || jobCount(s, 'barracks') < jobCap(s, 'barracks') ? 'barracks' : 'yard';
+    if (p.job !== room) doAct(s, { type: 'assign', id: p.id, room });
+  }
 }
 
 function dayMoves(s) {
+  const b = nextBuild(s);
+  if (b && s.res.stone >= s.tuning.roomStone) doAct(s, { type: 'raise', room: b });
   staff(s);
   const r = s.raid;
   if (r && r.state === 'coming' && r.warned && !r.ward && defense(s) < r.strength) doAct(s, { type: 'wardGate' });
@@ -103,6 +120,7 @@ function postings(s, ds) {
     else rooms.push([room, [d]]);
   };
   take('chapel', worker);
+  if (roomsOf(geo(s), 'forge').length) take('forge', worker);
   if (ds.some((d) => d.memory < 50)) take('hearth', (d) => -d.memory);
   if (capacity(s).free <= 1) take('glazier', worker);
   if (s.res.candles < 6) take('chandlery', worker);
