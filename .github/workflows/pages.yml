@@ -1,0 +1,59 @@
+# Publishes the repo root to GitHub Pages on every push to main, after the prototype tests pass.
+# Works with either Pages source: with "GitHub Actions" this workflow deploys; with "Deploy from a
+# branch" GitHub's own build publishes main and this workflow only runs the tests.
+name: Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      mode: ${{ steps.mode.outputs.mode }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Test the prototype
+        working-directory: prototype
+        run: npm test
+      - name: Check how Pages publishes
+        id: mode
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mode=$(gh api "repos/${GITHUB_REPOSITORY}/pages" --jq .build_type 2>/dev/null || echo none)
+          echo "mode=$mode" >> "$GITHUB_OUTPUT"
+          echo "Pages build type: $mode"
+          if [ "$mode" != "workflow" ]; then
+            echo "::notice::Pages source is '$mode', so this workflow only tests. Set Settings > Pages > Source to GitHub Actions to deploy from here."
+          fi
+      - name: Upload the site
+        if: steps.mode.outputs.mode == 'workflow'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+
+  deploy:
+    needs: build
+    if: needs.build.outputs.mode == 'workflow'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

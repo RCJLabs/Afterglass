@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Afterglass</title>
+<meta name="description" content="Afterglass: a side-view base-builder about a keep on the Veil. Design rounds and playable greybox prototypes.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Alegreya+SC:wght@500;700&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Spline+Sans+Mono:wght@400;600&display=swap">
+<style>
+  :root {
+    color-scheme: light;
+    --ground: #e7e6ec;
+    --box: #fbfbfd;
+    --line: #cfcdd9;
+    --ink: #1b1924;
+    --ink-2: #4f4b63;
+    --ink-3: #69657d;
+    --day-ink: #7d5008;
+    --night: #6a4fc0;
+    --night-ink: #5439a6;
+    --night-tint: #e5dff5;
+    --dusk: #c2458f;
+    --rite-ink: #00705f;
+    --rite-tint: #d7eeeb;
+    --focus: #2b67d8;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      color-scheme: dark;
+      --ground: #121118;
+      --box: #201f2a;
+      --line: #363443;
+      --ink: #ebe9f3;
+      --ink-2: #b4b0c6;
+      --ink-3: #9591a8;
+      --day-ink: #ebbd6e;
+      --night: #8a6fe0;
+      --night-ink: #b8a7f6;
+      --night-tint: #282142;
+      --dusk: #d0559c;
+      --rite-ink: #4ccdbf;
+      --rite-tint: #11302d;
+      --focus: #7ea9ff;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font: 16px/1.5 "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  main { max-width: 760px; margin-inline: auto; padding-inline: 16px; padding-block: 48px 64px; display: grid; gap: 40px; }
+  h1, h2 { font-family: "Alegreya SC", "Palatino Linotype", Palatino, Georgia, serif; text-wrap: balance; margin: 0; }
+  h1 { font-size: clamp(40px, 9vw, 64px); line-height: 1; letter-spacing: 0.01em; }
+  h2 { font-size: 24px; }
+  p { margin: 0; max-width: 62ch; }
+  a { color: inherit; }
+  a:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; border-radius: 2px; }
+  .lede { font-size: 18px; color: var(--ink-2); }
+  header { display: grid; gap: 14px; }
+  header .veil { height: 2px; background: var(--dusk); max-width: 120px; }
+  section { display: grid; gap: 12px; }
+  .list { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+  .item {
+    display: grid;
+    gap: 4px;
+    padding: 12px 14px;
+    background: var(--box);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    text-decoration: none;
+  }
+  a.item:hover { border-color: var(--night); }
+  .item b { font-size: 17px; }
+  .item span { color: var(--ink-2); font-size: 14px; }
+  .eyebrow { font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); }
+  .play .item b { color: var(--night-ink); }
+  .plan { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 8px; margin: 0; padding: 0; list-style: none; }
+  .plan li { border-top: 3px solid var(--line); padding-top: 8px; display: grid; gap: 2px; font-size: 14px; }
+  .plan li.done { border-color: var(--rite-ink); }
+  .plan li.now { border-color: var(--night); }
+  .plan .when { font-family: "Spline Sans Mono", ui-monospace, Menlo, Consolas, monospace; font-size: 12px; color: var(--ink-3); }
+  .plan .state { font-size: 12px; color: var(--ink-3); }
+  .plan li.done .state { color: var(--rite-ink); }
+  .plan li.now .state { color: var(--night-ink); }
+  footer { color: var(--ink-3); font-size: 14px; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <p class="eyebrow">A base-builder in development</p>
+    <h1>Afterglass</h1>
+    <div class="veil" aria-hidden="true"></div>
+    <p class="lede">You hold a keep on the Veil. By day the living build, craft and hold the walls. Anyone who dies inside them wakes at dusk as a shade and works the night shift in the reflected keep. At dawn you decide which of the dead stay.</p>
+  </header>
+
+  <section class="play" aria-labelledby="h-play">
+    <h2 id="h-play">Play the prototypes</h2>
+    <p>Greyboxes: boxes and text, no art. Each one tests a single question.</p>
+    <ul class="list">
+      <li><a class="item" href="prototype/index.html"><span class="eyebrow">Weeks 1–2 greybox</span><b>Two rosters and the Rite</b><span>Does a death feel like a loss and a hire at once?</span></a></li>
+    </ul>
+  </section>
+
+  <section aria-labelledby="h-plan">
+    <h2 id="h-plan">The plan</h2>
+    <ol class="plan">
+      <li class="done"><span class="when">Weeks 1–2</span><b>Two rosters and the Rite</b><span class="state">Playable</span></li>
+      <li class="now"><span class="when">Weeks 3–4</span><b>The night on its own</b><span class="state">In progress</span></li>
+      <li><span class="when">Weeks 5–6</span><b>Pixel pass</b><span class="state">Next</span></li>
+      <li><span class="when">Weeks 7–10</span><b>One season</b><span class="state">Later</span></li>
+    </ol>
+  </section>
+
+  <section aria-labelledby="h-design">
+    <h2 id="h-design">Design rounds</h2>
+    <ul class="list">
+      <li><a class="item" href="docs/brainstorm/round-3/index.html"><span class="eyebrow">Round 3</span><b>Afterglass</b><span>The chosen concept in depth: day and night, the Crossing, the Rite, mirrors, rooms and their twins.</span></a></li>
+      <li><a class="item" href="docs/brainstorm/round-2/index.html"><span class="eyebrow">Round 2</span><b>Bone &amp; Glass</b><span>Ten concepts leaning on the two finalists, with mockups in eight styles.</span></a></li>
+      <li><a class="item" href="docs/brainstorm/index.html"><span class="eyebrow">Round 1</span><b>Five Keeps</b><span>The first five castle base-builder concepts, with pixel mockups.</span></a></li>
+    </ul>
+  </section>
+
+  <footer><p>Source on <a href="https://github.com/RCJLabs/Base-Manager">GitHub</a>.</p></footer>
+</main>
+</body>
+</html>
