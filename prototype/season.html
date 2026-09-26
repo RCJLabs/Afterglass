@@ -1,38 +1,28 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0e0b18">
 <title>Afterglass Season</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Alegreya+SC:wght@500;700&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Spline+Sans+Mono:wght@400;600&display=swap">
 <link rel="stylesheet" href="style.css">
 <link rel="stylesheet" href="night.css">
-<link rel="stylesheet" href="pixel.css">
 <link rel="stylesheet" href="season.css">
 </head>
-<body>
-<header class="hud" id="hud"></header>
-<main class="wrap" id="app">
-  <div class="season-top">
-    <section class="stage-card season-stage" aria-label="The keep">
-      <div class="toolbar" id="tools"></div>
-      <div class="px-stage" id="stage-box">
-        <canvas id="stage" aria-label="Side view of the keep: four floors of two rooms each. By day the living work in them; by night the keep's reflection below the Veil holds the shades, the candles and the Unlit."></canvas>
-        <div class="px-labels" id="labels" aria-hidden="true"></div>
-      </div>
-      <p class="hint" id="stage-hint"></p>
-    </section>
-    <div class="col">
-      <section class="phase" id="phase" aria-label="Current phase"></section>
-    </div>
-  </div>
-  <section class="season-rosters" id="roster" aria-label="The living and the dead"></section>
-  <section class="records" id="records" aria-label="Records"></section>
-  <noscript><p>This prototype needs JavaScript.</p></noscript>
-</main>
-<div class="toasts" id="toasts" role="status" aria-live="polite"></div>
+<body class="game-page">
+<div class="game" id="game">
+  <canvas id="stage" aria-label="The castle. By day the keep stands on its lake with the living at work in eight rooms. By night the Tain, the keep's reflection under the Veil, holds the shades, the candles and the Unlit."></canvas>
+  <div class="glabels" id="labels" aria-hidden="true"></div>
+  <header class="ghud" id="hud"></header>
+  <p class="ghint" id="stage-hint"></p>
+  <nav class="gbar" id="bar" aria-label="Tools and panels"></nav>
+  <aside class="gsheet" id="sheet" hidden aria-labelledby="sheet-title"></aside>
+  <div class="toasts" id="toasts" role="status" aria-live="polite"></div>
+  <noscript><p class="ghint">This prototype needs JavaScript.</p></noscript>
+</div>
 <script type="module" src="src/slice-ui.js"></script>
 </body>
 </html>

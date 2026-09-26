@@ -1,5 +1,6 @@
-// Weeks 7–10 slice UI: one season in one keep, day and night on the pixel stage.
-// Like the greyboxes it changes the game only through act(), so every session replays from its seed.
+// Weeks 7–10 slice UI: one season in one keep. The castle fills the screen; a HUD sits on top, an action
+// bar at the bottom, and everything else opens in a panel over the castle. Like the greyboxes it changes
+// the game only through act(), so every session replays from its seed and action log.
 
 import { TICKS_PER_SEC, DAY_ROOMS, WORK_ROOMS, TWINS, KINDS, MIRRORS, CAUSES, MAP, DEEP_FLOOR } from './slice/data.js';
 import {
@@ -7,13 +8,13 @@ import {
   dayTicks, nightTicks, isNewMoon, choicesFor, byId, isTwinnedLiving, isTwinnedShade, lastSeason, SAVE_VERSION, fmt, mirrorCap,
   postRoom,
 } from './slice/sim.js';
-import { VIEW_H, fromView, floorAtY, roomAt, lightMap, isLit, unitAt } from './slice/geo.js';
-import { drawDay, drawNight, labelSpots } from './slice/draw.js';
+import { FLOORS, feet, floorAtY, roomAt, lightMap, isLit, unitAt } from './slice/geo.js';
+import { drawScene } from './slice/draw.js';
 
 const SAVE_KEY = 'afterglass-season/save/v1';
 const PREF_KEY = 'afterglass-season/prefs/v1';
 const REDUCED = !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-const W = MAP.W;
+const { W, VEIL } = MAP;
 
 const store = {
   get(key) {
@@ -45,11 +46,16 @@ function loadGame() {
 const saveGame = () => store.set(SAVE_KEY, { ...s, alerts: [] });
 
 let s = loadGame() || newSeason();
-const ui = { paused: true, rev: 0, tool: 'candle', selected: null, person: null, hover: null, toasts: [], toastRev: 0, confirmNew: false, copied: '', showExport: false, rush: false, flash: 0, scale: 3 };
+const ui = {
+  paused: true, rev: 0, tool: 'candle', selected: null, person: null, hover: null, toasts: [], toastRev: 0, confirmNew: false,
+  copied: '', showExport: false, rush: false, flash: 0, scale: 3, sheet: null,
+};
 const bump = () => {
   ui.rev++;
 };
 const running = () => s.phase === 'day' || s.phase === 'night';
+// The castle shows the living keep by day and at the season's end; the Tain from dusk to dawn.
+const nightView = () => s.phase !== 'day' && s.phase !== 'end';
 
 /* ---------------------------------------------------------------- words */
 
@@ -102,68 +108,84 @@ function shadeStatus(d, L) {
   return { essence: 'singing in the Choir', glass: 'silvering glass', wick: 'saving wax', guidance: 'at the Threshold', watch: 'keeping watch', rest: 'resting by the Cold Hearth' }[job];
 }
 
-/* ---------------------------------------------------------------- the header */
+
+/* ---------------------------------------------------------------- the HUD */
 
 function hudHTML() {
   const T = s.tuning;
   const cap = capacity(s);
   const go = running() && !ui.paused;
-  return `<div class="hud-top">
-    <p class="brand">Afterglass<span>one season, weeks 7–10</span></p>
+  const res = (id, long, short, v) => `<div><dt><span class="long">${long}</span><span class="short">${short}</span></dt><dd><b data-live="${id}">${v}</b></dd></div>`;
+  return `<div class="ghud-row">
     <div class="clock ${PH[s.phase]}"><span class="pill">${phaseLabel()}</span><span class="time" data-live="clock">${clockText()}</span><span class="bar" aria-hidden="true"><i data-bar="clock"></i></span></div>
-    <div class="controls">
-      <button class="btn" id="btn-play" data-act="play"${running() ? '' : ' disabled'}>${go ? 'Pause' : 'Play'}</button>
-      <div class="seg" role="group" aria-label="Speed">${[1, 2, 4].map((v) => `<button class="btn" id="speed-${v}" data-act="speed" data-v="${v}" aria-pressed="${prefs.speed === v}">${v}×</button>`).join('')}</div>
+    <div class="gctl">
+      <button class="btn sm" id="btn-play" data-act="play"${running() ? '' : ' disabled'}>${go ? 'Pause' : 'Play'}</button>
+      <div class="seg" role="group" aria-label="Speed">${[1, 2, 4].map((v) => `<button class="btn sm" id="speed-${v}" data-act="speed" data-v="${v}" aria-pressed="${prefs.speed === v}">${v}×</button>`).join('')}</div>
     </div>
   </div>
-  <dl class="res">
-    <div><dt>Food</dt><dd><b data-live="food">${floor1(s.res.food)}</b> <small class="${s.hungry ? 'neg' : 'muted'}">eat ${fmt(eatRate(s))}/day</small></dd></div>
-    <div><dt>Candles</dt><dd><b data-live="candles">${floor1(s.res.candles)}</b></dd></div>
-    <div><dt>Glass</dt><dd><b data-live="glass">${floor1(s.res.glass)}</b></dd></div>
-    <div><dt>Essence</dt><dd><b data-live="essence">${floor1(s.res.essence)}</b></dd></div>
-    <div><dt>Remembrance</dt><dd><b data-live="rem">${floor1(s.res.remembrance)}</b></dd></div>
-    <div><dt>Dread</dt><dd>${pips(s.dread, T.dreadMax, s.dread >= 4)} <b>${s.dread}</b></dd></div>
-    <div><dt>Veil</dt><dd>${pips(s.cracks, T.cracksMax, true)} <b>${s.cracks}</b>/${T.cracksMax}</dd></div>
-    <div><dt>Living</dt><dd><b>${s.living.length}</b></dd></div>
-    <div><dt>Shades</dt><dd><b>${cap.used}</b>/${cap.cap}</dd></div>
+  <dl class="gres">
+    ${res('food', 'Food', 'Food', floor1(s.res.food))}
+    ${res('candles', 'Candles', 'Cand', floor1(s.res.candles))}
+    ${res('glass', 'Glass', 'Glass', floor1(s.res.glass))}
+    ${res('essence', 'Essence', 'Ess', floor1(s.res.essence))}
+    ${res('rem', 'Remembrance', 'Rem', floor1(s.res.remembrance))}
+    <div><dt>Dread</dt><dd>${pips(s.dread, T.dreadMax, s.dread >= 4)}</dd></div>
+    <div><dt>Veil</dt><dd>${pips(s.cracks, T.cracksMax, true)}</dd></div>
+    <div><dt><span class="long">Living</span><span class="short">Liv</span></dt><dd><b>${s.living.length}</b></dd></div>
+    <div><dt><span class="long">Shades</span><span class="short">Sh</span></dt><dd><b>${cap.used}</b>/${cap.cap}</dd></div>
   </dl>`;
 }
 
-/* ---------------------------------------------------------------- the toolbar and hint */
+/* ---------------------------------------------------------------- the action bar */
 
-function toolsHTML() {
-  const night = s.phase === 'night' || (s.phase === 'dusk' && s.dusk.step === 'place');
-  const tool = (id, label, key) => `<button class="btn sm" id="tool-${id}" data-act="tool" data-tool="${id}" aria-pressed="${ui.tool === id}"${night ? '' : ' disabled'}>${label}<kbd>${key}</kbd></button>`;
-  const cams = `<div class="seg" role="group" aria-label="Night camera">${[['reflection', 'Reflection'], ['flipped', 'Flipped']]
-    .map(([m, l]) => `<button class="btn sm" id="cam-${m}" data-act="cam" data-mode="${m}" aria-pressed="${prefs.mode === m}"${nightNow() ? '' : ' disabled'}>${l}</button>`)
-    .join('')}</div>`;
-  const labels = `<button class="btn sm" id="btn-labels" data-act="labels" aria-pressed="${prefs.labels}">Labels</button>`;
-  if (s.phase === 'day') {
-    return `<button class="btn sm" id="btn-rush" data-act="rush" aria-pressed="${ui.rush}">${ui.rush ? 'Hurrying to dusk' : 'Hurry to dusk'}</button>${labels}<span class="sep" aria-hidden="true"></span>${cams}`;
-  }
-  if (s.phase === 'end') return labels;
-  if (s.phase === 'over') return `${cams}${labels}`;
-  return `${tool('candle', `Candle (${floor1(s.res.candles)})`, 'C')}${tool('move', 'Move', 'M')}${tool('ward', `Ward, ${s.tuning.wardCost} essence`, 'W')}
-    <button class="btn sm" id="btn-hush" data-act="hush" aria-pressed="${!!s.night?.hush}"${s.phase === 'night' ? '' : ' disabled'}>Hush<kbd>H</kbd></button>
-    <span class="sep" aria-hidden="true"></span>${cams}${labels}`;
+// What needs the player now, for a dot on the panel button.
+function attention() {
+  const r = s.raid;
+  if (s.phase === 'day') return !!((r && r.warned && r.state === 'coming' && defense(s) < r.strength) || (s.inspection && !s.inspection.done && s.inspection.day === s.day) || s.hungry);
+  if (s.phase === 'dusk') return s.dusk.step === 'crypt';
+  return s.phase === 'dawn' || s.phase === 'end' || s.phase === 'over';
+}
+const SHEET_NAME = () =>
+  ({ day: 'Day', dusk: s.dusk?.step === 'crypt' ? 'Crossing' : 'Dusk', night: 'Night', dawn: 'Rite', end: 'Season', over: 'Lost' })[s.phase];
+
+function barHTML() {
+  const place = s.phase === 'night' || (s.phase === 'dusk' && s.dusk.step === 'place');
+  const tool = (id, label) => `<button class="btn sm" id="tool-${id}" data-act="tool" data-tool="${id}" aria-pressed="${ui.tool === id}">${label}</button>`;
+  const flip = `<button class="btn sm" id="btn-flip" data-act="flip" aria-pressed="${prefs.mode === 'flipped'}" title="Turn the Tain upright (V)">Flip</button>`;
+  let tools = '';
+  if (s.phase === 'day') tools = `<button class="btn sm" id="btn-rush" data-act="rush" aria-pressed="${ui.rush}">${ui.rush ? 'Hurrying…' : 'Hurry to dusk'}</button>`;
+  else if (s.phase === 'dusk' && s.dusk.step === 'crypt') tools = `<button class="btn sm primary" id="bar-wake" data-act="wake">Let them wake</button>`;
+  else if (place) {
+    tools = `${tool('candle', `Candle ${floor1(s.res.candles)}`)}${tool('move', 'Move')}${tool('ward', `Ward ${s.tuning.wardCost}`)}`;
+    tools += s.phase === 'night' ? `<button class="btn sm" id="btn-hush" data-act="hush" aria-pressed="${!!s.night?.hush}">Hush</button>` : '';
+    tools += flip;
+    if (s.phase === 'dusk') tools += `<button class="btn sm primary" id="bar-start" data-act="start">Begin the night</button>`;
+  } else if (s.phase === 'dawn') {
+    const P = ritePreview(s);
+    tools = `${flip}<button class="btn sm primary" id="bar-day" data-act="begin-day"${P.errors.length ? ' disabled' : ''}>Begin day ${s.day + 1}</button>`;
+  } else if (s.phase === 'over') tools = flip;
+  const menu = [['phase', SHEET_NAME(), attention()], ['people', 'People', false], ['records', 'Records', false]]
+    .map(([k, label, dot]) => `<button class="btn sm gm" id="open-${k}" data-act="sheet" data-sheet="${k}" aria-pressed="${ui.sheet === k}" aria-controls="sheet">${label}${dot ? '<span class="dot" aria-label="needs you"></span>' : ''}</button>`)
+    .join('');
+  return `<div class="gtools ${PH[s.phase]}">${tools}</div><div class="gmenu">${menu}</div>`;
 }
 
 function hintText() {
   const T = s.tuning;
+  if (ui.sheet && !wide()) return '';
   if (s.phase === 'day') {
     const p = byId(s.living, ui.person);
-    return p ? `${p.name}: tap a room to put ${p.name} to work there.` : 'Tap a name in the roster, then a room, to change jobs. Or use the job lists.';
+    return p ? `${p.name}: tap a room to put ${p.name} to work there.` : ui.rush ? '' : 'Jobs are in People. Or pick a name there, then tap a room.';
   }
-  if (s.phase === 'dusk' && s.dusk.step === 'crypt') return 'The dead wake first. Choose funerals, then let them wake.';
-  if (s.phase === 'dawn') return 'Dawn. Decide who stays in the glass, then begin the day.';
-  if (s.phase === 'end' || s.phase === 'over') return '';
+  if (s.phase === 'dusk' && s.dusk.step === 'crypt') return 'The dead wake first. Choose funerals in the Crossing panel, or let them wake.';
+  if (s.phase === 'dawn' || s.phase === 'end' || s.phase === 'over') return '';
   const d = byId(s.shades, ui.selected);
   if (ui.tool === 'candle') {
     return s.res.candles >= 1
-      ? `Tap a floor to set a candle (${floor1(s.res.candles)} left). It lights its own room only, and the Unlit can't enter the light.`
+      ? `Tap a floor to set a candle. It lights its own room; the Unlit can't enter the light.`
       : 'No candles left. The Chandlery makes them by day; the Wick Room saves them at night.';
   }
-  if (ui.tool === 'ward') return `Tap a stair or a rift to seal it until dawn for ${T.wardCost} essence. The Hollow breaks a ward in ${T.wardHold} seconds.`;
+  if (ui.tool === 'ward') return `Tap a stair or a rift to seal it until dawn (${T.wardCost} essence). The Hollow breaks a ward in ${T.wardHold} s.`;
   if (!d) return 'Tap a shade to pick it, then tap where it should stand.';
   return s.phase === 'dusk' ? `${d.name}: tap a spot to post ${d.name} there.` : `${d.name}: tap a spot to send ${d.name} there. The dark between is dangerous.`;
 }
@@ -180,6 +202,7 @@ function introHTML() {
       <li><b>At dawn</b> you decide which of the dead stay. Every shade kept adds to the keep's Dread; the living bear some of it.</li>
       <li><b>The Lantern Church</b> inspects on day 5, and again whenever Dread reaches 5. Low Dread is blessed; high Dread costs you a mirror and the shades in it.</li>
     </ul>
+    <p class="note">The castle is the screen. The bar at the bottom holds the tools for the moment and opens the panels: this phase, the people, and the records. Pause any time.</p>
     <div class="row"><button class="btn primary" id="btn-intro" data-act="intro-close">Begin</button></div>
   </div>`;
 }
@@ -456,7 +479,7 @@ function phaseHTML() {
   else if (s.phase === 'dawn') panel = dawnPanel();
   else if (s.phase === 'end') panel = endPanel();
   else panel = overPanel();
-  return (prefs.introDone ? '' : introHTML()) + panel;
+  return panel;
 }
 
 /* ---------------------------------------------------------------- the rosters */
@@ -578,7 +601,8 @@ function settingsTab() {
   return `<div class="fields">${TUNE.map(([k, label]) => `<label for="tune-${k}">${esc(label)}<input type="number" id="tune-${k}" data-act="tune" data-key="${k}" value="${s.tuning[k]}" min="0" step="any"></label>`).join('')}</div>
     <p class="hint">Changes apply from the next tick or the next dusk, and are recorded so exports still replay.</p>
     <label class="row" for="autopause"><input type="checkbox" id="autopause" data-act="autopause"${prefs.autoPause ? ' checked' : ''}>Pause for raids, catches and the Hollow</label>
-    <p class="hint">Seed ${s.seed}. Keys: space to play or pause, 1, 2 and 4 for speed; at night C candle, M move, W ward, H hush, V to switch cameras.</p>
+    <label class="row" for="labels-on"><input type="checkbox" id="labels-on" data-act="labels"${prefs.labels ? ' checked' : ''}>Show room names on the castle</label>
+    <p class="hint">Seed ${s.seed}. Keys: space to play or pause, 1, 2 and 4 for speed; at night C candle, M move, W ward, H hush, V flip; K, P and R open the panels; L room names; Esc closes a panel.</p>
     ${newKeepControls()}`;
 }
 const TABS = [['log', 'Log'], ['days', 'Days'], ['ledger', 'The dead'], ['playtest', 'Playtest'], ['settings', 'Settings']];
@@ -589,53 +613,138 @@ function recordsHTML() {
     <div class="tabpanel" role="tabpanel" id="tabpanel" aria-labelledby="tab-${tab}">${body}</div>`;
 }
 
-/* ---------------------------------------------------------------- the stage */
 
+/* ---------------------------------------------------------------- the stage and its camera */
+
+const gameEl = document.getElementById('game');
 const canvas = document.getElementById('stage');
 const labelsEl = document.getElementById('labels');
-const boxEl = document.getElementById('stage-box');
+const hudEl = document.getElementById('hud');
+const barEl = document.getElementById('bar');
+const sheetEl = document.getElementById('sheet');
+const WIDE = window.matchMedia('(min-width: 900px)');
+const wide = () => WIDE.matches;
+// World pixels on the canvas, and the camera's top-left corner in world pixels.
+const view = { cw: 0, ch: 0, x: 0, y: 0, tx: 0, ty: 0, snap: true };
 
 function layout() {
-  canvas.width = W;
-  canvas.height = VIEW_H;
-  const avail = Math.max(W, boxEl.clientWidth);
-  const tall = Math.max(VIEW_H, window.innerHeight - 170);
-  ui.scale = Math.max(1, Math.min(6, Math.floor(avail / W), Math.max(2, Math.floor(tall / VIEW_H))));
-  canvas.style.width = `${W * ui.scale}px`;
-  canvas.style.height = `${VIEW_H * ui.scale}px`;
-  drawnLabels = '';
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  const hudH = hudEl.offsetHeight;
+  const barH = barEl.offsetHeight;
+  gameEl.style.setProperty('--hud-h', `${hudH}px`);
+  gameEl.style.setProperty('--bar-h', `${barH}px`);
+  const freeH = Math.max(160, vh - hudH - barH);
+  ui.scale = Math.max(1, Math.min(6, Math.floor((vw - 8) / (W + 4)), Math.floor(freeH / (VEIL + 4))));
+  view.cw = Math.ceil(vw / ui.scale) + 1;
+  view.ch = Math.ceil(vh / ui.scale) + 1;
+  if (canvas.width !== view.cw || canvas.height !== view.ch) {
+    canvas.width = view.cw;
+    canvas.height = view.ch;
+  }
+  canvas.style.width = `${view.cw * ui.scale}px`;
+  canvas.style.height = `${view.ch * ui.scale}px`;
+  view.snap = true;
+}
+
+// The part of the screen the castle isn't hidden behind, in CSS pixels.
+function freeRect() {
+  const r = { left: 0, top: hudEl.offsetHeight, right: window.innerWidth, bottom: window.innerHeight - barEl.offsetHeight };
+  if (ui.sheet && !sheetEl.hidden) {
+    const b = sheetEl.getBoundingClientRect();
+    if (wide()) r.right = Math.max(r.left + 200, b.left);
+    else r.bottom = Math.max(r.top + 120, b.top);
+  }
+  const right = `${Math.round(window.innerWidth - r.right)}px`;
+  if (gameEl.style.getPropertyValue('--free-right') !== right) gameEl.style.setProperty('--free-right', right);
+  return r;
+}
+
+// Centres the keep by day, or the Tain by night, in the free part of the screen.
+function aimCamera() {
+  const fr = freeRect();
+  const fx = W / 2;
+  // A little above the Tain's middle at night, so more of the keep shows than of the empty Deep.
+  const fy = nightView() ? VEIL + VEIL / 2 - 6 : VEIL / 2 - 4;
+  const sx = (fr.left + fr.right) / 2 / ui.scale;
+  const sy = (fr.top + fr.bottom) / 2 / ui.scale;
+  view.tx = fx - sx;
+  view.ty = flipped() ? fy - view.ch + sy : fy - sy;
+}
+const flipped = () => nightView() && prefs.mode === 'flipped';
+
+function moveCamera(dt) {
+  aimCamera();
+  if (view.snap || REDUCED) {
+    view.x = view.tx;
+    view.y = view.ty;
+    view.snap = false;
+    return;
+  }
+  const k = 1 - Math.exp(-dt * 7);
+  view.x += (view.tx - view.x) * k;
+  view.y += (view.ty - view.y) * k;
+  if (Math.abs(view.tx - view.x) < 0.2) view.x = view.tx;
+  if (Math.abs(view.ty - view.y) < 0.2) view.y = view.ty;
+}
+const camX = () => Math.round(view.x);
+const camY = () => Math.round(view.y);
+
+// World to screen (CSS pixels, relative to the canvas) and back.
+function worldToScreen(wx, wy) {
+  const cy = wy - camY();
+  return { x: (wx - camX()) * ui.scale, y: (flipped() ? view.ch - cy : cy) * ui.scale };
+}
+const keepToWorldY = (ky) => (nightView() ? 2 * VEIL - ky : ky);
+
+// A tap on the screen as a spot in the keep (by day) or the Tain (by night): { f, x, y, room } or null.
+function stageAt(clientX, clientY) {
+  const box = canvas.getBoundingClientRect();
+  const x = (clientX - box.left) / ui.scale;
+  let y = (clientY - box.top) / ui.scale;
+  if (flipped()) y = view.ch - y;
+  const wx = camX() + x;
+  const wy = camY() + y;
+  let ky;
+  if (nightView()) {
+    if (wy < VEIL) return null;
+    ky = 2 * VEIL - wy;
+  } else {
+    if (wy >= VEIL) return null;
+    ky = wy;
+  }
+  const f = floorAtY(ky);
+  if (f < 0) return null;
+  return { f, x: Math.max(MAP.LEFT, Math.min(MAP.RIGHT - 1, wx)), y: ky, room: roomAt(f, wx) };
 }
 
 let drawnLabels = '';
 function placeLabels() {
-  const view = s.phase === 'day' || s.phase === 'end' ? 'day' : 'night';
-  const key = `${prefs.labels}|${view}|${prefs.mode}|${ui.scale}|${boxEl.clientWidth}`;
+  const night = nightView();
+  const key = `${prefs.labels}|${night}|${prefs.mode}|${ui.scale}|${camX()}|${camY()}|${view.ch}`;
   if (key === drawnLabels) return;
   drawnLabels = key;
   labelsEl.hidden = !prefs.labels;
   if (!prefs.labels) return;
-  const off = (boxEl.clientWidth - W * ui.scale) / 2;
-  labelsEl.innerHTML = labelSpots(view, prefs.mode)
-    .map((p) => `<span class="${p.below ? 'up' : ''}" style="left:${off + p.x * ui.scale}px;top:${p.y * ui.scale}px">${esc(view === 'day' ? DAY_ROOMS[p.id].name : TWINS[p.id].name)}</span>`)
-    .join('');
+  const box = canvas.getBoundingClientRect();
+  const out = [];
+  for (let f = 0; f < FLOORS.length; f++) {
+    for (const [id, a, b] of FLOORS[f].rooms) {
+      // Each tag sits on the ceiling side of its room, so it never covers anyone's feet.
+      const ceiling = night ? keepToWorldY(FLOORS[f].y) : FLOORS[f].y;
+      const p = worldToScreen((a + b) / 2, ceiling);
+      const up = night && !flipped();
+      out.push(`<span class="${up ? 'up' : ''}" style="left:${box.left + p.x}px;top:${box.top + p.y}px;max-width:${(b - a) * ui.scale - 6}px">${esc(night ? TWINS[id].name : DAY_ROOMS[id].name)}</span>`);
+    }
+  }
+  labelsEl.innerHTML = out.join('');
 }
 
-// Stage pixels to the keep: a floor and an x, or null outside the rooms.
-function stageAt(clientX, clientY) {
-  const box = canvas.getBoundingClientRect();
-  const vx = (clientX - box.left) / ui.scale;
-  const vy = (clientY - box.top) / ui.scale;
-  const p = s.phase === 'day' || s.phase === 'end' ? { x: vx, y: vy } : fromView(prefs.mode, vx, vy);
-  const f = floorAtY(p.y);
-  if (f < 0) return null;
-  return { f, x: Math.max(MAP.LEFT, Math.min(MAP.RIGHT - 1, p.x)), y: p.y, room: roomAt(f, p.x) };
-}
-function shadeNear(at, alpha = 1) {
+function shadeNear(at) {
   let best = null;
   for (const d of s.shades.filter(canWork)) {
     if (d.f !== at.f && !d.climb) continue;
-    const u = unitAt(d, alpha);
-    const dist = Math.abs(u.x - at.x);
+    const dist = Math.abs(unitAt(d, 1).x - at.x);
     if (dist <= 3.5 && (!best || dist < best.dist)) best = { d, dist };
   }
   return best?.d || null;
@@ -662,7 +771,10 @@ function onStage(e) {
   if (s.phase === 'day') {
     const p = byId(s.living, ui.person);
     if (p && at.room && DAY_ROOMS[at.room].out) {
-      if (game({ type: 'assign', id: p.id, room: at.room })) ui.person = null;
+      if (game({ type: 'assign', id: p.id, room: at.room })) {
+        toast(`${p.name} now works in the ${DAY_ROOMS[at.room].name}.`, 'day');
+        ui.person = null;
+      }
     } else if (at.room) toast(DAY_ROOMS[at.room].job(DAY_ROOMS[at.room]), 'day');
     return;
   }
@@ -684,14 +796,6 @@ function onStage(e) {
   return undefined;
 }
 
-// The rosters sit below the stage: bring the stage back into view when the next tap belongs there.
-function showStage() {
-  const r = boxEl.getBoundingClientRect();
-  const hud = document.getElementById('hud').getBoundingClientRect().bottom;
-  if (r.top >= hud - 4 && r.bottom <= window.innerHeight + 4) return;
-  window.scrollBy({ top: r.top - hud - 8, behavior: REDUCED ? 'auto' : 'smooth' });
-}
-
 function ghost() {
   const h = ui.hover;
   if (!h || !h.room || !(s.phase === 'night' || (s.phase === 'dusk' && s.dusk?.step === 'place'))) return null;
@@ -703,25 +807,65 @@ function ghost() {
   return null;
 }
 
+// Between day and night the old picture fades out over the new one while the camera travels.
+const fade = { cv: document.createElement('canvas'), until: 0, night: nightView() };
 function draw(alpha, now) {
+  const night = nightView();
+  if (night !== fade.night) {
+    fade.night = night;
+    if (!REDUCED) {
+      fade.cv.width = canvas.width;
+      fade.cv.height = canvas.height;
+      fade.cv.getContext('2d').drawImage(canvas, 0, 0);
+      fade.until = now + 900;
+    }
+  }
   const t = REDUCED ? 0 : now / 1000;
-  if (s.phase === 'day') drawDay(canvas, s, t, Math.max(0, (s.t / dayTicks(s) - 0.82) / 0.18));
-  else if (s.phase === 'end') drawDay(canvas, s, t, 0.35);
-  else {
-    drawNight(canvas, s, prefs.mode, t, {
-      alpha: s.phase === 'night' && !ui.paused ? alpha : 1,
-      selected: ui.selected,
-      ghost: ghost(),
-      ambient: s.phase === 'dawn' || s.phase === 'over' ? 0.45 : 0.22,
-      veilFlash: ui.flash > now ? (ui.flash - now) / 600 : 0,
-    });
+  drawScene(canvas, s, {
+    night,
+    flip: flipped(),
+    cam: { x: camX(), y: camY() },
+    t,
+    sunset: s.phase === 'day' ? Math.max(0, (s.t / dayTicks(s) - 0.82) / 0.18) : s.phase === 'end' ? 0.35 : 0,
+    alpha: s.phase === 'night' && !ui.paused ? alpha : 1,
+    selected: ui.selected,
+    ghost: ghost(),
+    ambient: s.phase === 'dawn' || s.phase === 'over' ? 0.45 : 0.22,
+    veilFlash: ui.flash > now ? (ui.flash - now) / 600 : 0,
+  });
+  if (fade.until > now) {
+    const c = canvas.getContext('2d');
+    c.globalAlpha = (fade.until - now) / 900;
+    c.drawImage(fade.cv, 0, 0);
+    c.globalAlpha = 1;
   }
   placeLabels();
 }
 
-/* ---------------------------------------------------------------- rendering the page */
+// For scripted tests: where a spot in the keep or the Tain is on screen, in client pixels.
+window.__season = {
+  spot(f, x) {
+    const box = canvas.getBoundingClientRect();
+    const p = worldToScreen(x + 0.5, keepToWorldY(feet(f) - 5) + (nightView() ? -0.5 : 0.5));
+    return { x: box.left + p.x, y: box.top + p.y };
+  },
+};
 
-const SECTIONS = { hud: hudHTML, tools: toolsHTML, phase: phaseHTML, roster: rosterHTML, records: recordsHTML };
+/* ---------------------------------------------------------------- the page */
+
+const SHEETS = {
+  intro: ['About', introHTML],
+  phase: [null, () => `<section class="phase ${PH[s.phase]}">${phaseHTML()}</section>`],
+  people: ['People', rosterHTML],
+  records: ['Records', () => `<section class="records">${recordsHTML()}</section>`],
+};
+function sheetHTML() {
+  if (!ui.sheet) return '';
+  const [title, body] = SHEETS[ui.sheet];
+  return `<div class="gsheet-head"><span class="eyebrow" id="sheet-title">${esc(title || SHEET_NAME())}</span><button class="btn sm" id="sheet-close" data-act="sheet-close">Close</button></div>
+    <div class="gsheet-body" id="sheet-body">${body()}</div>`;
+}
+const SECTIONS = { hud: hudHTML, bar: barHTML, sheet: sheetHTML };
 const drawn = {};
 let liveEls = [];
 let barEls = [];
@@ -760,9 +904,12 @@ function render(alpha, now) {
     const a = document.activeElement;
     if (a && host.contains(a) && a.matches('select, textarea, input:not([type="checkbox"])')) continue;
     const focusId = a && host.contains(a) ? a.id : null;
-    const scrolls = [...host.querySelectorAll('#log, #days-wrap')].map((el) => [el.id, el.scrollTop, el.scrollLeft]);
+    const scrolls = [...host.querySelectorAll('#sheet-body, #log, #days-wrap')].map((el) => [el.id, el.scrollTop, el.scrollLeft]);
     host.innerHTML = html();
-    if (id === 'phase' || id === 'hud') host.className = `${id} ${PH[s.phase]}`;
+    if (id === 'sheet') {
+      host.hidden = !ui.sheet;
+      host.className = `gsheet${ui.sheet ? ` is-${ui.sheet}` : ''}`;
+    }
     for (const [sid, st, sl] of scrolls) {
       const el = document.getElementById(sid);
       if (el) {
@@ -777,7 +924,14 @@ function render(alpha, now) {
   if (changed) {
     liveEls = [...document.querySelectorAll('[data-live]')];
     barEls = [...document.querySelectorAll('[data-bar]')];
-    document.getElementById('stage-hint').textContent = hintText();
+    const hint = hintText();
+    const el = document.getElementById('stage-hint');
+    if (el.textContent !== hint) el.textContent = hint;
+    const hh = `${hudEl.offsetHeight}|${barEl.offsetHeight}`;
+    if (hh !== layout.last) {
+      layout.last = hh;
+      layout();
+    }
   }
   for (const el of liveEls) {
     const v = LIVE[el.dataset.live]?.(el.dataset.arg);
@@ -792,26 +946,43 @@ function render(alpha, now) {
   if (drawnToasts !== ui.toastRev) {
     drawnToasts = ui.toastRev;
     document.getElementById('toasts').innerHTML = ui.toasts
-      .map((t) => `<div class="toast ${t.tone}"><span>${esc(t.text)}</span><button type="button" data-act="toast-close" data-id="${t.id}">Close</button></div>`)
+      .map((t) => `<div class="toast ${t.tone}"><span>${esc(t.text)}</span><span class="row">${t.open ? `<button type="button" data-act="toast-open" data-id="${t.id}">Open</button>` : ''}<button type="button" data-act="toast-close" data-id="${t.id}">Close</button></span></div>`)
       .join('');
   }
   draw(alpha, now);
 }
 
+function openSheet(name) {
+  ui.sheet = name;
+  bump();
+  requestAnimationFrame(() => document.getElementById('sheet-close')?.focus({ preventScroll: true }));
+}
+function closeSheet() {
+  const was = ui.sheet;
+  ui.sheet = null;
+  if (was === 'intro') {
+    prefs.introDone = true;
+    savePrefs();
+  }
+  bump();
+  if (was) requestAnimationFrame(() => document.getElementById(`open-${was}`)?.focus({ preventScroll: true }));
+}
+
 /* ---------------------------------------------------------------- the clock */
 
 let toastSeq = 0;
-function toast(text, tone = '') {
-  ui.toasts.push({ id: ++toastSeq, text, tone, until: performance.now() + 5500 });
+function toast(text, tone = '', open = null) {
+  ui.toasts.push({ id: ++toastSeq, text, tone, open, until: performance.now() + 5500 });
   const room = window.innerWidth < 600 ? 2 : 3;
   if (ui.toasts.length > room) ui.toasts.splice(0, ui.toasts.length - room);
   ui.toastRev++;
 }
 const STOPS = /has caught|The Hollow rises|Raiders on the road|inspector|has turned Wraith/;
+const OPENS = /Raiders on the road|inspector|fallen sick|larder is empty|arrives at the gate/;
 function takeAlerts(fromClock) {
   let stop = false;
   for (const a of s.alerts.splice(0)) {
-    toast(a.text, a.tone);
+    toast(a.text, a.tone, OPENS.test(a.text) ? 'phase' : null);
     if (/slipped through the Veil|tore through the Veil/.test(a.text)) ui.flash = performance.now() + 600;
     if (fromClock && prefs.autoPause && STOPS.test(a.text)) stop = true;
   }
@@ -821,6 +992,18 @@ function takeAlerts(fromClock) {
     bump();
   }
   return stop;
+}
+
+// Which panel a new phase opens: the ones with decisions in them.
+function onPhase() {
+  if (!running()) ui.paused = true;
+  if (s.phase === 'dusk') {
+    ui.tool = 'candle';
+    if (s.dusk.step === 'crypt') openSheet('phase');
+    else if (ui.sheet === 'phase') closeSheet();
+  } else if (s.phase === 'dawn' || s.phase === 'end' || s.phase === 'over') openSheet('phase');
+  else if (ui.sheet === 'phase') closeSheet();
+  if (s.phase !== 'night' && s.phase !== 'dusk') ui.selected = null;
 }
 
 let lastNow = 0;
@@ -847,15 +1030,14 @@ function frame(now) {
     seenPhase = s.phase;
     acc = 0;
     ui.rush = false;
-    if (!running()) ui.paused = true;
-    if (s.phase === 'dusk') ui.tool = 'candle';
-    if (s.phase !== 'night' && s.phase !== 'dusk') ui.selected = null;
+    onPhase();
     saveGame();
     bump();
   }
   const before = ui.toasts.length;
   ui.toasts = ui.toasts.filter((t) => t.until > now);
   if (ui.toasts.length !== before) ui.toastRev++;
+  moveCamera(dt);
   render(ui.paused || !running() ? 1 : Math.min(1, acc), now);
   requestAnimationFrame(frame);
 }
@@ -896,6 +1078,10 @@ function copyExport() {
     done(blocked, true);
   }
 }
+// On a phone the panels cover the castle: close them when the next tap belongs on the castle.
+const toStage = () => {
+  if (!wide()) closeSheet();
+};
 
 function onAct(name, el) {
   const id = el.dataset.id;
@@ -909,18 +1095,23 @@ function onAct(name, el) {
     case 'tool':
       ui.tool = el.dataset.tool;
       return bump();
-    case 'cam':
-      prefs.mode = el.dataset.mode;
+    case 'flip':
+      prefs.mode = prefs.mode === 'flipped' ? 'reflection' : 'flipped';
       savePrefs();
+      view.snap = true;
       return bump();
     case 'labels':
       prefs.labels = !prefs.labels;
       savePrefs();
+      drawnLabels = '';
       return bump();
+    case 'sheet':
+      return ui.sheet === el.dataset.sheet ? closeSheet() : openSheet(el.dataset.sheet);
+    case 'sheet-close': return closeSheet();
     case 'hush': return game({ type: 'hush', on: !s.night?.hush });
     case 'person':
       ui.person = ui.person === id ? null : id;
-      if (ui.person) showStage();
+      if (ui.person) toStage();
       return bump();
     case 'assign': return game({ type: 'assign', id, room: el.value || null });
     case 'wardgate': return game({ type: 'wardGate' });
@@ -930,20 +1121,20 @@ function onAct(name, el) {
     case 'wake':
       if (game({ type: 'wake' })) {
         ui.tool = 'candle';
-        showStage();
+        closeSheet();
       }
       return undefined;
     case 'start':
       if (game({ type: 'startNight' })) {
         ui.paused = false;
         ui.selected = null;
-        showStage();
+        if (ui.sheet === 'phase' || !wide()) closeSheet();
       }
       return undefined;
     case 'select':
       ui.selected = ui.selected === id ? null : id;
       ui.tool = 'move';
-      if (ui.selected) showStage();
+      if (ui.selected) toStage();
       return bump();
     case 'rite': return game({ type: 'rite', id, choice: el.dataset.choice });
     case 'name':
@@ -973,10 +1164,7 @@ function onAct(name, el) {
       prefs.autoPause = el.checked;
       savePrefs();
       return bump();
-    case 'intro-close':
-      prefs.introDone = true;
-      savePrefs();
-      return bump();
+    case 'intro-close': return closeSheet();
     case 'new':
       ui.confirmNew = true;
       return bump();
@@ -988,12 +1176,20 @@ function onAct(name, el) {
       seenPhase = s.phase;
       Object.assign(ui, { paused: true, confirmNew: false, selected: null, person: null, tool: 'candle', showExport: false, copied: '', rush: false });
       saveGame();
+      closeSheet();
       toast('A new season. Day 1.', 'day');
       return bump();
     case 'copy': return copyExport();
     case 'show-export':
       ui.showExport = !ui.showExport;
       return bump();
+    case 'toast-open': {
+      const t = ui.toasts.find((x) => x.id === Number(id));
+      ui.toasts = ui.toasts.filter((x) => x.id !== Number(id));
+      ui.toastRev++;
+      if (t?.open) openSheet(t.open);
+      return undefined;
+    }
     case 'toast-close':
       ui.toasts = ui.toasts.filter((t) => t.id !== Number(id));
       ui.toastRev++;
@@ -1024,6 +1220,10 @@ document.addEventListener('input', (e) => {
   }, 400);
 });
 document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && ui.sheet) {
+    closeSheet();
+    return;
+  }
   if (e.altKey || e.ctrlKey || e.metaKey || e.target.closest('input, select, textarea, button, a')) return;
   const k = e.key.toLowerCase();
   if (k === ' ') {
@@ -1034,10 +1234,12 @@ document.addEventListener('keydown', (e) => {
     ui.tool = { c: 'candle', m: 'move', w: 'ward' }[k];
     bump();
   } else if (k === 'h' && s.phase === 'night') game({ type: 'hush', on: !s.night.hush });
-  else if (k === 'v') {
-    prefs.mode = prefs.mode === 'reflection' ? 'flipped' : 'reflection';
-    savePrefs();
-    bump();
+  else if (k === 'v') onAct('flip', { dataset: {} });
+  else if (k === 'l') onAct('labels', { dataset: {} });
+  else if (k === 'k' || k === 'p' || k === 'r') {
+    const name = { k: 'phase', p: 'people', r: 'records' }[k];
+    if (ui.sheet === name) closeSheet();
+    else openSheet(name);
   }
 });
 canvas.addEventListener('pointerdown', onStage);
@@ -1048,9 +1250,22 @@ canvas.addEventListener('pointermove', (e) => {
 canvas.addEventListener('pointerleave', () => {
   ui.hover = null;
 });
-if ('ResizeObserver' in window) new ResizeObserver(layout).observe(boxEl);
 window.addEventListener('resize', layout);
+if ('ResizeObserver' in window) {
+  const ro = new ResizeObserver(() => {
+    const hh = `${hudEl.offsetHeight}|${barEl.offsetHeight}`;
+    if (hh !== layout.last) {
+      layout.last = hh;
+      layout();
+    }
+  });
+  ro.observe(hudEl);
+  ro.observe(barEl);
+}
 
+render(1, performance.now());
 layout();
+if (!prefs.introDone) openSheet('intro');
+else if (s.phase === 'dawn' || s.phase === 'end' || s.phase === 'over' || (s.phase === 'dusk' && s.dusk.step === 'crypt')) openSheet('phase');
 if (s.day > 1 || s.season > 1 || s.phase !== 'day') toast(`Welcome back. Season ${s.season}: ${phaseLabel()}.`, 'rite');
 requestAnimationFrame(frame);

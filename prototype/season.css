@@ -1,16 +1,168 @@
-/* The season slice: the pixel stage beside the phase panel, rosters and records below. */
+/* The season as a game screen: the castle fills the window, and the HUD, the action bar and the panels
+   float over it. The page is always in the dark theme; by day the sky is bright behind a dark HUD. */
 
-.season-top { display: grid; gap: 20px; grid-template-columns: minmax(0, 1fr); }
-.season-rosters, #app > .records { margin-top: 20px; }
-@media (min-width: 1020px) {
-  .season-top { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); align-items: start; }
-  /* The stage stays in view beside a long phase panel, but only within the top band. */
-  .season-stage { position: sticky; top: 96px; }
-  .season-rosters .rosters { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; }
+html, body { height: 100%; }
+body.game-page {
+  margin: 0;
+  overflow: hidden;
+  background: #0e0b18;
+  overscroll-behavior: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
 }
-.season-stage { justify-items: stretch; }
-.season-stage .px-stage { min-height: 120px; }
-.season-stage #stage { cursor: crosshair; }
+.game { position: fixed; inset: 0; overflow: hidden; overflow: clip; --hud-h: 64px; --bar-h: 56px; }
+#stage {
+  position: absolute;
+  left: 0;
+  top: 0;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  touch-action: none;
+  cursor: crosshair;
+  border-radius: 0;
+  background: #0e0b18;
+}
+
+/* Room names, placed from the camera each frame. */
+.glabels { position: fixed; inset: 0; pointer-events: none; z-index: 1; }
+.glabels span {
+  position: absolute;
+  transform: translate(-50%, 3px);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  padding: 3px 5px;
+  border-radius: 2px;
+  background: rgb(14 11 24 / 0.72);
+  color: #e9e2ff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.glabels span.up { transform: translate(-50%, calc(-100% - 3px)); }
+
+/* Glass panels over the castle. */
+.ghud, .gbar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  z-index: 5;
+  background: rgb(10 8 18 / 0.8);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+  color: var(--ink);
+}
+.ghud {
+  top: 0;
+  padding: calc(env(safe-area-inset-top, 0px) + 6px) max(12px, env(safe-area-inset-right, 0px)) 6px max(12px, env(safe-area-inset-left, 0px));
+  border-bottom: 1px solid rgb(255 255 255 / 0.08);
+  display: grid;
+  gap: 4px;
+}
+.ghud-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
+.ghud .clock { gap: 8px; }
+.ghud .time { font-size: 16px; min-width: 3em; }
+.gctl { display: flex; gap: 6px; margin-left: auto; }
+.gres { display: flex; flex-wrap: wrap; gap: 2px 14px; margin: 0; font-size: 13px; }
+.gres > div { display: flex; align-items: center; gap: 5px; }
+.gres dt { font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); }
+.gres dd { margin: 0; font-family: var(--font-num); font-variant-numeric: tabular-nums; }
+.gres .short { display: none; }
+.gres .pips i { width: 8px; height: 8px; }
+
+.gbar {
+  bottom: 0;
+  padding: 8px max(10px, env(safe-area-inset-right, 0px)) calc(env(safe-area-inset-bottom, 0px) + 8px) max(10px, env(safe-area-inset-left, 0px));
+  border-top: 1px solid rgb(255 255 255 / 0.08);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.gtools, .gmenu { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.gbar .btn.sm { min-height: 38px; padding-inline: 11px; }
+.gmenu .btn { position: relative; }
+.gmenu .dot {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--dusk);
+  box-shadow: 0 0 0 2px rgb(10 8 18 / 0.8);
+}
+
+/* A hint above the bar about what the next tap does. */
+.ghint {
+  position: absolute;
+  left: calc((100% - var(--free-right, 0px)) / 2);
+  bottom: calc(var(--bar-h) + 10px);
+  transform: translateX(-50%);
+  z-index: 4;
+  width: max-content;
+  max-width: min(560px, calc(100% - 24px));
+  margin: 0;
+  padding: 6px 10px;
+  border-radius: 4px;
+  background: rgb(10 8 18 / 0.78);
+  color: #d8d2ee;
+  font-size: 13px;
+  text-align: center;
+  pointer-events: none;
+}
+.ghint:empty { display: none; }
+
+/* The panel: a sheet from the bottom on phones, a drawer on the right on wide screens. */
+.gsheet {
+  position: absolute;
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  background: var(--panel);
+  color: var(--ink);
+  box-shadow: 0 -10px 40px rgb(0 0 0 / 0.5);
+  -webkit-user-select: text;
+  user-select: text;
+}
+.gsheet-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--line);
+}
+.gsheet-body { overflow: auto; overscroll-behavior: contain; padding: 12px; display: grid; gap: 14px; align-content: start; }
+.gsheet .phase { border-radius: 4px; }
+.gsheet .rosters { gap: 12px; }
+@media (max-width: 899px) {
+  .gsheet {
+    left: 0;
+    right: 0;
+    bottom: var(--bar-h);
+    max-height: min(66vh, calc(100% - var(--hud-h) - var(--bar-h) - 48px));
+    border-radius: 12px 12px 0 0;
+    border-top: 1px solid var(--line-2);
+  }
+}
+@media (min-width: 900px) {
+  .gsheet {
+    top: var(--hud-h);
+    bottom: var(--bar-h);
+    right: 0;
+    width: min(460px, 42vw);
+    border-left: 1px solid var(--line-2);
+  }
+}
+
+/* Toasts sit under the HUD, clear of the bar and the panel. */
+.game .toasts { top: calc(var(--hud-h) + 10px); bottom: auto; right: calc(var(--free-right, 0px) + 12px); z-index: 8; }
+.toast .row { display: flex; gap: 6px; flex-wrap: nowrap; }
+
+/* Bits of the old layout the panels still use. */
 .linkish {
   font: inherit;
   background: none;
@@ -23,19 +175,31 @@
   text-decoration-color: var(--line-2);
   text-underline-offset: 3px;
 }
-.linkish[aria-pressed="true"] { color: var(--ph-ink, var(--day-ink)); text-decoration-color: currentColor; }
+.linkish[aria-pressed="true"] { color: var(--day-ink); text-decoration-color: currentColor; }
 .prow.is-selected { background: var(--day-tint); }
 .prow { grid-template-columns: minmax(6rem, 1fr) minmax(8rem, 1.2fr) minmax(0, 1.6fr); }
-@media (max-width: 700px) {
-  .prow { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
-}
 .question { border-color: var(--rite); background: var(--rite-tint); }
 .question textarea { background: var(--box); }
 details.card > summary { cursor: pointer; }
 details.card .facts li { display: block; }
 table.days { min-width: 680px; }
-@media (max-width: 440px) {
-  .season-stage { padding: 10px 0; border-inline: 0; border-radius: 0; margin-inline: -16px; }
-  .season-stage .toolbar, .season-stage .hint { padding-inline: 12px; }
+
+@media (max-width: 560px) {
+  .ghud { padding-block: calc(env(safe-area-inset-top, 0px) + 5px) 5px; gap: 3px; }
+  .ghud-row { flex-wrap: nowrap; gap: 6px; }
+  .ghud .clock { gap: 6px; min-width: 0; }
+  .ghud .pill { font-size: 11px; padding: 2px 6px; }
+  .ghud .time { font-size: 14px; min-width: 0; }
+  .ghud .bar { display: none; }
+  .gctl { gap: 4px; }
+  .gctl .btn.sm { min-height: 32px; padding: 3px 8px; }
+  .gres { gap: 0 10px; font-size: 12px; }
+  .gres .long { display: none; }
+  .gres .short { display: inline; }
+  .gbar { gap: 6px; }
+  .gtools, .gmenu { width: 100%; }
+  .gmenu .btn { flex: 1; }
+  .prow { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .game .toasts { right: 8px; width: calc(100vw - 16px); gap: 6px; }
+  .toast { font-size: 13px; padding: 6px 8px 6px 10px; }
 }
-.px-labels span.up { transform: translate(-50%, calc(-100% - 2px)); }

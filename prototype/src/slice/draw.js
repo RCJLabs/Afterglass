@@ -1,11 +1,12 @@
-// Draws the season slice: the keep's eight rooms by day with the living at work, and by night the Tain
-// made from the same art by the palette lookup, lit by the simulation's own candlelight, with the
-// shades, the Unlit and the Hollow in it. Browser only (canvas). Geometry and cameras come from geo.js.
+// Draws the season slice as one world that fills the screen: the keep on its lake under a wide sky by day,
+// and by night the dark keep above the Veil with the Tain below it, the keep's reflection made from the
+// same art by the palette lookup, lit by the simulation's own candlelight, with the shades, the Unlit and
+// the Hollow in it. Browser only (canvas). Geometry comes from geo.js; the camera from the page.
 
-import { P, MF, rngOf, R, D, A, clip, sky, speck, bricks, crenel, roof, ellipse, ring, room as paintRoom, flame, glow, human } from '../px/kit.js';
+import { P, MF, rngOf, R, D, A, clip, bricks, crenel, roof, ellipse, ring, room as paintRoom, flame, glow, human } from '../px/kit.js';
 import { UMBRA, applyTain, applyLight } from '../px/lut.js';
 import { MAP, DEEP_FLOOR, VEIL_FLOOR } from './data.js';
-import { FLOORS, feet, roomSpan, lightMap, VIEW_H, toView, unitAt } from './geo.js';
+import { FLOORS, feet, roomSpan, lightMap, unitAt } from './geo.js';
 
 const { W, VEIL, ROOM_H } = MAP;
 
@@ -173,30 +174,10 @@ function keepLayer(rnd) {
   return cv;
 }
 
-function skyLayer(kind, rnd) {
-  const cv = mk(W, VEIL);
-  const c = ctxOf(cv);
-  const cols = {
-    day: ['#3b7dd8', '#5a9be6', '#86bff0', '#bfe1f6'],
-    sunset: [P.indigo, P.grape, P.mauve, P.pink, P.amber],
-    night: [P.void, P.night, P.ink, P.indigo],
-  }[kind];
-  sky(c, 0, 0, W, 30, cols);
-  if (kind === 'day') for (const [x, y, r] of [[18, 6, 4], [24, 5, 3], [88, 8, 4], [95, 7, 3]]) ellipse(c, x, y, r, MF(r / 2) + 1, P.white);
-  if (kind === 'night') {
-    speck(c, rnd, 0, 0, W, 20, P.white, 0.01);
-    ellipse(c, 20, 6, 3, 3, P.bone);
-    ellipse(c, 21, 5, 2, 2, P.void);
-  }
-  return cv;
-}
-
 // The Tain upright: the keep through the palette lookup, over the Deep, with each twin's own details.
 function tainLayer(keep, rnd) {
   const cv = mk(W, VEIL);
   const c = ctxOf(cv);
-  sky(c, 0, 0, W, VEIL, ['#07050c', '#0e0b18', '#150f28', '#1b1430']);
-  speck(c, rnd, 0, 0, W, 22, '#2a1d45', 0.04);
   const k = mk(W, VEIL);
   const kc = ctxOf(k);
   kc.drawImage(keep, 0, 0);
@@ -242,9 +223,11 @@ function tainLayer(keep, rnd) {
 function nightKeepLayer(L) {
   const cv = mk(W, VEIL);
   const c = ctxOf(cv);
-  c.drawImage(L.sky.night, 0, 0);
   c.drawImage(L.keep, 0, 0);
-  A(c, 0.62, () => R(c, 0, 20, W, VEIL - 20, '#0b0d26'));
+  c.globalCompositeOperation = 'source-atop';
+  A(c, 0.62, () => R(c, 0, 0, W, VEIL, '#0b0d26'));
+  c.globalCompositeOperation = 'source-over';
+  for (const [x, y] of [[50, 11], [60, 11]]) R(c, x, y, 2, 3, P.yellow);
   const h = span('hearth');
   clip(c, h.x0, top('hearth'), h.x1 - h.x0, ROOM_H, () => glow(c, h.x0 + 38, feet(VEIL_FLOOR) - 4, 16, P.amber, 0.5));
   return cv;
@@ -255,9 +238,79 @@ function layers() {
   if (cache) return cache;
   const rnd = rngOf(20260926);
   const keep = keepLayer(rnd);
-  cache = { keep, sky: { day: skyLayer('day', rnd), sunset: skyLayer('sunset', rnd), night: skyLayer('night', rnd) }, tain: tainLayer(keep, rnd) };
+  cache = { keep, tain: tainLayer(keep, rnd) };
   cache.nightKeep = nightKeepLayer(cache);
   return cache;
+}
+
+/* ---------------------------------------------------------------- the world around the keep */
+
+// Skies as colour stops by world row (the keep's top is row 0, the lake is row VEIL), dithered at the seams.
+const DAY_SKY = [[-9999, '#2f63c4'], [-150, '#3b7dd8'], [-60, '#5a9be6'], [10, '#86bff0'], [64, '#bfe1f6']];
+const SUNSET_SKY = [[-9999, P.indigo], [-120, P.grape], [-30, P.mauve], [30, P.pink], [70, P.amber]];
+const NIGHT_SKY = [[-9999, '#07060d'], [-120, P.void], [-30, P.night], [40, P.ink], [84, P.indigo]];
+// The Tain's own sky, by upright row: the deeper, the darker.
+const TAIN_SKY = [[-9999, '#040308'], [-60, '#07050c'], [0, '#0e0b18'], [36, '#150f28'], [72, '#1b1430']];
+
+function bands(c, x0, w, y0, y1, stops) {
+  for (let i = 0; i < stops.length; i++) {
+    const a = Math.max(y0, stops[i][0]);
+    const b = Math.min(y1, i + 1 < stops.length ? stops[i + 1][0] : y1);
+    if (b > a) R(c, x0, a, w, b - a, stops[i][1]);
+  }
+  for (let i = 1; i < stops.length; i++) {
+    const y = stops[i][0];
+    if (y <= y0 || y >= y1) continue;
+    for (let x = MF(x0); x < x0 + w; x++) {
+      if ((x & 1) === 0) D(c, x, y - 1, stops[i][1]);
+      else D(c, x, y, stops[i - 1][1]);
+    }
+  }
+}
+
+// Two ridges of hills behind the keep, meeting the lake. Heights are a function of world x only.
+const RIDGES = { far: { base: VEIL - 10, amp: 36, seed: 1.7 }, near: { base: VEIL, amp: 18, seed: 4.2 } };
+export function ridgeTop(x, r) {
+  const v = 0.5 + 0.3 * Math.sin(x * 0.045 + r.seed) + 0.14 * Math.sin(x * 0.11 + r.seed * 2) + 0.07 * Math.sin(x * 0.31 + r.seed * 3);
+  return Math.round(r.base - r.amp * v);
+}
+function ridge(c, x0, w, r, col, y1 = VEIL) {
+  c.fillStyle = col;
+  for (let x = MF(x0); x < x0 + w; x++) {
+    const top = ridgeTop(x, r);
+    if (top < y1) c.fillRect(x, top, 1, y1 - top);
+  }
+}
+
+// Stars and clouds repeat on tiles, so any width of sky has them.
+const STAR_TILE = 211;
+const STARS = (() => {
+  const rnd = rngOf(1861);
+  return Array.from({ length: 34 }, () => [MF(rnd() * STAR_TILE), MF(-240 + rnd() * 300), rnd()]);
+})();
+function stars(c, x0, w, y0, y1, t, col = P.white) {
+  const k0 = Math.floor(x0 / STAR_TILE);
+  for (let k = k0; k * STAR_TILE < x0 + w; k++) {
+    for (const [sx, sy, ph] of STARS) {
+      const x = k * STAR_TILE + sx;
+      if (x < x0 || x >= x0 + w || sy < y0 || sy >= y1) continue;
+      if (ph > 0.8 && MF(t * 1.5 + ph * 10) % 5 === 0) continue;
+      D(c, x, sy, col);
+    }
+  }
+}
+const CLOUD_TILE = 173;
+const CLOUDS = [[12, -26, 5], [19, -28, 4], [96, -8, 4], [103, -10, 5], [58, -70, 6], [140, -44, 4]];
+function clouds(c, x0, w, t) {
+  const drift = (t * 0.6) % CLOUD_TILE;
+  const k0 = Math.floor((x0 - drift) / CLOUD_TILE) - 1;
+  for (let k = k0; k * CLOUD_TILE + drift < x0 + w + 20; k++) {
+    for (const [cx, cy, r] of CLOUDS) {
+      const x = k * CLOUD_TILE + cx + drift;
+      if (x + r < x0 || x - r > x0 + w) continue;
+      ellipse(c, x, cy, r, MF(r / 2) + 1, P.white);
+    }
+  }
 }
 
 /* ---------------------------------------------------------------- the day */
@@ -282,15 +335,9 @@ function person(c, p, i, x, y, t, dim = 0) {
   if (p.grief) D(c, Math.round(x) + 3, y - o.h - 1, P.blue);
 }
 
-// The keep by day, the living at work. `sunset` (0 to 1) warms the sky toward dusk.
-function composeDay(c, s, t, sunset) {
-  const L = layers();
-  c.setTransform(1, 0, 0, 1, 0, 0);
-  c.clearRect(0, 0, W, VIEW_H);
-  c.drawImage(L.sky.day, 0, 0);
-  if (sunset > 0) A(c, sunset, () => c.drawImage(L.sky.sunset, 0, 0));
-  c.drawImage(L.keep, 0, 0);
-  if (sunset > 0) A(c, 0.25 * sunset, () => R(c, 0, 0, W, VEIL, P.orange));
+// Everything alive in the keep by day, in world coordinates: fires, the living at work, the dead in the
+// crypt, the Church's inspector, and a raid coming over the hills.
+function dayActors(c, s, t) {
   const h = span('hearth');
   const hy = feet(VEIL_FLOOR);
   glow(c, h.x0 + 38, hy - 3, 6, P.orange, 0.25);
@@ -298,7 +345,6 @@ function composeDay(c, s, t, sunset) {
   flame(c, h.x0 + 36, hy - 1, t + 0.4, 1);
   const g = span('glazier');
   flame(c, g.x0 + 7, feet(g.f) - 2, t, 2);
-  // The living, spread across their rooms.
   const byRoom = {};
   for (const p of s.living) (byRoom[p.job || 'hearth'] ||= []).push(p);
   for (const [id, ps] of Object.entries(byRoom)) {
@@ -310,52 +356,49 @@ function composeDay(c, s, t, sunset) {
       person(c, p, i, x, feet(f), t);
     });
   }
-  // The dead wait in the crypt.
   const cr = span('crypt');
   s.bodies.slice(0, 4).forEach((b, i) => {
-    const y = top('crypt') + 12 - (i % 2) * 0;
-    const x = cr.x0 + 5 + i * 3;
     if (i === 0) {
-      R(c, x, y, 11, 2, P.bone);
-      R(c, x - 1, y, 2, 2, P.peach);
+      R(c, cr.x0 + 5, top('crypt') + 12, 11, 2, P.bone);
+      R(c, cr.x0 + 4, top('crypt') + 12, 2, 2, P.peach);
     } else {
-      R(c, x + 16 + i * 5, feet(cr.f) - 1, 5, 1, P.bone);
-      D(c, x + 15 + i * 5, feet(cr.f) - 1, P.peach);
+      R(c, cr.x0 + 21 + i * 8, feet(cr.f) - 1, 5, 1, P.bone);
+      D(c, cr.x0 + 20 + i * 8, feet(cr.f) - 1, P.peach);
     }
   });
-  // The Lantern Church's inspector, on the day of a visit.
   if (s.inspection && s.inspection.day === s.day) {
     const ch = span('chapel');
-    const x = ch.x0 + 8 + (s.inspection.done ? 0 : Math.sin(t * 0.4) * 4);
-    human(c, Math.round(x), feet(ch.f), { body: P.ink, hood: P.ink, robe: 1, trim: P.amber, ph: 9 }, t);
-    glow(c, Math.round(x) + 5, feet(ch.f) - 6, 4, P.yellow, 0.4);
-    D(c, Math.round(x) + 5, feet(ch.f) - 6, P.yellow);
+    const x = Math.round(ch.x0 + 8 + (s.inspection.done ? 0 : Math.sin(t * 0.4) * 4));
+    human(c, x, feet(ch.f), { body: P.ink, hood: P.ink, robe: 1, trim: P.amber, ph: 9 }, t);
+    glow(c, x + 5, feet(ch.f) - 6, 4, P.yellow, 0.4);
+    D(c, x + 5, feet(ch.f) - 6, P.yellow);
   }
-  // A raid on the road: torches along the hills, closer as it comes; smoke after a breach.
+  // A raid on the way: war banners on the turrets, and the Host's torches coming over the eastern hills.
   const r = s.raid;
   if (r && r.warned && r.state === 'coming') {
     const k = Math.max(0, Math.min(1, (s.t - r.warnAt) / Math.max(1, r.hitAt - r.warnAt)));
-    for (let i = 0; i < Math.min(8, r.count); i++) {
-      const x = W - 4 - (1 - k) * 2 - i * 5 * (1 - 0.6 * k);
-      const y = 16 + (i % 2);
-      D(c, Math.round(x), y, (MF(t * 6) + i) % 2 ? P.orange : P.yellow);
-      D(c, Math.round(x), y + 1, P.crimson);
+    // War banners over the turrets: the one warning you can see from anywhere.
+    for (const x of [4, 108]) {
+      const wave = MF(t * 4 + x) % 2;
+      R(c, x, -8, 1, 11, P.brown);
+      R(c, x + 1, -8, 5, 2, P.red);
+      R(c, x + 1, -6, 4 + wave, 2, P.red);
+      D(c, x + 5 + wave, -6, P.orange);
+    }
+    for (let i = 0; i < Math.min(10, r.count); i++) {
+      const x = Math.round(W + 4 + (1 - k) * 36 + i * 6);
+      const y = ridgeTop(x, RIDGES.near) - 1;
+      human(c, x - 1, y + 1, { body: P.crimson, helm: P.slate, h: 6, walk: 3, ph: i }, t);
+      D(c, x + 3, y - 6, (MF(t * 6) + i) % 2 ? P.orange : P.yellow);
     }
   }
   if (r && r.state === 'breached') {
-    for (let i = 0; i < 4; i++) {
-      const x = 20 + i * 22 + Math.sin(t + i) * 2;
-      const y = 18 - ((t * 3 + i * 5) % 14);
+    for (let i = 0; i < 5; i++) {
+      const x = 10 + i * 22 + Math.sin(t + i) * 2;
+      const y = 16 - ((t * 3 + i * 5) % 18);
       A(c, 0.5, () => ellipse(c, x, y, 2, 1, P.slate));
     }
   }
-  // The moat, with the keep's reflection.
-  R(c, 0, VEIL, W, VIEW_H - VEIL, '#1a1826');
-  for (let i = 0; i < VIEW_H - VEIL; i++) {
-    const dx = Math.round(Math.sin(t * 2 + i * 0.9) * (i > 2 ? 1 : 0));
-    A(c, 0.45, () => c.drawImage(c.canvas, 0, VEIL - 1 - i, W, 1, dx, VEIL + i, W, 1));
-  }
-  R(c, 0, VEIL, W, 1, P.steel);
 }
 
 /* ---------------------------------------------------------------- the night */
@@ -555,47 +598,120 @@ function composeTain(s, t, opts = {}) {
   return work;
 }
 
-const viewBuf = typeof document !== 'undefined' ? mk(W, VIEW_H) : null;
 
-function output(out, mode) {
-  const o = ctxOf(out);
-  o.setTransform(1, 0, 0, 1, 0, 0);
-  o.clearRect(0, 0, out.width, out.height);
-  if (mode === 'flipped') o.setTransform(1, 0, 0, -1, 0, VIEW_H);
-  o.drawImage(viewBuf, 0, 0);
-  o.setTransform(1, 0, 0, 1, 0, 0);
+/* ---------------------------------------------------------------- composing the screen */
+
+const scratch = {};
+function buf(name, w, h) {
+  let cv = scratch[name];
+  if (!cv) cv = scratch[name] = mk(Math.max(1, w), Math.max(1, h));
+  if (cv.width !== Math.max(1, w) || cv.height !== Math.max(1, h)) {
+    cv.width = Math.max(1, w);
+    cv.height = Math.max(1, h);
+    ctxOf(cv);
+  }
+  return cv;
 }
 
-// A night (or dusk, or dawn) in the Tain as the chosen camera shows it. `out` is W x VIEW_H.
-export function drawNight(out, s, mode, t, opts = {}) {
-  const tain = composeTain(s, t, opts);
-  const v = ctxOf(viewBuf);
-  v.setTransform(1, 0, 0, 1, 0, 0);
-  v.clearRect(0, 0, W, VIEW_H);
-  v.drawImage(layers().nightKeep, 0, VEIL - 8, W, 8, 0, 0, W, 8);
-  v.setTransform(1, 0, 0, -1, 0, VIEW_H);
-  v.drawImage(tain, 0, 0);
-  v.setTransform(1, 0, 0, 1, 0, 0);
-  R(v, 0, 7, W, 1, P.mauve);
-  if (opts.veilFlash > 0) A(v, opts.veilFlash, () => R(v, 0, 6, W, 3, P.hot));
-  output(out, mode);
-}
-
-export function drawDay(out, s, t, sunset = 0) {
-  composeDay(ctxOf(viewBuf), s, t, sunset);
-  output(out, 'day');
-}
-
-// Room-name tags for the overlay: where each room's label sits in view pixels, on the side of the room
-// nobody stands on (the ceiling), so a label never covers a shade's feet.
-export function labelSpots(view, mode) {
-  const out = [];
-  for (let f = 0; f < FLOORS.length; f++) {
-    for (const [id, a, b] of FLOORS[f].rooms) {
-      const cx = (a + b) / 2;
-      if (view === 'night' && mode === 'reflection') out.push({ id, x: cx, y: toView(mode, cx, FLOORS[f].y).y, below: true });
-      else out.push({ id, x: cx, y: FLOORS[f].y + 1, below: false });
+// The keep by day on its lake, the living at work, and the lake reflecting it all back.
+function dayScene(c, w, h, s, v) {
+  const L = layers();
+  const { x: cx, y: cy } = v.cam;
+  const t = v.t;
+  const wet = Math.max(0, cy + h - VEIL);
+  const yTop = Math.min(cy, VEIL - wet);
+  const upH = Math.max(0, VEIL - yTop);
+  if (upH > 0) {
+    const up = buf('up', w, upH);
+    const u = ctxOf(up);
+    u.setTransform(1, 0, 0, 1, -cx, -yTop);
+    u.clearRect(cx, yTop, w, upH);
+    bands(u, cx, w, yTop, VEIL, DAY_SKY);
+    if (v.sunset > 0) A(u, v.sunset, () => bands(u, cx, w, yTop, VEIL, SUNSET_SKY));
+    clouds(u, cx, w, t);
+    ridge(u, cx, w, RIDGES.far, v.sunset > 0.5 ? '#7a6a8a' : '#8fb4a4');
+    ridge(u, cx, w, RIDGES.near, v.sunset > 0.5 ? '#5a4a6a' : '#6fa878');
+    u.drawImage(L.keep, 0, 0);
+    if (v.sunset > 0) A(u, 0.25 * v.sunset, () => R(u, cx, yTop, w, upH, P.orange));
+    dayActors(u, s, t);
+    c.drawImage(up, 0, yTop - cy);
+    if (wet > 0) {
+      const y0 = Math.max(VEIL, cy);
+      R(c, 0, y0 - cy, w, cy + h - y0, '#1a2a3e');
+      for (let wy = y0; wy < cy + h; wy++) {
+        const i = wy - VEIL;
+        const sy = VEIL - 1 - i;
+        if (sy < yTop) break;
+        const dx = Math.round(Math.sin(t * 2 + i * 0.9) * (i > 2 ? 1 : 0));
+        c.globalAlpha = 0.55 - Math.min(0.3, i / 400);
+        c.drawImage(up, 0, sy - yTop, w, 1, dx, wy - cy, w, 1);
+      }
+      c.globalAlpha = 1;
+      A(c, 0.3, () => R(c, 0, y0 - cy, w, cy + h - y0, '#0e1826'));
+      if (VEIL >= cy) R(c, 0, VEIL - cy, w, 1, P.steel);
     }
   }
-  return out;
+}
+
+// The night: the dark keep above the Veil and, below it, the Tain as the lake reflects it.
+function nightScene(c, w, h, s, v) {
+  const L = layers();
+  const { x: cx, y: cy } = v.cam;
+  const t = v.t;
+  if (VEIL > cy) {
+    c.setTransform(1, 0, 0, 1, -cx, -cy);
+    bands(c, cx, w, cy, VEIL, NIGHT_SKY);
+    stars(c, cx, w, cy, VEIL - 30, t);
+    if (cy < -18) {
+      ellipse(c, 22, -30, 3, 3, P.bone);
+      ellipse(c, 23, -31, 2, 2, P.void);
+    }
+    ridge(c, cx, w, RIDGES.far, '#141c2a');
+    ridge(c, cx, w, RIDGES.near, '#1a2430');
+    c.drawImage(L.nightKeep, 0, 0);
+    c.setTransform(1, 0, 0, 1, 0, 0);
+  }
+  const below = cy + h - VEIL;
+  if (below > 0) {
+    // The rows under the Veil, as the upright Tain has them: world row wy is upright row 2 VEIL - 1 - wy.
+    const rows = Math.min(below, h);
+    const ky0 = 2 * VEIL - (cy + h);
+    const un = buf('under', w, rows);
+    const g = ctxOf(un);
+    g.setTransform(1, 0, 0, 1, -cx, -ky0);
+    g.clearRect(cx, ky0, w, rows);
+    bands(g, cx, w, ky0, ky0 + rows, TAIN_SKY);
+    stars(g, cx, w, ky0, Math.min(ky0 + rows, VEIL - 30), t, '#2a1d45');
+    ridge(g, cx, w, RIDGES.far, '#211836');
+    ridge(g, cx, w, RIDGES.near, '#2a1f44');
+    g.drawImage(composeTain(s, t, v), 0, 0);
+    c.setTransform(1, 0, 0, -1, 0, h);
+    c.drawImage(un, 0, 0);
+    c.setTransform(1, 0, 0, 1, 0, 0);
+  }
+  const vy = VEIL - cy;
+  if (vy >= 0 && vy < h) {
+    R(c, 0, vy, w, 1, P.mauve);
+    if (v.veilFlash > 0) A(c, v.veilFlash, () => R(c, 0, vy - 1, w, 3, P.hot));
+  }
+}
+
+// Draws the world window that starts at v.cam (world pixels) into `out`, one canvas pixel per world
+// pixel. v: { night, flip, cam: { x, y }, t, sunset, and composeTain's options }. With flip, the whole
+// picture is turned over, so the Tain reads upright above the Veil.
+export function drawScene(out, s, v) {
+  const target = v.flip ? buf('flip', out.width, out.height) : out;
+  const c = ctxOf(target);
+  c.setTransform(1, 0, 0, 1, 0, 0);
+  c.globalAlpha = 1;
+  c.clearRect(0, 0, target.width, target.height);
+  if (v.night) nightScene(c, target.width, target.height, s, v);
+  else dayScene(c, target.width, target.height, s, v);
+  if (v.flip) {
+    const o = ctxOf(out);
+    o.setTransform(1, 0, 0, -1, 0, out.height);
+    o.clearRect(0, 0, out.width, out.height);
+    o.drawImage(target, 0, 0);
+    o.setTransform(1, 0, 0, 1, 0, 0);
+  }
 }
