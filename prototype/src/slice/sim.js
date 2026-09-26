@@ -28,7 +28,7 @@ export const dayTicks = (s) => Math.round(s.tuning.daySecs * TICKS_PER_SEC);
 export const nightTicks = (s) => Math.round(s.tuning.nightSecs * TICKS_PER_SEC);
 export const perf = (d) => 0.4 + (0.6 * Math.max(0, d.memory)) / 100;
 export const isNewMoon = (s) => s.day >= s.tuning.seasonDays;
-const hard = (s, k = 'hardness') => Math.pow(s.tuning[k], s.season - 1);
+export const hard = (s, k = 'hardness') => Math.pow(s.tuning[k], s.season - 1);
 // Traits (data.js): what a living one's trait does by day, and a shade's by night, while traits are on.
 export const livingTrait = (s, p) => (s.tuning.traits && p.trait ? TRAITS[p.trait] : null);
 export const shadeTrait = (s, d) => (s.tuning.traits && d.trait ? SHADE_TRAITS[d.trait] : null);
@@ -941,26 +941,16 @@ function foeTick(s, L, c) {
 // What crossing a light costs a Creeper's way up when it is choosing which light to gnaw: more than any
 // walk, so the way that crosses the fewest lights wins.
 const LIT_COST = 1000;
-function plan(s, L, c) {
+// Where a Creeper or Wraith at c would go now: out of the light, after a shade in the dark near it, to a
+// candle's edge (a candle hunter's nearest, or the light that bars its way up), up a dark way to a mirror,
+// or nowhere. Pure: plan() follows it, and the dusk preview (threats.js) shows it.
+export function wayOf(s, L, c) {
   const T = s.tuning;
   const n = s.night;
-  c.replan = 5;
-  if (isLit(L, c.f, c.x)) {
-    c.mode = 'flee';
-    c.path = fleePath(L, c);
-    return;
-  }
+  if (isLit(L, c.f, c.x)) return { mode: 'flee', path: fleePath(L, c) };
   if (!n.hush) {
-    const sense = c.type === 'wraith' ? 40 : T.senseRange;
-    const prey = s.shades
-      .filter((d) => canWork(d) && !d.grabbedBy && !d.climb && d.f === c.f && Math.abs(d.x - c.x) <= sense && !isLit(L, d.f, d.x) && darkBetween(L, c.f, c.x, d.x) && !shadeTrait(s, d)?.unseen)
-      .sort((a, b) => Math.abs(a.x - c.x) - Math.abs(b.x - c.x))[0];
-    if (prey) {
-      c.mode = 'hunt';
-      c.prey = prey.id;
-      c.path = [{ f: c.f, x: prey.x }];
-      return;
-    }
+    const prey = preyNear(s, L, c, c.x, c.x);
+    if (prey) return { mode: 'hunt', prey: prey.id, path: [{ f: c.f, x: prey.x }] };
   }
   if (c.temper === 'snuff') {
     const edges = [];
@@ -968,37 +958,37 @@ function plan(s, L, c) {
       for (const [a, b, id] of L.spans[f]) for (const x of [a - GNAW_GAP, b + GNAW_GAP]) if (x >= MAP.LEFT && x <= MAP.RIGHT - 1 && !isLit(L, f, x)) edges.push({ f, x, candle: id });
     }
     const to = edges.length && route(geo(s), L, c, edges, { creeper: true, wards: n.wards });
-    if (to) {
-      c.mode = 'gnaw';
-      c.gnaw = to.goal.candle;
-      c.path = to.path;
-      return;
-    }
+    if (to) return { mode: 'gnaw', gnaw: to.goal.candle, path: to.path };
   }
-  if (c.type === 'wraith') {
-    c.mode = 'idle';
-    c.path = [];
-    return;
-  }
+  if (c.type === 'wraith') return { mode: 'idle', path: [] };
   const r = route(geo(s), L, c, mirrorGoals(geo(s)), { creeper: true, wards: n.wards });
-  if (r) {
-    c.mode = 'climb';
-    c.gnaw = null;
-    c.path = r.path;
-    return;
-  }
+  if (r) return { mode: 'climb', path: r.path };
   // Cut off: gnaw the light that bars the way. With goAround, the way that crosses the fewest lights, so a
   // light with a dark way around it is passed by; without, whatever light the shortest way meets first.
   const open = route(geo(s), L, c, mirrorGoals(geo(s)), { creeper: true, ignoreLight: true, wards: n.wards, litCost: T.goAround ? LIT_COST : 0 });
   const cut = open && firstLight(L, c, open.path);
-  if (!cut) {
-    c.mode = 'idle';
-    c.path = [];
-    return;
-  }
-  c.mode = 'gnaw';
-  c.gnaw = cut.candle;
-  c.path = cut.path;
+  if (!cut) return { mode: 'idle', path: [] };
+  return { mode: 'gnaw', gnaw: cut.candle, path: cut.path };
+}
+// The nearest shade a Creeper or Wraith on c's floor, anywhere from x0 to x1, would go after: in the dark,
+// within its sense, with nothing lit between.
+export function preyNear(s, L, c, x0, x1) {
+  const sense = c.type === 'wraith' ? 40 : s.tuning.senseRange;
+  const lo = Math.min(x0, x1);
+  const hi = Math.max(x0, x1);
+  const from = (d) => clamp(d.x, lo, hi);
+  return s.shades
+    .filter((d) => canWork(d) && !d.grabbedBy && !d.climb && d.f === c.f && Math.abs(d.x - from(d)) <= sense && !isLit(L, d.f, d.x) && darkBetween(L, c.f, from(d), d.x) && !shadeTrait(s, d)?.unseen)
+    .sort((a, b) => Math.abs(a.x - from(a)) - Math.abs(b.x - from(b)))[0];
+}
+function plan(s, L, c) {
+  c.replan = 5;
+  const w = wayOf(s, L, c);
+  c.mode = w.mode;
+  c.path = w.path;
+  if (w.mode === 'hunt') c.prey = w.prey;
+  else if (w.mode === 'gnaw') c.gnaw = w.gnaw;
+  else if (w.mode === 'climb') c.gnaw = null;
 }
 
 // A Maw weighs what it could wreck against the fight it would meet: the candle barring the Creepers' way up
@@ -1050,7 +1040,7 @@ function fightOnWay(s, from, path, t) {
   }
   return g;
 }
-function mawPick(s, L, m) {
+export function mawPick(s, L, m) {
   const G = geo(s);
   const all = [];
   for (const t of mawTargets(s, L, m)) {

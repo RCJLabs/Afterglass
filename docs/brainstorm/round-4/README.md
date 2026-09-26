@@ -24,7 +24,7 @@ Sizes were my estimates when the list was made: S, M, L.
 | | **Designed in round three, not built yet** | | |
 | 4 | Traits that invert at death: 8 pairs, each with a night effect | M | Built. Reading them made no measurable difference to the autopilot |
 | 5 | Quarters and the Dreamwell; Weepers give the sleepers nightmares | M | Queued, 7th |
-| 6 | The black mirror: tomorrow's raid and tonight's Creeper waves | S | Queued, 1st, inside the threat preview (16). The Dusk panel already lists the night's tides |
+| 6 | The black mirror: tomorrow's raid and tonight's Creeper waves | S | Built, inside the threat preview (16): tonight's waves by rift and tide, and tomorrow's raid as a range |
 | 7 | Whispers and the great glass: shades coach the living, or step through by day | M | Queued, 8th |
 | 8 | Break a mirror in an emergency: it frees its shades and curses the room | S | Queued, 5th |
 | 9 | Build your own rooms | L | Built, and the keep now starts as two rooms. No choosing a slot, no tearing down |
@@ -35,7 +35,7 @@ Sizes were my estimates when the list was made: S, M, L.
 | 13 | A season recap card to share | S | Queued, 3rd |
 | 14 | A daily seed everyone plays | S | Queued, 4th; replays are already exact from a seed |
 | 15 | Watch a replay of a season or a tester's export | S–M | Queued, 2nd |
-| 16 | A threat preview at dusk: likely Creeper routes and the Hollow's path | M | Queued, 1st |
+| 16 | A threat preview at dusk: likely Creeper routes and the Hollow's path | M | Built, as the black mirror: the Dusk panel says where each rift's tide will go, and the Tain shows the ways |
 | 17 | A guided first season | M | Built |
 | 18 | An installable app, the first step toward Google Play | S–M | Built; Chromium only |
 | 19 | Sound and haptics | M | Built; levels measured, not yet heard by a person |
@@ -86,9 +86,9 @@ The Maw name, the fourth open question from before, is settled: they break rooms
 
 ## The queue
 
-The candidates not built yet, in the order I'd build them. The first two help the playtest itself; the next two matter once there are players; the rest add to the game.
+The candidates not built yet when the queue was made, in the order I'd build them. The first two help the playtest itself; the next two matter once there are players; the rest add to the game.
 
-1. **A threat preview at dusk (16), with the black mirror (6) in it.** M. Tonight's tides and Maw, and the ways up the Unlit will take past the candles you've set. Now that they go around lights, where the dark way runs is the night's puzzle, and nothing on screen shows it. The black mirror's other half, tomorrow's raid, fits the same panel.
+1. **A threat preview at dusk (16), with the black mirror (6) in it.** M. Done. The Dusk panel's black mirror says where each rift's tide will go past the candles set so far: the light it will gnaw, a mirror left open, or a shade it will catch. It also names where candle hunters go, what a Maw would make for, the Hollow's way, each tide's size, and tomorrow's raid as a range. The Tain shows the same ways as marching chevrons. It asks the Creepers' own planner, so it's exact until the night begins and candles burn down.
 2. **Watch a replay (15).** S–M. A tester's export already replays exactly. A viewer that plays it back lets you see where they struggled, which is most of what a playtest can tell beyond its one question.
 3. **A season recap card (13).** S. One image per season to share, drawn from the season summary and the Book of the Dead.
 4. **A daily seed (14).** S. Everyone plays the same keep each day. Worth it once there are players to compare.

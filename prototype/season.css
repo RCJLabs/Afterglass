@@ -207,6 +207,10 @@ body.game-page {
 .question textarea { background: var(--box); }
 details.card > summary { cursor: pointer; }
 details.card .facts li { display: block; }
+.mirror .ways { margin: 0.5rem 0; padding-left: 1.2rem; }
+.mirror .ways li { margin: 0.3rem 0; }
+.mirror .ways li.bad { color: var(--bad); font-weight: 700; }
+.mirror .row { align-items: flex-start; font-size: 14px; }
 table.days { min-width: 680px; }
 
 @media (max-width: 560px) {

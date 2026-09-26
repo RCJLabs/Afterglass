@@ -10,6 +10,7 @@ import {
 } from './slice/sim.js';
 import { geo, feet, floorAtY, roomAt, typeAt, typeOf, roomSpan, roomsOf, lightMap, isLit, unitAt, DEEP_FLOOR, lineSpots as lineOf, guardLit } from './slice/geo.js';
 import { drawScene } from './slice/draw.js';
+import { threats } from './slice/threats.js';
 import { epitaph, ordinal, RESTING, LOST } from './slice/book.js';
 import { SLOTS, slotKey, openIndex, loadSlot, saveSlot, useSlot, deleteSlot, keepFromFile, summary, mergeIndex, isIndexKey } from './slice/saves.js';
 import { createSound, SOUNDS } from './slice/sound.js';
@@ -429,6 +430,7 @@ function duskPlace() {
     ${dark.length ? `<p class="note">${esc(listOf(dark.map((d) => d.name)))} ${dark.length === 1 ? 'stands' : 'stand'} in the dark, where Creepers catch and drain shades. A shade works only in light.</p>` : ''}
     ${wraiths.length ? `<p class="note bad">${esc(listOf(wraiths.map((d) => d.name)))} will rise as ${wraiths.length === 1 ? 'a Wraith' : 'Wraiths'} in the Waking Room. Cut ${wraiths.length === 1 ? 'it' : 'them'} down to banish for good.</p>` : ''}
     ${moonNote()}
+    ${blackMirror()}
     <details class="card"><summary><b>How the Tain works</b></summary>
       <ul class="facts">
         <li><span>Creepers rise from the two rifts on the deepest floor and make for the two mirrors on the floor under the Veil, climbing the stairs between. The more floors the keep has, the longer their way.</span></li>
@@ -440,6 +442,88 @@ function duskPlace() {
         <li><span>From night ${T.mawFrom}, a Maw comes with the last tide. It walks through light to whatever is worth most for the least fight: the candle barring the way up, or a room where people work, counting every fighter on its way. It tears a candle down. A room it stands in for ${fmt(T.mawBreak)} seconds breaks: no work there that night, and ${T.dreadPerBroken} Dread at dawn. It hits the shades beside it.</span></li>
       </ul></details>
     <div class="row"><button class="btn primary" id="btn-start" data-act="start">Begin the night</button></div>`;
+}
+
+// The black mirror (threats.js): tonight as the candles, posts and wards stand, and tomorrow's raid. Worked
+// out again only when something it reads has changed.
+let mirrorMemo = { key: '', th: null };
+function threatsNow() {
+  const n = s.night;
+  if (!n || s.phase !== 'dusk') return null;
+  const key = JSON.stringify([s.season, s.day, n.candles.map((k) => [k.id, k.f, k.x]), n.wards, s.shades.map((d) => [d.id, d.f, d.x, d.kind, d.mirror])]);
+  if (mirrorMemo.key !== key) mirrorMemo = { key, th: threats(s) };
+  return mirrorMemo.th;
+}
+const waysOn = () => prefs.ways !== false && s.phase === 'dusk' && s.dusk?.step === 'place';
+function blackMirror() {
+  const th = threatsNow();
+  if (!th) return '';
+  const T = s.tuning;
+  const N = nightTicks(s);
+  const at = (t) => hhmm(18 + (12 * t) / N);
+  const side = (x) => (x < MAP.W / 2 ? 'left' : 'right');
+  const riftName = (id) => {
+    const r = MAP.rifts.find((x) => x.id === id);
+    return `the ${side(r.x)} rift`;
+  };
+  const candleName = (id) => {
+    const k = s.night.candles.find((c) => c.id === id);
+    if (!k) return 'a candle';
+    const stair = lineSpots().some((p) => p.f === k.f && Math.abs(p.x - k.x) <= 6);
+    return `the candle ${stair ? 'at the stair up to the Veil, in' : 'in'} the ${roomName(roomAt(K(), k.f, k.x), true)}`;
+  };
+  const shadeName = (id) => esc(s.shades.find((d) => d.id === id)?.name || 'a shade');
+  const goes = (w) => {
+    if (w.end === 'gnaw') return { text: `gnaw ${candleName(w.candle)}`, bad: false };
+    if (w.end === 'veil') return { text: `reach the ${side(MAP.mirrors.find((m) => m.id === w.mirror).x)} mirror: nothing lit bars their way`, bad: true };
+    if (w.end === 'catch') return { text: `catch ${shadeName(w.prey)}, standing in the dark on their way`, bad: true };
+    return { text: 'find no way up', bad: false };
+  };
+  const lines = [];
+  // Each rift's tide, and its candle hunters where they go elsewhere; rifts whose tides end alike in one line.
+  const tides = [];
+  for (const e of th.rises) {
+    if (!e.way) continue;
+    const g = goes(e.way);
+    // Candle hunters going the same way count with the tide.
+    const n = e.climb + (e.hunt && goes(e.hunt).text === g.text ? e.snuff : 0);
+    const same = tides.find((x) => x.text === g.text);
+    if (same) {
+      same.n += n;
+      same.from.push(e.rift);
+    } else tides.push({ ...g, n, from: [e.rift] });
+  }
+  for (const x of tides) lines.push({ bad: x.bad, text: `${x.from.length > 1 ? 'From both rifts' : `From ${riftName(x.from[0])}`}, ${plural(x.n, 'Creeper')} will ${x.text}.` });
+  for (const e of th.rises) {
+    if (!e.hunt || (e.way && goes(e.hunt).text === goes(e.way).text)) continue;
+    const g = goes(e.hunt);
+    lines.push({ bad: g.bad, text: `${plural(e.snuff, 'candle hunter')} from ${riftName(e.rift)} will ${g.text}.` });
+  }
+  if (th.seep) {
+    const rooms = [...new Set(th.seepRooms.map((id) => roomName(id, true)))];
+    lines.push({ bad: false, text: `${plural(th.seep, 'Creeper')} may seep up in a room with no candle${rooms.length && rooms.length <= 4 ? `: ${listOf(rooms.map((r) => `the ${r}`))}` : rooms.length ? ` (${rooms.length} such rooms)` : ''}.` });
+  }
+  for (const m of th.maws) {
+    const tg = m.target;
+    const what = !tg ? 'nothing it can reach' : tg.kind === 'room' ? `the ${roomName(tg.id, true)} (bracketed)` : `${candleName(tg.id)} (ringed)`;
+    lines.push({ bad: false, text: `A Maw rises from ${riftName(m.rift)} around ${at(m.at)}. As things stand it would go for ${what}: what's worth most for the least fight on its way.` });
+  }
+  if (th.hollow) {
+    const held = th.hollow.held.length;
+    lines.push({ bad: !held, text: `The Hollow rises from ${riftName(th.hollow.rift)} around ${at(th.hollow.at)} and walks to the Veil whatever the light. ${held ? `${plural(held, 'ward')} on its way will hold it ${fmt(T.wardHold)} seconds each.` : `No ward stands on its way yet: each one there holds it ${fmt(T.wardHold)} seconds.`}` });
+  }
+  const tideText = th.tides.map((t) => `${at(t.at)} (${t.count})`);
+  const r = th.raid;
+  const raidText = r
+    ? `<p class="note${r.defense < r.hi ? ' bad' : ''}">Tomorrow, raiders: strength ${fmt(r.lo)} to ${fmt(r.hi)}. The gate holds ${fmt(r.defense)} with the guards you have now; tonight's Watch and tomorrow's guards add to it.</p>`
+    : '';
+  return `<details class="card mirror" data-keep="mirror"${ui.open.mirror !== false ? ' open' : ''}><summary><b>The black mirror</b></summary>
+      <p class="note">What tonight holds as the candles, posts and wards stand now. Candles burn down and shades move once it begins, so it can still turn out otherwise.</p>
+      <ul class="ways">${lines.map((l) => `<li${l.bad ? ' class="bad"' : ''}>${l.text}</li>`).join('')}</ul>
+      ${tideText.length ? `<p class="note">Tides at ${listOf(tideText)}${th.alone ? `; ${plural(th.alone, 'Creeper')} ${th.alone === 1 ? 'comes' : 'come'} alone` : ''}.</p>` : ''}
+      ${raidText}
+      <label class="row" for="ways-on"><input type="checkbox" id="ways-on" data-act="ways"${prefs.ways !== false ? ' checked' : ''}>Show their ways on the Tain: dots march each rift's way up, ✕ where they'll gnaw, a ring on a mirror they'll reach, ! over a shade they'll catch</label>
+    </details>`;
 }
 
 // Two nights before the new moon, and the night before: wards on the stairs are what hold the Hollow, so the
@@ -787,6 +871,7 @@ function settingsTab() {
     <h3>The castle</h3>
     <fieldset><legend>The Tain at night</legend>${radio('camera', 'reflection', 'Reflected, upside down, as the lake shows it', prefs.mode)}${radio('camera', 'flipped', 'Turned upright', prefs.mode)}</fieldset>
     <label class="row" for="labels-on"><input type="checkbox" id="labels-on" data-act="labels"${prefs.labels ? ' checked' : ''}>Show room names on the castle</label>
+    <label class="row" for="ways-set"><input type="checkbox" id="ways-set" data-act="ways"${prefs.ways !== false ? ' checked' : ''}>At dusk, show on the Tain where the Unlit will go</label>
     <fieldset><legend>Motion</legend>${radio('motion', 'system', `As this device is set (now: ${SYS_REDUCED ? 'less motion' : 'full motion'})`, motion)}${radio('motion', 'reduce', 'Less motion: the camera cuts, nothing flickers or sways, the crossing is skipped', motion)}${radio('motion', 'full', 'Full motion', motion)}</fieldset>
     <h3>Sound</h3>
     <label class="row" for="sound-on"><input type="checkbox" id="sound-on" data-act="sound"${prefs.sound ? ' checked' : ''}>Sound</label>
@@ -1172,6 +1257,7 @@ function draw(alpha, now) {
     dusk: duskAmount(now),
     souls: soulSpots(now),
     marks: night && ui.guide?.marks ? ui.guide.marks() : null,
+    threats: night && waysOn() ? threatsNow() : null,
     alpha: s.phase === 'night' && !ui.paused ? alpha : 1,
     selected: ui.selected,
     ghost: ghost(),
@@ -1435,7 +1521,7 @@ const GUIDE = [
     id: 'tain',
     when: () => first() && s.phase === 'dusk' && s.dusk.step === 'place' && nightView(),
     marks: () => [...MAP.rifts.map((r) => ({ f: DEEP_FLOOR, x: r.x })), ...MAP.mirrors.map((m) => ({ f: K().veil, x: m.x }))],
-    text: "This is the Tain, the keep's reflection. The Unlit climb from the red rifts in the Deep up to the two mirrors under the Veil. They can't cross candlelight.",
+    text: () => `This is the Tain, the keep's reflection. The Unlit climb from the red rifts in the Deep up to the two mirrors under the Veil. They can't cross candlelight.${prefs.ways !== false ? " The red chevrons are the way they'll take tonight; set a candle and watch them change." : ''}`,
   },
   {
     id: 'line', target: '#tool-candle',
@@ -1844,6 +1930,10 @@ function onAct(name, el) {
     case 'zoom-in': return zoomBy(1);
     case 'zoom-out': return zoomBy(-1);
     case 'zoom-fit': return fitView();
+    case 'ways':
+      prefs.ways = typeof el?.checked === 'boolean' ? el.checked : prefs.ways === false;
+      savePrefs();
+      return bump();
     case 'labels':
       prefs.labels = !prefs.labels;
       savePrefs();

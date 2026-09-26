@@ -638,6 +638,105 @@ function sigil(c, x, y, hold) {
 }
 
 
+// The black mirror at dusk (threats.js): each rift's way up as dots marching the way the Unlit will go,
+// a bite where they'll gnaw, a ring round a mirror they can reach, a mark over a shade they'll catch; the
+// candle hunters' way, sparser and a row higher, where it differs; brackets on what the Maw would make for;
+// the Hollow's way in bigger dots on the new moon. Shapes differ as well as colours. Still with less motion.
+const WAY = { climb: P.red, open: P.hot, hunt: P.pink, hollow: '#d4b8ff' };
+// A way as a faint dotted line with chevrons along it pointing where it goes; the chevrons march unless
+// motion is off. lift: how far above the floor it runs.
+function trace(c, pts, col, { gap = 8, lift = 4, big = false, t = 0 } = {}) {
+  const march = MF(t * 6) % gap;
+  let n = 0;
+  const step = (x, y, dx, dy) => {
+    const k = (n - march + gap * 64) % gap;
+    if (k === 0) {
+      // A chevron, its point toward the way ahead.
+      D(c, x, y, col);
+      for (const side of [-1, 1]) {
+        D(c, x - dx + (dy ? side : 0), y - dy + (dx ? side : 0), col);
+        if (big) D(c, x - 2 * dx + (dy ? 2 * side : 0), y - 2 * dy + (dx ? 2 * side : 0), col);
+      }
+    } else if (n % 2 === 0) A(c, 0.55, () => D(c, x, y, col));
+    n++;
+  };
+  for (let i = 1; i < pts.length; i++) {
+    const a = pts[i - 1];
+    const b = pts[i];
+    if (a.f === b.f) {
+      const y = feet(a.f) - lift;
+      const x0 = Math.round(a.x);
+      const x1 = Math.round(b.x);
+      const dx = Math.sign(x1 - x0);
+      for (let x = x0; x !== x1; x += dx) step(x, y, dx, 0);
+    } else {
+      // Up or down the stair at b.x.
+      const y0 = feet(a.f) - lift;
+      const y1 = feet(b.f) - lift;
+      const dy = Math.sign(y1 - y0);
+      for (let y = y0; y !== y1; y += dy) step(Math.round(b.x), y, 0, dy);
+    }
+  }
+}
+function bite(c, x, y, col) {
+  for (const k of [-2, -1, 0, 1, 2]) {
+    D(c, x + k, y + k, col);
+    D(c, x + k, y - k, col);
+  }
+}
+const mirrorAt = (id) => {
+  const m = MAP.mirrors.find((x) => x.id === id);
+  return m && { x: m.x, y: G.floors[G.veil].y + 7 };
+};
+function wayEnd(c, s, w, col, t, lift = 4) {
+  const last = w.pts[w.pts.length - 1];
+  if (w.end === 'gnaw') bite(c, Math.round(last.x), feet(last.f) - lift, col);
+  else if (w.end === 'veil') {
+    const m = mirrorAt(w.mirror);
+    if (m && (!t || MF(t * 3) % 2)) {
+      ring(c, m.x, m.y, 6, col);
+      ring(c, m.x, m.y, 7, col, (dx, dy) => (dx + dy) % 2 === 0);
+    }
+  } else if (w.end === 'catch') {
+    const d = s.shades.find((x) => x.id === w.prey);
+    if (!d) return;
+    const x = Math.round(d.x);
+    const y = feet(d.f) - FIG_H[shadeLook(d).age] - 3;
+    R(c, x - 1, y - 7, 3, 1, UMBRA[0]);
+    R(c, x - 1, y - 6, 3, 5, UMBRA[0]);
+    R(c, x, y - 6, 1, 4, col);
+    D(c, x, y - 1, col);
+  }
+}
+const sameWay = (a, b) => a && b && a.end === b.end && JSON.stringify(a.pts) === JSON.stringify(b.pts);
+function threatLayer(c, s, th, t) {
+  for (const m of th.maws) {
+    const tg = m.target;
+    if (!tg) continue;
+    A(c, 0.75, () => {
+      if (tg.kind === 'room' && G.rooms[tg.id]) brackets(c, G.rooms[tg.id], G.floors[tg.f].y, P.orange);
+      else ring(c, Math.round(tg.x), feet(tg.f) - 3, 4, P.orange, (dx, dy) => (dx + dy) % 2 === 0);
+    });
+  }
+  if (th.hollow) {
+    trace(c, th.hollow.pts, WAY.hollow, { gap: 10, lift: 9, big: true, t });
+    const last = th.hollow.pts[th.hollow.pts.length - 1];
+    const m = last && mirrorAt(MAP.mirrors.reduce((a, b) => (Math.abs(b.x - last.x) < Math.abs(a.x - last.x) ? b : a)).id);
+    if (m) ring(c, m.x, m.y, 8, WAY.hollow);
+  }
+  for (const e of th.rises) {
+    if (e.hunt && !sameWay(e.hunt, e.way)) {
+      trace(c, e.hunt.pts, WAY.hunt, { gap: 12, lift: 7, t });
+      wayEnd(c, s, e.hunt, WAY.hunt, t, 7);
+    }
+    if (e.way) {
+      const col = e.way.end === 'veil' ? WAY.open : WAY.climb;
+      trace(c, e.way.pts, col, { gap: e.way.end === 'veil' ? 5 : 8, t });
+      wayEnd(c, s, e.way, col, t);
+    }
+  }
+}
+
 // Light as the renderer sees it: exactly the simulation's lit spans on each floor, with a short dithered
 // falloff outside them, and the Hollow swallowing what's around it.
 function lightFor(s, hollow, ambient) {
@@ -655,7 +754,8 @@ function lightFor(s, hollow, ambient) {
 }
 
 // The Tain upright, lit, with everything in it. opts: alpha (between ticks), selected (shade id),
-// ghost ({ f, x, tool }) for the candle or ward preview, still (no animation).
+// ghost ({ f, x, tool }) for the candle or ward preview, marks (guide rings), threats (the black mirror at
+// dusk). t is 0 with less motion: nothing marches or blinks, and what blinks stays on.
 function composeTain(s, t, opts = {}) {
   const L = layers();
   const y0 = L.y0;
@@ -690,10 +790,11 @@ function composeTain(s, t, opts = {}) {
   for (const id of n?.broken || []) if (G.rooms[id]) cracked(c, G.rooms[id], G.floors[G.rooms[id].f].y);
   for (const m of n?.foes || []) {
     const tg = m.type === 'maw' && m.target;
-    if (!tg || !(MF(t * 3) % 2)) continue;
+    if (!tg || (t && !(MF(t * 3) % 2))) continue;
     if (tg.kind === 'room' && G.rooms[tg.id]) brackets(c, G.rooms[tg.id], G.floors[tg.f].y, P.hot);
     else ring(c, Math.round(tg.x), feet(tg.f) - 3, 4, P.hot);
   }
+  if (opts.threats) threatLayer(c, s, opts.threats, t);
   // What gives off its own light goes on after the lighting.
   for (const h of every('hearth')) {
     flame(c, h.x0 + 38, feet(h.f) - 1, t, 3, [P.cyan, '#9fe6ff', P.blue]);
@@ -741,7 +842,7 @@ function composeTain(s, t, opts = {}) {
     const hh = FIG_H[shadeLook(d).age];
     const bx = Math.round(x);
     const by = Math.round(y);
-    if (d.grabbedBy && MF(t * 4) % 2) R(c, bx - 3, by - 7, 6, 1, P.hot);
+    if (d.grabbedBy && (!t || MF(t * 4) % 2)) R(c, bx - 3, by - 7, 6, 1, P.hot);
     if (d.named) D(c, bx, by - hh + 5, P.amber);
     const m = Math.max(0, Math.min(4, Math.ceil(d.memory / 25)));
     if (opts.selected === d.id || d.memory < 40) {

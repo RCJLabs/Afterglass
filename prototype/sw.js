@@ -27,6 +27,7 @@ const CORE = [
   'src/slice/people.js',
   'src/slice/saves.js',
   'src/slice/sound.js',
+  'src/slice/threats.js',
   'icons/icon-192.png',
   'icons/icon-512.png',
   'icons/icon-maskable-512.png',
