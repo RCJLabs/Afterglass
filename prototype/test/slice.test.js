@@ -6,7 +6,7 @@ import {
 } from '../src/slice/sim.js';
 import { runSeasonAuto, autoStep, PLANS } from '../src/slice/autopilot.js';
 import { MAP, TUNING, DEEP_FLOOR, VEIL_FLOOR, START_SHADES } from '../src/slice/data.js';
-import { lightMap, isLit, roomAt, route, darkRooms, darkGaps, roomSpan } from '../src/slice/geo.js';
+import { lightMap, isLit, roomAt, route, darkRooms, darkGaps, roomSpan, feet, MODES, toView, fromView, floorAtY, unitAt, VIEW_H } from '../src/slice/geo.js';
 
 const ok = (s, a) => {
   const r = act(s, a);
@@ -323,6 +323,22 @@ test('soak: every plan runs whole seasons without breaking the rules', () => {
       assert.equal(s.seasons.length, s.season);
     }
   }
+});
+
+test('both cameras map taps back to the right floor, and climbers slide between floors', () => {
+  for (const mode of MODES) {
+    for (let f = 0; f < 4; f++) {
+      const v = toView(mode, 30, feet(f) - 5);
+      assert.ok(v.y >= 0 && v.y < VIEW_H);
+      assert.deepEqual(fromView(mode, v.x, v.y), { x: 30, y: feet(f) - 5 });
+      assert.equal(floorAtY(fromView(mode, v.x, v.y).y), f);
+    }
+  }
+  assert.ok(toView('reflection', 0, feet(VEIL_FLOOR)).y < toView('reflection', 0, feet(DEEP_FLOOR)).y, 'reflection: the Veil floor hangs nearest the Veil, at the top');
+  assert.equal(floorAtY(MAP.VEIL - 1), -1, 'the foundation is no floor');
+  const u = { f: 1, x: 40, ox: 40, of: 1, climb: 5, climbTotal: 10, path: [{ f: 2, x: 40, climb: 's3' }] };
+  const mid = unitAt(u, 0);
+  assert.ok(mid.y > feet(1) && mid.y < feet(2), 'halfway up the stair');
 });
 
 test('night and day ticks match the tuning', () => {

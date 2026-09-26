@@ -187,3 +187,30 @@ export function touching(L, u, candleId) {
 }
 
 export const mirrorGoals = () => MAP.mirrors.map((m) => ({ f: VEIL_FLOOR, x: m.x, id: m.id }));
+
+/* ---------------------------------------------------------------- cameras */
+
+// Views are W wide and VIEW_H tall: the keep (or its Tain) plus 8 rows on the far side of the Veil.
+// Tain objects live in the keep's upright coordinates. 'reflection' shows the Tain as the world has it,
+// mirrored under the Veil with everyone hanging upside down; 'flipped' turns that view over so the
+// Tain reads upright, with the Veil along the bottom. Each is its own inverse.
+export const VIEW_H = MAP.VEIL + 8;
+export const MODES = ['reflection', 'flipped'];
+export const toView = (mode, x, y) => ({ x, y: mode === 'reflection' ? MAP.VEIL + 7 - y : y });
+export const fromView = toView;
+
+// The floor a row of the keep belongs to (its room, slab and the gap under it), or -1.
+export function floorAtY(y) {
+  return FLOORS.findIndex((fl) => y >= fl.y - 1 && y < fl.y + MAP.ROOM_H + 1);
+}
+// Where a unit stands between ticks: alpha 0 is last tick, 1 is this one. Climbers slide between floors.
+export function unitAt(u, alpha = 1) {
+  let x = u.ox + (u.x - u.ox) * alpha;
+  let y = feet(u.f);
+  if (u.climb > 0 && u.climbTotal > 0 && u.path?.[0]) {
+    const k = Math.max(0, Math.min(1, 1 - (u.climb - alpha) / u.climbTotal));
+    y = feet(u.f) + (feet(u.path[0].f) - feet(u.f)) * k;
+    x = u.x;
+  }
+  return { x, y };
+}

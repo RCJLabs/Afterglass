@@ -1,24 +1,26 @@
 # Afterglass prototypes
 
-Playable slices of [Afterglass](../docs/brainstorm/round-3/README.md). Each tests one question from the plan and records the answer as you play. The first two are greyboxes in plain shapes and text; the pixel pass is the first art.
+Playable slices of [Afterglass](../docs/brainstorm/round-3/README.md). Each tests one question from the plan and records the answer as you play. The first two are greyboxes in plain shapes and text; the pixel pass is the first art; the season slice joins all three.
 
 | Page | Plan | Question |
 |---|---|---|
 | [`index.html`](index.html) | Weeks 1–2: two rosters and the Rite | Does a death feel like a loss and a hire at once? |
 | [`night.html`](night.html) | Weeks 3–4: the night on its own | Is the night fun without the day? |
 | [`pixel.html`](pixel.html) | Weeks 5–6: the pixel pass | Can players read the Tain on a phone? |
+| [`season.html`](season.html) | Weeks 7–10: one season | Do people want to play a second season? |
 
-Both are live on GitHub Pages at https://rcjlabs.github.io/Base-Manager/ (every push to `main` runs the tests and deploys).
+All four are live on GitHub Pages at https://rcjlabs.github.io/Base-Manager/ (every push to `main` runs the tests and deploys).
 
 ## Run it
 
 ```sh
 cd prototype
-npm test                        # 39 tests: rules, replay, save and load, soak runs, the pixel quiz (Node 20+, no dependencies)
-npm run serve                   # then open http://localhost:8080 or /night.html (any static server works)
-npm run bundle                  # dist/afterglass-greybox.html, -night.html and -pixel.html: single files that open from disk
+npm test                        # 57 tests: rules, replay, save and load, soak runs, the pixel quiz (Node 20+, no dependencies)
+npm run serve                   # then open http://localhost:8080, /night.html, /pixel.html or /season.html (any static server works)
+npm run bundle                  # dist/afterglass-greybox.html, -night, -pixel and -season.html: single files that open from disk
 npm run balance -- 20 40        # weeks 1-2 autopilot report: 40 seeds x 20 days per policy
 npm run balance:night -- 8 30   # weeks 3-4 autopilot report: 30 seeds x 8 nights per plan
+npm run balance:season -- 100 1 # weeks 7-10 autopilot report: 100 seeds x 1 season per plan (try 40 2 for season 2)
 ```
 
 The pages load ES modules, so they need a web server; GitHub Pages works as is. The bundles have no such limit.
@@ -33,10 +35,80 @@ The pages load ES modules, so they need a web server; GitHub Pages works as is. 
 | `src/autopilot.js`, `src/night-autopilot.js` | Crude players for tests and balance runs |
 | `src/px/` | The pixel pass: `kit.js` (palette and drawing primitives from the round-three mockups), `lut.js` (the palette lookup and dithered light), `scene.js` (geometry, cameras, the quiz), `draw.js` (the art) |
 | `src/pixel-ui.js` | The pixel page: day, crossing, night and the readability test |
-| `test/` | 16 weeks 1–2 tests, 15 night tests and 8 pixel tests, including soak runs |
+| `src/slice/` | The season slice: `data.js` (content and tuning), `geo.js` (the keep's geometry, light, routes and cameras), `sim.js` (the whole season as one state), `autopilot.js`, `draw.js` (the art, built on `src/px/`) |
+| `src/slice-ui.js` | The season page |
+| `test/` | 16 weeks 1–2 tests, 15 night tests, 8 pixel tests and 18 season tests, including soak runs |
 | `tools/` | Balance reports and the single-file bundler |
 
-Everything is seeded and every action is logged, so `replay()` and `replayNight()` rebuild any session exactly, including one from a playtester's export.
+Everything is seeded and every action is logged, so `replay()` (in `src/sim.js` and `src/slice/sim.js`) and `replayNight()` rebuild any session exactly, including one from a playtester's export.
+
+## Weeks 7–10: one season
+
+The vertical slice: seven days in one keep, ending on the night of the new moon, when the Hollow rises. The weeks 1–2 day, the weeks 3–4 night and the weeks 5–6 art now run as one game, with raids that escalate and the Lantern Church's first inspection. The question is **do people want to play a second season?** The page asks it when the season ends (or the keep falls), with a box for why, and saves the answer in the playtest export.
+
+**Problems it has already shown.** From 100-seed autopilot runs and my own reading of the rules. Nobody else has played it yet.
+
+1. **A static line solves nights 1–5.** Two candles at the feet of the two stairs up to the Veil floor, each held by a good fighter, stop every Creeper the autopilot meets on those nights: no crossings and almost no shades caught across 100 seasons. Tides, seeps and candle-hunters didn't break the line; they only harass the rooms where shades work. So the first five nights test candles and staffing, not tactics. The weeks 3–4 greybox hit the same flaw on its own map. The real fix is in the map (a third way up) or in Unlit that attack the line itself.
+2. **The new moon is a wall.** The balanced autopilot loses 30 of 100 seasons, 27 of them on night 7. The Hollow reaches the Veil in 64 of the 70 seasons the autopilot survives. The autopilot plays that night badly (it spends essence on wards and walks fighters into the Hollow's drain), so a person should do better, but by how much is unknown. If most testers lose on night 7, they are answering "would you try again?" rather than "would you play a second season?". `hollowHp` and `wardHold` are in Settings.
+3. **Dread rarely forces a choice.** A season kills about 4 of your people, and nearly one of those is taken by the Hollow, which leaves no body. With 2 starting shades and about 3 new ones, the living bear most of the Dread. The balanced autopilot is blessed at every inspection by covering shades before day 5, and a plan that never covers anyone is censured in only 8 seasons of 100. Keep or cover is still mostly a Dread valve, as in weeks 1–2. Fading makes kept shades cost something, but not enough to force the choice. Two levers: more deaths per day, or fewer points of Dread borne per living.
+4. **Shades are hard to find in the dark.** They're 4 by 8 pixel silhouettes (12 by 24 CSS pixels at 3×). Each now has a faint glow, and the Unlit show only their eyes. Creeper red against Stranger green is still a colour-blindness risk; a gnawing Creeper's eyes turn orange.
+5. **Tap-to-assign scrolls the page.** The rosters sit below the stage, so picking a name and then a room makes the page jump back to the stage. The job lists in the roster are the steadier path on a phone.
+6. **Season 2 is ×1.35 harder** in raids, Creeper counts and the Hollow. The autopilot finishes about a third of the second seasons it reaches. That's a guess at "harder but fair", nothing more.
+
+**How a season plays**
+
+- **Day** (60 s at 1×). Eight living work six rooms. The Chandlery now makes the night's candles, and raiders who break in take only half as much food, thanks to the Granary. Raids come on days 2, 4 and 6 at strength about 4, 7 and 11 (±1.5). Sickness, old age and an empty larder kill as before, and a newcomer arrives every second day. The stage is the pixel keep with everyone at work: tap a name, then a room, to move someone.
+- **Dusk** (paused). The dead wake as in weeks 1–2, into the Waking Room of the Tain. Then set candles and post shades on the pixel Tain, in either camera, and begin. The panel lists when tonight's tides are due.
+- **Night** (120 s at 1×). The weeks 3–4 engine on this keep's Tain: 4 floors of twin rooms, 2 stairs between each pair of floors, 2 rifts in the deepest floor, 2 mirrors under the Veil. Every twin room has its job for a lit shade at its post:
+  - the Choir sings essence, and a shade that sings through half the night calms one Restless shade;
+  - the Silvering makes glass;
+  - the Wick Room saves candles for the next dusk;
+  - the Threshold readies guidance, so the next sickness or neglect death wakes one kind better;
+  - the Watch adds to tomorrow's defense;
+  - the Cold Hearth halves fading.
+
+  Wraiths rise in the Waking Room and hunt; cutting one down banishes it for good.
+- **Dawn: the Rite** (paused). Keep or cover, release or bind, banish or leave, as in weeks 1–2. Fading happens, and names and remembrance can be bought, as in weeks 3–4. Each Veil crack from the night adds 1 Dread.
+- **Day 5: the Lantern Church.** It is announced the dawn before, and it comes again the same day whenever Dread reaches 5. The inspector judges Dread at noon:
+
+  | Dread | Verdict |
+  |---|---|
+  | 0–1 | Blessed: +3 candles and +2 remembrance |
+  | 2–3 | Warned: a tithe (5 essence, else 5 remembrance, else 3 candles) and Dread −1 |
+  | 4–5 | Censured: the fullest mirror is covered and carried off with its shades, and Dread drops to 2 |
+
+  Vigils by day lower Dread at once.
+- **Night 7: the new moon.** It brings fewer Creepers and the Hollow, which:
+  - walks toward the nearest mirror whatever the light;
+  - eats candles near it and drains shades beside it;
+  - is held by a ward on a stair for 20 seconds, then breaks it;
+  - can only be driven back by shades fighting it (+3 remembrance);
+  - if it reaches the Veil, cracks it and takes one of the living, leaving no body to wake.
+- **The end.** A season summary, the question, and **Begin season 2**.
+
+**Where this goes beyond the design doc.** These are my calls; test them rather than trust them.
+
+1. **The Hollow's rules** are all mine. The round-three plan says only that the season ends in the Hollow.
+2. **The Church's timing and verdicts** are mine; the doc set only "the Church's first inspection".
+3. **The last keeper's dead.** The season opens with two shades already in the glass: Garrick, a Loyal guard and Osk's father, and Hesper, Serene and named. Without them, night 1 was lost every time, because nobody held the light.
+4. **Tides.** Most Creepers come in waves, with one more wave every third night, instead of evenly through the night.
+5. **Veil cracks heal one a dawn**, and each crack costs 1 Dread. Five open at once lose the keep.
+6. **The cycle is compressed:** a season is 21 minutes at 1× plus the paused phases, against the doc's much longer days.
+
+**What the numbers say so far.** From `npm run balance:season -- 100 1`. Every plan but Idle holds the stairs to the Veil and relights candles; they differ in how they treat the dead.
+
+| | Balanced | Keeper (never covers) | Mourner (every funeral, covers to keep Dread at 1) | Idle (no candles, no posts) |
+|---|---|---|---|---|
+| Seasons finished | 70% | 72% | 57% | 0% |
+| Lost on night 6 / night 7 | 3 / 27 | 1 / 27 | 0 / 43 | all on night 1 |
+| Your deaths per season | 3.8 | 3.8 | 4.5 | – |
+| Raids held | 80% | 80% | 68% | – |
+| Church: blessed / warned / censured | 100 / 0 / 0 | 82 / 11 / 8 | 100 / 0 / 0 | – |
+| Shades lost at night per season | 1.6 | 2.0 | 0.7 | – |
+
+- **Keeping seems to pay.** The mourner holds fewer shades, holds fewer raids and loses more seasons on the new moon. The likely links are the Watch's defense bonus and fewer fighters on the line, but I haven't isolated them.
+- **Nights 1–5 barely touch the autopilot** (problem 1): no crossings, and at most 0.1 shades caught a night. Night 6, after the strongest raid, averages 1.4 shades lost and 0.9 crossings. On night 7 the Hollow reaches the Veil in 90 of 97 runs, and crossings average 2.2, the Hollow's included.
+- **Season 2** (`-- 40 2`): the balanced plan finishes 9 of the 28 second seasons it reaches.
 
 ## Weeks 5–6: the pixel pass
 
@@ -148,6 +220,7 @@ From `npm run balance -- 20 40`, 40 seeds x 20 days per autopilot policy. The au
 
 ## Not done
 
-- No art, sound, save slots or offline service worker. Each greybox saves at dawn, to this browser only.
-- The prototypes are separate: the weeks 1–2 night is still abstract, the night greybox has no day, and the pixel pass draws scenes rather than running either simulation.
-- Checked with the tests, the soak runs and scripted click-throughs in Chromium at desktop and phone widths. Not tested on a real phone, in Safari, or with a screen reader; the night stage and the pixel test are pointer-only.
+- No sound, save slots or offline service worker. Each prototype saves to this browser only.
+- The earlier prototypes stay as they were: the weeks 1–2 night is abstract, the night greybox has no day, and the pixel pass draws generated scenes. The season slice is the only one that runs day and night together.
+- Not in the season: traits, the Maws, Weepers and the Drowned, a dusk crossing animation, and a camera that pans across a keep wider than the phone.
+- Checked with the tests, the soak runs and scripted click-throughs in Chromium at desktop and phone widths, including the bundled season file. Not tested on a real phone, in Safari, or with a screen reader. The night stages and the pixel test are pointer-only.

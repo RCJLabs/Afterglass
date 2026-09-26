@@ -6,7 +6,7 @@ A side-view base-builder in development. You hold a keep on the Veil: by day the
 
 | Folder | What's there |
 |---|---|
-| [`prototype/`](prototype/README.md) | Playable prototypes: the weeks 1–2 and 3–4 greyboxes and the weeks 5–6 pixel pass, with tests and balance tools |
+| [`prototype/`](prototype/README.md) | Playable prototypes: the weeks 1–2 and 3–4 greyboxes, the weeks 5–6 pixel pass and the weeks 7–10 one-season slice, with tests and balance tools |
 | [`docs/brainstorm/`](docs/brainstorm/) | The three design rounds: Five Keeps, Bone & Glass, and Afterglass |
 | `index.html` | The landing page for the GitHub Pages site |
 

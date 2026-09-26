@@ -1,0 +1,41 @@
+/* The season slice: the pixel stage beside the phase panel, rosters and records below. */
+
+.season-top { display: grid; gap: 20px; grid-template-columns: minmax(0, 1fr); }
+.season-rosters, #app > .records { margin-top: 20px; }
+@media (min-width: 1020px) {
+  .season-top { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); align-items: start; }
+  /* The stage stays in view beside a long phase panel, but only within the top band. */
+  .season-stage { position: sticky; top: 96px; }
+  .season-rosters .rosters { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; }
+}
+.season-stage { justify-items: stretch; }
+.season-stage .px-stage { min-height: 120px; }
+.season-stage #stage { cursor: crosshair; }
+.linkish {
+  font: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: var(--line-2);
+  text-underline-offset: 3px;
+}
+.linkish[aria-pressed="true"] { color: var(--ph-ink, var(--day-ink)); text-decoration-color: currentColor; }
+.prow.is-selected { background: var(--day-tint); }
+.prow { grid-template-columns: minmax(6rem, 1fr) minmax(8rem, 1.2fr) minmax(0, 1.6fr); }
+@media (max-width: 700px) {
+  .prow { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+}
+.question { border-color: var(--rite); background: var(--rite-tint); }
+.question textarea { background: var(--box); }
+details.card > summary { cursor: pointer; }
+details.card .facts li { display: block; }
+table.days { min-width: 680px; }
+@media (max-width: 440px) {
+  .season-stage { padding: 10px 0; border-inline: 0; border-radius: 0; margin-inline: -16px; }
+  .season-stage .toolbar, .season-stage .hint { padding-inline: 12px; }
+}
+.px-labels span.up { transform: translate(-50%, calc(-100% - 2px)); }
