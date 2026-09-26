@@ -1,6 +1,7 @@
 // Inlines style.css and the ES modules into one HTML file, so the greybox opens straight from disk
 // (browsers refuse module imports over file://) and can be published as a single page.
-// Usage: node tools/bundle.mjs [out.html] [--fragment]
+// Usage: node tools/bundle.mjs [out.html] [--page night.html] [--fragment]
+//   --page      the page to bundle (default index.html)
 //   --fragment  omit <!doctype>, <html>, <head>, <body> for hosts that wrap the page themselves.
 // Deliberately tiny: it understands `import { a, b as c } from './x.js'` and `export function/const/let/class`,
 // which is all this project uses. Each module becomes an IIFE so top-level names can't collide.
@@ -12,7 +13,9 @@ import { fileURLToPath } from 'node:url';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const args = process.argv.slice(2);
 const fragment = args.includes('--fragment');
-const out = resolve(root, args.find((a) => !a.startsWith('--')) || 'dist/afterglass-greybox.html');
+const pageAt = args.indexOf('--page');
+const page = pageAt >= 0 ? args[pageAt + 1] : 'index.html';
+const out = resolve(root, args.find((a, i) => !a.startsWith('--') && (pageAt < 0 || i !== pageAt + 1)) || `dist/${page.replace(/\.html$/, '')}.html`);
 
 const mods = new Map();
 const varOf = (p) => `__${basename(p, '.js').replace(/\W/g, '_')}_${mods.size}`;
@@ -38,6 +41,10 @@ function load(path) {
   return m;
 }
 
+let html = readFileSync(resolve(root, page), 'utf8');
+const script = html.match(/<script type="module" src="([^"]+)"><\/script>/);
+if (!script) throw new Error(`bundle: ${page} has no module script`);
+
 const order = [];
 const seen = new Set();
 (function visit(m) {
@@ -45,20 +52,13 @@ const seen = new Set();
   seen.add(m);
   m.deps.forEach(visit);
   order.push(m);
-})(load(resolve(root, 'src/ui.js')));
+})(load(resolve(root, script[1])));
 
 const js = order
   .map((m) => `// ${relative(root, m.path)}\nconst ${m.name} = (() => {\n${m.code}\nreturn { ${m.exports.join(', ')} };\n})();`)
   .join('\n\n');
-const css = readFileSync(resolve(root, 'style.css'), 'utf8');
-let html = readFileSync(resolve(root, 'index.html'), 'utf8');
-
-const swap = (from, to) => {
-  if (!html.includes(from)) throw new Error(`bundle: index.html has no ${from}`);
-  html = html.replace(from, () => to);
-};
-swap('<link rel="stylesheet" href="style.css">', `<style>\n${css}</style>`);
-swap('<script type="module" src="src/ui.js"></script>', `<script>\n'use strict';\n${js}\n</script>`);
+html = html.replace(/<link rel="stylesheet" href="(?!https?:)([^"]+)">/g, (_, href) => `<style>\n${readFileSync(resolve(root, href), 'utf8')}</style>`);
+html = html.replace(script[0], () => `<script>\n'use strict';\n${js}\n</script>`);
 
 if (fragment) {
   html = html

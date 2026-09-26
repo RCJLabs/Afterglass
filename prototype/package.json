@@ -2,12 +2,13 @@
   "name": "afterglass-greybox",
   "private": true,
   "version": "0.1.0",
-  "description": "Afterglass weeks 1-2 greybox: two rosters and the dawn rite.",
+  "description": "Afterglass greyboxes: weeks 1-2 (two rosters and the dawn rite) and weeks 3-4 (the night on its own).",
   "type": "module",
   "scripts": {
     "test": "node --test",
     "balance": "node tools/balance.mjs",
-    "bundle": "node tools/bundle.mjs dist/afterglass-greybox.html",
+    "balance:night": "node tools/balance-night.mjs",
+    "bundle": "node tools/bundle.mjs dist/afterglass-greybox.html && node tools/bundle.mjs dist/afterglass-night.html --page night.html",
     "serve": "python3 -m http.server 8080"
   }
 }

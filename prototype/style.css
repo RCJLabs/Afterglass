@@ -201,7 +201,7 @@ code { font-family: var(--font-num); font-size: 0.9em; }
   min-height: 36px;
   cursor: pointer;
 }
-.btn:hover:not(:disabled) { background: var(--box-2); }
+.btn:hover:not(:disabled):not([aria-pressed="true"]) { background: var(--box-2); }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .btn[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: var(--box); }
 .btn.sm { padding: 4px 9px; min-height: 30px; font-size: 13px; }

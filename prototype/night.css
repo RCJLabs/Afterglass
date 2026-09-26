@@ -1,0 +1,69 @@
+/* The night greybox: layout for the stage. The canvas keeps one dark look in both themes, because the
+   Tain is dark; everything around it follows the page theme from style.css. */
+
+.night-layout { display: grid; gap: 20px; grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 1020px) {
+  .night-layout { grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); align-items: start; }
+  .night-layout > .records { grid-column: 1 / -1; }
+}
+.stage-card {
+  border: 1px solid var(--line);
+  background: var(--panel);
+  border-radius: 6px;
+  padding: 10px;
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+.stage-box { position: relative; width: 100%; }
+#stage {
+  display: block;
+  width: 100%;
+  border-radius: 4px;
+  background: #0b0a12;
+  touch-action: manipulation;
+  cursor: crosshair;
+}
+.toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.toolbar .sep { width: 1px; align-self: stretch; background: var(--line); margin-inline: 2px; }
+.toolbar kbd {
+  font-family: var(--font-num);
+  font-size: 10px;
+  color: var(--ink-3);
+  margin-left: 4px;
+}
+.btn[aria-pressed="true"] kbd { color: inherit; opacity: 0.7; }
+#stage-hint { min-height: 1.45em; }
+.memory {
+  display: inline-block;
+  width: 72px;
+  height: 7px;
+  border: 1px solid var(--line-2);
+  border-radius: 3px;
+  overflow: hidden;
+  vertical-align: middle;
+  background: var(--box-2);
+}
+.memory i { display: block; height: 100%; background: var(--night); }
+.memory.low i { background: var(--bad); }
+.srow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px 10px;
+  align-items: center;
+  padding: 8px 12px;
+  border-top: 1px solid var(--line);
+}
+.rows > .srow:first-child { border-top: 0; }
+.srow.is-selected { background: var(--night-tint); }
+.srow .who { display: grid; gap: 2px; }
+.srow .who > div { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.srow .acts { display: flex; flex-wrap: wrap; gap: 4px; justify-content: flex-end; }
+.rating { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.fadelist { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; font-size: 14px; }
+.fadelist li { display: flex; justify-content: space-between; gap: 10px; border-bottom: 1px dotted var(--line); padding-bottom: 3px; }
+table.nights { min-width: 640px; }
+@media (max-width: 560px) {
+  .srow { grid-template-columns: minmax(0, 1fr); }
+  .srow .acts { justify-content: flex-start; }
+}
