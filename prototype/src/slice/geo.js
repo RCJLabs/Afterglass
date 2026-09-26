@@ -155,7 +155,7 @@ export function darkGaps(G, L, min = 4) {
 // Shortest route from `from` to the nearest of `goals` through the stairs. Creepers can't use a warded
 // stair or one with light at either end, and can't walk through light unless ignoreLight is set.
 // Returns { path, goal, cost } or null; steps are { f, x } to walk to or { f, x, climb } to climb to.
-export function route(G, L, from, goals, { creeper = false, ignoreLight = false, wards = [] } = {}) {
+export function route(G, L, from, goals, { creeper = false, ignoreLight = false, wards = [], litCost = 0 } = {}) {
   const nodes = [{ f: from.f, x: from.x }];
   for (const g of goals) nodes.push({ f: g.f, x: g.x, goal: g });
   for (const st of G.stairs) {
@@ -188,8 +188,8 @@ export function route(G, L, from, goals, { creeper = false, ignoreLight = false,
       if (done[v]) continue;
       const B = nodes[v];
       let w = Infinity;
-      if (A.stair && B.stair === A.stair && A.end !== B.end) w = climbCost;
-      else if (A.f === B.f && (!creeper || ignoreLight || darkBetween(L, A.f, A.x, B.x))) w = Math.abs(A.x - B.x);
+      if (A.stair && B.stair === A.stair && A.end !== B.end) w = climbCost + (litCost && (isLit(L, A.f, A.x) || isLit(L, B.f, B.x)) ? litCost : 0);
+      else if (A.f === B.f && (!creeper || ignoreLight || darkBetween(L, A.f, A.x, B.x))) w = Math.abs(A.x - B.x) + (litCost && !darkBetween(L, A.f, A.x, B.x) ? litCost : 0);
       if (dist[u] + w < dist[v]) {
         dist[v] = dist[u] + w;
         prev[v] = u;

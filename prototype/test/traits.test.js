@@ -60,7 +60,7 @@ test('death turns a trait over, and the Book tells it', () => {
   assert.doesNotMatch(epitaph(e), /Brave/, 'with traits off the Book leaves them out');
 });
 
-test('by day each trait helps or hinders at a job; the Greedy eat for two', () => {
+test('by day each trait helps or hinders at a job', () => {
   const s = newSeason(3, FULL);
   const at = (name, job) => {
     const p = person(s, name);
@@ -73,13 +73,14 @@ test('by day each trait helps or hinders at a job; the Greedy eat for two', () =
   assert.ok(near(at('Tam', 'hearth'), 0.8), 'Devout, anywhere else');
   assert.ok(near(at('Sabe', 'hearth'), 1.15), 'Diligent');
   assert.ok(near(at('Nell', 'infirmary'), 1.5), 'Gentle, healing');
-  assert.ok(near(at('Nell', 'barracks'), 0.5), 'Gentle, on the gate');
-  assert.ok(near(at('Osk', 'glazier'), 1.25), 'Greedy');
+  assert.ok(near(at('Nell', 'barracks'), 1), 'Gentle, on the gate');
+  assert.ok(near(at('Osk', 'glazier'), 1.25), 'Greedy, at a trade');
+  assert.ok(near(at('Osk', 'hearth'), 0.8), 'Greedy, anywhere else');
   assert.ok(near(at('Bran', 'hearth'), 1), 'Stubborn: nothing at work');
-  assert.ok(near(eatRate(s), 9 * TUNING.eatPerDay), 'Osk eats for two');
+  assert.ok(near(eatRate(s), 8 * TUNING.eatPerDay));
   s.tuning.traits = 0;
   assert.ok(near(at('Ada', 'barracks'), 1));
-  assert.ok(near(eatRate(s), 8 * TUNING.eatPerDay));
+  assert.ok(near(at('Osk', 'hearth'), 1));
 });
 
 test('at the gate the Brave fall more often and a Coward never does', () => {
@@ -97,7 +98,7 @@ test('at the gate the Brave fall more often and a Coward never does', () => {
   assert.ok(ada >= 8, `Ada fell ${ada} times in 60`);
 });
 
-test('sickness kills the Stubborn half as fast; the Cheerful never grieve', () => {
+test('sickness kills the Stubborn half as fast; the Cheerful never grieve, the Gentle grieve harder', () => {
   const s = newSeason(5, { ...FULL, sickChance: 1 });
   for (const p of s.living) if (p.name !== 'Bran') p.sick = 1e6; // so the day's sickness falls on Bran
   while (s.phase === 'day' && !(person(s, 'Bran').sick > 0)) step(s);
@@ -109,7 +110,10 @@ test('sickness kills the Stubborn half as fast; the Cheerful never grieve', () =
   assert.equal(person(t, 'Mira').grief, null, 'Mira is Cheerful');
   const u = newSeason(6, FULL);
   kill(u, person(u, 'Mira'), 'duty');
-  assert.ok(person(u, 'Bran').grief, 'Bran grieves');
+  assert.equal(person(u, 'Bran').grief.mult, TUNING.griefMult, 'Bran grieves');
+  const v = newSeason(6, FULL);
+  kill(v, person(v, 'Tam'), 'duty');
+  assert.equal(person(v, 'Nell').grief.mult, 0.6, 'Nell is Gentle: she grieves harder');
 });
 
 test('the Reckless fight harder and fade twice as fast; the Anchored half as fast; the Tireless never rest', () => {
@@ -244,6 +248,8 @@ test('an older save gains traits: everyone gets the one their name draws, and it
   const old = JSON.parse(JSON.stringify(s));
   delete old.tuning.traits;
   delete old.tuning0.traits;
+  delete old.tuning.goAround;
+  delete old.tuning0.goAround;
   for (const p of old.living) delete p.trait;
   for (const d of old.shades) {
     delete d.was;
@@ -252,6 +258,7 @@ test('an older save gains traits: everyone gets the one their name draws, and it
   const g = upgrade(old);
   assert.equal(g.tuning.traits, 0);
   assert.equal(g.tuning0.traits, 0, 'so an old export still replays without them');
+  assert.equal(g.tuning0.goAround, 0, 'nor with the Unlit going around lights');
   assert.ok(g.living.every((p) => p.trait === traitFor(g, p.name)));
   assert.ok(g.shades.every((d) => TRAITS[d.was].dead === d.trait));
 });

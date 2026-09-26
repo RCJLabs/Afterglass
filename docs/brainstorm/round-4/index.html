@@ -59,6 +59,7 @@ section{scroll-margin-top:64px}
 .sec{padding-block:56px 8px}
 .sec>h2{font-size:clamp(28px,4vw,38px);font-weight:800;letter-spacing:-.01em;margin-bottom:6px}
 .sec>.sub{color:var(--ink-2);font-size:18px;max-width:66ch;margin-bottom:26px}
+.sec>h3.minor{font-size:clamp(21px,2.6vw,25px);font-weight:800;margin:40px 0 8px}
 
 .fixes{display:grid;border-top:2px solid var(--ink)}
 .fixes .row{display:grid;grid-template-columns:minmax(160px,1fr) 2fr;gap:18px;padding:12px 0;border-bottom:1px solid var(--rule)}
@@ -99,6 +100,7 @@ td.status span.why{display:block;font-size:14px;color:var(--ink-2)}
 .queue li.done::before{color:var(--ok)}
 .queue li b{font-weight:800}
 .queue li p{font-size:16px;color:var(--ink-2)}
+.queue li small{color:var(--ink-3);font-size:13.5px;font-weight:700;letter-spacing:.04em;margin-left:4px}
 
 .assume{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:18px;margin-top:6px}
 .assume div{border-top:1px solid var(--rule);padding-top:10px}
@@ -119,7 +121,7 @@ footer{margin-top:56px;padding-top:16px;border-top:1px solid var(--rule);font-si
 
 <nav class="toc" aria-label="Sections">
   <ol>
-    <li><a href="#stands">Where it stands</a></li><li><a href="#candidates">Candidates</a></li><li><a href="#builds">What the builds showed</a></li><li><a href="#decide">Your decisions</a></li><li><a href="#next">Next</a></li><li><a href="#ledger">What's checked</a></li>
+    <li><a href="#stands">Where it stands</a></li><li><a href="#candidates">Candidates</a></li><li><a href="#builds">What the builds showed</a></li><li><a href="#decide">Your decisions</a></li><li><a href="#next">Next</a></li><li><a href="#queue">Queue</a></li><li><a href="#ledger">What's checked</a></li>
   </ol>
 </nav>
 
@@ -129,8 +131,8 @@ footer{margin-top:56px;padding-top:16px;border-top:1px solid var(--rule);font-si
   <p class="sub">Everything on this page comes from an autopilot (a scripted player, 40 to 200 seeds a result) and scripted runs in Chromium. Nobody has played it yet.</p>
   <div class="fixes">
     <div class="row"><b>The slice's question is unanswered.</b><p>It exists to ask <em>do people want to play a second season?</em> The page asks at the end of a season and saves the answer in the playtest export, but no tester has seen it.</p></div>
-    <div class="row"><b>The night collapses onto the line's floor.</b><p>The static line no longer wins: the reacting plan and a doubled line finish 176 and 179 second seasons of 200 on the two-room start, and 179 and 171 on the four-floor keep. But the best play either way keeps nearly everyone on the line's floor. Below it only the Choir is worth working at night, so most twin rooms' night jobs don't matter on a built-up keep.</p></div>
-    <div class="row"><b>Both seasons may be too easy.</b><p>The autopilot finishes 98–99% of first seasons and about 90% of the second seasons it reaches. People will do worse than a script that knows the rules, but by how much is unknown.</p></div>
+    <div class="row"><b>The night no longer has to collapse onto the line's floor, but working below it doesn't pay.</b><p>The static line no longer wins: over 1,000 seeds the reacting plan and a doubled line tie on the two-room start. The best play kept nearly everyone on the line's floor, because a room lit below it took a whole tide alone. The Unlit now take any dark way up and gnaw only a light that bars every way. Working the rooms below the line on one side of the keep now costs about 2 points of second seasons on either keep, against 10.6 on the two-room start before: a near-even trade, not a mistake, and not a gain.</p></div>
+    <div class="row"><b>Both seasons may be too easy.</b><p>The autopilot finishes 98–100% of first seasons and 85–95% of the second seasons it reaches. People will do worse than a script that knows the rules, but by how much is unknown.</p></div>
     <div class="row"><b>The dawn rite still isn't shown to be a choice.</b><p>Traits make each shade different, but an autopilot that reads them does no better than one blind to them. The rite is meant to be the game's best decision; whether it feels like one needs people.</p></div>
     <div class="row"><b>The new moon turns on a couple of candles.</b><p>When a room a Maw broke also lost its day's work, the balanced plan fell from 95% to 67% of first seasons on the four-floor keep. Almost all of that was the Chandlery, broken the night before the new moon.</p></div>
     <div class="row"><b>Colour blindness is checked only in simulation.</b><p>Red eyes on a dark night all but vanished for anyone who can't see red, and a Creeper in the dark is nothing but its eyes. Each Unlit eye now has a pale glint that stays bright whatever the colour vision. No colour-blind player has tried it.</p></div>
@@ -145,24 +147,24 @@ footer{margin-top:56px;padding-top:16px;border-top:1px solid var(--rule);font-si
       <thead><tr><th>#</th><th>Idea</th><th>Status</th></tr></thead>
       <tbody>
         <tr class="group"><td colspan="3">Fixes for problems already measured</td></tr>
-        <tr><td class="n">1</td><td class="idea"><b>Break the fixed stair setup</b> that won nights 1–5<small>M</small></td><td class="status"><span class="lvl ok">Built</span><span class="why">The static line no longer wins; the night now centres on the line's floor.</span></td></tr>
-        <tr><td class="n">2</td><td class="idea"><b>Make the rite bite:</b> traits such as Devout turning Bitter, and fire by day<small>M</small></td><td class="status"><span class="lvl md">Part built</span><span class="why">Traits, with a Bitter shade costing 3 Dread. Fire by day isn't built.</span></td></tr>
+        <tr><td class="n">1</td><td class="idea"><b>Break the fixed stair setup</b> that won nights 1–5<small>M</small></td><td class="status"><span class="lvl ok">Built</span><span class="why">The static line no longer wins. The Unlit now go around lights, so the rooms below the line can be worked at about even odds.</span></td></tr>
+        <tr><td class="n">2</td><td class="idea"><b>Make the rite bite:</b> traits such as Devout turning Bitter, and fire by day<small>M</small></td><td class="status"><span class="lvl md">Part built</span><span class="why">Traits, with a Bitter shade costing 3 Dread. Fire by day is queued, 6th.</span></td></tr>
         <tr><td class="n">3</td><td class="idea"><b>Colour-blind-safe eyes:</b> Creepers and Strangers told apart by shape<small>S</small></td><td class="status"><span class="lvl ok">Built</span><span class="why">The real problem was red eyes vanishing in the dark; each eye now has a pale glint.</span></td></tr>
         <tr class="group"><td colspan="3">Designed in round three, not built yet</td></tr>
         <tr><td class="n">4</td><td class="idea"><b>Traits that invert at death:</b> 8 pairs, each with a night effect<small>M</small></td><td class="status"><span class="lvl ok">Built</span><span class="why">Reading them made no measurable difference to the autopilot.</span></td></tr>
-        <tr><td class="n">5</td><td class="idea"><b>Quarters and the Dreamwell;</b> Weepers give the sleepers nightmares<small>M</small></td><td class="status"><span class="lvl lo">Not built</span></td></tr>
-        <tr><td class="n">6</td><td class="idea"><b>The black mirror:</b> tomorrow's raid and tonight's Creeper waves<small>S</small></td><td class="status"><span class="lvl lo">Not built</span><span class="why">The Dusk panel already lists the night's tides.</span></td></tr>
-        <tr><td class="n">7</td><td class="idea"><b>Whispers and the great glass:</b> shades coach the living, or step through by day<small>M</small></td><td class="status"><span class="lvl lo">Not built</span></td></tr>
-        <tr><td class="n">8</td><td class="idea"><b>Break a mirror in an emergency:</b> it frees its shades and curses the room<small>S</small></td><td class="status"><span class="lvl lo">Not built</span></td></tr>
+        <tr><td class="n">5</td><td class="idea"><b>Quarters and the Dreamwell;</b> Weepers give the sleepers nightmares<small>M</small></td><td class="status"><span class="lvl lo">Queued, 7th</span></td></tr>
+        <tr><td class="n">6</td><td class="idea"><b>The black mirror:</b> tomorrow's raid and tonight's Creeper waves<small>S</small></td><td class="status"><span class="lvl lo">Queued, 1st</span><span class="why">Inside the threat preview (16). The Dusk panel already lists the night's tides.</span></td></tr>
+        <tr><td class="n">7</td><td class="idea"><b>Whispers and the great glass:</b> shades coach the living, or step through by day<small>M</small></td><td class="status"><span class="lvl lo">Queued, 8th</span></td></tr>
+        <tr><td class="n">8</td><td class="idea"><b>Break a mirror in an emergency:</b> it frees its shades and curses the room<small>S</small></td><td class="status"><span class="lvl lo">Queued, 5th</span></td></tr>
         <tr><td class="n">9</td><td class="idea"><b>Build your own rooms</b><small>L</small></td><td class="status"><span class="lvl ok">Built</span><span class="why">The keep now starts as two rooms. No choosing a slot, no tearing down.</span></td></tr>
-        <tr><td class="n">10</td><td class="idea"><b>A full year:</b> shifting days and nights, the Long Night, the eclipse<small>L</small></td><td class="status"><span class="lvl lo">Not built</span><span class="why">The eclipse is on round three's cut list.</span></td></tr>
+        <tr><td class="n">10</td><td class="idea"><b>A full year:</b> shifting days and nights, the Long Night, the eclipse<small>L</small></td><td class="status"><span class="lvl lo">Queued, 9th</span><span class="why">The eclipse stays on round three's cut list.</span></td></tr>
         <tr><td class="n">11</td><td class="idea"><b>The dusk crossing</b> in the season<small>S</small></td><td class="status"><span class="lvl ok">Built</span></td></tr>
         <tr class="group"><td colspan="3">New ideas</td></tr>
         <tr><td class="n">12</td><td class="idea"><b>The Book of the Dead:</b> each shade's story<small>S</small></td><td class="status"><span class="lvl ok">Built</span></td></tr>
-        <tr><td class="n">13</td><td class="idea"><b>A season recap card</b> to share<small>S</small></td><td class="status"><span class="lvl lo">Not built</span></td></tr>
-        <tr><td class="n">14</td><td class="idea"><b>A daily seed</b> everyone plays<small>S</small></td><td class="status"><span class="lvl lo">Not built</span><span class="why">Replays are already exact from a seed.</span></td></tr>
-        <tr><td class="n">15</td><td class="idea"><b>Watch a replay</b> of a season or a tester's export<small>S–M</small></td><td class="status"><span class="lvl lo">Not built</span></td></tr>
-        <tr><td class="n">16</td><td class="idea"><b>A threat preview at dusk:</b> likely Creeper routes and the Hollow's path<small>M</small></td><td class="status"><span class="lvl lo">Not built</span></td></tr>
+        <tr><td class="n">13</td><td class="idea"><b>A season recap card</b> to share<small>S</small></td><td class="status"><span class="lvl lo">Queued, 3rd</span></td></tr>
+        <tr><td class="n">14</td><td class="idea"><b>A daily seed</b> everyone plays<small>S</small></td><td class="status"><span class="lvl lo">Queued, 4th</span><span class="why">Replays are already exact from a seed.</span></td></tr>
+        <tr><td class="n">15</td><td class="idea"><b>Watch a replay</b> of a season or a tester's export<small>S–M</small></td><td class="status"><span class="lvl lo">Queued, 2nd</span></td></tr>
+        <tr><td class="n">16</td><td class="idea"><b>A threat preview at dusk:</b> likely Creeper routes and the Hollow's path<small>M</small></td><td class="status"><span class="lvl lo">Queued, 1st</span></td></tr>
         <tr><td class="n">17</td><td class="idea"><b>A guided first season</b><small>M</small></td><td class="status"><span class="lvl ok">Built</span></td></tr>
         <tr><td class="n">18</td><td class="idea"><b>An installable app,</b> the first step toward Google Play<small>S–M</small></td><td class="status"><span class="lvl ok">Built</span><span class="why">Checked in Chromium only.</span></td></tr>
         <tr><td class="n">19</td><td class="idea"><b>Sound and haptics</b><small>M</small></td><td class="status"><span class="lvl ok">Built</span><span class="why">Levels set by measurement; nobody has listened yet.</span></td></tr>
@@ -191,6 +193,20 @@ footer{margin-top:56px;padding-top:16px;border-top:1px solid var(--rule);font-si
     </table>
   </div>
   <p class="note">A second season counts only if the first was finished too. "Doubled line": two fighters on each stair up to the Veil on every Maw night, never moved. "Balanced": reacts to tides and Maws.</p>
+  <h3 class="minor">The night's collapse, and a partial fix</h3>
+  <p class="sub">A room lit below the line stood alone across the Unlit's way up. A candle lights 40 of a room's 48 steps, and the way up runs between stairs through the middle of each room, so no candle there stays off it. A Creeper cut off by the line gnawed the first light on its shortest way, so one shade below took a whole tide. Rewards didn't help: up to double the night's work a floor down, or a day bonus for rooms worked through the night, left working below the line 13–17 second seasons behind in about 197. Neither did retreating to the line for each tide, or holding the line a floor lower. What helped was where the Unlit gnaw: they now take any dark way up, however long, and gnaw only a light that bars every way. It's a switch in Settings, on by default.</p>
+  <div class="table-wrap">
+    <table class="results">
+      <thead><tr><th>Second seasons, of 600 seeds</th><th>Line only</th><th>One side below the line</th></tr></thead>
+      <tbody>
+        <tr><td>Two-room start, before</td><td class="num">564 of 591</td><td class="num">493 of 581</td></tr>
+        <tr><td>Two-room start, the Unlit going around lights</td><td class="num">557 of 592</td><td class="num">546 of 591</td></tr>
+        <tr><td>Four-floor keep, before</td><td class="num">577 of 599</td><td class="num">567 of 598</td></tr>
+        <tr><td>Four-floor keep, the Unlit going around lights</td><td class="num">570 of 600</td><td class="num">556 of 597</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="note">The balanced plan throughout. "One side below the line": it also works the rooms below the line on the Choir's side of the keep, leaving the other side dark. Working below the line now costs about 2 points on either keep (1.8 standard errors pooled, probably a small real cost), where it cost 10.6 on the two-room start. Nothing below the line clearly pays except the Choir. The rule may also make the game about a point harder (1 standard error on each keep).</p>
   <div class="pillars">
     <div><b>The first Maws</b><p>They tore down the candle holding the line. That made the line cost something, but a doubled line beat them outright: 96 first seasons in 100 against 95, and 0.2 shades lost a season against 2.4.</p></div>
     <div><b>An easier second season</b><p>At ×1.35 difficulty a season, the second finished 35% of the time. At ×1.2, with the Maws on their own multiplier, it's 73% for the balanced plan on the two-room start.</p></div>
@@ -198,7 +214,8 @@ footer{margin-top:56px;padding-top:16px;border-top:1px solid var(--rule);font-si
     <div><b>An autopilot that plays sensibly</b><p>The reacting plan had been pulling reinforcements across a dark floor for each tide, and posting shades in rooms below the line's floor. Fixing both levelled it with the doubled line on the two-room start and put it ahead on the four-floor keep. The static line's lead was my autopilot's, not the rules'.</p><p>What's left is a design problem: on a built-up keep the night is all about the line's floor.</p></div>
     <div><b>Guarding the line</b><p>A rule that shades in the light at the stairs do no work but keep the Watch. It took the balanced plan from 92% to 73% of first seasons and barely moved the doubled line, from 98% to 95%. It's off, as a switch in Settings.</p></div>
     <div><b>Building</b><p>Stone from masons in the Yard, 6 stone a room, three workers a room, a Forge and a Cellar, and a keep that starts as the Hearth and the Crypt. The autopilot's results depend heavily on its build order: swapping the Chapel and the Chandlery once took it from 93% to 30%.</p></div>
-    <div><b>Traits (2 and 4)</b><p>Everyone has one of eight; death turns it over. An autopilot that reads traits finished 178 second seasons of 193, one blind to them 175: no measurable difference.</p><p>I first reported a lead of about 10 under a harsher Dread and made it the default. It came from an autopilot mistake, spending the new moon's essence on the tides of nights 5 and 6, and vanished once fixed; the default went back. The same mistake had put the doubled line ahead by 13–15; it now leads by 10 on the two-room start (not proven) and trails by 10 on the four-floor keep.</p></div>
+    <div><b>Traits (2 and 4)</b><p>Everyone has one of eight; death turns it over. An autopilot that reads traits finished 178 second seasons of 193, one blind to them 175: no measurable difference. On the current build it's 182 of 198 against 185 of 195, still within noise.</p><p>I first reported a lead of about 10 under a harsher Dread and made it the default. It came from an autopilot mistake, spending the new moon's essence on the tides of nights 5 and 6, and vanished once fixed; the default went back. The same mistake had put the doubled line ahead by 13–15. With it fixed, Double led by 10 in about 195, and over 1,000 seeds the two tie.</p></div>
+    <div><b>The follow-ups</b><p><strong>The doubled line, over 1,000 seeds</strong> on the two-room start: the balanced plan finished 932 of 982 second seasons (94.9%), Double 938 of 990 (94.7%). A tie; the lead of 10 in 200 was noise.</p><p><strong>Raids, back from 75% to 86%</strong> held (90% without traits). The Gentle guarded at half strength and the Greedy ate double; now the Gentle grieve harder and the Greedy work ×0.8 away from their two rooms.</p><p><strong>A warning for the new moon.</strong> On the two dusks before it, the Dusk panel says what warding every stair against the Hollow will cost against the essence in store. The autopilot's mistake is an easy one for a person too.</p></div>
     <div><b>The crossing, the guide, the Book, installing</b><p>They work in scripted runs: the crossing animates, the guide's cards fire, the Book tells every death, and the app installs and plays offline in Chromium. None of it has been tried by a person.</p></div>
   </div>
 </section>
@@ -218,17 +235,34 @@ footer{margin-top:56px;padding-top:16px;border-top:1px solid var(--rule);font-si
   <h2>Next, in order</h2>
   <ol class="queue">
     <li class="done"><div><b>This write-up.</b><p>Round four, next to the other three.</p></div></li>
-    <li class="done"><div><b>The static line.</b><p>Done: the gap was my autopilot's. Playing sensibly, the reacting plan levels with the doubled line on the two-room start and beats it on the four-floor keep.</p></div></li>
+    <li class="done"><div><b>The static line.</b><p>Done: the gap was my autopilot's. Over 1,000 seeds the balanced plan and the doubled line tie on the two-room start.</p></div></li>
     <li class="done"><div><b>Colour-blind-safe eyes.</b><p>Done, checked in simulation. Shape already told Creepers and Strangers apart; the real problem was red eyes vanishing in the dark for anyone who can't see red. Each eye now has a pale glint.</p></div></li>
-    <li><div><b>The playtest.</b><p>After you've played it on a phone and picked how results come back.</p></div></li>
     <li class="done"><div><b>Traits that make the rite bite.</b><p>Built. They don't yet show a measurable effect on the rite for the autopilot; what they change is which shade costs what. Whether that matters is for the playtest.</p></div></li>
+    <li class="done"><div><b>The night's collapse onto the line's floor.</b><p>Done in part: see what the builds showed.</p></div></li>
+    <li><div><b>The playtest.</b><p>After you've played it on a phone and picked how results come back.</p></div></li>
+  </ol>
+</section>
+
+<section id="queue" class="sec">
+  <h2>The queue</h2>
+  <p class="sub">The candidates not built yet, in the order I'd build them. The first two help the playtest itself; the next two matter once there are players; the rest add to the game.</p>
+  <ol class="queue">
+    <li><div><b>A threat preview at dusk (16), with the black mirror (6) in it.</b> <small>M</small><p>Tonight's tides and Maw, and the ways up the Unlit will take past the candles you've set. Now that they go around lights, where the dark way runs is the night's puzzle, and nothing on screen shows it. The black mirror's other half, tomorrow's raid, fits the same panel.</p></div></li>
+    <li><div><b>Watch a replay (15).</b> <small>S–M</small><p>A tester's export already replays exactly. A viewer that plays it back lets you see where they struggled, which is most of what a playtest can tell beyond its one question.</p></div></li>
+    <li><div><b>A season recap card (13).</b> <small>S</small><p>One image per season to share, drawn from the season summary and the Book of the Dead.</p></div></li>
+    <li><div><b>A daily seed (14).</b> <small>S</small><p>Everyone plays the same keep each day. Worth it once there are players to compare.</p></div></li>
+    <li><div><b>Break a mirror in an emergency (8).</b> <small>S</small><p>A last resort on a bad night: it frees its shades and curses the room. A new decision, and cheap.</p></div></li>
+    <li><div><b>Fire by day (the rest of 2).</b> <small>M</small><p>More deaths by day, so the rite has more shades to decide on. If testers find the rite a formality, this moves to the top.</p></div></li>
+    <li><div><b>Quarters and the Dreamwell; Weepers (5).</b> <small>M</small><p>Where the living sleep, and a night threat that reaches them. A second thing to defend at night would also pull the night further from the line.</p></div></li>
+    <li><div><b>Whispers and the great glass (7).</b> <small>M</small><p>Shades coach the living, or step through by day: day work for the dead.</p></div></li>
+    <li><div><b>A full year (10).</b> <small>L</small><p>Shifting days and nights, the Long Night; the eclipse stays cut. Only if the playtest says people want a second season, since a year is that answer built out.</p></div></li>
   </ol>
 </section>
 
 <section id="ledger" class="sec">
   <h2>What's checked and what isn't</h2>
   <div class="assume">
-    <div><h3>Established</h3><p>The autopilot numbers on this page, each from 40 to 200 seeds, and scripted Chromium checks of the game, the guide, building, installing and offline play.</p></div>
+    <div><h3>Established</h3><p>The autopilot numbers on this page, each from 40 to 1,000 seeds, and scripted Chromium checks of the game, the guide, building, installing and offline play.</p></div>
     <div><h3>Judgment</h3><p>The sizes, the order of the queue, and what counts as a fair second season.</p></div>
     <div><h3>Unknown until people play</h3><p>Whether they want a second season, whether the guide teaches the game, whether the Tain reads on a phone, and whether a real player turtles on the line the way the autopilot's doubled line does.</p></div>
   </div>

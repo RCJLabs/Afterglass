@@ -155,17 +155,23 @@ export const TUNING = {
 
   // Traits (1 on, 0 off): everyone has one, and death turns it over (TRAITS below).
   traits: 1,
+
+  // The Unlit take any dark way up, however long, and gnaw only a light that bars every way (1 on, 0 off).
+  // Off, they gnaw the first light on their shortest way, so a room lit below the line took a whole tide.
+  goAround: 1,
 };
 
 // Traits, from round three: each of the living has one, which helps or hinders at a job, and death turns it
-// over into what the shade does at night. Some change what keeping the shade costs at the rite.
+// over into what the shade does at night. Some change what keeping the shade costs at the rite. Costs that
+// fell on the gate or the larder cost too many raids (held 75% against 92% without traits), so Gentle's and
+// Greedy's are elsewhere.
 export const TRAITS = {
   brave: { name: 'Brave', dead: 'reckless', short: 'guards ×1.5; falls at the gate twice as often', guard: 1.5, fall: 2 },
   coward: { name: 'Coward', dead: 'lurker', short: 'guards ×0.5; never falls at the gate', guard: 0.5, fall: 0 },
   devout: { name: 'Devout', dead: 'bitter', short: '×1.5 in the Chapel, ×0.8 anywhere else', jobs: { chapel: 1.5 }, other: 0.8 },
   diligent: { name: 'Diligent', dead: 'tireless', short: '×1.15 at any job', any: 1.15 },
-  gentle: { name: 'Gentle', dead: 'keening', short: '×1.5 healing in the Infirmary; guards ×0.5', jobs: { infirmary: 1.5 }, guard: 0.5 },
-  greedy: { name: 'Greedy', dead: 'hoarding', short: '×1.25 at the Glazier or the Chandlery; eats double', jobs: { glazier: 1.25, chandlery: 1.25 }, eats: 2 },
+  gentle: { name: 'Gentle', dead: 'keening', short: '×1.5 healing in the Infirmary; grieves harder (×0.6 while grieving)', jobs: { infirmary: 1.5 }, grief: 0.6 },
+  greedy: { name: 'Greedy', dead: 'hoarding', short: '×1.25 at the Glazier or the Chandlery, ×0.8 anywhere else', jobs: { glazier: 1.25, chandlery: 1.25 }, other: 0.8 },
   stubborn: { name: 'Stubborn', dead: 'anchored', short: 'sickness kills them half as fast', sick: 2 },
   cheerful: { name: 'Cheerful', dead: 'wistful', short: 'never grieves', grieves: false },
 };

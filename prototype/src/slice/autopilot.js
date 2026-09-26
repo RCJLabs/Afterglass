@@ -10,7 +10,7 @@
 // on the line for the biggest tides when the essence is there, and a fighter to meet a Maw.
 
 import { step, act, newSeason, ritePreview, crossingPreview, capacity, canWork, defense, funeralCap, choicesFor, jobCap, jobCount, eatRate, wardCost, livingTrait, shadeTrait } from './sim.js';
-import { DAY_ROOMS, MIRRORS, KINDS } from './data.js';
+import { DAY_ROOMS, MIRRORS, KINDS, MAP } from './data.js';
 import { geo, roomSpan, roomAt, roomsOf, lineSpots } from './geo.js';
 
 export const PLANS = ['balanced', 'keeper', 'mourner', 'double', 'idle'];
@@ -18,6 +18,9 @@ export const PLANS = ['balanced', 'keeper', 'mourner', 'double', 'idle'];
 const doAct = (s, a) => act(s, a).ok;
 // Traits, as a player reads them. AP_BLIND=1 plays as if nobody had one (to measure what they're worth).
 const BLIND = !!globalThis.process?.env?.AP_BLIND;
+// AP_BELOW=1 also works the rooms below the line on the Choir's side of the keep, leaving the other side dark
+// as the Unlit's way up (to measure whether working below the line pays).
+const BELOW = !!globalThis.process?.env?.AP_BELOW;
 const LT = (s, p) => (BLIND ? null : livingTrait(s, p));
 const ST = (s, d) => (BLIND ? null : shadeTrait(s, d));
 // How well someone does a job, by their trait.
@@ -140,9 +143,12 @@ function postings(s, ds) {
   const T = s.tuning;
   const lf = lineOf(s)[0].f;
   const rooms = [];
+  const G = geo(s);
+  const left = (room) => roomSpan(G, room).x0 < (MAP.LEFT + MAP.RIGHT) / 2;
+  const side = roomsOf(G, 'chapel').length ? left('chapel') : true;
   const take = (room, score) => {
-    if (!ds.length || !roomsOf(geo(s), room).length) return false;
-    if (room !== 'chapel' && roomSpan(geo(s), room).f < lf) return false;
+    if (!ds.length || !roomsOf(G, room).length) return false;
+    if (room !== 'chapel' && roomSpan(G, room).f < lf && !(BELOW && left(room) === side)) return false;
     const d = [...ds].sort((a, b) => score(b) - score(a))[0];
     ds.splice(ds.indexOf(d), 1);
     const r = rooms.find((x) => x[0] === room);

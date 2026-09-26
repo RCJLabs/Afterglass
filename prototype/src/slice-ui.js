@@ -428,10 +428,11 @@ function duskPlace() {
     </ul>
     ${dark.length ? `<p class="note">${esc(listOf(dark.map((d) => d.name)))} ${dark.length === 1 ? 'stands' : 'stand'} in the dark, where Creepers catch and drain shades. A shade works only in light.</p>` : ''}
     ${wraiths.length ? `<p class="note bad">${esc(listOf(wraiths.map((d) => d.name)))} will rise as ${wraiths.length === 1 ? 'a Wraith' : 'Wraiths'} in the Waking Room. Cut ${wraiths.length === 1 ? 'it' : 'them'} down to banish for good.</p>` : ''}
+    ${moonNote()}
     <details class="card"><summary><b>How the Tain works</b></summary>
       <ul class="facts">
         <li><span>Creepers rise from the two rifts on the deepest floor and make for the two mirrors on the floor under the Veil, climbing the stairs between. The more floors the keep has, the longer their way.</span></li>
-        <li><span>They can't cross light or climb a stair lit at either end, so they gnaw at the light's edge. Some hunt candles first.</span></li>
+        <li><span>They can't cross light or climb a stair lit at either end.${T.goAround ? " If any way up is dark they take it, however long, and pass lit rooms by. When every way is lit, they gnaw at the edge of the light that bars them." : ' They gnaw at the edge of the first light on their shortest way up.'} Some hunt candles first.</span></li>
         <li><span>A shade standing in light fights anything at its edge. In the dark, shades get caught and drained.</span></li>
         ${T.lineGuard ? '<li><span>A shade in the light at the foot of a stair up to the Veil is guarding the line: it fights, and keeps the Watch if it stands in the Watch of the Dead, but does no other work. To work another room on that floor, light it with a candle of its own, away from the stair.</span></li>' : ''}
         <li><span>Each twin room has a night job for a lit shade at its post: the Choir sings essence, the Silvering makes glass, the Wick Room saves candles, the Threshold readies gentler deaths, the Watch adds to tomorrow's defense and the Cold Hearth halves fading.</span></li>
@@ -439,6 +440,17 @@ function duskPlace() {
         <li><span>From night ${T.mawFrom}, a Maw comes with the last tide. It walks through light to whatever is worth most for the least fight: the candle barring the way up, or a room where people work, counting every fighter on its way. It tears a candle down. A room it stands in for ${fmt(T.mawBreak)} seconds breaks: no work there that night, and ${T.dreadPerBroken} Dread at dawn. It hits the shades beside it.</span></li>
       </ul></details>
     <div class="row"><button class="btn primary" id="btn-start" data-act="start">Begin the night</button></div>`;
+}
+
+// Two nights before the new moon, and the night before: wards on the stairs are what hold the Hollow, so the
+// essence spent on tonight's tides won't be there for it.
+function moonNote() {
+  const left = s.tuning.seasonDays - s.day;
+  if (left < 1 || left > 2) return '';
+  const stairs = K().stairs.length;
+  const when = left === 1 ? 'Tomorrow night' : 'In two nights';
+  if (!stairs) return `<p class="note">${when} comes the new moon, and the Hollow. This keep has no stairs yet, so only shades fighting it can stop it.</p>`;
+  return `<p class="note">${when} comes the new moon. Wards on the stairs are what hold the Hollow back: warding all ${stairs} here would take ${fmt(stairs * wardCost(s))} essence, and you have ${floor1(s.res.essence)}. What you spend tonight won't be there then.</p>`;
 }
 
 // What a Maw is after, in words.
@@ -758,6 +770,7 @@ const TUNE = [
   ['startFloors', 'Floors a new keep starts with, from the ground (1 to 4)'],
   ['steelFight', 'How much harder shades fight with grave-steel'],
   ['lineGuard', 'Shades in the light at the stairs up to the Veil only guard and keep the Watch (1 on, 0 off)'],
+  ['goAround', 'The Unlit take any dark way up and gnaw only a light that bars every way (1 on, 0 off)'],
 ];
 const KEYS = [
   ['Space', 'play or pause'], ['1, 2, 4', 'speed'], ['C, M, W, H', 'candle, move, ward, hush (at night)'], ['V', 'turn the Tain upright'],

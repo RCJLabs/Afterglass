@@ -497,7 +497,7 @@ export function kill(s, p, cause, how) {
   let grief = '';
   const q = p.bond ? byId(s.living, p.bond.with) : null;
   if (q && livingTrait(s, q)?.grieves !== false) {
-    q.grief = { for: p.id, mult: s.tuning.griefMult };
+    q.grief = { for: p.id, mult: livingTrait(s, q)?.grief ?? s.tuning.griefMult };
     q.peace = 0;
     grief = ` ${q.name} grieves.`;
   }
@@ -938,6 +938,9 @@ function foeTick(s, L, c) {
   }
 }
 
+// What crossing a light costs a Creeper's way up when it is choosing which light to gnaw: more than any
+// walk, so the way that crosses the fewest lights wins.
+const LIT_COST = 1000;
 function plan(s, L, c) {
   const T = s.tuning;
   const n = s.night;
@@ -984,7 +987,9 @@ function plan(s, L, c) {
     c.path = r.path;
     return;
   }
-  const open = route(geo(s), L, c, mirrorGoals(geo(s)), { creeper: true, ignoreLight: true, wards: n.wards });
+  // Cut off: gnaw the light that bars the way. With goAround, the way that crosses the fewest lights, so a
+  // light with a dark way around it is passed by; without, whatever light the shortest way meets first.
+  const open = route(geo(s), L, c, mirrorGoals(geo(s)), { creeper: true, ignoreLight: true, wards: n.wards, litCost: T.goAround ? LIT_COST : 0 });
   const cut = open && firstLight(L, c, open.path);
   if (!cut) {
     c.mode = 'idle';
@@ -1014,7 +1019,7 @@ function mawTargets(s, L, m) {
   const G = geo(s);
   const n = s.night;
   const out = [];
-  const open = route(G, L, m, mirrorGoals(G), { creeper: true, ignoreLight: true, wards: n.wards });
+  const open = route(G, L, m, mirrorGoals(G), { creeper: true, ignoreLight: true, wards: n.wards, litCost: s.tuning.goAround ? LIT_COST : 0 });
   const cut = open && firstLight(L, m, open.path);
   const candles = [cut && byId(n.candles, cut.candle), m.target?.kind === 'candle' && byId(n.candles, m.target.id)];
   for (const k of candles) if (k && !out.some((t) => t.id === k.id)) out.push({ kind: 'candle', id: k.id, f: k.f, x: k.x, worth: s.tuning.mawLine });
@@ -1213,7 +1218,7 @@ function takeLiving(s, p) {
   const q = p.bond ? byId(s.living, p.bond.with) : null;
   const grieves = q && livingTrait(s, q)?.grieves !== false;
   if (grieves) {
-    q.grief = { for: p.id, mult: s.tuning.griefMult };
+    q.grief = { for: p.id, mult: livingTrait(s, q)?.grief ?? s.tuning.griefMult };
     q.peace = 0;
   }
   say(s, `It came up into the keep and took ${p.name} from their bed. There is no body to wake.${grieves ? ` ${q.name} grieves.` : ''}`, 'death', true);
@@ -1813,6 +1818,8 @@ export function upgrade(g) {
   // into this build, its numbers move to the build's, which turns them on. Everyone gets the trait their name
   // would have drawn.
   for (const t of [g.tuning, g.tuning0]) if (t && !('traits' in t)) t.traits = 0;
+  // Likewise a keep from before the Unlit went around lights.
+  for (const t of [g.tuning, g.tuning0]) if (t && !('goAround' in t)) t.goAround = 0;
   for (const p of g.living || []) p.trait ??= traitFor(g, p.name);
   for (const b of g.bodies || []) if (b.was === undefined) b.was = b.from === 'raider' ? null : traitFor(g, b.name);
   for (const d of g.shades || []) {

@@ -159,6 +159,32 @@ test('a shade in the light holds it: Creepers that gnaw its edge are cut down', 
   assert.ok(s.night.candles[0].wax > 0);
 });
 
+// The line lit at both stairs up to the Veil, a candle in the left room of the floor below it, everyone on the
+// Veil floor out of the way, and a Creeper on the deepest floor.
+function aroundNight(goAround, more = []) {
+  const s = newSeason(5, { ...quiet, goAround });
+  emptyNight(s);
+  for (const [f, x] of [[2, 16], [2, 96], [1, 30], ...more]) ok(s, { type: 'candle', f, x });
+  s.shades.forEach((d, i) => Object.assign(d, { f: 3, x: 70 + i * 6, post: { f: 3, x: 70 + i * 6 } }));
+  const c = addFoe(s, 'creeper', 0, 20);
+  stepFor(s, 1);
+  const at = (f, x) => s.night.candles.find((k) => k.f === f && k.x === x).id;
+  return { c, at };
+}
+
+test('the Unlit go around a lit room if any way up is dark, and gnaw only a light that bars every way', () => {
+  // The candle below the line lights the left way up. There's a dark way up the right side, to the line.
+  const on = aroundNight(1);
+  assert.equal(on.c.mode, 'gnaw');
+  assert.equal(on.c.gnaw, on.at(2, 96), 'it goes up the dark side and gnaws the line there');
+  // Without the rule it gnaws the first light on its shortest way: the room's.
+  const off = aroundNight(0);
+  assert.equal(off.c.gnaw, off.at(1, 30));
+  // Light the right way up too, and every way crosses a room's light: it gnaws the one on the shortest.
+  const both = aroundNight(1, [[1, 82]]);
+  assert.equal(both.c.gnaw, both.at(1, 30));
+});
+
 test('twin rooms work only for a lit shade at its post: Choir, Wick Room, Watch and Cold Hearth', () => {
   const s = newSeason(6, { ...quiet, traits: 0 });
   toDusk(s);
