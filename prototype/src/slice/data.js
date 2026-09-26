@@ -53,7 +53,10 @@ export const TUNING = {
   dreadPerWraith: 2,
   dreadPerCrack: 1,
   dreadPerBroken: 1, // each room a Maw broke in the night haunts the keep: Dread at dawn
-  dreadLivingPer: 3,
+  // One Dread borne per this many living. At 3, the autopilot almost never had to cover a shade, so which
+  // one it kept (traits) made no difference; at 4 it covers about 3 a season and reading traits is worth
+  // about 10 more second seasons in 190 (README, traits). It also makes second seasons harder.
+  dreadLivingPer: 4,
   dreadMax: 5,
   vigilCost: 3,
   bindCost: 3,
@@ -150,6 +153,33 @@ export const TUNING = {
   roomStone: 6,
   roomCap: 3,
   steelFight: 1.25,
+
+  // Traits (1 on, 0 off): everyone has one, and death turns it over (TRAITS below).
+  traits: 1,
+};
+
+// Traits, from round three: each of the living has one, which helps or hinders at a job, and death turns it
+// over into what the shade does at night. Some change what keeping the shade costs at the rite.
+export const TRAITS = {
+  brave: { name: 'Brave', dead: 'reckless', short: 'guards ×1.5; falls at the gate twice as often', guard: 1.5, fall: 2 },
+  coward: { name: 'Coward', dead: 'lurker', short: 'guards ×0.5; never falls at the gate', guard: 0.5, fall: 0 },
+  devout: { name: 'Devout', dead: 'bitter', short: '×1.5 in the Chapel, ×0.8 anywhere else', jobs: { chapel: 1.5 }, other: 0.8 },
+  diligent: { name: 'Diligent', dead: 'tireless', short: '×1.15 at any job', any: 1.15 },
+  gentle: { name: 'Gentle', dead: 'keening', short: '×1.5 healing in the Infirmary; guards ×0.5', jobs: { infirmary: 1.5 }, guard: 0.5 },
+  greedy: { name: 'Greedy', dead: 'hoarding', short: '×1.25 at the Glazier or the Chandlery; eats double', jobs: { glazier: 1.25, chandlery: 1.25 }, eats: 2 },
+  stubborn: { name: 'Stubborn', dead: 'anchored', short: 'sickness kills them half as fast', sick: 2 },
+  cheerful: { name: 'Cheerful', dead: 'wistful', short: 'never grieves', grieves: false },
+};
+export const TRAIT_KEYS = Object.keys(TRAITS);
+export const SHADE_TRAITS = {
+  reckless: { name: 'Reckless', short: 'lunges further and fights ×2, but loses memory twice as fast', fight: 2, reach: 5, fade: 2, drain: 2 },
+  lurker: { name: 'Lurker', short: 'unseen by Creepers and Wraiths, so never caught; fights ×0.25', fight: 0.25, unseen: true },
+  bitter: { name: 'Bitter', short: 'costs 3 Dread to keep; while it stays, wards cost a fifth', dread: 3, wards: 0.2 },
+  tireless: { name: 'Tireless', short: 'works ×1.6, but never rests and never works as a twin', work: 1.6, rests: false, twins: false },
+  keening: { name: 'Keening', short: 'sings wherever it stands: calms two Restless shades a night', calms: 2 },
+  hoarding: { name: 'Hoarding', short: '×2 essence in the Choir, but pockets 2 candles every dusk while the store holds more than 4', essence: 2, pockets: 2, spares: 4 },
+  anchored: { name: 'Anchored', short: 'fades half as fast', fade: 0.5 },
+  wistful: { name: 'Wistful', short: 'resting the night through in the Cold Hearth, it sends good dreams: the living work ×1.15 the next day', dreams: 1.15 },
 };
 
 // Day rooms. out is what a worker makes each day at full strength.
@@ -251,16 +281,16 @@ export const MIRRORS = {
 export const START_MIRRORS = [['pier', 'Chapel'], ['hand', 'Hall']];
 export const MIRROR_PLACES = ['Stair', 'Solar', 'Well', 'Tower', 'Kitchen', 'Gate', 'Library', 'Cellar', 'Loft', 'Cloister'];
 
-// The living. Anyone whose room isn't built yet starts in the Yard.
+// The living. Anyone whose room isn't built yet starts in the Yard. Between them they have each trait once.
 export const CAST = [
-  { name: 'Ada', age: 'adult', job: 'barracks' },
-  { name: 'Wil', age: 'adult', job: 'barracks' },
-  { name: 'Tam', age: 'old', job: 'chapel' },
-  { name: 'Bran', age: 'adult', job: 'hearth' },
-  { name: 'Mira', age: 'adult', job: 'hearth' },
-  { name: 'Sabe', age: 'young', job: 'glazier' },
-  { name: 'Osk', age: 'young', job: 'chandlery' },
-  { name: 'Nell', age: 'old', job: 'infirmary' },
+  { name: 'Ada', age: 'adult', job: 'barracks', trait: 'brave' },
+  { name: 'Wil', age: 'adult', job: 'barracks', trait: 'coward' },
+  { name: 'Tam', age: 'old', job: 'chapel', trait: 'devout' },
+  { name: 'Bran', age: 'adult', job: 'hearth', trait: 'stubborn' },
+  { name: 'Mira', age: 'adult', job: 'hearth', trait: 'cheerful' },
+  { name: 'Sabe', age: 'young', job: 'glazier', trait: 'diligent' },
+  { name: 'Osk', age: 'young', job: 'chandlery', trait: 'greedy' },
+  { name: 'Nell', age: 'old', job: 'infirmary', trait: 'gentle' },
 ];
 export const BONDS = [
   ['Ada', 'Wil', 'sibling'],
@@ -271,8 +301,8 @@ export const BONDS = [
 // the two stairs up to the Veil, or between rift and mirror in a keep with no stairs). Garrick is Osk's
 // father: posted in the Wick Room he and Osk both work x1.25.
 export const START_SHADES = [
-  { name: 'Garrick', age: 'adult', job: 'barracks', kind: 'loyal', cause: 'duty', memory: 80, named: false, bond: ['Osk', 'parent'] },
-  { name: 'Hesper', age: 'old', job: 'chapel', kind: 'serene', cause: 'oldage', memory: 60, named: true, bond: null },
+  { name: 'Garrick', age: 'adult', job: 'barracks', kind: 'loyal', cause: 'duty', memory: 80, named: false, bond: ['Osk', 'parent'], was: 'brave' },
+  { name: 'Hesper', age: 'old', job: 'chapel', kind: 'serene', cause: 'oldage', memory: 60, named: true, bond: null, was: 'stubborn' },
 ];
 // What each side of a bond is to the other: Garrick is Osk's parent, so Osk is Garrick's child.
 export const BOND_OTHER = { parent: 'child', child: 'parent', sibling: 'sibling', spouse: 'spouse', friend: 'friend' };

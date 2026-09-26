@@ -1,7 +1,7 @@
 // The Book of the Dead: each of the dead as a short story, told from what the ledger kept about them.
 // Pure, so the stories can be tested in Node.
 
-import { KINDS, TWINS, DAY_ROOMS } from './data.js';
+import { KINDS, TWINS, DAY_ROOMS, TRAITS, SHADE_TRAITS } from './data.js';
 
 // What each job made someone: a priest, a smith, a mason.
 const ROLE = Object.fromEntries(Object.entries(DAY_ROOMS).filter(([, R]) => R.role).map(([k, R]) => [k, R.role]));
@@ -12,7 +12,7 @@ const article = (w) => (/^[aeiou]/i.test(w) ? 'An' : 'A');
 function whenText(season, day, sameSeason) {
   return sameSeason === season ? `on day ${day}` : `on day ${day} of the ${ordinal(season)} season`;
 }
-export function epitaph(e) {
+export function epitaph(e, { traits = false } = {}) {
   const out = [];
   if (e.from === 'raider') out.push('One of the Ashen Host, who came over the wall and never left.');
   else {
@@ -27,6 +27,9 @@ export function epitaph(e) {
   if (woke) out.push(woke);
   else if (e.woke && e.from !== 'before') out.push(`Woke ${KINDS[e.woke]?.name || e.woke} in the glass.`);
   else if (!e.woke) out.push('Lies in the crypt, waiting for dusk.');
+  // Traits: what they were in life, and, if they woke in the glass, what death made of it.
+  const T = traits && TRAITS[e.was];
+  if (T) out.push(e.woke && KINDS[e.woke] && e.woke !== 'wraith' ? `${T.name} in life, ${SHADE_TRAITS[T.dead].name} in death.` : `${T.name} in life.`);
   if (e.bound) out.push(`Was bound into a mirror as ${KINDS[e.bound.kind]?.name || 'a shade'} ${whenText(e.bound.season, e.bound.day, e.season)}.`);
   if (e.turned) out.push(`Turned Wraith on day ${e.turned}.`);
   if (e.nights > 0) {

@@ -15,7 +15,7 @@ All four are live on GitHub Pages at https://rcjlabs.github.io/Base-Manager/ (ev
 
 ```sh
 cd prototype
-npm test                        # 100 tests: rules, replay, building, save and load, save slots, sound cues, soak runs, the pixel quiz, the people sprites, colour-blind eyes, the app's file list (Node 20+, no dependencies)
+npm test                        # 113 tests: rules, replay, building, traits, save and load, save slots, sound cues, soak runs, the pixel quiz, the people sprites, colour-blind eyes, the app's file list (Node 20+, no dependencies)
 npm run serve                   # then open http://localhost:8080, /night.html, /pixel.html or /season.html (any static server works)
 npm run bundle                  # dist/afterglass-greybox.html, -night, -pixel and -season.html: single files that open from disk
 npm run balance -- 20 40        # weeks 1-2 autopilot report: 40 seeds x 20 days per policy
@@ -36,10 +36,10 @@ The pages load ES modules, so they need a web server; GitHub Pages works as is. 
 | `src/autopilot.js`, `src/night-autopilot.js` | Crude players for tests and balance runs |
 | `src/px/` | The pixel pass: `kit.js` (palette and drawing primitives from the round-three mockups), `lut.js` (the palette lookup and dithered light), `scene.js` (geometry, cameras, the quiz), `draw.js` (the art) |
 | `src/pixel-ui.js` | The pixel page: day, crossing, night and the readability test |
-| `src/slice/` | The season slice: `data.js` (content and tuning), `geo.js` (the geometry of any keep the player builds: floors, stairs, light, routes and cameras), `sim.js` (the whole season as one state), `autopilot.js`, `draw.js` (the art, built on `src/px/`), `people.js` (the living and the dead as pixel figures), `book.js` (the Book of the Dead's pages), `saves.js` (the save slots, and loading a keep from a file), `sound.js` (every sound, made with Web Audio as it plays) |
+| `src/slice/` | The season slice: `data.js` (content, tuning and the traits), `geo.js` (the geometry of any keep the player builds: floors, stairs, light, routes and cameras), `sim.js` (the whole season as one state), `autopilot.js`, `draw.js` (the art, built on `src/px/`), `people.js` (the living and the dead as pixel figures), `book.js` (the Book of the Dead's pages), `saves.js` (the save slots, and loading a keep from a file), `sound.js` (every sound, made with Web Audio as it plays) |
 | `src/slice-ui.js` | The season page |
 | `sw.js`, `season.webmanifest`, `icons/` | The installable season: the service worker that keeps it playable offline, the manifest, and the icons `tools/icons.mjs` draws |
-| `test/` | 16 weeks 1–2 tests, 15 night tests, 8 pixel tests, 38 season tests, 11 for the save slots, 6 for sound, 3 for the people sprites, 1 for colour-blind eyes and 2 for the installable app, including soak runs |
+| `test/` | 16 weeks 1–2 tests, 15 night tests, 8 pixel tests, 38 season tests, 13 for traits, 11 for the save slots, 6 for sound, 3 for the people sprites, 1 for colour-blind eyes and 2 for the installable app, including soak runs |
 | `tools/` | Balance reports, the single-file bundler and the icon drawer |
 
 Everything is seeded and every action is logged, so `replay()` (in `src/sim.js` and `src/slice/sim.js`) and `replayNight()` rebuild any session exactly, including one from a playtester's export.
@@ -54,6 +54,7 @@ The vertical slice: seven days in one keep, ending on the night of the new moon,
    - **Maws that break what a line leaves bare** (problem 2). On the original four-floor keep they reversed the doubled line's lead over two seasons. It used to finish 133 second seasons against the balanced plan's 116; with the new Maws it was 116 against 123.
    - **An autopilot that stopped making two mistakes.** On a keep built from two rooms the doubled line still won, 174 second seasons against 138. The balanced plan was pulling reinforcements across a dark floor during each tide, and posting shades in rooms below the line's floor, out where the tides and the Maws come up. Fixing either helped (over 100 seeds, 72 second seasons became 79 and 81), and fixing both levelled it. The doubled line now finishes 179 second seasons and the balanced plan 176, within noise. On the four-floor keep the balanced plan is ahead, 179 against 171. The Hollow gap closed with the same two fixes: it gets through in 25 of the balanced plan's 99 finished first seasons, down from 65 of 95.
    - **What that exposes.** The best play, reacting or not, keeps nearly everyone on the line's floor and works the rooms there. Below it only the Choir's essence is worth a shade's risk at night: my autopilot now leaves the Cold Forge, the Silvering, the Wick Room and the Threshold unworked whenever they're below the line, and does better for it. So on a built-up keep most twin rooms' night jobs don't matter. That's the design problem now, and the place to look before another rule.
+   - **The doubled line is ahead again on the two-room start.** With traits and the harsher Dread (problem 8), Double finishes 179 of 195 second seasons against the balanced plan's 166 of 192. Either change alone gives it about the same lead (14 or 15); with neither it was 3. On the four-floor keep it doesn't lead (174 against 177). I haven't looked into why yet.
    - **Guarding the line: tried, and switched off.** With `lineGuard` on in Settings, a shade in the light of a candle that reaches the foot of a stair up to the Veil guards the line: it fights and keeps the Watch, but does no other work, and a room on that floor has to be worked under a candle of its own, away from the stair. With the autopilot as it was, on the two-room start (60 seeds), it took the balanced plan from 92% of first seasons to 73% and its raids held from 91% to 72%. Its essence fell from 53 a season to 10: its line holder in the Choir stopped singing, and its other singer spent each tide crossing the floor to the far stair. I'd guess the lost essence was lost gate wards and so lost raids, but the raid log doesn't record wards. The doubled line went from 98% to 95%. Without the Watch exception it was 45% against 92%, and building a Granary on the line's floor instead of the Chapel made both plans worse again (50–52% and 72–85%).
 2. **Maws break rooms now, and the haunting costs Dread, not work.** The design doc's Maws break twin rooms, and a broken twin haunts its day room. Mine now do that: a Maw that stands in a room for 12 seconds breaks it, and nobody works there for the rest of the night. I first had nobody work in the haunted day room the next day. On the four-floor keep, with the autopilot as it was, that decided seasons through one room: the Wick Room broken on night 6 left too few candles for the new moon, and the balanced plan's finished first seasons fell from 95% to 67%. Even letting them work at 75% cost 10 seasons in 100, so the new moon is on a knife-edge for candles, a flaw of its own. A broken room now costs 1 Dread at dawn (`dreadPerBroken`), and the day room is haunted in name and picture only. `hauntWork` in Settings brings the lost work back.
 3. **The two-room start is balanced for my autopilot's build order, and it's sensitive to that order.** Building a Barracks, then a Chapel, then a Chandlery, the balanced plan finishes 99% of first seasons. With the Chandlery before the Chapel it finished 30% at one point, with the autopilot as it was then, because where the Chapel lands decides whether its singer stands on the line's floor or alone below it. A person's order is untested. To make the start playable:
@@ -66,12 +67,19 @@ The vertical slice: seven days in one keep, ending on the night of the new moon,
 5. **My autopilot plays better than it did, so its numbers aren't comparable with earlier ones.** The reacting plans now:
    - pull a second fighter to each stair for each tide, only from that stair's own room, and send it back after;
    - ward the line's stairs for the last tide of nights 5 and 6 when they have the essence;
-   - post nobody below the line's floor at night, except in the Choir.
+   - post nobody below the line's floor at night, except in the Choir;
+   - read traits: the Brave to the gate and Cowards to the Yard, the Devout, Gentle and Greedy to the jobs they're best at, Wistful shades to rest and Hoarding ones to sing, and at dawn cover whichever shade is worth least per point of Dread. `AP_BLIND=1` plays as if nobody had a trait.
 
    Every plan stands guards only on raid days (the rest quarry) and builds in a fixed order. Without the tide reaction and the wards, the balanced plan finished 86% of first seasons on the two-room start.
-6. **Both seasons may now be too easy.** With the autopilot playing sensibly, every plan finishes 98–99% of first seasons. On the two-room start the balanced plan finishes 91% of the second seasons it reaches (176 of 194), the keeper 87% (168 of 193) and the mourner 87% (169 of 194), each about ±5. A first-timer will do worse than a script that knows the rules, but by how much is unknown. If people come near these numbers, the game needs to be harder. Raids, Creeper counts and the Hollow are ×1.2 a season (`hardness`); Maws stay as they were (`mawHardness` 1), since a stronger Maw hurts a player who answers it more than one who stacks the line. The target, harder than season 1 but not a coin flip, is my guess at "harder but fair", and every knob is in Settings.
-7. **The Hollow gets through a quarter of the time.** On the new moon it reaches the Veil in 25 of the balanced plan's 99 finished first seasons, is driven back in 13 and withdraws at dawn in 61. The mourner, with fewer shades, lets it through in 61 of 98, and the doubled line in 8 of 99.
-8. **Dread rarely forces a choice in the first season.** A season kills about 4 of your people. Every plan but the keeper is blessed at every inspection, and the keeper is warned in 9 of 100. In season 1, keep or cover is still mostly a Dread valve.
+6. **The first season may be too easy.** With the autopilot playing sensibly, every plan finishes 96–98% of first seasons. Second seasons got harder with traits and the harsher Dread: on the two-room start the balanced plan finishes 86% of the second seasons it reaches (166 of 192), the keeper 78% (145 of 187), the mourner 73% (143 of 196) and Double 92% (179 of 195), each about ±5. A first-timer will do worse than a script that knows the rules, but by how much is unknown. If people come near these numbers, the game needs to be harder. Raids, Creeper counts and the Hollow are ×1.2 a season (`hardness`); Maws stay as they were (`mawHardness` 1), since a stronger Maw hurts a player who answers it more than one who stacks the line. The target, harder than season 1 but not a coin flip, is my guess at "harder but fair", and every knob is in Settings.
+7. **The Hollow gets through a third of the time.** On the new moon it reaches the Veil in 35 of the balanced plan's 96 finished first seasons, is driven back in 15 and withdraws at dawn in 46 (it was 25, 13 and 61 before traits and the harsher Dread; each raised it). The mourner, with fewer shades, lets it through in 73 of 97, and the doubled line in 11 of 98.
+8. **Traits make the rite a choice only under harsher Dread, and the evidence is thin.** Keep or cover used to be a Dread valve: shades were interchangeable, and the living bore most of what you kept. Traits make each shade different. `AP_BLIND=1` runs the autopilot as if nobody had a trait, so I could measure whether reading them pays. Balanced plan, 200 seeds, two seasons; second seasons finished:
+   - **At the old Dread** (one borne per 3 living), reading traits changed nothing: 173 of 191 reading them, 170 of 193 blind, 172 of 191 judging every trait backwards. The autopilot covered about 2 shades a season, so which ones hardly mattered.
+   - **At one per 4 living, now the default** (`dreadLivingPer` 4 in Settings): 166 of 192 reading them, 156 of 192 blind, 158 of 191 backwards, covering about 3 a season. The lead of about 10 is roughly two standard errors. A run with every night effect doubled showed the same sign (+13), so I think it's real, but it isn't proven.
+   - **My first traits failed.** Cheerful and Wistful eased Dread, most living traits were pure gains, and the night effects were half their size. Reading them changed nothing, and every plan got easier. The traits are now trade-offs, so blind play loses a few seasons and reading them wins those back.
+   - **The harsher Dread punishes both extremes.** The keeper, which never covers, finishes 145 of 187 second seasons (it was 168) and is censured 1.4 times a run. The mourner, which covers freely, finishes 143 of 196 (was 169).
+
+   Whether people feel the choice is for the playtest.
 9. **Shades are hard to find in the dark.** They're 6 by 12 pixel silhouettes (18 by 36 CSS pixels at 3×) with a faint glow, and the Unlit show only their eyes. In the default reflection camera they hang upside down, as the Tain does; the flipped camera shows them upright.
 
    **Colour blindness, checked in simulation only.** The risk I'd listed, Creeper red against Stranger green, turned out to be the lesser one: a Stranger is a horned, glowing silhouette with eyes at head height, and a Creeper is two dots near the floor. The worse problem was that red eyes on a dark night all but vanish with protanopia or deuteranopia, and a Creeper in the dark is nothing but its eyes. Each Unlit eye now has a pale glint over the red that stays bright whatever the colour vision (a test checks its contrast in four simulations), so a Creeper reads as two small upright marks. A gnawing Creeper's eyes still say so only by turning orange, which shows as a brighter olive to someone who can't see red. None of this has been checked by a colour-blind player.
@@ -140,6 +148,20 @@ The vertical slice: seven days in one keep, ending on the night of the new moon,
   - is held by a ward on a stair for 20 seconds, then breaks it;
   - can only be driven back by shades fighting it (+3 remembrance);
   - if it reaches the Veil, cracks it and takes one of the living, leaving no body to wake.
+- **Traits.** Everyone living has one of eight, which helps or hinders at a job; death turns it over into what the shade does at night (round three's pairs). People, the crypt at dusk, the rite and the Book show them, and the guide explains them at the first dawn. They switch off in Settings, under Advanced (`traits`).
+
+  | In life | By day | In death | At night |
+  |---|---|---|---|
+  | Brave | guards ×1.5; falls at the gate twice as often | Reckless | lunges further and fights ×2, but loses memory twice as fast |
+  | Coward | guards ×0.5; never falls at the gate | Lurker | unseen by Creepers and Wraiths, so never caught; fights ×0.25 |
+  | Devout | ×1.5 in the Chapel, ×0.8 anywhere else | Bitter | costs 3 Dread to keep; while it stays, wards cost a fifth |
+  | Diligent | ×1.15 at any job | Tireless | works ×1.6, but never rests and never works as a twin |
+  | Gentle | ×1.5 healing in the Infirmary; guards ×0.5 | Keening | calms two Restless shades a night, wherever it stands |
+  | Greedy | ×1.25 at the Glazier or the Chandlery; eats double | Hoarding | ×2 essence in the Choir, but pockets 2 candles every dusk while the store holds more than 4 |
+  | Stubborn | sickness kills them half as fast | Anchored | fades half as fast |
+  | Cheerful | never grieves | Wistful | resting the night through in the Cold Hearth, sends good dreams: the living work ×1.15 the next day |
+
+  The cast has each trait once. A newcomer's comes from their name and the seed, not the random stream, so a seed plays the same raids and sickness with traits on or off. Older saves give everyone the trait their name draws.
 - **The end.** A season summary, the question, and **Begin season 2**. The keep carries its living, shades, stores, mirrors and Dread into the next season, and the Veil starts whole. Raids, Creepers and the Hollow are ×1.2 stronger each season; Maws stay as they were.
 - **Records.** The Book of the Dead has a page for everyone who has died in this keep, grouped by season. A page tells who they were, how they died and what they woke as, the nights they served and where, what they cut down, and how it ended. Records also holds the log, each day's numbers and the playtest export.
 - **The Menu** pauses the season while it's open and plays on when it closes.
@@ -171,22 +193,23 @@ The vertical slice: seven days in one keep, ending on the night of the new moon,
    - what the Cellar keeps.
 
    The doc's Library, Quarters, Hall and Gatehouse aren't built.
+10. **Traits: the pairs and their night effects are the doc's; the rest is mine.** The day effects of the living traits are mine; the doc gives only the night side. So are all the numbers, and Bitter's cost in Dread, which comes from my round-four note. Wistful's "better dreams in the Dreamwell" became a day's better work, because there's no Dreamwell yet. A Reckless shade lunges and hits harder rather than charging into the dark: my first version left the light, got caught, and killed less than an ordinary shade. Hoarding leaves the last 4 candles because taking 2 of a store's last 2.5 lost a keep on its first night.
 
 **What the numbers say so far.** From `npm run balance:season -- 100 1`, on the two-room start. Every plan but Idle builds in the same order (a Barracks, a Chapel, a Chandlery, a Glazier, an Infirmary, a second Barracks, a Forge, a Granary, a Cellar), stands guards only on raid days, holds the stairs to the Veil, relights candles, and posts nobody below the line's floor at night except in the Choir. All but Double and Idle pull a second fighter to each stair for each tide from that stair's own room, ward the line for the last tide of nights 5 and 6 when the essence is there, and send help against a Maw. The first three differ in how they treat the dead; Double treats them like Balanced.
 
 | | Balanced | Keeper (never covers) | Mourner (every funeral, covers to keep Dread at 1) | Double (two fighters per stair on Maw nights, never moves anyone) | Idle (no candles, no posts) |
 |---|---|---|---|---|---|
-| Seasons finished | 99% | 98% | 98% | 99% | 0% |
-| Lost on night 6 / 7 | 0 / 1 | 0 / 2 | 0 / 2 | 0 / 1 | all on night 1 |
-| Your deaths per season | 3.6 | 3.6 | 4.2 | 3.4 | – |
-| Raids held | 92% | 92% | 90% | 92% | – |
-| Church: blessed / warned / censured | 100 / 0 / 0 | 91 / 9 / 0 | 100 / 0 / 0 | 100 / 0 / 0 | – |
-| Shades lost at night per season | 0.5 | 0.6 | 0.5 | 0.4 | – |
-| The Hollow, in finished seasons: reached the Veil / driven back / withdrew | 25 / 13 / 61 | 27 / 12 / 59 | 61 / 10 / 27 | 8 / 17 / 74 | – |
+| Seasons finished | 96% | 94% | 97% | 98% | 0% |
+| Lost on night 6 / 7 (and earlier) | 0 / 3 (1) | 3 / 1 (2) | 0 / 3 | 1 / 1 | all on night 1 |
+| Your deaths per season | 4.4 | 4.3 | 4.7 | 3.9 | – |
+| Raids held | 75% | 76% | 78% | 83% | – |
+| Church: blessed / warned / censured | 99 / 0 / 0 | 66 / 16 / 35 (117 visits) | 100 / 0 / 0 | 100 / 0 / 0 | – |
+| Shades lost at night per season | 0.7 | 1.0 | 0.6 | 0.7 | – |
+| The Hollow, in finished seasons: reached the Veil / driven back / withdrew | 35 / 15 / 46 | 36 / 11 / 47 | 73 / 7 / 17 | 11 / 20 / 67 | – |
 
-- **Raids hold far better than before the two-room start** (92% against 58%). Guards now stand only on raid days, when every free hand goes to the Barracks, and a second Barracks comes sixth in the build order. A person may staff differently; that's untested.
-- **Season 2** (200 seeds, two seasons): the balanced plan finishes 176 of the 194 second seasons it reaches (91%), the keeper 168 of 193 (87%), the mourner 169 of 194 (87%) and Double 179 of 196 (91%).
-- **The original four-floor start** (`startFloors` 4 in Settings) with the same rules and autopilot, 200 seeds and two seasons: every plan finishes 98–100% of first seasons. Of the second seasons they reach, the balanced plan finishes 179 of 196 (91%), the keeper 158 of 200 (79%), the mourner 152 of 197 (77%) and Double 171 of 200 (86%).
+- **Raids hold less often with traits:** 75% for the balanced plan, against 92% without them (and 58% before the two-room start). No one trait does it. Neutralising the Devout, the Diligent or the Gentle each brings it back to about 81%, and the rest almost nothing. It's the sum of small costs: Wil (a Coward) and Nell (Gentle) guard at half strength, Tam (Devout) at ×0.8 off the Chapel, and Ada (Brave) falls twice as often, which thins the gate for the next raid. Deaths rise from 3.6 a season to 4.4, so the rite has more shades to choose among. Guards stand only on raid days, when every free hand goes to the Barracks.
+- **Season 2** (200 seeds, two seasons): the balanced plan finishes 166 of the 192 second seasons it reaches (86%), the keeper 145 of 187 (78%), the mourner 143 of 196 (73%) and Double 179 of 195 (92%).
+- **The original four-floor start** (`startFloors` 4 in Settings), same rules, 200 seeds and two seasons: every plan finishes 98–100% of first seasons. Of the second seasons they reach, the balanced plan finishes 177 of 200 (89%), the keeper 150 of 198 (76%), the mourner 137 of 196 (70%) and Double 174 of 199 (87%). Here the doubled line doesn't lead.
 
 ## Weeks 5–6: the pixel pass
 
@@ -302,5 +325,5 @@ From `npm run balance -- 20 40`, 40 seeds x 20 days per autopilot policy. The au
 - The earlier prototypes have no sound. The season has three save slots; the other prototypes save one game each. All save to this browser only, and on `rcjlabs.github.io` they share its storage (about 5 MB) with any other RCJLabs page. Only the season installs and plays offline.
 - A playtest export replays through the rules of the version that loads it. One from an older version can come out differently or fail to load (the page says why); a save file, from Export in Saves, loads as it was.
 - The earlier prototypes stay as they were: the weeks 1–2 night is abstract, the night greybox has no day, and the pixel pass draws generated scenes. The season slice is the only one that runs day and night together.
-- Not in the season: traits, Weepers, the Drowned, and the Library, Quarters, Hall and Gatehouse. Rooms can't be torn down or placed in a slot of your choosing.
+- Not in the season: Weepers, the Drowned, fire by day, and the Library, Quarters, Hall and Gatehouse. Rooms can't be torn down or placed in a slot of your choosing.
 - Checked with the tests, the soak runs and scripted click-throughs in Chromium at desktop and phone widths, including the bundled season file, the guide, the installed app with its server gone, and saves from the previous version. Not tested on a real phone, in Safari, or with a screen reader. The night stages and the pixel test are pointer-only. The season's pinch zoom was tested with synthetic touch events, not real fingers, and the Install button with a synthetic install prompt.

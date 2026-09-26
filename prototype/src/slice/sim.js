@@ -8,7 +8,7 @@
 
 import {
   TICKS_PER_SEC, TUNING, DAY_ROOMS, WORK_ROOMS, TWINS, MAP, KINDS, WORKING, CAUSES, GUIDE_UP,
-  MIRRORS, START_MIRRORS, MIRROR_PLACES, CAST, BONDS, START_SHADES, BOND_OTHER, NAMES, RAIDER_NAMES, BUILDABLE,
+  MIRRORS, START_MIRRORS, MIRROR_PLACES, CAST, BONDS, START_SHADES, BOND_OTHER, NAMES, RAIDER_NAMES, BUILDABLE, TRAITS, TRAIT_KEYS, SHADE_TRAITS,
 } from './data.js';
 import {
   geo, FULL_KEEP, startKeep, lineSpots, MAX_FLOORS, roomsOf, roomAt, roomSpan, typeOf, typeAt, lightMap, isLit, spanAt, darkBetween, darkRooms, darkGaps, route, firstLight, fleePath, touching,
@@ -29,6 +29,16 @@ export const nightTicks = (s) => Math.round(s.tuning.nightSecs * TICKS_PER_SEC);
 export const perf = (d) => 0.4 + (0.6 * Math.max(0, d.memory)) / 100;
 export const isNewMoon = (s) => s.day >= s.tuning.seasonDays;
 const hard = (s, k = 'hardness') => Math.pow(s.tuning[k], s.season - 1);
+// Traits (data.js): what a living one's trait does by day, and a shade's by night, while traits are on.
+export const livingTrait = (s, p) => (s.tuning.traits && p.trait ? TRAITS[p.trait] : null);
+export const shadeTrait = (s, d) => (s.tuning.traits && d.trait ? SHADE_TRAITS[d.trait] : null);
+// A newcomer's trait comes from their name and the seed, not from the random stream, so a seed brings the
+// same raids, sickness and arrivals whether traits are on or off.
+export function traitFor(s, name) {
+  let h = (2166136261 ^ s.seed) >>> 0;
+  for (const ch of name) h = Math.imul(h ^ ch.charCodeAt(0), 16777619);
+  return TRAIT_KEYS[(h >>> 0) % TRAIT_KEYS.length];
+}
 
 /* ---------------------------------------------------------------- setup */
 
@@ -51,6 +61,7 @@ export function newSeason(seed = Date.now() >>> 0, overrides = {}) {
     keep: { floors: startKeep(tuning.startFloors).floors.map((fl) => fl.map((r) => ({ ...r }))) },
     steel: false,
     haunted: [], // rooms (ids) a Maw broke last night, haunted until dusk
+    dreamt: 0, // a Wistful shade's good dreams: what the living work at the day after, or 0
     dread: 0,
     cracks: 0,
     living: [],
@@ -82,7 +93,7 @@ export function newSeason(seed = Date.now() >>> 0, overrides = {}) {
   };
   const cast = {};
   for (const c of CAST) {
-    const p = newPerson(s, c.name, c.age, roomsOf(geo(s), c.job).length ? c.job : 'yard');
+    const p = newPerson(s, c.name, c.age, roomsOf(geo(s), c.job).length ? c.job : 'yard', c.trait);
     s.living.push(p);
     cast[c.name] = p;
   }
@@ -92,7 +103,7 @@ export function newSeason(seed = Date.now() >>> 0, overrides = {}) {
   for (const [i, x] of START_SHADES.entries()) {
     const spot = line[i % line.length];
     const post = { f: spot.f, x: spot.x + (spot.x < MAP.W / 2 ? 2 : -2) }; // just inside the light, on the mirror's side
-    const d = newShade(s, { id: 'p' + s.nextId++, name: x.name, kind: x.kind, cause: x.cause, from: 'living', day: 0, memory: x.memory, named: x.named, post });
+    const d = newShade(s, { id: 'p' + s.nextId++, name: x.name, kind: x.kind, cause: x.cause, from: 'living', day: 0, memory: x.memory, named: x.named, post, was: x.was });
     s.used.push(x.name);
     d.mirror = s.mirrors[0].id;
     if (x.bond) {
@@ -105,7 +116,7 @@ export function newSeason(seed = Date.now() >>> 0, overrides = {}) {
     s.ledger.push({
       id: d.id, name: d.name, from: 'before', season: 0, day: 0, cause: x.cause, how: CAUSES[x.cause].text, kind: x.kind, guided: false, job: x.job,
       age: x.age, bond: x.bond ? { name: x.bond[0], rel: x.bond[1] } : null, woke: x.kind, end: null, endDay: null, nights: 0, kills: 0,
-      posts: {}, named: x.named, memory: x.memory,
+      posts: {}, named: x.named, memory: x.memory, was: x.was,
     });
   }
   rollDay(s);
@@ -117,9 +128,9 @@ function blankToday() {
   return { made: {}, deaths: [], arrivals: [], raid: null, inspection: null, night: null };
 }
 
-function newPerson(s, name, age, job = null) {
+function newPerson(s, name, age, job = null, trait = null) {
   if (!s.used.includes(name)) s.used.push(name);
-  return { id: 'p' + s.nextId++, name, age, job, bond: null, sick: 0, grief: null, peace: 0, joined: { season: s.season, day: s.day } };
+  return { id: 'p' + s.nextId++, name, age, job, trait: trait || traitFor(s, name), bond: null, sick: 0, grief: null, peace: 0, joined: { season: s.season, day: s.day } };
 }
 function bond(a, b, rel) {
   a.bond = { with: b.id, rel };
@@ -177,12 +188,13 @@ export const postRoom = (s, d) => (d.post ? typeAt(geo(s), d.post.f, d.post.x) :
 export const griefMult = (s, p) => (p.grief ? p.grief.mult : 1);
 export const bondedShade = (s, p) => (p.bond ? byId(s.shades, p.bond.with) : null);
 // A living worker and a bonded shade posted in the twin of the same room work x1.25, both of them.
+// A Tireless shade never talks, so it never works as a twin, on either side.
 export function isTwinnedLiving(s, p) {
   const d = bondedShade(s, p);
-  return !!(d && p.job && canWork(d) && postRoom(s, d) === p.job);
+  return !!(d && p.job && canWork(d) && postRoom(s, d) === p.job && shadeTrait(s, d)?.twins !== false);
 }
 export function isTwinnedShade(s, d) {
-  if (!d.bond || !canWork(d)) return false;
+  if (!d.bond || !canWork(d) || shadeTrait(s, d)?.twins === false) return false;
   const p = byId(s.living, d.bond.with);
   return !!(p && p.job && postRoom(s, d) === p.job);
 }
@@ -195,6 +207,9 @@ export function livingMult(s, p) {
   m *= griefMult(s, p);
   if (p.peace > 0) m *= T.peaceMult;
   if (isTwinnedLiving(s, p)) m *= T.twinMult;
+  const L = livingTrait(s, p);
+  if (L) m *= (L.any ?? 1) * (L.jobs?.[p.job] ?? L.other ?? 1) * (p.job === 'barracks' ? (L.guard ?? 1) : 1);
+  if (s.dreamt) m *= s.dreamt; // a Wistful shade's good dreams, the day after
   return m;
 }
 // What each room type makes today. Only as many work as its rooms hold, the strongest first and in the
@@ -228,6 +243,8 @@ export function workCap(s, type) {
   return roomsOf(geo(s), type).filter((r) => !isHaunted(s, r.id)).length * s.tuning.roomCap;
 }
 export const jobCount = (s, type) => s.living.filter((p) => p.job === type).length;
+// A ward's price tonight: half while a Bitter shade stays in the glass.
+export const wardCost = (s) => s.tuning.wardCost * (s.shades.some((d) => canWork(d) && shadeTrait(s, d)?.wards) ? SHADE_TRAITS.bitter.wards : 1);
 // Where the next room goes: the top floor's bare hall if it has one, else a new floor on top.
 export function nextSlot(s) {
   const keep = s.keep || FULL_KEEP;
@@ -237,7 +254,7 @@ export function nextSlot(s) {
 }
 export const priests = (s) => s.living.filter((p) => p.job === 'chapel').length;
 export const funeralCap = priests;
-export const eatRate = (s) => s.living.length * s.tuning.eatPerDay;
+export const eatRate = (s) => s.living.reduce((a, p) => a + (livingTrait(s, p)?.eats ?? 1), 0) * s.tuning.eatPerDay;
 export const bear = (s) => Math.floor(s.living.length / s.tuning.dreadLivingPer) + priests(s);
 
 /* ---------------------------------------------------------------- the clock */
@@ -342,8 +359,9 @@ function fire(s, e) {
     const well = s.living.filter((p) => !(p.sick > 0));
     if (!well.length) return;
     const p = pick(s, well);
-    p.sick = Math.round(s.tuning.sickDays * dayTicks(s));
-    say(s, `${p.name} has fallen sick. Untreated, the sickness kills within ${fmt(s.tuning.sickDays)} days.`, 'bad', true);
+    const days = s.tuning.sickDays * (livingTrait(s, p)?.sick ?? 1);
+    p.sick = Math.round(days * dayTicks(s));
+    say(s, `${p.name} has fallen sick. Untreated, the sickness kills within ${fmt(days)} days.`, 'bad', true);
     cue(s, 'warn');
   } else if (e.type === 'oldage') {
     const p = byId(s.living, e.id);
@@ -370,7 +388,10 @@ function resolveRaid(s) {
   const ratio = r.strength / Math.max(def, 0.5);
   const fallen = [];
   for (const g of s.living.filter((p) => p.job === 'barracks')) {
-    if (chance(s, clamp((held ? T.raidRiskHeld : T.raidRiskBreach) * ratio, 0.02, T.raidRiskMax))) fallen.push({ p: g, how: 'died holding the gate' });
+    // The Brave fall twice as often; a Coward never does, though the dice are still thrown, so the random
+    // stream doesn't shift with traits.
+    const fall = livingTrait(s, g)?.fall ?? 1;
+    if (chance(s, clamp((held ? T.raidRiskHeld : T.raidRiskBreach) * ratio * fall, 0.02, T.raidRiskMax)) && fall > 0) fallen.push({ p: g, how: 'died holding the gate' });
   }
   const raiders = held ? (chance(s, T.raidInsideHeld) ? 1 : 0) : 1 + randInt(s, Math.ceil(r.count / 2));
   let loot = '';
@@ -469,13 +490,13 @@ export function kill(s, p, cause, how) {
     s.guidance--;
     guided = true;
   }
-  const b = { id: p.id, name: p.name, age: p.age, job: p.job, bond: p.bond, joined: p.joined, cause, kind, guided, how: how || CAUSES[cause].text, day: s.day, funeral: false, from: 'living' };
+  const b = { id: p.id, name: p.name, age: p.age, job: p.job, bond: p.bond, joined: p.joined, cause, kind, guided, how: how || CAUSES[cause].text, day: s.day, funeral: false, from: 'living', was: p.trait || null };
   s.bodies.push(b);
   s.today.deaths.push(p.id);
   addLedger(s, b);
   let grief = '';
   const q = p.bond ? byId(s.living, p.bond.with) : null;
-  if (q) {
+  if (q && livingTrait(s, q)?.grieves !== false) {
     q.grief = { for: p.id, mult: s.tuning.griefMult };
     q.peace = 0;
     grief = ` ${q.name} grieves.`;
@@ -498,7 +519,7 @@ function addLedger(s, b) {
   s.ledger.push({
     id: b.id, name: b.name, from: b.from, season: s.season, day: b.day, cause: b.cause, how: b.how, kind: b.kind, guided: b.guided, job: b.job,
     age: b.age, bond: bondOf(s, b.bond), joined: b.joined ?? null, woke: null, end: null, endDay: null, nights: 0, kills: 0, posts: {}, named: false,
-    memory: null,
+    memory: null, was: b.was || null,
   });
 }
 // A bond as the Book records it: the partner's name, and what they were to the dead.
@@ -545,6 +566,16 @@ function endDay(s) {
   s.haunted = [];
   s.dusk = { step: s.bodies.length ? 'crypt' : 'place' };
   s.night = newNight(s);
+  s.dreamt = 0;
+  // A Hoarding shade pockets candles from the store as the night's are counted out, but never the last few.
+  for (const d of s.shades) {
+    const S = shadeTrait(s, d);
+    const k = S?.pockets;
+    if (k && canWork(d) && s.res.candles >= k + S.spares) {
+      s.res.candles -= k;
+      say(s, `${d.name} pockets ${k === 1 ? 'a candle' : `${k} candles`} from the store.`, 'bad');
+    }
+  }
   const n = s.bodies.length;
   say(s, n ? `Dusk. ${n} ${n === 1 ? 'body lies' : 'bodies lie'} in the crypt. Hold funerals or let them wake.` : 'Dusk. Set the candles and post the shades.', 'dusk', true);
   cue(s, 'dusk');
@@ -593,6 +624,7 @@ function newShade(s, o) {
   return {
     id: o.id, name: o.name, kind: o.kind, trueKind: null, mirror: null, bond: o.bond || null, cause: o.cause, from: o.from, day: o.day,
     job: o.job || null, memory: o.memory ?? 100, named: !!o.named, nights: 0, rites: 0, restless: 0, post, f: post.f, x: post.x,
+    was: o.was || null, trait: o.was ? TRAITS[o.was].dead : null, // the living trait, and what death turned it into
     ox: post.x, of: post.f, path: [], climb: 0, climbTotal: 0, grabbedBy: null, rest: 0, sang: 0, watch: 0, drained: 0,
   };
 }
@@ -778,6 +810,7 @@ function spawnFoes(s, L) {
 }
 
 function drainShade(s, d, amount) {
+  amount *= shadeTrait(s, d)?.drain ?? 1; // the Reckless lose themselves faster
   d.memory -= amount;
   d.drained += amount;
   s.night.stats.drained += amount;
@@ -801,6 +834,7 @@ function shadeTick(s, L, d) {
   advance(d, T.shadeSpeed * K.speed, Math.round(T.shadeClimb * TICKS_PER_SEC));
   if (d.climb || n.hush) return;
   const p = perf(d);
+  const S = shadeTrait(s, d);
   // Hold: a shade in light defends that light, stepping to whichever edge is attacked, never past it.
   const span = !d.path.length && spanAt(L, d.f, d.x);
   if (span) {
@@ -812,11 +846,12 @@ function shadeTick(s, L, d) {
     const stepPx = T.shadeSpeed * K.speed * DT;
     d.x = Math.abs(goal - d.x) <= stepPx ? goal : d.x + Math.sign(goal - d.x) * stepPx;
   }
+  // A Reckless shade lunges: it strikes from further out of its light's edge.
   const foe = n.foes
-    .filter((c) => c.f === d.f && !c.climb && c.hp > 0 && Math.abs(c.x - d.x) <= T.reach)
+    .filter((c) => c.f === d.f && !c.climb && c.hp > 0 && Math.abs(c.x - d.x) <= T.reach + (S?.reach || 0))
     .sort((a, b) => Math.abs(a.x - d.x) - Math.abs(b.x - d.x))[0];
   if (foe) {
-    foe.hp -= T.fightDps * K.fight * p * (n.steel ? T.steelFight : 1) * DT;
+    foe.hp -= T.fightDps * K.fight * p * (n.steel ? T.steelFight : 1) * (S?.fight ?? 1) * DT;
     foe.lastHit = d.id;
     return;
   }
@@ -827,10 +862,10 @@ function shadeTick(s, L, d) {
   const job = room && TWINS[room].job;
   // Guarding the line is keeping watch: in the guard light the Watch's is the only work a shade does.
   if (T.lineGuard && job !== 'watch' && guardLit(geo(s), L, d.f, d.x)) return;
-  const w = K.work * p * (isTwinnedShade(s, d) ? T.twinMult : 1) * DT;
+  const w = K.work * p * (isTwinnedShade(s, d) ? T.twinMult : 1) * (S?.work ?? 1) * DT;
   if (job === 'essence') {
-    gain(s, 'essence', T.essencePerSec * w);
-    n.stats.essence += T.essencePerSec * w;
+    gain(s, 'essence', T.essencePerSec * w * (S?.essence ?? 1));
+    n.stats.essence += T.essencePerSec * w * (S?.essence ?? 1);
     d.sang++;
   } else if (job === 'glass') {
     gain(s, 'glass', T.glassPerSec * w);
@@ -838,7 +873,7 @@ function shadeTick(s, L, d) {
   } else if (job === 'wick') n.stats.wick += T.wickPerSec * w;
   else if (job === 'guidance') n.stats.guidance += T.guidePerSec * w;
   else if (job === 'watch') d.watch++;
-  else if (job === 'rest') d.rest++;
+  else if (job === 'rest' && S?.rests !== false) d.rest++;
   else if (job === 'steel') d.forged = (d.forged || 0) + 1;
 }
 
@@ -915,7 +950,7 @@ function plan(s, L, c) {
   if (!n.hush) {
     const sense = c.type === 'wraith' ? 40 : T.senseRange;
     const prey = s.shades
-      .filter((d) => canWork(d) && !d.grabbedBy && !d.climb && d.f === c.f && Math.abs(d.x - c.x) <= sense && !isLit(L, d.f, d.x) && darkBetween(L, c.f, c.x, d.x))
+      .filter((d) => canWork(d) && !d.grabbedBy && !d.climb && d.f === c.f && Math.abs(d.x - c.x) <= sense && !isLit(L, d.f, d.x) && darkBetween(L, c.f, c.x, d.x) && !shadeTrait(s, d)?.unseen)
       .sort((a, b) => Math.abs(a.x - c.x) - Math.abs(b.x - c.x))[0];
     if (prey) {
       c.mode = 'hunt';
@@ -1176,11 +1211,12 @@ function takeLiving(s, p) {
   });
   s.night.stats.taken = p.name;
   const q = p.bond ? byId(s.living, p.bond.with) : null;
-  if (q) {
+  const grieves = q && livingTrait(s, q)?.grieves !== false;
+  if (grieves) {
     q.grief = { for: p.id, mult: s.tuning.griefMult };
     q.peace = 0;
   }
-  say(s, `It came up into the keep and took ${p.name} from their bed. There is no body to wake.${q ? ` ${q.name} grieves.` : ''}`, 'death', true);
+  say(s, `It came up into the keep and took ${p.name} from their bed. There is no body to wake.${grieves ? ` ${q.name} grieves.` : ''}`, 'death', true);
   cue(s, 'knell');
   if (!s.living.length) lose(s, 'fallen', 'No one living is left. The keep has fallen.');
 }
@@ -1247,6 +1283,7 @@ function endNight(s) {
     if (!canWork(d)) continue;
     watch += KINDS[d.kind].fight * perf(d) * DAY_ROOMS.barracks.rate * (d.watch / N);
     if (d.sang >= N / 2) calm++;
+    calm += shadeTrait(s, d)?.calms || 0;
     if ((d.forged || 0) >= N / 2) steel = true;
   }
   s.watchBonus = r1(watch);
@@ -1270,12 +1307,16 @@ function endNight(s) {
       cue(s, 'wraith');
     }
   }
-  // Fading.
+  // Fading. A Wistful shade that rested the night through sends the sleepers good dreams: they work better
+  // the next day.
   const fading = [];
+  let dreams = 0;
   for (const d of [...s.shades]) {
     if (!canWork(d)) continue;
+    const S = shadeTrait(s, d);
     const rested = d.rest >= T.restShare * N;
-    const loss = T.fadePerNight * (d.named ? 0.5 : 1) * (rested ? 0.5 : 1);
+    if (rested && S?.dreams) dreams = Math.max(dreams, S.dreams);
+    const loss = T.fadePerNight * (d.named ? 0.5 : 1) * (rested ? 0.5 : 1) * (S?.fade ?? 1);
     d.memory = Math.round((d.memory - loss) * 100) / 100;
     d.nights++;
     const e = ledgerOf(s, d.id);
@@ -1291,8 +1332,9 @@ function endNight(s) {
     fading.push({ id: d.id, name: d.name, fade: loss, drained: Math.round(d.drained * 10) / 10, rested, memory: d.memory });
     if (d.memory <= 0) fadeAway(s, d, `${d.name} has faded. Nothing is left in the glass.`);
   }
-  // What a Maw broke tonight is haunted tomorrow.
+  // What a Maw broke tonight is haunted tomorrow; good dreams last the day.
   s.haunted = [...n.broken];
+  s.dreamt = dreams || 0;
   s.today.night = { ...n.stats, broken: [...n.broken], fading, withdrew, wick, guidance: g, watch: s.watchBonus };
   const cracks = n.stats.cracks;
   s.night = null;
@@ -1345,7 +1387,7 @@ export function ritePreview(s) {
       } else if (c === 'bind') {
         P.bind.push(d);
         P.essence += T.bindCost;
-        keepD += T.dreadPerKeep;
+        keepD += T.dreadPerKeep * (shadeTrait(s, d)?.dread ?? 1);
       } else {
         P.leave.push(d);
         restD += T.dreadPerRestless;
@@ -1355,7 +1397,7 @@ export function ritePreview(s) {
       P.rem += 1;
     } else {
       P.keep.push(d);
-      keepD += T.dreadPerKeep;
+      keepD += T.dreadPerKeep * (shadeTrait(s, d)?.dread ?? 1); // a Bitter shade costs double
     }
   }
   for (const d of [...P.cover, ...P.release]) for (const p of s.living) if (p.grief?.for === d.id) P.peace.push(p);
@@ -1635,8 +1677,9 @@ const ACTIONS = {
     if (s.phase !== 'night' && s.phase !== 'dusk') return 'Wards are set at dusk or during the night.';
     if (!geo(s).stairs.some((x) => x.id === target) && !MAP.rifts.some((x) => x.id === target)) return 'Wards seal a stair or a rift.';
     if (s.night.wards.includes(target)) return 'Already warded tonight.';
-    if (s.res.essence + EPS < s.tuning.wardCost) return `A ward costs ${s.tuning.wardCost} essence.`;
-    s.res.essence -= s.tuning.wardCost;
+    const cost = wardCost(s);
+    if (s.res.essence + EPS < cost) return `A ward costs ${fmt(cost)} essence.`;
+    s.res.essence -= cost;
     s.night.wards.push(target);
     if (geo(s).stairs.some((x) => x.id === target)) s.night.wardHold[target] = s.tuning.wardHold;
     s.night.stats.wards++;
@@ -1766,6 +1809,17 @@ export function retune(s, defaults) {
 export function upgrade(g) {
   g.keep ??= { floors: FULL_KEEP.floors.map((fl) => fl.map((r) => ({ ...r }))) };
   for (const t of [g.tuning, g.tuning0]) if (t && !('startFloors' in t)) t.startFloors = FULL_KEEP.floors.length;
+  // A keep from before traits played without them (its tuning says so, so its actions still replay); loaded
+  // into this build, its numbers move to the build's, which turns them on. Everyone gets the trait their name
+  // would have drawn.
+  for (const t of [g.tuning, g.tuning0]) if (t && !('traits' in t)) t.traits = 0;
+  for (const p of g.living || []) p.trait ??= traitFor(g, p.name);
+  for (const b of g.bodies || []) if (b.was === undefined) b.was = b.from === 'raider' ? null : traitFor(g, b.name);
+  for (const d of g.shades || []) {
+    if (d.was !== undefined) continue;
+    d.was = d.from === 'raider' ? null : traitFor(g, d.name);
+    d.trait = d.was ? TRAITS[d.was].dead : null;
+  }
   for (const t of [g.tuning, g.tuning0]) if (t) for (const [k, v] of Object.entries(TUNING)) if (!(k in t)) t[k] = v;
   g.res.stone ??= 0;
   g.haunted ??= [];

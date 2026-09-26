@@ -245,14 +245,14 @@ table.days { min-width: 680px; }
   left: calc((100% - var(--free-right, 0px)) / 2);
   bottom: calc(var(--bar-h) + var(--sheet-h, 0px) + 10px);
   transform: translateX(-50%);
-  z-index: 7;
+  z-index: 9; /* above the toasts: on a phone with a tall panel open, the card rises to where they are */
   width: min(460px, calc(100% - var(--free-right, 0px) - 24px));
   display: grid;
   gap: 8px;
   padding: 10px 12px;
   border-radius: 6px;
   border: 1px solid var(--day);
-  background: rgb(22 18 34 / 0.95);
+  background: rgb(22 18 34);
   color: #ece6ff;
   font-size: 14px;
   line-height: 1.45;
@@ -318,3 +318,8 @@ label.btn { display: inline-flex; align-items: center; }
   white-space: nowrap;
 }
 .visually-hidden:focus-visible + label { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+/* ---------- traits */
+.ptrait { grid-column: 1 / -1; font-size: 12.5px; color: var(--ink-2); }
+.strait { display: block; color: var(--ink-2); }
+.ptrait b, .strait b { color: var(--rite-ink); font-weight: 700; }

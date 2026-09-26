@@ -9,13 +9,22 @@
 // All but double and idle react at night: a second fighter to each stair of the line for each tide, a ward
 // on the line for the biggest tides when the essence is there, and a fighter to meet a Maw.
 
-import { step, act, newSeason, ritePreview, crossingPreview, capacity, canWork, defense, funeralCap, choicesFor, jobCap, jobCount } from './sim.js';
+import { step, act, newSeason, ritePreview, crossingPreview, capacity, canWork, defense, funeralCap, choicesFor, jobCap, jobCount, eatRate, wardCost, livingTrait, shadeTrait } from './sim.js';
 import { DAY_ROOMS, MIRRORS, KINDS } from './data.js';
 import { geo, roomSpan, roomAt, roomsOf, lineSpots } from './geo.js';
 
 export const PLANS = ['balanced', 'keeper', 'mourner', 'double', 'idle'];
 
 const doAct = (s, a) => act(s, a).ok;
+// Traits, as a player reads them. AP_BLIND=1 plays as if nobody had one (to measure what they're worth).
+const BLIND = !!globalThis.process?.env?.AP_BLIND;
+const LT = (s, p) => (BLIND ? null : livingTrait(s, p));
+const ST = (s, d) => (BLIND ? null : shadeTrait(s, d));
+// How well someone does a job, by their trait.
+const fit = (s, p, k) => {
+  const L = LT(s, p);
+  return L ? (L.any ?? 1) * (L.jobs?.[k] ?? 1) * (k === 'barracks' ? (L.guard ?? 1) : 1) : 1;
+};
 
 /* ---------------------------------------------------------------- day */
 
@@ -37,7 +46,7 @@ function wantedJobs(s) {
   const n = s.living.length;
   const r = s.raid;
   const threat = r && r.state === 'coming' && r.warned && defense(s) < r.strength;
-  const food = n * s.tuning.eatPerDay + (s.res.food < n ? 2 : 0) - (s.res.food > 3 * n ? 3 : 0);
+  const food = eatRate(s) + (s.res.food < n ? 2 : 0) - (s.res.food > 3 * n ? 3 : 0);
   const want = {
     hearth: Math.max(1, Math.ceil(food / DAY_ROOMS.hearth.rate)),
     chapel: n >= 10 ? 2 : 1,
@@ -64,11 +73,15 @@ function staff(s) {
   free.sort((a, b) => (a.age === 'old') - (b.age === 'old'));
   for (const k of order) {
     while (count[k] < want[k] && free.length) {
-      const p = k === 'chapel' ? free.pop() : free.shift();
+      // The usual pick, unless someone else's trait suits the job better.
+      let i = k === 'chapel' ? free.length - 1 : 0;
+      for (const [j, q] of free.entries()) if (fit(s, q, k) > fit(s, free[i], k) + 1e-9) i = j;
+      const [p] = free.splice(i, 1);
       if (p.job !== k) doAct(s, { type: 'assign', id: p.id, room: k });
       count[k]++;
     }
   }
+  free.sort((a, b) => fit(s, b, 'barracks') - fit(s, a, 'barracks')); // the Brave to the gate first, Cowards last
   // The rest hold the gate on a raid day, or when there's nothing to build, as many as the barracks hold;
   // everyone else quarries stone.
   const gate = !!s.raid || !nextBuild(s);
@@ -137,9 +150,12 @@ function postings(s, ds) {
     else rooms.push([room, [d]]);
     return true;
   };
+  // Traits: a Wistful shade rests in the Cold Hearth (good dreams: the living work better); a Hoarding one sings.
+  for (const d of ds.filter((x) => ST(s, x)?.dreams)) take('hearth', (x) => (x === d ? 1 : 0));
+  for (const d of ds.filter((x) => ST(s, x)?.essence)) take('chapel', (x) => (x === d ? 1 : 0));
   take('chapel', worker);
   if (roomsOf(geo(s), 'forge').length) take('forge', worker);
-  if (ds.some((d) => d.memory < 50)) take('hearth', (d) => -d.memory);
+  if (ds.some((d) => d.memory < 50 && ST(s, d)?.rests !== false)) take('hearth', (d) => (ST(s, d)?.rests === false ? -1e9 : -d.memory));
   if (capacity(s).free <= 1) take('glazier', worker);
   if (s.res.candles < 6) take('chandlery', worker);
   if (s.living.some((p) => p.sick > 0)) take('infirmary', worker);
@@ -152,7 +168,8 @@ function placeNight(s, plan) {
   const T = s.tuning;
   const G = geo(s);
   const LINE = lineOf(s);
-  const ds = s.shades.filter(canWork).sort((a, b) => fighter(b) * b.memory - fighter(a) * a.memory);
+  const line = (d) => fighter(d) * d.memory * (ST(s, d)?.fight ?? 1) * (ST(s, d)?.dreams ? 0.3 : 1);
+  const ds = s.shades.filter(canWork).sort((a, b) => line(b) - line(a));
   for (const st of LINE) {
     doAct(s, { type: 'candle', f: st.f, x: st.x });
     const d = ds.shift();
@@ -249,14 +266,14 @@ function tendNight(s, plan) {
   // Choir has sung enough essence. Warded stairs turn the whole tide back.
   const last = n.tides[n.tides.length - 1];
   const unwarded = LINE.filter((st) => st.id && !n.wards.includes(st.id));
-  if (plan !== 'double' && s.day >= T.seasonDays - 2 && s.day < T.seasonDays && s.t >= last - 60 && s.t <= last && unwarded.length && s.res.essence >= unwarded.length * T.wardCost) {
+  if (plan !== 'double' && s.day >= T.seasonDays - 2 && s.day < T.seasonDays && s.t >= last - 60 && s.t <= last && unwarded.length && s.res.essence >= unwarded.length * wardCost(s)) {
     for (const st of unwarded) doAct(s, { type: 'ward', target: st.id });
   }
   // The Hollow: ward the stairs above it while the essence lasts, and meet it with fighters near the top.
   const h = n.foes.find((f) => f.type === 'hollow');
   if (h && !h.climb) {
     const up = G.stairs.filter((st) => st.f === h.f && !n.wards.includes(st.id));
-    if (h.f < G.veil && up.length && s.res.essence >= up.length * T.wardCost) for (const st of up) doAct(s, { type: 'ward', target: st.id });
+    if (h.f < G.veil && up.length && s.res.essence >= up.length * wardCost(s)) for (const st of up) doAct(s, { type: 'ward', target: st.id });
     if (h.f === G.veil) {
       for (const d of s.shades.filter((x) => canWork(x) && fighter(x) >= 1 && x.memory > 30 && !x.grabbedBy && !x.climb)) {
         if (d.f !== h.f || Math.abs(d.x - h.x) > 6) doAct(s, { type: 'move', id: d.id, f: h.f, x: h.x + (d.x < h.x ? -5.5 : 5.5) });
@@ -279,7 +296,20 @@ function rite(s, plan) {
     else if (d.kind === 'restless') doAct(s, { type: 'rite', id: d.id, choice: 'release' });
     else doAct(s, { type: 'rite', id: d.id, choice: cs[0] });
   }
-  const value = (d) => worker(d) * d.memory + (d.named ? 40 : 0);
+  // What a shade is worth keeping, per point of Dread it costs, by its trait: an Anchored one lasts, a
+  // Reckless one burns out, a Hoarding one costs a candle a night, a Keening one matters when the Restless
+  // wait, a Wistful one sends good dreams, a Bitter one costs double Dread.
+  const restless = s.shades.some((x) => x.kind === 'restless');
+  const value = (d) => {
+    const S = ST(s, d);
+    let v = worker(d) * d.memory + (d.named ? 40 : 0);
+    if (S?.fade) v *= S.fade < 1 ? 1.4 : 0.8;
+    if (S?.work) v *= S.work;
+    if (S?.pockets) v *= s.res.candles < 8 ? 0.5 : 0.8;
+    if (S?.calms && restless) v *= 1.5;
+    if (S?.dreams) v *= 1.5;
+    return v / (S?.dread ?? 1);
+  };
   const keep = s.shades.filter(canWork).sort((a, b) => value(a) - value(b));
   let P = ritePreview(s);
   while (P.dread.to > target && keep.length && plan !== 'keeper') {

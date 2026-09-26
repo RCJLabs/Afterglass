@@ -74,7 +74,7 @@ test('seeded runs are identical, and the action log replays to the same state', 
 });
 
 test('the day feeds, makes candles and glass, and raids escalate through the season', () => {
-  const s = newSeason(2, { ...FULL, sickChance: 0, oldAgeChance: 0 });
+  const s = newSeason(2, { ...FULL, sickChance: 0, oldAgeChance: 0, traits: 0 });
   const food = s.res.food;
   const candles = s.res.candles;
   toDusk(s);
@@ -160,7 +160,7 @@ test('a shade in the light holds it: Creepers that gnaw its edge are cut down', 
 });
 
 test('twin rooms work only for a lit shade at its post: Choir, Wick Room, Watch and Cold Hearth', () => {
-  const s = newSeason(6, quiet);
+  const s = newSeason(6, { ...quiet, traits: 0 });
   toDusk(s);
   const [g, h] = s.shades;
   const choir = roomSpan(G0, 'chapel');
@@ -388,7 +388,7 @@ test('once on its target\'s floor a Maw keeps to it, however many come to meet i
 });
 
 test('a room holds roomCap workers; in a haunted room they make hauntWork of their work', () => {
-  const s = newSeason(27, quiet);
+  const s = newSeason(27, { ...quiet, traits: 0 });
   s.living.forEach((p) => (p.job = 'hearth'));
   s.living[0].sick = 5; // the strongest work: the sick cook is the one left over
   assert.equal(roomPower(s).hearth, 3, 'three of eight cook; the rest stand idle');
@@ -455,7 +455,7 @@ test('driving the Hollow back pays remembrance', () => {
 });
 
 test('after the new moon the season ends, takes the answer, and a second season is harder', () => {
-  const s = runSeasonAuto(3, { plan: 'balanced' });
+  const s = runSeasonAuto(3, { plan: 'balanced', tuning: { traits: 0 } });
   assert.equal(s.phase, 'end', 'this seed survives the new moon');
   const e = lastSeason(s);
   assert.equal(e.season, 1);
@@ -469,7 +469,7 @@ test('after the new moon the season ends, takes the answer, and a second season 
   assert.equal(s.cracks, 0, 'the Veil starts a new season whole');
   ok(s, { type: 'beginDay' });
   assert.equal(s.day, 1);
-  while (s.day < 2) autoStep(s);
+  while (s.day < 2 && s.phase !== 'over') autoStep(s);
   assert.ok(s.raid.strength >= (TUNING.raidDays[2] - TUNING.raidSpread) * TUNING.hardness - 1e-9);
 });
 
@@ -478,13 +478,13 @@ test('an older save takes the current defaults, keeps the player\'s own settings
   const s = newSeason(9, { hardness: 1.35, creepersPerNight: 2.5 });
   ok(s, { type: 'tune', key: 'daySecs', value: 30 });
   ok(s, { type: 'tune', key: 'hardness', value: 1.5 });
-  while (s.day < 2) autoStep(s);
+  while (s.day < 2 && s.phase !== 'over') autoStep(s);
   assert.equal(retune(s, TUNING), 1, 'only creepersPerNight: the player set hardness');
   assert.equal(s.tuning.creepersPerNight, TUNING.creepersPerNight);
   assert.equal(s.tuning.hardness, 1.5);
   assert.equal(s.tuning.daySecs, 30);
   assert.equal(retune(s, TUNING), 0, 'a second load changes nothing');
-  while (s.day < 3) autoStep(s);
+  while (s.day < 3 && s.phase !== 'over') autoStep(s);
   const r = replay(s.seed, s.tuning0, s.actions);
   for (const k of ['season', 'day', 'phase', 't', 'rng']) assert.equal(r[k], s[k], k);
   assert.deepEqual(r.res, s.res);
@@ -496,7 +496,7 @@ test('an older save takes the current defaults, keeps the player\'s own settings
 });
 
 test('a season starts from two rooms: whoever has no room quarries, and the dead hold the line between rift and mirror', () => {
-  const s = newSeason(1);
+  const s = newSeason(1, { traits: 0 });
   const G = geo(s);
   assert.equal(G.n, 1);
   assert.deepEqual(s.keep.floors[0].map((r) => r.type), ['hearth', 'crypt']);
@@ -622,7 +622,7 @@ test('a built keep keeps its shape: rifts on the top floor, mirrors under the Ve
 });
 
 test('each room holds three workers; building another lets the job grow, and the Yard takes anyone', () => {
-  const s = newSeason(4, quiet);
+  const s = newSeason(4, { ...quiet, traits: 0 });
   const T = s.tuning;
   const others = s.living.filter((p) => p.job !== 'barracks');
   let guards = jobCount(s, 'barracks');

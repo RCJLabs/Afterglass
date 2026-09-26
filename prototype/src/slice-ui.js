@@ -2,11 +2,11 @@
 // bar at the bottom, and everything else opens in a panel over the castle. Like the greyboxes it changes
 // the game only through act(), so every session replays from its seed and action log.
 
-import { TICKS_PER_SEC, DAY_ROOMS, WORK_ROOMS, TWINS, KINDS, MIRRORS, CAUSES, MAP, BOND_OTHER, TUNING, BUILDABLE } from './slice/data.js';
+import { TICKS_PER_SEC, DAY_ROOMS, WORK_ROOMS, TWINS, KINDS, MIRRORS, CAUSES, MAP, BOND_OTHER, TUNING, BUILDABLE, TRAITS, SHADE_TRAITS } from './slice/data.js';
 import {
   newSeason, step, act, retune, playerTuning, jobCap, jobCount, nextSlot, ritePreview, crossingPreview, capacity, canWork, defense, roomPower, bear, priests, funeralCap, eatRate,
   dayTicks, nightTicks, isNewMoon, choicesFor, byId, isTwinnedLiving, isTwinnedShade, lastSeason, SAVE_VERSION, fmt, mirrorCap,
-  postRoom,
+  postRoom, wardCost, shadeTrait,
 } from './slice/sim.js';
 import { geo, feet, floorAtY, roomAt, typeAt, typeOf, roomSpan, roomsOf, lightMap, isLit, unitAt, DEEP_FLOOR, lineSpots as lineOf, guardLit } from './slice/geo.js';
 import { drawScene } from './slice/draw.js';
@@ -139,6 +139,11 @@ const nightView = () => {
 
 const esc = (x) => String(x ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+// Traits in words, shown only while they're on: a living one's, and a shade's with what it was in life.
+const traitsOn = () => !!s.tuning.traits;
+const livingTraitText = (p) => (traitsOn() && TRAITS[p.trait] ? `<div class="ptrait"><b>${TRAITS[p.trait].name}</b>: ${esc(TRAITS[p.trait].short)}</div>` : '');
+const shadeTraitText = (d) => (traitsOn() && SHADE_TRAITS[d.trait] ? `<small class="strait"><b>${SHADE_TRAITS[d.trait].name}</b>${TRAITS[d.was] ? ` (${TRAITS[d.was].name} in life)` : ''}: ${esc(SHADE_TRAITS[d.trait].short)}</small>` : '');
+const wakesAs = (b) => (traitsOn() && TRAITS[b.was] ? SHADE_TRAITS[TRAITS[b.was].dead].name : '');
 const listOf = (xs) => (xs.length < 2 ? xs.join('') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`);
 const floor1 = (x) => String(Math.floor(x + 1e-9));
 const PH = { day: 'is-day', dusk: 'is-dusk', night: 'is-night', dawn: 'is-rite', end: 'is-rite', over: 'is-fallen' };
@@ -244,7 +249,7 @@ function barHTML() {
   }
   else if (s.phase === 'dusk' && s.dusk.step === 'crypt') tools = `<button class="btn sm primary" id="bar-wake" data-act="wake">Let them wake</button>`;
   else if (place) {
-    tools = `${tool('candle', `Candle ${floor1(s.res.candles)}`)}${tool('move', 'Move')}${tool('ward', `Ward ${s.tuning.wardCost}`)}`;
+    tools = `${tool('candle', `Candle ${floor1(s.res.candles)}`)}${tool('move', 'Move')}${tool('ward', `Ward ${fmt(wardCost(s))}`)}`;
     tools += s.phase === 'night' ? `<button class="btn sm" id="btn-hush" data-act="hush" aria-pressed="${!!s.night?.hush}">Hush</button>` : '';
     tools += flip;
     if (s.phase === 'dusk') tools += `<button class="btn sm primary" id="bar-start" data-act="start">Begin the night</button>`;
@@ -275,7 +280,7 @@ function hintText() {
       ? `Tap a floor to set a candle. It lights its own room; the Unlit can't enter the light.`
       : 'No candles left. The Chandlery makes them by day; the Wick Room saves them at night.';
   }
-  if (ui.tool === 'ward') return `Tap a stair or a rift to seal it until dawn (${T.wardCost} essence). The Hollow breaks a ward in ${T.wardHold} s.`;
+  if (ui.tool === 'ward') return `Tap a stair or a rift to seal it until dawn (${fmt(wardCost(s))} essence${wardCost(s) < T.wardCost ? ', cheaper while a Bitter shade stays' : ''}). The Hollow breaks a ward in ${T.wardHold} s.`;
   if (!d) return 'Tap a shade to pick it, then tap where it should stand.';
   return s.phase === 'dusk' ? `${d.name}: tap a spot to post ${d.name} there.` : `${d.name}: tap a spot to send ${d.name} there. The dark between is dangerous.`;
 }
@@ -375,7 +380,7 @@ function duskCrypt() {
   const booked = s.bodies.filter((b) => b.funeral).length;
   const fate = (x) => {
     if (x.to === 'funeral') return ['Funeral: laid to rest, +1 remembrance', ''];
-    if (x.to === 'mirror') return [`Wakes ${KINDS[x.b.kind].name} in the ${x.mirror.name}`, ''];
+    if (x.to === 'mirror') return [`Wakes ${KINDS[x.b.kind].name}${wakesAs(x.b) ? ` and ${wakesAs(x.b)}` : ''} in the ${x.mirror.name}`, ''];
     if (x.to === 'overflow') return [`No room in the mirrors: wakes Restless (would be ${KINDS[x.b.kind].name})`, 'bad'];
     if (x.to === 'restless') return ['Wakes Restless at the edge of the Deep', 'bad'];
     return ['Wakes as a Wraith and hunts in the Tain', 'bad'];
@@ -491,11 +496,12 @@ function riteRow(d) {
   const opts = choicesFor(d)
     .map((k) => `<button class="btn sm" id="rite-${d.id}-${k}" data-act="rite" data-id="${d.id}" data-choice="${k}" aria-pressed="${c === k}">${label[k]}</button>`)
     .join('');
+  const keepD = T.dreadPerKeep * (shadeTrait(s, d)?.dread ?? 1);
   const note = canWork(d)
-    ? `${Math.ceil(d.memory)} memory${d.named ? ', named' : ''}. ${c === 'cover' ? 'Released at dawn: +1 remembrance, and the living it was bound to find peace.' : `Kept: +${T.dreadPerKeep} Dread.`}`
+    ? `${Math.ceil(d.memory)} memory${d.named ? ', named' : ''}. ${c === 'cover' ? 'Released at dawn: +1 remembrance, and the living it was bound to find peace.' : `Kept: +${keepD} Dread${keepD > T.dreadPerKeep ? ', for it is Bitter' : ''}.`}`
     : d.kind === 'wraith'
       ? `Left: +${T.dreadPerWraith} Dread, and it rises again tonight.`
-      : `${c === 'release' ? 'Released: +1 remembrance.' : c === 'bind' ? `Bound into a mirror as ${KINDS[d.trueKind].name}: +${T.dreadPerKeep} Dread.` : `Left at the edge: +${T.dreadPerRestless} Dread, and a night closer to Wraith.`}`;
+      : `${c === 'release' ? 'Released: +1 remembrance.' : c === 'bind' ? `Bound into a mirror as ${KINDS[d.trueKind].name}: +${keepD} Dread.` : `Left at the edge: +${T.dreadPerRestless} Dread, and a night closer to Wraith.`}`;
   const acts = canWork(d) && c !== 'cover'
     ? `<div class="feel"><button class="btn sm" id="name-${d.id}" data-act="name" data-id="${d.id}"${d.named || s.res.remembrance + 1e-9 < T.nameCost ? ' disabled' : ''}>Name, ${T.nameCost}</button>
        <button class="btn sm" id="rem-${d.id}" data-act="remember" data-id="${d.id}"${d.memory >= 100 || s.res.remembrance + 1e-9 < T.rememberCost ? ' disabled' : ''}>Remember +${T.rememberGain}, ${T.rememberCost}</button>
@@ -503,7 +509,7 @@ function riteRow(d) {
     : '';
   const bonded = d.bond && byId(s.living, d.bond.with);
   return `<div class="rite-row${c === 'cover' || c === 'release' || c === 'banish' ? ' is-cover' : ''}">
-    <div class="who"><div><b>${esc(d.name)}</b>${kindTag(d.kind)}${bonded ? `<small>${esc(bonded.name)}'s ${esc(BOND_OTHER[d.bond.rel] || d.bond.rel)}</small>` : ''}</div><small>${note}</small></div>
+    <div class="who"><div><b>${esc(d.name)}</b>${kindTag(d.kind)}${bonded ? `<small>${esc(bonded.name)}'s ${esc(BOND_OTHER[d.bond.rel] || d.bond.rel)}</small>` : ''}</div>${shadeTraitText(d)}<small>${note}</small></div>
     <div class="opts">${opts}</div>${acts}</div>`;
 }
 
@@ -513,8 +519,9 @@ function dawnPanel() {
   const D = P.dread;
   const I = s.inspection;
   const warn = (I && !I.done && I.day === s.day + 1) || (s.day + 1 === T.firstInspection - 1);
+  const bitter = [...P.keep, ...P.bind].filter((d) => (shadeTrait(s, d)?.dread ?? 1) > 1).length;
   const parts = [
-    D.keep ? `+${D.keep} kept` : '',
+    D.keep ? `+${D.keep} kept${bitter ? ` (${bitter} Bitter, ${T.dreadPerKeep * SHADE_TRAITS.bitter.dread} each)` : ''}` : '',
     D.restless ? `+${D.restless} Restless left` : '',
     D.wraith ? `+${D.wraith} Wraiths left` : '',
     D.cracks ? `+${D.cracks} from the cracked Veil` : '',
@@ -524,6 +531,7 @@ function dawnPanel() {
   ].filter(Boolean).join(', ');
   return `<header class="ph-head"><h2>${s.day === 0 ? `Season ${s.season}: the first dawn` : 'Dawn: the Rite'}</h2><p>The Unlit withdraw and the shades go back into the glass. Choose who stays. Each shade kept adds Dread; ${bear(s)} ${bear(s) === 1 ? 'is' : 'are'} borne by the living (one per ${T.dreadLivingPer} living, one per priest).</p></header>
     ${nightReport()}
+    ${s.dreamt ? `<p class="note">A Wistful shade rested the night through and sent good dreams: the living work ×${s.dreamt} today.</p>` : ''}
     <div class="rite-list">${s.shades.map(riteRow).join('') || '<p class="empty">The glass is empty.</p>'}</div>
     <div class="preview">
       <p>Dread <b class="big">${D.from} → ${D.to}</b> <small class="muted">(${parts})</small></p>
@@ -623,6 +631,7 @@ function livingRows() {
         <div class="pwork"><select id="job-${p.id}" data-act="assign" data-id="${p.id}" aria-label="Job for ${esc(p.name)}"${s.phase === 'day' || s.phase === 'dusk' || s.phase === 'dawn' ? '' : ' disabled'}>${opts(p)}</select></div>
         <div class="pstat">${tags}</div>
         ${bond ? `<div class="pbond">${esc(bond)}</div>` : ''}
+        ${livingTraitText(p)}
       </div>`;
     })
     .join('');
@@ -636,6 +645,7 @@ function shadeRows() {
       return `<div class="srow${ui.selected === d.id ? ' is-selected' : ''}" id="srow-${d.id}">
         <div class="who">
           <div><b>${esc(d.name)}</b>${kindTag(d.kind)}${d.named ? '<span class="tag peace">Named</span>' : ''}${isTwinnedShade(s, d) ? '<span class="tag twin">Twinned</span>' : ''}</div>
+          ${shadeTraitText(d)}
           ${canWork(d) ? `<div><span class="memory${d.memory < 40 ? ' low' : ''}" aria-hidden="true"><i data-bar="mem" data-arg="${d.id}"></i></span><small><span data-live="mem" data-arg="${d.id}">${Math.ceil(d.memory)}</span> memory, <span data-live="status" data-arg="${d.id}">${esc(shadeStatus(d, L))}</span></small></div>` : `<small>${esc(shadeStatus(d, L))}</small>`}
         </div>
         <div class="acts">${pick ? `<button class="btn sm" id="sel-${d.id}" data-act="select" data-id="${d.id}" aria-pressed="${ui.selected === d.id}">Select</button>` : ''}</div>
@@ -646,7 +656,7 @@ function shadeRows() {
 
 function rosterHTML() {
   const cap = capacity(s);
-  const dead = `<div class="roster dead"><div class="roster-head"><h2>The dead</h2><span class="count">${s.shades.length}</span><button class="btn sm" id="people-book" data-act="book">Book of the Dead</button><p>${cap.used} of ${cap.cap} mirror places taken. Loyal shades fight hardest; Serene ones work best. Memory weakens both.</p></div>
+  const dead = `<div class="roster dead"><div class="roster-head"><h2>The dead</h2><span class="count">${s.shades.length}</span><button class="btn sm" id="people-book" data-act="book">Book of the Dead</button><p>${cap.used} of ${cap.cap} mirror places taken. Loyal shades fight hardest; Serene ones work best. Memory weakens both.${traitsOn() ? ' Death turns each one\'s trait over.' : ''}</p></div>
     <div class="rows">${shadeRows() || '<p class="empty" style="padding:12px">The glass is empty.</p>'}</div></div>`;
   const living = `<div class="roster"><div class="roster-head"><h2>The living</h2><span class="count">${s.living.length}</span><p>${priests(s)} ${priests(s) === 1 ? 'priest' : 'priests'}, defense ${fmt(defense(s))}. Bonded pairs split across the Veil work ×${s.tuning.twinMult} when the shade is posted in the twin of the living one's room.</p></div>
     <div class="rows">${livingRows()}</div></div>`;
@@ -687,7 +697,7 @@ function bookTab() {
         .sort((a, b) => a.day - b.day)
         .map((e) => `<article class="bookpage${e.end && e.end !== 'funeral' ? ' is-ended' : ''}${e.from === 'raider' ? ' is-raider' : ''}">
           <header><b>${esc(e.name)}</b>${e.woke && KINDS[e.woke] ? kindTag(e.woke) : ''}${e.named ? '<span class="tag peace">Named</span>' : ''}</header>
-          <p>${esc(epitaph(e))}</p></article>`)
+          <p>${esc(epitaph(e, { traits: traitsOn() }))}</p></article>`)
         .join('')}</section>`)
       .join('')}`;
 }
@@ -737,6 +747,7 @@ const TUNE = [
   ['wardHold', 'Seconds a ward holds the Hollow'],
   ['newMoonCreepers', 'Creepers on the new moon, as a share of the night before'],
   ['dreadLivingPer', 'Living per point of Dread borne'],
+  ['traits', 'Traits: everyone has one, and death turns it over (1 on, 0 off)'],
   ['fadePerNight', 'Memory every shade loses per night'],
   ['cracksMax', 'Veil cracks that lose the keep'],
   ['hardness', 'How much harder each season is (raids, Creepers, the Hollow)'],
@@ -1435,6 +1446,11 @@ const GUIDE = [
     id: 'rite', target: '#bar-day',
     when: () => first() && s.phase === 'dawn',
     text: "Dawn: the Rite. Keep a shade and it works again tonight, but the keep's Dread rises. Cover its mirror to let it rest. Every shade fades a little each night; naming one halves that.",
+  },
+  {
+    id: 'traits', target: '.rite-list',
+    when: () => first() && seen('rite') && s.phase === 'dawn' && traitsOn() && s.shades.some((d) => SHADE_TRAITS[d.trait]),
+    text: () => `Everyone has a trait, and death turns it over: the Brave wake Reckless, the Devout Bitter, the Greedy Hoarding. Each shade's line says what it does now. A Bitter one costs ${s.tuning.dreadPerKeep * SHADE_TRAITS.bitter.dread} Dread to keep, but makes wards cheap; read them before you choose.`,
   },
   {
     id: 'build', target: '#btn-build',
