@@ -2,6 +2,8 @@
 
 Open [`index.html`](index.html) in a browser for the full version: animated pixel-art mockups of each concept, the competitor table, an adjustable weighted comparison, and the decision list.
 
+**Round two:** Deadhold and Mirrorhold were chosen as finalists. Ten follow-up ideas are in [`round-2/`](round-2/README.md).
+
 ## The problem with the pitch
 
 "Fallout Shelter–style side view, Elder Scrolls–style fantasy, build and defend a castle" already exists twice on Google Play:

@@ -1,0 +1,1814 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Bone &amp; Glass</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jacquard+24&family=Silkscreen:wght@400;700&family=Alegreya+Sans:ital,wght@0,400;0,500;0,700;0,800;1,400&display=swap">
+<style>
+:root{
+  --bg:#EBEAEF; --surface:#F7F6FA; --surface-2:#E0DEE7; --ink:#1B2230; --ink-2:#465262; --ink-3:#687384;
+  --rule:#C8CFCC; --accent:#9E2B25; --gold:#8A5F0E; --gold-fill:#EBCB78; --link:#2A5A8C;
+  --bar:#7B8797; --bar-lead:#B8862B; --grid:#D5DBD8;
+  --t-countermine:#5F7188; --t-hoard:#B98322; --t-mirror:#7E55A8; --t-colossus:#A8612A; --t-dead:#47845A; --bone:#8A6A2F; --glass:#6A4FA0; --wire:#2F6FB0;
+  --screen:#0C0A12; --screen-edge:#22202C;
+  --display:'Jacquard 24','Alegreya Sans',Georgia,serif;
+  --body:'Alegreya Sans','Gill Sans','Segoe UI',system-ui,sans-serif;
+  --pixel:'Silkscreen','Courier New',ui-monospace,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --bg:#131118; --surface:#1B1822; --surface-2:#26222F; --ink:#E4E8EE; --ink-2:#AAB4C1; --ink-3:#7F8A9A;
+    --rule:#2C3542; --accent:#E27468; --gold:#E6BC62; --gold-fill:#5B4718; --link:#90B8E8;
+    --bar:#6D7A8C; --bar-lead:#D9A948; --grid:#263040;
+    --t-countermine:#8C9DB4; --t-hoard:#D9A948; --t-mirror:#A985D0; --t-colossus:#D08850; --t-dead:#6FB083; --bone:#D9B870; --glass:#B39BE6; --wire:#8FC0F0;
+    --screen-edge:#2E2B3A;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#131118; --surface:#1B1822; --surface-2:#26222F; --ink:#E4E8EE; --ink-2:#AAB4C1; --ink-3:#7F8A9A;
+  --rule:#2C3542; --accent:#E27468; --gold:#E6BC62; --gold-fill:#5B4718; --link:#90B8E8;
+  --bar:#6D7A8C; --bar-lead:#D9A948; --grid:#263040;
+  --t-countermine:#8C9DB4; --t-hoard:#D9A948; --t-mirror:#A985D0; --t-colossus:#D08850; --t-dead:#6FB083; --bone:#D9B870; --glass:#B39BE6; --wire:#8FC0F0;
+  --screen-edge:#2E2B3A;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+@media (prefers-reduced-motion: reduce){html{scroll-behavior:auto}}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:17.5px;line-height:1.55;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1120px;margin:0 auto;padding-inline:20px;padding-block:28px 80px}
+a{color:var(--link);text-underline-offset:2px}
+a:focus-visible,button:focus-visible,input:focus-visible,summary:focus-visible{outline:2px solid var(--link);outline-offset:2px;border-radius:3px}
+h1,h2,h3{text-wrap:balance;line-height:1.1;margin:0}
+p{margin:0}
+.measure{max-width:68ch}
+.stack>*+*{margin-top:.8em}
+.eyebrow{font-size:13px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3);font-weight:700}
+.muted{color:var(--ink-2)}
+strong{font-weight:800}
+
+/* header */
+.masthead{display:grid;gap:14px;padding-block:8px 26px;border-bottom:1px solid var(--rule)}
+.masthead h1{font-family:var(--display);font-weight:400;font-size:clamp(64px,11vw,124px);letter-spacing:.01em;line-height:.9}
+.masthead .lede{font-size:20px;color:var(--ink-2);max-width:62ch}
+
+/* toc */
+.toc{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:color-mix(in srgb,var(--bg) 92%,transparent);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);border-bottom:1px solid var(--rule);margin-inline:-20px;padding-inline:20px}
+.toc ol{list-style:none;display:flex;gap:4px;margin:0;padding:8px 0;overflow-x:auto;scrollbar-width:none}
+.toc ol::-webkit-scrollbar{display:none}
+.toc a{display:block;white-space:nowrap;text-decoration:none;color:var(--ink-2);font-size:14.5px;font-weight:500;padding:4px 10px;border-radius:999px}
+.toc a:hover{background:var(--surface-2);color:var(--ink)}
+.toc a[aria-current="true"]{background:var(--ink);color:var(--bg)}
+
+section{scroll-margin-top:64px}
+.sec{padding-block:56px 8px}
+.sec>h2{font-size:clamp(28px,4vw,38px);font-weight:800;letter-spacing:-.01em;margin-bottom:6px}
+.sec>.sub{color:var(--ink-2);font-size:18px;max-width:66ch;margin-bottom:26px}
+
+/* verdict */
+.verdict{display:grid;grid-template-columns:1fr 1fr;gap:0;margin-top:28px;border-top:3px solid var(--ink);background:var(--surface)}
+.verdict>div{padding:22px 24px 24px}
+.verdict>div+div{border-left:1px solid var(--rule)}
+.verdict h2{font-size:24px;font-weight:800;margin:6px 0 10px}
+.verdict .flag{color:var(--accent)}
+.verdict .rec{color:var(--gold)}
+.verdict p+p,.verdict ul{margin-top:10px}
+.verdict ul{padding-left:1.1em;margin-bottom:0}
+.verdict li+li{margin-top:4px}
+@media (max-width:760px){.verdict{grid-template-columns:1fr}.verdict>div+div{border-left:0;border-top:1px solid var(--rule)}}
+
+/* concept cards */
+.cards{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-top:26px}
+.card{display:grid;grid-template-rows:auto 1fr;text-decoration:none;color:inherit;background:var(--surface);border:1px solid var(--rule);border-radius:6px;overflow:hidden;transition:transform .15s ease,border-color .15s ease}
+.card:hover{transform:translateY(-2px);border-color:var(--ink-3)}
+.card .thumb{background:var(--screen);aspect-ratio:1/1;position:relative}
+.card .thumb canvas{position:absolute;inset:0;width:100%;height:100%}
+.card .body{padding:10px 12px 12px;display:grid;gap:4px;align-content:start}
+.card .name{font-family:var(--display);font-size:30px;line-height:1;display:flex;align-items:center;gap:8px}
+.card .tag{font-size:14.5px;color:var(--ink-2);line-height:1.35}
+.card .pick{justify-self:start;font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;padding:2px 7px;border-radius:3px;background:var(--gold-fill);color:var(--ink)}
+.card .pick.alt{background:var(--surface-2)}
+.sigil{width:10px;height:10px;border-radius:2px;flex:none;display:inline-block}
+@media (max-width:980px){.cards{grid-template-columns:repeat(3,1fr)}}
+@media (max-width:620px){.cards{grid-template-columns:1fr}.card{grid-template-columns:96px 1fr;grid-template-rows:auto}.card .thumb{aspect-ratio:auto;min-height:96px}}
+
+/* tables */
+.table-wrap{overflow-x:auto;border:1px solid var(--rule);border-radius:6px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:15.5px;line-height:1.4}
+th,td{text-align:left;vertical-align:top;padding:9px 12px;border-bottom:1px solid var(--rule)}
+thead th{font-size:12.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3);font-weight:700;background:var(--surface-2);white-space:nowrap}
+tbody tr:last-child td{border-bottom:0}
+td.game{font-weight:700;white-space:nowrap}
+.lvl{display:inline-block;font-size:12px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;padding:1px 6px;border-radius:3px;white-space:nowrap}
+.lvl.hi{background:color-mix(in srgb,var(--accent) 18%,transparent);color:var(--accent)}
+.lvl.md{background:color-mix(in srgb,var(--gold) 18%,transparent);color:var(--gold)}
+.lvl.lo{background:var(--surface-2);color:var(--ink-2)}
+.lvl.ok{background:color-mix(in srgb,var(--t-dead) 20%,transparent);color:var(--t-dead)}
+.note{font-size:14.5px;color:var(--ink-3);margin-top:10px;max-width:80ch}
+.recent{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px 28px;margin-top:22px;padding:0;list-style:none}
+.recent li{font-size:15.5px;border-top:1px solid var(--rule);padding-top:8px}
+.recent b{font-weight:800}
+
+/* assumptions */
+.assume{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:18px;margin-top:6px}
+.assume div{border-top:1px solid var(--rule);padding-top:10px}
+.assume h3{font-size:17px;font-weight:800;margin-bottom:4px}
+.assume p{font-size:16px;color:var(--ink-2)}
+
+/* concept plates */
+.plate{padding-block:64px 8px;border-top:1px solid var(--rule);margin-top:56px}
+.plate-head{display:grid;gap:6px;margin-bottom:22px}
+.plate-head .kicker{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.plate-head h2{font-family:var(--display);font-weight:400;font-size:clamp(52px,8vw,88px);line-height:.9}
+.plate-head .tagline{font-size:22px;font-weight:500;color:var(--ink-2);font-style:italic}
+.badge{font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;padding:3px 8px;border-radius:3px;background:var(--surface-2);color:var(--ink-2)}
+.badge.pick{background:var(--gold-fill);color:var(--ink)}
+.plate-grid{display:grid;gap:34px}
+.plate.land .plate-grid{grid-template-columns:1fr}
+.plate.port .plate-grid{grid-template-columns:minmax(260px,340px) 1fr;align-items:start}
+.plate.port .fig{position:sticky;top:64px}
+@media (max-width:860px){.plate.port .plate-grid{grid-template-columns:1fr}.plate.port .fig{position:static;max-width:360px;margin-inline:auto;width:100%}}
+.cols{display:grid;grid-template-columns:1.15fr 1fr;gap:34px}
+@media (max-width:860px){.cols{grid-template-columns:1fr}}
+.prose h3{font-size:14px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);font-weight:800;margin:22px 0 6px}
+.prose h3:first-child{margin-top:0}
+.prose p{max-width:66ch}
+.prose ol,.prose ul{margin:0;padding-left:1.25em;max-width:64ch}
+.prose li+li{margin-top:5px}
+.pitch{font-size:19px;line-height:1.5}
+
+/* spec sheet */
+.spec{display:grid;grid-template-columns:auto 1fr;border-top:2px solid var(--ink);margin:0}
+.spec dt{font-size:12.5px;letter-spacing:.07em;text-transform:uppercase;font-weight:800;color:var(--ink-3);padding:10px 14px 10px 0;border-bottom:1px solid var(--rule)}
+.spec dd{margin:0;padding:9px 0;border-bottom:1px solid var(--rule);font-size:16px}
+.spec dd .lvl{margin-right:6px}
+@media (max-width:420px){.spec{grid-template-columns:1fr}.spec dt{border-bottom:0;padding-bottom:0}}
+
+/* mockup screens */
+.fig figcaption{font-size:13.5px;color:var(--ink-3);margin-top:8px;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.monitor{background:var(--screen);border:1px solid var(--screen-edge);border-radius:10px;padding:8px;box-shadow:0 18px 40px -24px rgba(10,8,20,.55)}
+.phone{background:var(--screen);border:1px solid var(--screen-edge);border-radius:30px;padding:12px 9px 16px;box-shadow:0 18px 40px -24px rgba(10,8,20,.55);max-width:340px;margin-inline:auto}
+.phone .screen{border-radius:16px}
+.screen{position:relative;overflow:hidden;border-radius:4px;background:#0c0a12;container-type:inline-size}
+.screen canvas{display:block;width:100%;height:auto}
+.screen.land{aspect-ratio:16/9}
+.screen.port{aspect-ratio:9/16}
+.screen canvas{position:absolute;inset:0;width:100%;height:100%}
+
+/* in-game HUD */
+.hud{position:absolute;inset:0;pointer-events:none;font-family:var(--pixel);color:#F4F1FF;text-shadow:0 1px 0 #0c0a12,1px 0 0 #0c0a12,0 -1px 0 #0c0a12,-1px 0 0 #0c0a12;font-size:max(8px,1.55cqw);line-height:1.15;letter-spacing:.02em}
+.port .hud{font-size:max(8px,3.6cqw)}
+.hud .row{position:absolute;display:flex;gap:.5em;flex-wrap:wrap;align-items:center}
+.hud .tl{left:1.6%;top:1.8%;right:1.6%}
+.hud .chip{background:rgba(12,10,18,.72);border:1px solid rgba(255,255,255,.14);padding:.25em .45em;border-radius:.3em;white-space:nowrap}
+.hud .chip i{font-style:normal;color:#FEE761}
+.hud .chip.bad i{color:#FF6B6B}
+.hud .meter{position:absolute;display:grid;gap:.25em}
+.hud .meter .lab{display:flex;justify-content:space-between;gap:1em}
+.hud .bar{height:.75em;background:rgba(12,10,18,.8);border:1px solid rgba(255,255,255,.3);position:relative;overflow:hidden}
+.hud .bar b{position:absolute;inset:0 auto 0 0;display:block}
+.hud .bar s{position:absolute;top:0;bottom:0;width:1px;background:rgba(255,255,255,.35);text-decoration:none}
+.hud .toast{position:absolute;background:rgba(18,14,30,.86);border:1px solid rgba(255,255,255,.2);padding:.4em .55em;border-radius:.3em;max-width:48%}
+.port .hud .toast{max-width:78%}
+.hud .toast em{font-style:normal;display:block;color:#FEAE34;margin-bottom:.15em}
+.hud .toast.red em{color:#FF6B6B}
+.hud .toast.vio em{color:#D9A6FF}
+.hud .toast.grn em{color:#9BE58A}
+.hud .tools{position:absolute;left:0;right:0;bottom:0;display:flex;justify-content:center;gap:.35em;padding:.45em;background:linear-gradient(transparent,rgba(12,10,18,.85) 40%)}
+.hud .tool{border:1px solid rgba(255,255,255,.28);background:rgba(28,24,40,.9);padding:.35em .5em;border-radius:.25em;white-space:nowrap}
+.hud .tool.on{background:#FEAE34;color:#1b1420;text-shadow:none;border-color:#FEE761}
+.hud .pips{display:flex;gap:.2em}
+.hud .pips span{width:.7em;height:.7em;border:1px solid rgba(255,255,255,.45);background:rgba(12,10,18,.7)}
+.hud .pips span.on{background:#FF4F4F;border-color:#FFB0B0}
+
+/* annotation pins */
+.pin{position:absolute;transform:translate(-50%,-50%);width:max(18px,2.5cqw);height:max(18px,2.5cqw);border-radius:50%;background:#FFFFFF;color:#111;border:2px solid #111;font:800 max(10px,1.4cqw)/1 var(--body);display:grid;place-items:center;pointer-events:auto;cursor:default;box-shadow:0 0 0 2px rgba(255,255,255,.35);transition:transform .15s}
+.port .pin{width:max(18px,8cqw);height:max(18px,8cqw);font-size:max(10px,4.4cqw)}
+.pin.hot{transform:translate(-50%,-50%) scale(1.25);background:#FEE761}
+.pins-toggle{font:600 13.5px var(--body);color:var(--ink-2);background:none;border:1px solid var(--rule);border-radius:999px;padding:2px 10px;cursor:pointer}
+.screen.nopins .pin{display:none}
+.legend{list-style:none;margin:14px 0 0;padding:0;display:grid;gap:7px;counter-reset:pin}
+.legend li{display:grid;grid-template-columns:24px 1fr;gap:10px;font-size:15.5px;line-height:1.4;align-items:start;border-radius:4px;padding:2px 4px 2px 0}
+.legend li::before{counter-increment:pin;content:counter(pin);width:22px;height:22px;border-radius:50%;background:var(--ink);color:var(--bg);font-weight:800;font-size:13px;display:grid;place-items:center;margin-top:1px}
+.legend li.hot{background:var(--surface-2)}
+.land .legend{grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:8px 22px}
+
+/* compare */
+.presets{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;align-items:center}
+.presets span{font-size:14px;color:var(--ink-3);margin-right:4px}
+.btn{font:600 14.5px var(--body);color:var(--ink);background:var(--surface);border:1px solid var(--rule);border-radius:999px;padding:5px 12px;cursor:pointer}
+.btn:hover{border-color:var(--ink-3)}
+.btn[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.matrix td,.matrix th{text-align:center;white-space:nowrap}
+.matrix td:first-child,.matrix th:first-child{text-align:left;white-space:normal;min-width:220px}
+.matrix .crit b{display:block;font-weight:800}
+.matrix .crit small{display:block;color:var(--ink-3);font-size:13.5px;line-height:1.3}
+.matrix input[type=range]{width:110px;accent-color:var(--ink)}
+.matrix .w{font-variant-numeric:tabular-nums;font-weight:700;display:inline-block;width:1.2em}
+.score{font-variant-numeric:tabular-nums;font-weight:700;display:inline-grid;place-items:center;width:28px;height:28px;border-radius:4px}
+.s1{background:color-mix(in srgb,var(--accent) 22%,transparent)}
+.s2{background:color-mix(in srgb,var(--accent) 10%,transparent)}
+.s3{background:var(--surface-2)}
+.s4{background:color-mix(in srgb,var(--t-dead) 16%,transparent)}
+.s5{background:color-mix(in srgb,var(--t-dead) 30%,transparent)}
+.matrix tfoot td{border-top:2px solid var(--ink);font-weight:800;font-variant-numeric:tabular-nums}
+.chart{margin-top:26px;background:var(--surface);border:1px solid var(--rule);border-radius:6px;padding:18px 18px 14px}
+.chart h3{font-size:16px;font-weight:800;margin-bottom:2px}
+.chart .cap{font-size:14px;color:var(--ink-3);margin-bottom:14px}
+.bars{display:grid;gap:10px;position:relative}
+.brow{display:grid;grid-template-columns:150px 1fr;gap:12px;align-items:center}
+.brow .lab{font-weight:700;font-size:15.5px;display:flex;align-items:center;gap:8px}
+.track{position:relative;height:24px;outline:none}
+.track .grid{position:absolute;left:0;top:0;bottom:0;right:36px;background:repeating-linear-gradient(90deg,var(--grid) 0 1px,transparent 1px 20%);border-right:1px solid var(--grid)}
+.track:focus-visible{outline:2px solid var(--link);outline-offset:2px}
+.fill{position:absolute;left:0;top:3px;height:18px;border-radius:0 4px 4px 0;background:var(--bar);transition:width .35s ease}
+.fill.lead{background:var(--bar-lead)}
+.brow:hover .fill{filter:brightness(1.08)}
+.val{position:absolute;top:50%;transform:translateY(-50%);font-size:14px;font-weight:800;font-variant-numeric:tabular-nums;color:var(--ink);padding-left:6px;white-space:nowrap}
+.axis{display:grid;grid-template-columns:150px 1fr;gap:12px;margin-top:6px}
+.axis div{display:flex;justify-content:space-between;font-size:12px;color:var(--ink-3);font-variant-numeric:tabular-nums;padding-right:30px}
+@media (max-width:520px){.brow,.axis{grid-template-columns:104px 1fr}.brow .lab{font-size:14px}}
+.tip{position:fixed;z-index:50;pointer-events:none;background:var(--ink);color:var(--bg);padding:6px 9px;border-radius:4px;font-size:13.5px;line-height:1.3;max-width:240px}
+.tip strong{font-size:16px}
+
+/* mix, cuts, decisions */
+.mix{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px}
+.mix article{background:var(--surface);border:1px solid var(--rule);border-radius:6px;padding:16px 18px}
+.mix h3{font-size:18px;font-weight:800;margin-bottom:6px}
+.mix p{font-size:16px;color:var(--ink-2)}
+.mix .fits{margin-top:10px;display:flex;gap:6px;flex-wrap:wrap}
+.fits span{font-size:12.5px;font-weight:700;padding:1px 7px;border-radius:3px;background:var(--surface-2);color:var(--ink-2);display:inline-flex;align-items:center;gap:5px}
+.cuts td:first-child{font-weight:700;min-width:190px}
+.decide{display:grid;gap:0;border-top:2px solid var(--ink)}
+.decide details{border-bottom:1px solid var(--rule)}
+.decide summary{cursor:pointer;list-style:none;display:grid;grid-template-columns:1fr auto;gap:14px;align-items:baseline;padding:13px 2px}
+.decide summary::-webkit-details-marker{display:none}
+.decide summary h3{font-size:18.5px;font-weight:800}
+.decide summary .def{font-size:14.5px;color:var(--gold);font-weight:700;text-align:right}
+.decide summary .def::before{content:"Default: ";color:var(--ink-3);font-weight:500}
+.decide .opts{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;padding:0 2px 16px}
+.decide .opt{background:var(--surface);border:1px solid var(--rule);border-radius:6px;padding:11px 13px;font-size:15.5px}
+.decide .opt.chosen{border-color:var(--gold);box-shadow:inset 0 0 0 1px var(--gold)}
+.decide .opt b{display:block;font-weight:800;margin-bottom:2px}
+.decide .why{grid-column:1/-1;font-size:15.5px;color:var(--ink-2);max-width:78ch}
+@media (max-width:560px){.decide summary{grid-template-columns:1fr}.decide summary .def{text-align:left}}
+
+/* next steps */
+.weeks{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px}
+.week{background:var(--surface);border:1px solid var(--rule);border-radius:6px;padding:18px 20px}
+.week h3{font-size:19px;font-weight:800;margin:4px 0 10px}
+.week ul{padding-left:1.1em;margin:0;font-size:16px}
+.week li+li{margin-top:5px}
+.week .pass,.week .kill{margin-top:12px;font-size:15.5px;padding-top:10px;border-top:1px solid var(--rule)}
+.week .pass b{color:var(--t-dead)}
+.week .kill b{color:var(--accent)}
+.tech{margin-top:22px;display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:10px 26px;list-style:none;padding:0}
+.tech li{border-top:1px solid var(--rule);padding-top:8px;font-size:15.5px}
+.tech b{display:block;font-weight:800}
+
+/* ledger */
+.ledger{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+.ledger div{border-top:3px solid var(--ink-3);padding-top:10px}
+.ledger div.est{border-top-color:var(--t-dead)}
+.ledger div.jud{border-top-color:var(--gold)}
+.ledger div.unk{border-top-color:var(--accent)}
+.ledger h3{font-size:17px;font-weight:800;margin-bottom:6px}
+.ledger ul{margin:0;padding-left:1.1em;font-size:15.5px;color:var(--ink-2)}
+.ledger li+li{margin-top:4px}
+@media (max-width:760px){.ledger{grid-template-columns:1fr}}
+.foot{margin-top:60px;padding-top:16px;border-top:1px solid var(--rule);font-size:14px;color:var(--ink-3)}
+
+/* ---- round two ---- */
+.line{font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;padding:3px 8px;border-radius:3px;display:inline-flex;align-items:center;gap:6px}
+.line.dead{background:color-mix(in srgb,var(--bone) 18%,transparent);color:var(--bone)}
+.line.glass{background:color-mix(in srgb,var(--glass) 18%,transparent);color:var(--glass)}
+.line.both{background:linear-gradient(90deg,color-mix(in srgb,var(--bone) 22%,transparent),color-mix(in srgb,var(--glass) 22%,transparent));color:var(--ink)}
+.cards.ten{grid-template-columns:repeat(5,1fr)}
+.cards.ten .card .name{font-size:26px}
+.cards.ten .card .tag{font-size:14px}
+.cards.ten .meta{display:flex;flex-wrap:wrap;gap:5px;margin-top:4px}
+.cards.ten .meta span{font-size:11.5px;font-weight:700;color:var(--ink-3)}
+@media (max-width:980px){.cards.ten{grid-template-columns:repeat(2,1fr)}}
+@media (max-width:620px){.cards.ten{grid-template-columns:1fr}}
+.group-head{margin-top:72px;padding-top:18px;border-top:3px solid var(--ink);display:grid;gap:6px}
+.group-head h2{font-size:clamp(28px,4vw,38px);font-weight:800}
+.group-head p{color:var(--ink-2);max-width:70ch;font-size:18px}
+.idea{padding-block:48px 8px;border-top:1px solid var(--rule);margin-top:40px}
+.idea-head{display:grid;gap:6px;margin-bottom:20px}
+.idea-head .kicker{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.idea-head h2{font-family:var(--display);font-weight:400;font-size:clamp(48px,7vw,80px);line-height:.9}
+.idea-head .tagline{font-size:21px;font-weight:500;color:var(--ink-2);font-style:italic}
+.idea-grid{display:grid;gap:30px}
+.idea.land .idea-grid{grid-template-columns:1fr}
+.idea.port .idea-grid{grid-template-columns:minmax(260px,340px) 1fr;align-items:start}
+.idea.port .fig{position:sticky;top:64px}
+@media (max-width:860px){.idea.port .idea-grid{grid-template-columns:1fr}.idea.port .fig{position:static;max-width:360px;margin-inline:auto;width:100%}}
+.traits{list-style:none;padding:0;margin:6px 0 0;display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:8px}
+.traits li{background:var(--surface);border:1px solid var(--rule);border-radius:5px;padding:7px 10px;font-size:15px;line-height:1.35}
+.traits b{display:block;font-weight:800;font-size:14.5px}
+.frame{background:var(--screen);border:1px solid var(--screen-edge);border-radius:10px;padding:8px;box-shadow:0 18px 40px -24px rgba(10,8,20,.55)}
+.stage{position:relative;overflow:hidden;border-radius:4px;background:#0c0a12;container-type:inline-size}
+.stage canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+.stage.r169{aspect-ratio:16/9}.stage.r916{aspect-ratio:9/16}.stage.r85{aspect-ratio:8/5}.stage.r21{aspect-ratio:230/108}.stage.r11{aspect-ratio:1/1}
+.stage .pin{width:max(18px,2.5cqw);height:max(18px,2.5cqw)}
+.stage.r916 .pin{width:max(18px,8cqw);height:max(18px,8cqw);font-size:max(10px,4.4cqw)}
+.stage .hud{font-size:max(8px,1.55cqw)}
+.stage.r916 .hud{font-size:max(8px,3.6cqw)}
+.diptych{display:grid;grid-template-columns:1fr 1fr;gap:10px;max-width:520px}
+.diptych figcaption,.tile figcaption{font-size:13px;color:var(--ink-3);margin-top:6px;text-align:center}
+.extras{display:grid;gap:26px;margin-top:34px}
+.extras>h3{font-size:14px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);font-weight:800}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:26px;align-items:start}
+@media (max-width:860px){.row2{grid-template-columns:1fr}}
+.panel{background:var(--surface);border:1px solid var(--rule);border-radius:6px;padding:16px 18px}
+.panel h4{font-size:16px;font-weight:800;margin:0 0 4px}
+.panel .cap{font-size:14px;color:var(--ink-3);margin:0 0 12px}
+.loop svg{width:100%;height:auto;display:block;color:var(--ink)}
+.story{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.story .shot{display:grid;gap:6px}
+.story .shot p{font-size:14px;color:var(--ink-2);line-height:1.35}
+.story .shot b{font-weight:800;color:var(--ink)}
+@media (max-width:620px){.story{grid-template-columns:1fr}}
+.store{display:grid;grid-template-columns:1fr 96px;gap:12px;align-items:end}
+.store .icon{border-radius:22%;overflow:hidden;aspect-ratio:1/1;position:relative;box-shadow:0 6px 14px -8px rgba(0,0,0,.5)}
+.store .icon canvas{position:absolute;inset:0;width:100%;height:100%}
+/* wireframe */
+.wire{max-width:300px;margin-inline:auto;border:2px solid var(--ink);border-radius:26px;padding:14px 10px 12px;background:var(--surface);font:600 12px/1.25 var(--body);color:var(--ink)}
+.wire .bar{display:flex;justify-content:space-between;gap:6px;border:1px dashed var(--ink-3);border-radius:6px;padding:6px 8px;margin-bottom:8px}
+.wire .ph{border:1.5px solid var(--ink-3);border-radius:4px;position:relative;display:grid;place-items:center;color:var(--ink-3);text-align:center;font-weight:700;background:repeating-linear-gradient(135deg,transparent 0 8px,color-mix(in srgb,var(--ink-3) 10%,transparent) 8px 9px)}
+.wire .split{display:grid;grid-template-rows:1fr 1fr;gap:3px;height:230px;margin-bottom:8px}
+.wire .sheet{border:1.5px solid var(--ink);border-radius:10px 10px 4px 4px;padding:8px;display:grid;gap:6px;margin-bottom:8px}
+.wire .sheet h5{margin:0;font-size:12.5px;font-weight:800}
+.wire .mrow{display:grid;grid-template-columns:1fr auto;gap:6px;align-items:center;border-top:1px dashed var(--ink-3);padding-top:6px;font-weight:600}
+.wire .tog{display:inline-flex;border:1.5px solid var(--ink);border-radius:999px;overflow:hidden}
+.wire .tog span{padding:2px 7px;font-size:11px}
+.wire .tog .on{background:var(--ink);color:var(--surface)}
+.wire .tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:4px}
+.wire .tabs span{border:1.5px solid var(--ink-3);border-radius:4px;text-align:center;padding:4px 0;font-size:11px}
+.wire .tabs .on{border-color:var(--ink);background:var(--surface-2)}
+.wnote{font:600 12.5px/1.35 var(--body);color:var(--wire);display:grid;gap:8px;align-content:start}
+.wnote li{padding-left:2px}
+/* dossier */
+.dossier{background:#1d1924;color:#efe9f6;border-radius:10px;padding:16px;border:1px solid #3a3346;font-family:var(--body)}
+.dossier .pair{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.dossier .por{display:grid;gap:6px}
+.dossier .por .cv{position:relative;aspect-ratio:120/150;border-radius:6px;overflow:hidden;border:2px solid #4a4058}
+.dossier .por .cv canvas{position:absolute;inset:0;width:100%;height:100%}
+.dossier .por small{font-size:12.5px;color:#b7aec6}
+.dossier .por b{font-size:14.5px}
+.dossier .acts{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}
+.dossier button{font:700 13.5px var(--body);border-radius:999px;padding:6px 12px;cursor:pointer;border:1px solid #6a5f80;background:#2a2434;color:#efe9f6}
+.dossier button.pri{background:#e9d8ff;color:#1d1924;border-color:#e9d8ff}
+.dossier button[aria-pressed="true"]{background:#ff4d5e;border-color:#ff4d5e;color:#fff}
+.dossier table{font-size:13.5px;border-collapse:collapse;width:100%}
+.dossier td{padding:6px 4px;border-top:1px solid #3a3346;color:#efe9f6}
+.chip-s{font-size:11px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;padding:2px 7px;border-radius:3px}
+.chip-s.ok{background:#1f4a33;color:#9be5b4}.chip-s.q{background:#3a3346;color:#cfc6dc}.chip-s.bad{background:#5a1f28;color:#ffb0b8}
+.bmtip{position:absolute;left:66%;top:18%;background:rgba(18,14,30,.9);border:1px solid rgba(255,255,255,.25);border-radius:.3em;padding:.45em .6em;font-family:var(--pixel);color:#f4f1ff;font-size:max(8px,1.4cqw);line-height:1.3;max-width:32%}
+.bmtip em{font-style:normal;color:#b7c0cc;display:block}
+.bmtip i{font-style:normal;color:#ff9a8a}
+/* style gallery */
+.gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
+.tile .stage{border-radius:6px}
+.tile figcaption b{display:block;color:var(--ink);font-size:14px}
+.wgrid{display:grid;grid-template-columns:minmax(0,300px) minmax(0,1fr);gap:16px;align-items:start}
+@media (max-width:620px){.wgrid{grid-template-columns:1fr}}
+.pick-note{font-size:15.5px;color:var(--ink-2);max-width:74ch;margin-top:14px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header class="masthead">
+  <p class="eyebrow">Base-Manager · round two · follows <a href="https://claude.ai/artifact/PY6cYPAh8Hm9SfkQqPErhK">Five Keeps</a></p>
+  <h1>Bone &amp; Glass</h1>
+  <p class="lede">Ten ideas grown from your two finalists: two that fuse Deadhold and Mirrorhold, four from the Deadhold line, and four from the Mirrorhold line. Each is drawn in a different art style, and the two fusions also get an interface wireframe, a loop diagram, a storyboard and store art.</p>
+</header>
+
+<nav class="toc" aria-label="Sections">
+  <ol>
+    <li><a href="#verdict">Verdict</a></li>
+    <li><a href="#both">Both</a></li>
+    <li><a href="#mourning">Mourning Glass</a></li>
+    <li><a href="#barrowdeep">Barrowdeep</a></li>
+    <li><a href="#deadline">Deadhold line</a></li>
+    <li><a href="#mirrorline">Mirrorhold line</a></li>
+    <li><a href="#styles">Art styles</a></li>
+    <li><a href="#compare">Compare</a></li>
+    <li><a href="#next">Next two weeks</a></li>
+    <li><a href="#ledger">What's checked</a></li>
+  </ol>
+</nav>
+
+<section id="verdict" class="verdict" aria-label="Verdict">
+  <div>
+    <p class="eyebrow flag">Before you commit</p>
+    <h2>The undead-worker space got more crowded this week.</h2>
+    <p><em>Graveyard Keeper 2</em> came out on 22 September 2026 with zombie workers, and <em>Sintopia</em> (April 2026) drops the dead into a layer you manage below the surface. Pure Deadhold ideas now need a strong twist. The fusions get their novelty from the mirror structure.</p>
+    <p>Six of my first working titles turned out to be taken or too close to existing games, so they're renamed below. Only Tombwright and Hourglass Keep came back clean; the rest are unchecked.</p>
+  </div>
+  <div>
+    <p class="eyebrow rec">Recommendation</p>
+    <h2>Prototype Barrowdeep first.</h2>
+    <p>It's the highest-scoring idea that uses both halves you liked: every body you bury grows a room in the mirrored world below, so Deadhold's corpse economy becomes Mirrorhold's build system. The search found nothing like it.</p>
+    <ul>
+      <li><a href="#tombwright">Tombwright</a> scores highest overall, but it's a tomb rather than a castle and uses only the Deadhold half.</li>
+      <li><a href="#mourning">Mourning Glass</a> is the most emotional fusion and the hardest to balance.</li>
+      <li>The <a href="#compare">weights</a> are adjustable if my priorities aren't yours.</li>
+    </ul>
+  </div>
+</section>
+
+<div class="cards ten" aria-label="The ten ideas">
+  <a class="card" href="#mourning"><div class="thumb" data-thumb2="mourning" role="img" aria-label="Mourning Glass thumbnail in stained glass"></div><div class="body"><span class="name">Mourning Glass</span><span class="tag">The dead take the night shift in the reflection.</span><div class="meta"><span class="line both">Both</span><span>Stained glass</span></div></div></a>
+  <a class="card" href="#barrowdeep"><div class="thumb" data-thumb2="barrowdeep" role="img" aria-label="Barrowdeep thumbnail in woodcut"></div><div class="body"><span class="name">Barrowdeep</span><span class="tag">Every grave grows a room in the world below.</span><div class="meta"><span class="line both">Both</span><span class="pick">Recommended</span></div></div></a>
+  <a class="card" href="#bonemason"><div class="thumb" data-thumb2="bonemason" role="img" aria-label="Bonemason thumbnail in pixel art"></div><div class="body"><span class="name">Bonemason</span><span class="tag">A keep built from the bones of its attackers.</span><div class="meta"><span class="line dead">Deadhold</span><span>Pixel</span></div></div></a>
+  <a class="card" href="#dreadmonger"><div class="thumb" data-thumb2="dreadmonger" role="img" aria-label="Dreadmonger thumbnail in paper cut-out"></div><div class="body"><span class="name">Dreadmonger</span><span class="tag">Choose which village comes to kill you.</span><div class="meta"><span class="line dead">Deadhold</span><span>Paper</span></div></div></a>
+  <a class="card" href="#boneunion"><div class="thumb" data-thumb2="boneunion" role="img" aria-label="Bone Union thumbnail in flat vector"></div><div class="body"><span class="name">Bone Union</span><span class="tag">Your dead staff want to talk about the hours.</span><div class="meta"><span class="line dead">Deadhold</span><span>Flat vector</span></div></div></a>
+  <a class="card" href="#tombwright"><div class="thumb" data-thumb2="tombwright" role="img" aria-label="Tombwright thumbnail as a blueprint"></div><div class="body"><span class="name">Tombwright</span><span class="tag">Finish the lich-king's tomb before he dies again.</span><div class="meta"><span class="line dead">Deadhold</span><span>Blueprint</span></div></div></a>
+  <a class="card" href="#ebbhold"><div class="thumb" data-thumb2="ebbhold" role="img" aria-label="Ebbhold thumbnail in watercolor"></div><div class="body"><span class="name">Ebbhold</span><span class="tag">At high tide, half the castle is somewhere else.</span><div class="meta"><span class="line glass">Mirrorhold</span><span>Watercolor</span></div></div></a>
+  <a class="card" href="#lampblack"><div class="thumb" data-thumb2="lampblack" role="img" aria-label="Lampblack thumbnail in silhouette"></div><div class="body"><span class="name">Lampblack</span><span class="tag">Every lamp casts a place for them to live.</span><div class="meta"><span class="line glass">Mirrorhold</span><span>Silhouette</span></div></div></a>
+  <a class="card" href="#hourglass"><div class="thumb" data-thumb2="hourglass" role="img" aria-label="Hourglass Keep thumbnail in neon line"></div><div class="body"><span class="name">Hourglass Keep</span><span class="tag">At dusk the whole castle turns over.</span><div class="meta"><span class="line glass">Mirrorhold</span><span>Neon line</span></div></div></a>
+  <a class="card" href="#wronghand"><div class="thumb" data-thumb2="wronghand" role="img" aria-label="Wronghand thumbnail: a mirrored portrait"></div><div class="body"><span class="name">Wronghand</span><span class="tag">Doubles copy your people, backwards.</span><div class="meta"><span class="line glass">Mirrorhold</span><span>Interface</span></div></div></a>
+</div>
+
+<div class="group-head" id="both"><p class="eyebrow">Deadhold + Mirrorhold</p><h2>The two fusions</h2><p>Both use the dead to fill the reflection. They differ in what the dead become: workers in Mourning Glass, rooms in Barrowdeep.</p></div>
+
+<section id="mourning" class="idea port" aria-labelledby="mg-h">
+  <header class="idea-head"><div class="kicker"><span class="line both">Both lines</span><span class="badge">Stained glass</span><span class="badge">Portrait</span></div><h2 id="mg-h">Mourning Glass</h2><p class="tagline">The living hold the keep by day. The dead hold its reflection by night.</p></header>
+  <div class="idea-grid">
+    <figure class="fig" style="margin:0">
+      <div class="phone"><div class="stage r916" data-v="glasswake:glass" role="img" aria-label="Stained-glass mockup: a keep above a glowing line and its upside-down reflection below. A fallen guard lies at the gate; a dashed arrow leads from her to a glowing shade in the reflected barracks. One mirror in the chapel is covered with cloth.">
+        <div class="hud" aria-hidden="true"><div class="row tl"><span class="chip">DAY <i>14</i></span><span class="chip">LIVING <i>14</i></span><span class="chip">DEAD <i>9</i></span></div><div class="toast" style="left:3%;top:9%;max-width:46%;border-color:#7fe7ff"><em style="color:#7fe7ff">ADA FELL AT THE GATE</em>SHE WAKES AT DUSK</div></div>
+        <span class="pin" style="left:89%;top:46%">1</span><span class="pin" style="left:67%;top:57%">2</span><span class="pin" style="left:44%;top:39%">3</span><span class="pin" style="left:62%;top:32%">4</span><span class="pin" style="left:53%;top:93%">5</span>
+      </div></div>
+      <figcaption><span>Mockup, 180×320, stained glass, animated</span><button class="pins-toggle" type="button">Hide labels</button></figcaption>
+      <ol class="legend"><li>Ada, a guard, falls at the gate in a daytime raid.</li><li>At dusk she wakes in the reflection, on the night roster.</li><li>The chapel mirror is covered: whoever it held is at rest.</li><li>An open mirror. Shades cross through it to help by day; the Umbra can use it at night.</li><li>What climbs out of the deep after dark.</li></ol>
+    </figure>
+    <div class="prose">
+      <p class="pitch">Your keep stands on the Veil. Anyone who dies inside its walls, defender or raider, wakes in the reflection below as a shade and works the night shift. By day the living build, farm and fight raiders. By night the dead run the reflection and hold back the Umbra. Every mirror in the keep is a door for souls: leave it uncovered and the dead can cross back to help, or cover it as mourners do and they finally rest.</p>
+      <h3>Core loop</h3>
+      <ol><li>Day: the living build, craft and defend.</li><li>Every death moves someone from the day roster to the night roster, raiders included.</li><li>Night: shades work the reflected rooms for essence and fight what climbs out of the deep.</li><li>Dawn rite: choose which mirrors to cover. Covering one releases a soul and lifts the living's morale; leaving it open keeps a worker and adds dread.</li><li>Keep the rosters balanced. Too many dead and the day economy starves; too few and the night falls.</li></ol>
+      <h3>Signature features</h3>
+      <ul><li><strong>Two rosters, one population.</strong> The day's losses are the night's hires, so a bad raid is never only a loss.</li><li><strong>Mirrors are doors.</strong> Each mirror links a room to its twin. It lets shades help by day and lets the Umbra in by night.</li><li><strong>The dawn rite.</strong> The old custom of covering mirrors in a house of mourning becomes the game's daily decision.</li><li><strong>Bonds.</strong> A living worker whose dead relative or comrade works the twin room works better. Release the dead one and the living one grieves.</li></ul>
+      <h3>Traits: death inverts them</h3>
+      <ul class="traits"><li><b>Brave → Reckless</b>Charges horrors; dies again faster.</li><li><b>Devout → Bitter</b>Resents the living; strong at wards.</li><li><b>Diligent → Tireless</b>Never rests, never talks.</li><li><b>Coward → Lurker</b>Unseen by horrors; a good scout.</li><li><b>Raider → Stranger</b>No bonds; a hard fighter.</li></ul>
+      <dl class="spec" style="margin-top:22px">
+        <dt>Novelty</dt><dd><span class="lvl md">Good</span>No game found with a night shift of the dead in a mirror realm, or a mirror-covering rite. Dead workers themselves are common: Graveyard Keeper 2, the jam game Death Manager, Dwarf Fortress's memorial slabs (which lay ghosts to rest), and Sintopia.</dd>
+        <dt>Name</dt><dd>My first title, Glasswake, is taken (a crystal-salvage game by Lion &amp; Otter Studios). Mourning Glass is unchecked.</dd>
+        <dt>Scope</dt><dd><span class="lvl hi">Medium–large</span>Two rosters and two threat sets. The reflection can reuse the keep's art through a palette swap, as the mockup does.</dd>
+        <dt>Risks</dt><dd>Death spirals: a lost day swells the night crew but starves the economy. The tone is grim.</dd>
+        <dt>Prototype asks</dt><dd><strong>Does a death by day feel like a loss and a hire at the same time?</strong></dd>
+      </dl>
+    </div>
+  </div>
+  <div class="extras">
+    <h3>Other mockup types</h3>
+    <div class="row2">
+      <div class="panel"><h4>Interface wireframe</h4><p class="cap">Low-fidelity main phone screen. Grey boxes are placeholders; blue notes explain the layout.</p>
+        <div class="wgrid">
+          <div class="wire" role="img" aria-label="Wireframe: top bars for time and rosters, a split view of keep and reflection, a dawn rite sheet with bind or release toggles for three mirrors, and four tabs.">
+            <div class="bar"><span>Day 14 · 16:40</span><span>Dusk in 3 min</span></div>
+            <div class="bar"><span>Living 14</span><span>Dead 9</span><span>Essence 38</span></div>
+            <div class="split"><div class="ph">Keep (living)<br>cross-section</div><div class="ph">Reflection (dead)<br>upside down</div></div>
+            <div class="sheet"><h5>Dawn rite: 3 mirrors</h5>
+              <div class="mrow"><span>Chapel · Ada, guard</span><span class="tog"><span class="on">Bind</span><span>Release</span></span></div>
+              <div class="mrow"><span>Hall · raider, stranger</span><span class="tog"><span class="on">Bind</span><span>Release</span></span></div>
+              <div class="mrow"><span>Forge · Old Tam, smith</span><span class="tog"><span>Bind</span><span class="on">Release</span></span></div></div>
+            <div class="tabs"><span class="on">Build</span><span>Roster</span><span>Mirrors</span><span>Wards</span></div>
+          </div>
+          <ol class="wnote"><li>Both realms stay on screen; the active one is at full brightness.</li><li>The dawn rite is a sheet you can't skip. It's the daily decision.</li><li>The roster shows living and dead side by side, with lines between bonded pairs.</li><li>The Mirrors tab lists every door between realms and what can use it tonight.</li></ol>
+        </div>
+      </div>
+      <figure class="panel loop" style="margin:0"><h4>Loop diagram</h4><p class="cap">How one population moves between the two rosters.</p>
+        <svg viewBox="0 0 560 330" role="img" aria-label="Loop: the living roster loses people who die by day; they and killed raiders join the dead roster below the Veil. The dead produce essence and wards, which protect the living. At dawn, released souls leave the dead roster and raise the living's morale.">
+          <defs><marker id="mga" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker><marker id="mgv" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#8f6ad8"/></marker></defs>
+          <text x="14" y="72" font-size="12" font-weight="800" fill="currentColor" transform="rotate(-90 14 72)" text-anchor="middle">DAY</text>
+          <text x="14" y="250" font-size="12" font-weight="800" fill="currentColor" transform="rotate(-90 14 250)" text-anchor="middle">NIGHT</text>
+          <line x1="0" y1="165" x2="560" y2="165" stroke="#8f6ad8" stroke-width="2" stroke-dasharray="7 5"/><text x="30" y="158" font-size="12" fill="#8f6ad8" font-weight="700">the Veil</text>
+          <path d="M540 249 L552 249 L552 26 L115 26 L115 45" fill="none" stroke="currentColor" stroke-width="1.5" marker-end="url(#mga)"/><text x="334" y="20" font-size="12" text-anchor="middle" fill="currentColor">protects the keep by night</text>
+          <rect x="40" y="48" width="150" height="46" rx="6" fill="none" stroke="currentColor" stroke-width="1.5"/><text x="115" y="76" font-size="14" text-anchor="middle" fill="currentColor" font-weight="700">Living roster</text>
+          <rect x="370" y="48" width="150" height="46" rx="6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-dasharray="4 3"/><text x="445" y="76" font-size="14" text-anchor="middle" fill="currentColor" font-weight="700">Raiders</text>
+          <rect x="205" y="226" width="150" height="46" rx="6" fill="none" stroke="currentColor" stroke-width="1.5"/><text x="280" y="254" font-size="14" text-anchor="middle" fill="currentColor" font-weight="700">Dead roster</text>
+          <rect x="392" y="226" width="148" height="46" rx="6" fill="none" stroke="currentColor" stroke-width="1.5"/><text x="466" y="254" font-size="14" text-anchor="middle" fill="currentColor" font-weight="700">Essence &amp; wards</text>
+          <rect x="34" y="226" width="104" height="46" rx="23" fill="none" stroke="currentColor" stroke-width="1.5" stroke-dasharray="2 3"/><text x="86" y="254" font-size="14" text-anchor="middle" fill="currentColor" font-weight="700">At rest</text>
+          <path d="M160 94 C 180 160, 220 190, 250 224" fill="none" stroke="#8f6ad8" stroke-width="2.2" marker-end="url(#mgv)"/><text x="196" y="126" font-size="12.5" fill="#8f6ad8" font-weight="800">dies by day</text>
+          <path d="M420 94 C 400 170, 360 200, 325 224" fill="none" stroke="#8f6ad8" stroke-width="2.2" marker-end="url(#mgv)"/><text x="420" y="126" font-size="12.5" fill="#8f6ad8" font-weight="800">killed at the walls</text>
+          <line x1="355" y1="249" x2="389" y2="249" stroke="currentColor" stroke-width="1.5" marker-end="url(#mga)"/><text x="372" y="292" font-size="11.5" text-anchor="middle" fill="currentColor">works</text>
+          <line x1="205" y1="249" x2="141" y2="249" stroke="currentColor" stroke-width="1.5" marker-end="url(#mga)"/><text x="172" y="292" font-size="11.5" text-anchor="middle" fill="currentColor">released at dawn</text>
+          <path d="M86 226 L86 97" fill="none" stroke="currentColor" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#mga)"/><text x="94" y="128" font-size="12" fill="currentColor">+ morale</text>
+        </svg>
+        <figcaption class="note">The purple arrows are the mechanism that doesn't exist elsewhere: deaths cross the Veil and become labor.</figcaption>
+      </figure>
+    </div>
+    <div class="panel"><h4>Storyboard: one death, three beats</h4><p class="cap">Woodcut sketch frames, the way a trailer or tutorial would show it.</p>
+      <div class="story">
+        <div class="shot"><div class="frame"><div class="stage r85" data-v="story1:woodcut" role="img" aria-label="Frame 1: a guard falls at the gate as raiders attack."></div></div><p><b>Day 14.</b> Ada falls holding the gate.</p></div>
+        <div class="shot"><div class="frame"><div class="stage r85" data-v="story2:woodcut" role="img" aria-label="Frame 2: at dusk her shade appears upside down in the reflection below her body."></div></div><p><b>Dusk.</b> She wakes in the reflection, on the night roster.</p></div>
+        <div class="shot"><div class="frame"><div class="stage r85" data-v="story3:woodcut" role="img" aria-label="Frame 3: at night her shade guards the reflected gate against a horror rising from below."></div></div><p><b>Night.</b> She holds the reflected gate against what climbs out of the deep.</p></div>
+      </div>
+    </div>
+    <div class="panel"><h4>Store art</h4><p class="cap">Header capsule at 460×215 and an app icon at thumbnail size, to test whether the hook reads small.</p>
+      <div class="store"><div class="frame"><div class="stage r21" data-cap="glass" role="img" aria-label="Store header: the title Mourning Glass over a stained-glass keep and its reflection."></div></div><div class="icon" data-icon="glass" role="img" aria-label="App icon: a mirror with a person on one side and their shade reflected upside down."></div></div>
+    </div>
+  </div>
+</section>
+
+<section id="barrowdeep" class="idea land" aria-labelledby="bd-h">
+  <header class="idea-head"><div class="kicker"><span class="line both">Both lines</span><span class="badge">Woodcut</span><span class="badge">Landscape</span><span class="badge pick">Recommended</span></div><h2 id="bd-h">Barrowdeep</h2><p class="tagline">Every grave you dig grows a room in the world below.</p></header>
+  <div class="idea-grid">
+    <figure class="fig" style="margin:0">
+      <div class="monitor"><div class="stage r169" data-v="undercroft:woodcut" role="img" aria-label="Woodcut mockup: a keep and graveyard above ground in black on white; below the line, in white on black, a chamber hangs under every grave with a shade working inside. A gravedigger fills a fresh grave while a dashed chamber grows beneath it. Robbers and a priest approach from the right.">
+        <div class="hud" aria-hidden="true"><div class="row tl"><span class="chip">NIGHT <i>9</i></span><span class="chip">PLOTS <i>8</i>/12</span><span class="chip">BODIES WAITING <i>2</i></span><span class="chip bad">CONSECRATED <i>18%</i></span></div><div class="toast grn" style="left:56%;top:11%;max-width:40%"><em>ROWAN, MASON · PLOT 8</em>GROWS A WORKSHOP IN 2 NIGHTS</div></div>
+        <span class="pin" style="left:79%;top:47%">1</span><span class="pin" style="left:79%;top:63%">2</span><span class="pin" style="left:37%;top:66%">3</span><span class="pin" style="left:94%;top:44%">4</span><span class="pin" style="left:12%;top:70%">5</span>
+      </div></div>
+      <figcaption><span>Mockup, 320×180, woodcut, animated</span><button class="pins-toggle" type="button">Hide labels</button></figcaption>
+      <ol class="legend"><li>A fresh burial. The plot sets where the new room grows; the epitaph sets what it becomes.</li><li>The room growing beneath it over the next nights.</li><li>A forge-crypt under a smith's grave, worked by his shade.</li><li>Grave robbers and an exorcist. They target plots, not walls.</li><li>The keep's own reflection: the only part of the world below you don't grow.</li></ol>
+    </figure>
+    <div class="cols">
+      <div class="prose">
+        <p class="pitch">Your keep's graveyard sits on the Veil. Each body you bury grows a chamber in the reflection beneath its plot, shaped by who they were: a smith's grave grows a forge-crypt, a knight's an armory of ghosts. Their shades work those chambers by night, and the chambers' output holds the keep. Grave robbers, exorcists and the Church come for your plots, because your underworld is built from your dead.</p>
+        <h3>Core loop</h3>
+        <ol><li>Defend the surface keep. The fallen, yours and theirs, are carried to the graveyard.</li><li>Pick a plot and carve an epitaph. The plot sets where the chamber grows; the epitaph sets its purpose.</li><li>Over a few nights the chamber grows and its shade starts work: essence, wards, undead guards.</li><li>Neighboring chambers combine. A forge-crypt beside an armory makes weapons.</li><li>Robbers dig plots up and exorcists consecrate ground. A desecrated grave collapses its chamber.</li></ol>
+        <h3>Signature features</h3>
+        <ul><li><strong>The graveyard is the build menu.</strong> Placing a plot is placing a room in the world below.</li><li><strong>Epitaphs choose the room.</strong> A buried captain can become a barracks or a watchtower.</li><li><strong>A fight over ground.</strong> Consecrated earth can't take graves, so the Church's advance shrinks your build space.</li><li><strong>Day and night halves.</strong> The living defend the surface by day; the shades work below at night.</li></ul>
+      </div>
+      <div>
+        <h3 style="font-size:14px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);font-weight:800;margin:0 0 6px">Traits: cause of death</h3>
+        <ul class="traits"><li><b>Drowned</b>The chamber floods and grows fungus for food.</li><li><b>Burned</b>Works as a furnace; its shade can't burn.</li><li><b>Plague</b>Very productive, but rot spreads to neighbors.</li><li><b>Old age</b>Slow and steady; calms neighbors.</li><li><b>Slain in battle</b>A guard chamber with a free defender.</li></ul>
+        <dl class="spec" style="margin-top:20px">
+          <dt>Novelty</dt><dd><span class="lvl ok">Strong</span>No game found where burials grow chambers in an underworld. Partial matches: Graveyard Keeper 2 scores burials, Sintopia's dead drop into a hell layer you manage, and Zombie Farm plants corpses.</dd>
+          <dt>Name</dt><dd>My first title, Undercroft, is taken on Steam. Barrowdeep is unchecked.</dd>
+          <dt>Scope</dt><dd><span class="lvl md">Medium</span>Chambers are data. Each type is one room design.</dd>
+          <dt>Risks</dt><dd>The wait between burial and chamber can feel slow, so something has to visibly grow every night.</dd>
+          <dt>Prototype asks</dt><dd><strong>Is choosing where and how to bury someone an interesting build decision?</strong></dd>
+        </dl>
+      </div>
+    </div>
+  </div>
+  <div class="extras">
+    <div class="row2">
+      <figure class="panel loop" style="margin:0"><h4>Loop diagram</h4><p class="cap">Bodies become rooms; rooms defend the plots.</p>
+        <svg viewBox="0 0 560 300" role="img" aria-label="Loop: raids produce bodies, which are buried in plots with epitaphs. Across the Veil each plot grows a chamber by trade, whose shades produce essence, wards and guards that defend the keep against the next raid. Robbers and exorcists desecrate plots, collapsing chambers.">
+          <defs><marker id="bda" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker><marker id="bdr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#c0392b"/></marker></defs>
+          <text x="14" y="22" font-size="13" font-weight="800" fill="currentColor">SURFACE</text><text x="14" y="290" font-size="13" font-weight="800" fill="currentColor">BELOW</text>
+          <line x1="0" y1="150" x2="560" y2="150" stroke="#8f6ad8" stroke-width="2" stroke-dasharray="7 5"/><text x="14" y="143" font-size="12" fill="#8f6ad8" font-weight="700">the Veil</text>
+          <rect x="30" y="40" width="120" height="44" rx="6" fill="none" stroke="currentColor" stroke-width="1.5"/><text x="90" y="67" font-size="14" text-anchor="middle" fill="currentColor" font-weight="700">Raids</text>
+          <rect x="220" y="40" width="120" height="44" rx="6" fill="none" stroke="currentColor" stroke-width="1.5"/><text x="280" y="67" font-size="14" text-anchor="middle" fill="currentColor" font-weight="700">Bodies</text>
+          <rect x="410" y="40" width="130" height="44" rx="6" fill="none" stroke="currentColor" stroke-width="1.5"/><text x="475" y="60" font-size="14" text-anchor="middle" fill="currentColor" font-weight="700">Plots</text><text x="475" y="76" font-size="11.5" text-anchor="middle" fill="currentColor">+ epitaph</text>
+          <rect x="410" y="200" width="130" height="44" rx="6" fill="none" stroke="currentColor" stroke-width="1.5"/><text x="475" y="220" font-size="14" text-anchor="middle" fill="currentColor" font-weight="700">Chambers</text><text x="475" y="236" font-size="11.5" text-anchor="middle" fill="currentColor">typed by trade</text>
+          <rect x="176" y="200" width="184" height="44" rx="6" fill="none" stroke="currentColor" stroke-width="1.5"/><text x="268" y="227" font-size="14" text-anchor="middle" fill="currentColor" font-weight="700">Essence, wards, guards</text>
+          <line x1="150" y1="62" x2="217" y2="62" stroke="currentColor" stroke-width="1.5" marker-end="url(#bda)"/><text x="184" y="54" font-size="11.5" text-anchor="middle" fill="currentColor">the fallen</text>
+          <line x1="340" y1="62" x2="407" y2="62" stroke="currentColor" stroke-width="1.5" marker-end="url(#bda)"/><text x="374" y="54" font-size="11.5" text-anchor="middle" fill="currentColor">buried</text>
+          <line x1="475" y1="84" x2="475" y2="197" stroke="#8f6ad8" stroke-width="2.2" marker-end="url(#bda)"/><text x="466" y="176" font-size="12.5" fill="#8f6ad8" font-weight="800" text-anchor="end">grows over nights</text>
+          <line x1="410" y1="222" x2="363" y2="222" stroke="currentColor" stroke-width="1.5" marker-end="url(#bda)"/><text x="386" y="262" font-size="11.5" text-anchor="middle" fill="currentColor">worked</text>
+          <path d="M190 200 C 150 150, 110 120, 95 87" fill="none" stroke="currentColor" stroke-width="1.5" marker-end="url(#bda)"/><text x="112" y="176" font-size="12" fill="currentColor" text-anchor="end">holds the keep</text>
+          <path d="M340 112 C 380 110, 400 98, 422 88" fill="none" stroke="#c0392b" stroke-width="1.8" stroke-dasharray="5 3" marker-end="url(#bdr)"/><text x="334" y="108" font-size="12" fill="#c0392b" font-weight="700" text-anchor="end">robbers, exorcists</text>
+          <text x="334" y="124" font-size="11.5" fill="#c0392b" text-anchor="end">desecrate: chamber collapses</text>
+        </svg>
+        <figcaption class="note">The purple arrow is the new part: a burial is a build order for the world below.</figcaption>
+      </figure>
+      <div class="panel"><h4>Store art</h4><p class="cap">Header capsule and app icon in the woodcut style.</p>
+        <div class="store"><div class="frame"><div class="stage r21" data-cap="under" role="img" aria-label="Store header: the title Barrowdeep over a woodcut graveyard with chambers hanging below each grave."></div></div><div class="icon" data-icon="under" role="img" aria-label="App icon: a gravestone above a lit chamber with a shade inside."></div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="group-head" id="deadline"><p class="eyebrow">Deadhold line</p><h2>Four ways to run a house of the dead</h2><p>Each keeps "the enemy becomes your labor" and changes one thing about it: what the dead become, who you fight, how the dead feel about it, or what you're building.</p></div>
+
+<section id="bonemason" class="idea land" aria-labelledby="bm-h">
+  <header class="idea-head"><div class="kicker"><span class="line dead">Deadhold line</span><span class="badge">Pixel art</span><span class="badge">Landscape</span></div><h2 id="bm-h">Bonemason</h2><p class="tagline">They attack your walls. Then they become them.</p></header>
+  <div class="idea-grid">
+    <figure class="fig" style="margin:0">
+      <div class="monitor"><div class="stage r169" data-bm="1" role="img" aria-label="Pixel mockup: a keep built of skulls and femurs under a giant skull dome. Inside, a chapel with a bone chandelier and a workshop sorting bones into knight, mage and peasant bins. A bone arm reaches out of the east wall to grab a knight. Catacombs lined with skulls lie below.">
+        <div class="hud" aria-hidden="true"><div class="row tl"><span class="chip">BONE <i>1480</i></span><span class="chip">KNIGHT <i>96</i></span><span class="chip">MAGE <i>12</i></span><span class="chip bad">CRUSADE DAY <i>3</i></span></div><div class="bmtip"><em>EAST WALL</em>BUILT FROM 14 KNIGHTS<br>HARD · <i>BURNS IN HOLY LIGHT</i></div></div>
+        <span class="pin" style="left:77%;top:52%">1</span><span class="pin" style="left:52%;top:50%">2</span><span class="pin" style="left:31%;top:40%">3</span><span class="pin" style="left:44%;top:82%">4</span>
+      </div></div>
+      <figcaption><span>Mockup, 320×180, pixel art, animated</span><button class="pins-toggle" type="button">Hide labels</button></figcaption>
+      <ol class="legend"><li>A wall of knight bone reaches out and grabs an attacker.</li><li>Sorting bins: knight, mage and peasant bone are different materials.</li><li>A chapel lit by a bone chandelier.</li><li>Catacombs: stored material, stacked by type.</li></ol>
+    </figure>
+    <div class="cols">
+      <div class="prose">
+        <p class="pitch">A necromancer's keep built from the bones of everyone who has attacked it. Every fallen attacker is sorted into building material, and the material remembers who it was: knight bone makes hard walls, mage bone carries wards, and a wall of berserkers hits back when struck. The keep grows with every siege, and parts of it can move.</p>
+        <h3>Signature features</h3>
+        <ul><li><strong>Material with memory.</strong> Each tile inherits a trait from whoever it was made from.</li><li><strong>Sieges are supply.</strong> You plan the next expansion around the next crusade.</li><li><strong>Moving architecture.</strong> Walls grab, towers throw, and a gate can bite.</li><li><strong>A real look to borrow.</strong> The Sedlec Ossuary in Kutná Hora and Rome's Capuchin Crypt decorate chapels with human bone.</li></ul>
+      </div>
+      <div>
+        <h3 style="font-size:14px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);font-weight:800;margin:0 0 6px">Traits: what the material remembers</h3>
+        <ul class="traits"><li><b>Knight bone</b>Hard, but burns under holy light.</li><li><b>Archer bone</b>The wall shoots back.</li><li><b>Mage bone</b>Carries wards from room to room.</li><li><b>Peasant bone</b>Cheap and brittle.</li><li><b>Giant bone</b>Load-bearing; lets you build tall.</li><li><b>Saint's bone</b>Sacred. Poisons undead nearby.</li></ul>
+        <dl class="spec" style="margin-top:20px">
+          <dt>Novelty</dt><dd><span class="lvl md">Moderate</span>A fortress of enemy bones exists at game-jam scale (FortressOfBones, 2024, VR), and Necrosmith passes body-part traits to minions. Walls that inherit traits and fight back weren't found.</dd>
+          <dt>Name</dt><dd>My first title, Ossuary, is taken (Future Proof Games, 2015). Bonemason is unchecked.</dd>
+          <dt>Scope</dt><dd><span class="lvl md">Medium</span>Tile building with material properties.</dd>
+          <dt>Risks</dt><dd>Grisly. It needs a stylized, darkly funny tone to reach past horror fans.</dd>
+          <dt>Prototype asks</dt><dd><strong>Does the material a wall is made of change how you build?</strong></dd>
+        </dl>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="dreadmonger" class="idea land" aria-labelledby="dm-h">
+  <header class="idea-head"><div class="kicker"><span class="line dead">Deadhold line</span><span class="badge">Paper cut-out</span><span class="badge">Keep + region map</span></div><h2 id="dm-h">Dreadmonger</h2><p class="tagline">Choose who comes to kill you. They'll work for you after.</p></header>
+  <div class="idea-grid">
+    <figure class="fig" style="margin:0">
+      <div class="monitor"><div class="stage r169" data-v="harrow:paper" role="img" aria-label="Paper cut-out mockup: layered paper hills with three villages, each with an outrage meter. Ghosts float along dotted paths from a dark keep toward the villages, and a column of villagers with torches and pitchforks marches toward the keep.">
+        <span class="pin" style="left:60%;top:48%">1</span><span class="pin" style="left:50%;top:42%">2</span><span class="pin" style="left:37%;top:74%">3</span><span class="pin" style="left:11%;top:55%">4</span>
+      </div></div>
+      <figcaption><span>Mockup, 320×180, paper cut-out, animated</span><button class="pins-toggle" type="button">Hide labels</button></figcaption>
+      <ol class="legend"><li>Grayvein mine's outrage is nearly full: miners are coming.</li><li>A haunting on its way to the next village.</li><li>The mob. Whoever falls at your walls joins your workforce.</li><li>Your keep and its skeleton garrison.</li></ol>
+    </figure>
+    <div class="cols">
+      <div class="prose">
+        <p class="pitch">Your undead need fresh bodies, and waiting for attackers isn't a plan. You haunt nearby villages to raise their outrage. When a village boils over it marches on your keep, and whoever it sends becomes your next workforce. The fishing town sends fishermen, the mine sends miners, and the abbey sends paladins who break your walls but make superb guards.</p>
+        <h3>Signature features</h3>
+        <ul><li><strong>A provocation map.</strong> Villages have outrage, population and trades, and each kind of haunting stirs them differently.</li><li><strong>Workforce by design.</strong> You pick next week's skills by picking whom to anger.</li><li><strong>Escalation.</strong> Too much outrage unites the villages into a crusade, and inquisitors come to investigate first.</li><li><strong>Truces.</strong> Leave a village alone and it recovers and grows. A renewable harvest, grimly.</li></ul>
+      </div>
+      <div>
+        <h3 style="font-size:14px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);font-weight:800;margin:0 0 6px">Traits: trade plus grudge</h3>
+        <ul class="traits"><li><b>Grudge</b>Hates their home village: better at haunting it, worse at defending against it.</li><li><b>Fisher</b>Works the moat and the ghoul pools.</li><li><b>Miner</b>Digs crypts twice as fast.</li><li><b>Paladin</b>Resists holy light; a superb guard who hates you.</li></ul>
+        <dl class="spec" style="margin-top:20px">
+          <dt>Novelty</dt><dd><span class="lvl md">Moderate</span>KeeperRL tribes attack when provoked and captives can be converted; Ruinarch raises villager counterattacks with a threat meter. Picking your workforce by picking the village wasn't found.</dd>
+          <dt>Name</dt><dd>My first title, Harrow, is taken on itch.io, and Harrowlands is a colony sim in early access. Dreadmonger is unchecked.</dd>
+          <dt>Scope</dt><dd><span class="lvl hi">Medium–large</span>A region map on top of the keep.</dd>
+          <dt>Risks</dt><dd>Two layers mean twice the interface. Farming villages is the darkest premise here.</dd>
+          <dt>Prototype asks</dt><dd><strong>Is choosing whom to anger a good weekly plan?</strong></dd>
+        </dl>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="boneunion" class="idea land" aria-labelledby="bu-h">
+  <header class="idea-head"><div class="kicker"><span class="line dead">Deadhold line</span><span class="badge">Flat vector</span><span class="badge">Comedy</span></div><h2 id="bu-h">Bone Union</h2><p class="tagline">Your workforce is dead. They'd like to talk about the hours.</p></header>
+  <div class="idea-grid">
+    <figure class="fig" style="margin:0">
+      <div class="monitor"><div class="stage r169" data-v="shift:flat" role="img" aria-label="Flat cartoon mockup: a keep cut into six rooms. A stressed necromancer at a desk, a ghost at payroll, skeletons on a break, zombies resting in a cold room, a skeleton lying down on strike in the workshop, and two skeletons holding picket signs reading rest days and bones not drones. A paladin and a tax collector approach.">
+        <span class="pin" style="left:75%;top:82%">1</span><span class="pin" style="left:47%;top:77%">2</span><span class="pin" style="left:43%;top:42%">3</span><span class="pin" style="left:21%;top:40%">4</span>
+      </div></div>
+      <figcaption><span>Mockup, 320×180, flat vector, animated</span><button class="pins-toggle" type="button">Hide labels</button></figcaption>
+      <ol class="legend"><li>The picket line.</li><li>On strike: this skeleton has lain down and is just a corpse until you negotiate.</li><li>The ghost who runs payroll.</li><li>You, the junior necromancer.</li></ol>
+    </figure>
+    <div class="cols">
+      <div class="prose">
+        <p class="pitch">A comedy management game. You inherit a keep full of undead staff who remember just enough of being alive to organize. Skeletons want rest days in their graves, ghouls want a better cold room, and the ghosts want to be acknowledged. Keep the place running while paladins, tax collectors and a rival necromancer try to shut you down.</p>
+        <h3>Signature features</h3>
+        <ul><li><strong>Three unions.</strong> The Guild of Bones, the Brotherhood of Rot and the Spectral Society each have demands.</li><li><strong>Strikes.</strong> A crew lies down and turns back into corpses until you negotiate.</li><li><strong>Rest needs by type.</strong> Skeletons rattle apart, zombies need the cold, ghosts need attention.</li><li><strong>Events.</strong> A skeleton wants its missing finger back; a ghost haunts the payroll.</li></ul>
+      </div>
+      <div>
+        <h3 style="font-size:14px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);font-weight:800;margin:0 0 6px">Traits</h3>
+        <ul class="traits"><li><b>Rattly</b>Falls apart without rest days.</li><li><b>Clingy</b>A ghost that follows one living visitor around.</li><li><b>Forgetful</b>A zombie that drops tasks halfway.</li><li><b>Ambitious</b>Wants to become a lich. Will organize.</li><li><b>Nostalgic</b>Works harder near reminders of their old life.</li></ul>
+        <dl class="spec" style="margin-top:20px">
+          <dt>Novelty</dt><dd><span class="lvl hi">Low</span>The joke has been made: Sintopia's demon workers strike (April 2026), Dungeons 3 minions strike, and The Working Dead (2025) is a tabletop RPG about an undead union.</dd>
+          <dt>Name</dt><dd>My first title, Graveyard Shift, is used many times. Bone Union is unchecked.</dd>
+          <dt>Scope</dt><dd><span class="lvl md">Medium</span>Light systems, heavy writing.</dd>
+          <dt>Risks</dt><dd>Comedy needs a lot of good writing, and events wear out.</dd>
+          <dt>Prototype asks</dt><dd><strong>Are the negotiations still funny the tenth time?</strong></dd>
+        </dl>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="tombwright" class="idea land" aria-labelledby="tw-h">
+  <header class="idea-head"><div class="kicker"><span class="line dead">Deadhold line</span><span class="badge">Blueprint</span><span class="badge">Deadline runs</span><span class="badge">Top score</span></div><h2 id="tw-h">Tombwright</h2><p class="tagline">Finish the lich-king's tomb before he dies again.</p></header>
+  <div class="idea-grid">
+    <figure class="fig" style="margin:0">
+      <div class="monitor"><div class="stage r169" data-v="tomb:blueprint" role="img" aria-label="Blueprint mockup: a pyramid section with labeled passages and chambers, a dashed unfinished top, mummies hauling blocks up a ramp, robbers approaching from the left, a portcullis stone sliding down a passage, and a title block reading entombment in 12 days.">
+        <span class="pin" style="left:50%;top:22%">1</span><span class="pin" style="left:80%;top:73%">2</span><span class="pin" style="left:6%;top:74%">3</span><span class="pin" style="left:42%;top:66%">4</span>
+      </div></div>
+      <figcaption><span>Mockup, 320×180, blueprint, animated</span><button class="pins-toggle" type="button">Hide labels</button></figcaption>
+      <ol class="legend"><li>Nine courses still to lay before entombment day.</li><li>Mummified robbers hauling stone up the ramp.</li><li>Tomb robbers, tonight's labor if the traps work.</li><li>A live portcullis trap in the ascending passage.</li></ol>
+    </figure>
+    <div class="cols">
+      <div class="prose">
+        <p class="pitch">A lich-king has one death left, and it's scheduled. Before then you must finish his pyramid tomb, and your labor is the mummified dead. Tomb robbers raid the unfinished tomb for its treasure, and every robber who dies in your traps is wrapped and put to work. The pyramid's cross-section is the map: passages, galleries, chambers, false doors and traps.</p>
+        <h3>Signature features</h3>
+        <ul><li><strong>Deadline runs.</strong> Each run is one tomb, and entombment day ends it.</li><li><strong>Traps are architecture.</strong> False passages, portcullis stones and sand traps are rooms you build.</li><li><strong>Treasure is bait.</strong> More visible treasure brings more robbers, which means more labor and more risk.</li><li><strong>A curse score.</strong> Every robber who died in the tomb strengthens its curse after it's sealed.</li></ul>
+        <p style="margin-top:10px;color:var(--ink-2)">The mockup's section follows the Great Pyramid, whose base was 440 royal cubits and height 280.</p>
+      </div>
+      <div>
+        <h3 style="font-size:14px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);font-weight:800;margin:0 0 6px">Traits: robber becomes mummy</h3>
+        <ul class="traits"><li><b>Scholar</b>Read the plans: builds faster.</li><li><b>Brute</b>Hauls two blocks at once.</li><li><b>Rat</b>Squeezes through air shafts: digs them.</li><li><b>Priest</b>Saw through false doors: becomes a ward-keeper.</li></ul>
+        <dl class="spec" style="margin-top:20px">
+          <dt>Novelty</dt><dd><span class="lvl ok">Strong</span>The pieces exist separately (Pharaoh's tomb robbers, Children of the Nile's sudden royal deaths, the trap game Tomb of Thesh, the board game The Pyramid's Deadline). No game found combines them.</dd>
+          <dt>Name</dt><dd>No store match found.</dd>
+          <dt>Scope</dt><dd><span class="lvl md">Medium</span>One structure per run.</dd>
+          <dt>Risks</dt><dd>It's a tomb, not a castle. A fantasy Egypt needs its own invented gods rather than real ones.</dd>
+          <dt>Prototype asks</dt><dd><strong>Does the deadline make every trap and every hire feel urgent?</strong></dd>
+        </dl>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="group-head" id="mirrorline"><p class="eyebrow">Mirrorhold line</p><h2>Four ways to split a castle in two</h2><p>Each keeps a second realm tied to the first and changes where the boundary is: a moving waterline, the shadows your lamps cast, a flip in time, or the people themselves.</p></div>
+
+<section id="ebbhold" class="idea land" aria-labelledby="eb-h">
+  <header class="idea-head"><div class="kicker"><span class="line glass">Mirrorhold line</span><span class="badge">Watercolor</span><span class="badge">Portrait</span></div><h2 id="eb-h">Ebbhold</h2><p class="tagline">At high tide, half your castle is somewhere else.</p></header>
+  <div class="idea-grid">
+    <figure class="fig" style="margin:0">
+      <div class="diptych">
+        <div><div class="frame"><div class="stage r916" data-v="tide0:water" role="img" aria-label="Watercolor mockup at low tide: the keep stands on a rock with all six floors above the water and people working in each. Raiders approach in a boat."></div></div><figcaption>Low tide: all six floors are in the keep; raiders come by boat.</figcaption></div>
+        <div><div class="frame"><div class="stage r916" data-v="tide1:water" role="img" aria-label="Watercolor mockup at high tide under a full moon: the water has risen, and the lower floors below the waterline are tinted violet with shades working in them."></div></div><figcaption>High tide, full moon: the lower floors have crossed over, and their workers are drowned shades.</figcaption></div>
+      </div>
+    </figure>
+    <div class="cols">
+      <div class="prose">
+        <p class="pitch">Your keep stands in a tidal lake whose surface is the Veil. As the moon pulls the water up, the lower floors sink below the mirror line and cross into the reflection, rooms and workers with them. At low tide they come back. You build for both states and plan your weeks around the tide table.</p>
+        <h3>Signature features</h3>
+        <ul><li><strong>The mirror line moves.</strong> Spring tides, at full and new moon, swallow the most floors.</li><li><strong>Rooms change realm.</strong> A drowned forge makes essence instead of iron, and its smith is a shade until the ebb.</li><li><strong>Floodgates</strong> decide what crosses and when.</li><li><strong>Threats alternate.</strong> Raiders come by boat at low tide; the drowned come up from below at high tide.</li></ul>
+      </div>
+      <div>
+        <h3 style="font-size:14px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);font-weight:800;margin:0 0 6px">Traits</h3>
+        <ul class="traits"><li><b>Swimmer</b>Crosses the waterline to rescue or fetch.</li><li><b>Moonstruck</b>Works best at full moon.</li><li><b>Drowned once</b>Calm below the line, uneasy above it.</li><li><b>Landlubber</b>Panics when their room floods.</li></ul>
+        <dl class="spec" style="margin-top:20px">
+          <dt>Novelty</dt><dd><span class="lvl ok">Strong</span>All Will Fall (April 2026) floods and exposes land with a tide. Nothing found where the waterline moves floors between realms.</dd>
+          <dt>Name</dt><dd>My first title, Tidekeep, is one letter from Tidekeeper (Simcoach, early access). Ebbhold is unchecked.</dd>
+          <dt>Scope</dt><dd><span class="lvl hi">Medium–large</span>Every room needs two states.</dd>
+          <dt>Risks</dt><dd>A predictable tide gets solved. Storm surges and eclipses would have to break the pattern.</dd>
+          <dt>Prototype asks</dt><dd><strong>Is building for two water levels a puzzle or a chore?</strong></dd>
+        </dl>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="lampblack" class="idea land" aria-labelledby="lb-h">
+  <header class="idea-head"><div class="kicker"><span class="line glass">Mirrorhold line</span><span class="badge">Silhouette + live light</span><span class="badge">Landscape</span></div><h2 id="lb-h">Lampblack</h2><p class="tagline">Every lamp you light casts a place for them to live.</p></header>
+  <div class="idea-grid">
+    <figure class="fig" style="margin:0">
+      <div class="monitor"><div class="stage r169" data-lb="1" role="img" aria-label="Silhouette mockup: four rooms of a keep lit by a torch, a brazier, moonlight and a swinging lantern. Furniture casts real shadows that move as the lantern swings, and red-eyed creatures stand inside the shadows.">
+        <div class="hud" aria-hidden="true"><div class="row tl"><span class="chip">LAMPS <i>4</i></span><span class="chip">OIL <i>64</i></span><span class="chip bad">DARK GROUND <i>38%</i></span></div></div>
+        <span class="pin" style="left:27%;top:31%">1</span><span class="pin" style="left:44%;top:46%">2</span><span class="pin" style="left:92%;top:30%">3</span><span class="pin" style="left:40%;top:82%">4</span>
+      </div></div>
+      <figcaption><span>Mockup, 320×180, shadows computed live</span><button class="pins-toggle" type="button">Hide labels</button></figcaption>
+      <ol class="legend"><li>A swinging lantern. As it moves, the bookshelf's shadow moves, and so does what lives in it.</li><li>A creature standing in that shadow.</li><li>Moonlight through a window throws shadow west across the bedroom.</li><li>The torch leaves a shadow behind the wardrobe. Something has moved in.</li></ol>
+    </figure>
+    <div class="cols">
+      <div class="prose">
+        <p class="pitch">The creatures of the Umbra can exist only in shadow, and your castle's shadows come from the lights you place. Every torch, window and lantern throws shadows off walls, furniture and people, and those shadows are their territory. Light a corner and you push them out, but the shadow lands somewhere else. Building is lighting design; defense is choosing where the dark goes.</p>
+        <h3>Signature features</h3>
+        <ul><li><strong>Real light and shadow,</strong> recomputed every time you build or move something.</li><li><strong>Shadow territory.</strong> They move only through connected shadow. A shadow touching a bed means nightmares.</li><li><strong>Some work needs the dark.</strong> Spies, dreamers and anything the Umbra trades.</li><li><strong>Dusk.</strong> The setting sun sweeps long shadows across the whole keep.</li></ul>
+      </div>
+      <div>
+        <h3 style="font-size:14px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);font-weight:800;margin:0 0 6px">Traits</h3>
+        <ul class="traits"><li><b>Night-eyed</b>Works in shadow without fear.</li><li><b>Afraid of the dark</b>Won't cross an unlit room.</li><li><b>Lamplighter</b>Refuels and moves lamps faster.</li><li><b>Shadowless</b>Casts no shadow. Immune, and distrusted.</li></ul>
+        <dl class="spec" style="margin-top:20px">
+          <dt>Novelty</dt><dd><span class="lvl md">Moderate</span>Light keeping monsters out is crowded: Hammerting's lanterns stop spawns, Lightmatter kills you in shadow, and in Closure objects exist only when lit. Cast shadow as the monsters' only territory wasn't found, so it has to be the core.</dd>
+          <dt>Name</dt><dd>My first title, Shadowcast, is taken (two itch.io games, plus ShadowCaster and a capture-card brand). Lampblack is unchecked.</dd>
+          <dt>Scope</dt><dd><span class="lvl hi">Medium–large</span>A 2D shadow engine that runs well on phones.</dd>
+          <dt>Risks</dt><dd>Shadows are hard to read on a small screen.</dd>
+          <dt>Prototype asks</dt><dd><strong>Does moving a lamp feel like a strategic move?</strong></dd>
+        </dl>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="hourglass" class="idea port" aria-labelledby="hg-h">
+  <header class="idea-head"><div class="kicker"><span class="line glass">Mirrorhold line</span><span class="badge">Neon line</span><span class="badge">Portrait</span></div><h2 id="hg-h">Hourglass Keep</h2><p class="tagline">At dusk, the whole castle turns over.</p></header>
+  <div class="idea-grid">
+    <figure class="fig" style="margin:0">
+      <div class="phone"><div class="stage r916" data-hg="1" role="img" aria-label="Neon mockup: a castle on an axle across a chasm. Its day face has towers and archers; its night face has spires, lanterns and shades. Every few seconds it rotates half a turn and the sky changes from day to night.">
+        <div class="hud" aria-hidden="true"><div class="row tl"><span class="chip" data-hgphase>DAY FACE UP</span><span class="chip">AXLE CREW <i>6</i>/8</span><span class="chip">BALLAST <i>OK</i></span></div></div>
+        <span class="pin" style="left:50%;top:50%">1</span>
+      </div></div>
+      <figcaption><span>Mockup, 180×320, neon line, flips every 4 s</span><button class="pins-toggle" type="button">Hide labels</button></figcaption>
+      <ol class="legend"><li>The axle. Every dusk it turns the keep half a revolution.</li></ol>
+    </figure>
+    <div class="prose">
+      <p class="pitch">Your keep is built on a great axle across a chasm. Every dusk it turns half a revolution, and the cellar becomes the tower. The sky side faces raiders by day, and the abyss side faces horrors by night. Every room has to work both ways up, and anything not tied down falls.</p>
+      <h3>Signature features</h3>
+      <ul><li><strong>The flip.</strong> A half turn every dusk. Rooms have a day use and an upside-down night use.</li><li><strong>Tie-downs and ballast.</strong> Loose goods and careless people fall, and a lopsided keep jams the axle.</li><li><strong>Two faces, both always built.</strong> Walls and archers on one side, wards and lanterns on the other.</li><li><strong>Axle crews.</strong> A jammed flip leaves the wrong face exposed for the night.</li></ul>
+      <h3>Traits</h3>
+      <ul class="traits"><li><b>Iron-stomached</b>No penalty after a flip.</li><li><b>Vertigo</b>Stunned for a while after each flip.</li><li><b>Anchor</b>Keeps a room steady through the turn.</li><li><b>Nimble</b>Catches falling goods.</li></ul>
+      <dl class="spec" style="margin-top:22px">
+        <dt>Novelty</dt><dd><span class="lvl ok">Strong</span>Flipping is common in puzzle games (Flip The Castle, Gravity Guy), and Symphony of the Night has its inverted castle. No base builder with a scheduled flip found.</dd>
+        <dt>Name</dt><dd>No exact store match found.</dd>
+        <dt>Scope</dt><dd><span class="lvl hi">Medium–large</span>The rotation is cheap to draw; designing every room to work both ways up is not.</dd>
+        <dt>Risks</dt><dd>Players have to think upside down. The flip is a great trailer moment and may be a readability problem.</dd>
+        <dt>Prototype asks</dt><dd><strong>Can players plan both faces without getting lost?</strong></dd>
+      </dl>
+    </div>
+  </div>
+</section>
+
+<section id="wronghand" class="idea land" aria-labelledby="wh-h">
+  <header class="idea-head"><div class="kicker"><span class="line glass">Mirrorhold line</span><span class="badge">Interface mockup</span><span class="badge">Portrait cards</span></div><h2 id="wh-h">Wronghand</h2><p class="tagline">Something in the reflection copies your people. It copies them backwards.</p></header>
+  <div class="idea-grid">
+    <figure class="fig" style="margin:0;max-width:560px">
+      <div class="dossier" role="group" aria-label="Resident check mockup">
+        <div class="pair">
+          <div class="por"><div class="cv"><canvas data-portrait="0" aria-hidden="true"></canvas></div><small>Ledger portrait · day 3</small><b>Maren, smith</b></div>
+          <div class="por"><div class="cv"><canvas data-portrait="1" aria-hidden="true"></canvas></div><small>In the forge today</small><b>Maren?</b></div>
+        </div>
+        <div class="acts"><button type="button" class="pri" id="wh-reveal" aria-pressed="false">Show the tells</button><button type="button" id="wh-check">Mirror check · 2 h</button><button type="button" id="wh-accuse">Accuse</button></div>
+        <table><tbody>
+          <tr><td>Maren · smith</td><td style="text-align:right"><span class="chip-s bad">Suspicious</span></td></tr>
+          <tr><td>Oswin · gate guard</td><td style="text-align:right"><span class="chip-s ok">Mirror-checked</span></td></tr>
+          <tr><td>Teodor · cook</td><td style="text-align:right"><span class="chip-s q">Unchecked</span></td></tr>
+          <tr><td>Ilse · scribe</td><td style="text-align:right"><span class="chip-s q">Unchecked</span></td></tr>
+        </tbody></table>
+      </div>
+      <figcaption style="font-size:13.5px;color:var(--ink-3);margin-top:8px">Interface mockup. The right portrait is the left one mirrored; press "Show the tells" to circle what moved.</figcaption>
+    </figure>
+    <div class="cols">
+      <div class="prose">
+        <p class="pitch">Shades from the reflection are replacing your people with mirror-image doubles. A double does the job, mostly, until the night it opens a door for the Umbra. Because they're reflections, doubles are reversed: the left-handed smith now works right-handed, the scar is on the other cheek, the brooch on the other shoulder. You run the keep while catching impostors, and mirrors expose them, because a double has no reflection.</p>
+        <h3>Signature features</h3>
+        <ul><li><strong>Tells.</strong> Every resident's portrait has lopsided details, and doubles have them flipped.</li><li><strong>Mirror checks.</strong> A mirror in a doorway catches doubles, but every mirror is also a door.</li><li><strong>Suspicion.</strong> Accusing a real person hurts morale; missing a double lets the Umbra in.</li><li><strong>Infiltration rises</strong> with the essence you draw from the reflection.</li></ul>
+        <p style="margin-top:10px;color:var(--ink-2)">"Sinister" is Latin for "left", which is where the first working title came from.</p>
+      </div>
+      <div>
+        <h3 style="font-size:14px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);font-weight:800;margin:0 0 6px">Traits: the tells</h3>
+        <ul class="traits"><li><b>Left-handed</b>A double works right-handed.</li><li><b>Scarred</b>The scar changes cheeks.</li><li><b>Parted hair</b>The part changes sides.</li><li><b>Brooch, earring</b>Jewelry moves shoulders and ears.</li><li><b>Hums a tune</b>A double hums it backwards.</li></ul>
+        <dl class="spec" style="margin-top:20px">
+          <dt>Novelty</dt><dd><span class="lvl hi">Low</span>Impostor-spotting is a busy niche: No, I'm Not a Human (2025) even has a mirror self-check, Quarantine Zone: The Last Check (January 2026) pairs inspection with base management, and RimWorld: Anomaly hides infected colonists. Mirror-reversed tells weren't found.</dd>
+          <dt>Name</dt><dd>My first title, Sinistral, collides with Lufia's Sinistrals (a remaster due 2027). Wronghand is unchecked.</dd>
+          <dt>Scope</dt><dd><span class="lvl md">Medium</span>Procedural portraits with lopsided features.</dd>
+          <dt>Risks</dt><dd>Spot-the-difference fatigue, and it's hard on players with low vision.</dd>
+          <dt>Prototype asks</dt><dd><strong>Is spotting a reversed tell still fun at the fiftieth resident?</strong></dd>
+        </dl>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="styles" class="sec" style="border-top:3px solid var(--ink);margin-top:72px">
+  <h2>One scene, nine art styles</h2>
+  <p class="sub">The Mourning Glass scene redrawn in every style on this page, so you can compare the looks directly. The costs below are my estimates for one developer, not measured data.</p>
+  <div class="gallery">
+    <figure class="tile" style="margin:0"><div class="frame"><div class="stage r916" data-pxg="glasswake" role="img" aria-label="The scene in pixel art"></div></div><figcaption><b>Pixel</b>320×180-class art, cheap to animate</figcaption></figure>
+    <figure class="tile" style="margin:0"><div class="frame"><div class="stage r916" data-v="glasswake:flat" data-still="1" role="img" aria-label="The scene in flat vector"></div></div><figcaption><b>Flat vector</b>Clean, scalable, tweenable</figcaption></figure>
+    <figure class="tile" style="margin:0"><div class="frame"><div class="stage r916" data-v="glasswake:silhouette" data-still="1" role="img" aria-label="The scene in silhouette"></div></div><figcaption><b>Silhouette</b>Moody, cheap, hard to read in crowds</figcaption></figure>
+    <figure class="tile" style="margin:0"><div class="frame"><div class="stage r916" data-v="glasswake:woodcut" data-still="1" role="img" aria-label="The scene as a woodcut"></div></div><figcaption><b>Woodcut</b>Black on white above, white on black below</figcaption></figure>
+    <figure class="tile" style="margin:0"><div class="frame"><div class="stage r916" data-v="glasswake:paper" data-still="1" role="img" aria-label="The scene in paper cut-out"></div></div><figcaption><b>Paper cut-out</b>Rig-friendly, tactile</figcaption></figure>
+    <figure class="tile" style="margin:0"><div class="frame"><div class="stage r916" data-v="glasswake:glass" data-still="1" role="img" aria-label="The scene in stained glass"></div></div><figcaption><b>Stained glass</b>Striking stills, stiff in motion</figcaption></figure>
+    <figure class="tile" style="margin:0"><div class="frame"><div class="stage r916" data-v="glasswake:water" data-still="1" role="img" aria-label="The scene in watercolor"></div></div><figcaption><b>Watercolor</b>Soft, hard to keep consistent</figcaption></figure>
+    <figure class="tile" style="margin:0"><div class="frame"><div class="stage r916" data-v="glasswake:blueprint" data-still="1" role="img" aria-label="The scene as a blueprint"></div></div><figcaption><b>Blueprint</b>A build-mode overlay</figcaption></figure>
+    <figure class="tile" style="margin:0"><div class="frame"><div class="stage r916" data-v="glasswake:neon" data-still="1" role="img" aria-label="The scene in neon line"></div></div><figcaption><b>Neon line</b>Cheap, bright, costs glow effects</figcaption></figure>
+  </div>
+  <div class="table-wrap" style="margin-top:22px">
+    <table>
+      <thead><tr><th>Style</th><th>Animation cost</th><th>Asset cost, solo</th><th>Reads at phone size</th><th>Best use here</th></tr></thead>
+      <tbody>
+        <tr><td class="game">Pixel</td><td><span class="lvl ok">Low</span></td><td><span class="lvl ok">Low</span></td><td>Good</td><td>Gameplay for any idea; a crowded look on stores</td></tr>
+        <tr><td class="game">Flat vector</td><td><span class="lvl md">Medium</span></td><td><span class="lvl md">Medium</span></td><td>Very good</td><td>Gameplay; suits Bone Union's comedy</td></tr>
+        <tr><td class="game">Silhouette</td><td><span class="lvl ok">Low</span></td><td><span class="lvl ok">Low</span></td><td>Poor with many units</td><td>Lampblack, where shadow is the mechanic</td></tr>
+        <tr><td class="game">Woodcut</td><td><span class="lvl hi">High</span></td><td><span class="lvl md">Medium</span></td><td>Good when large</td><td>Barrowdeep key art; the most distinctive</td></tr>
+        <tr><td class="game">Paper cut-out</td><td><span class="lvl md">Low–medium</span></td><td><span class="lvl md">Medium</span></td><td>Good</td><td>Gameplay; rigged parts animate cheaply</td></tr>
+        <tr><td class="game">Stained glass</td><td><span class="lvl hi">High</span></td><td><span class="lvl hi">High</span></td><td>Poor when small</td><td>Mourning Glass key art and title screen</td></tr>
+        <tr><td class="game">Watercolor</td><td><span class="lvl hi">High</span></td><td><span class="lvl hi">High</span></td><td>Medium</td><td>Ebbhold stills and store art</td></tr>
+        <tr><td class="game">Blueprint</td><td><span class="lvl ok">Low</span></td><td><span class="lvl ok">Low</span></td><td>Good</td><td>Build mode in any idea; Tombwright's main look</td></tr>
+        <tr><td class="game">Neon line</td><td><span class="lvl ok">Low</span></td><td><span class="lvl ok">Low</span></td><td>Good</td><td>Hourglass Keep; glow effects cost frame rate on phones</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="pick-note">My read: use pixel art or paper cut-out for the game itself, because one person can animate them. Save woodcut or stained glass for store art and the title screen, where nothing has to move. Blueprint works as a build-mode overlay whichever you choose.</p>
+</section>
+
+<section id="compare" class="sec">
+  <h2>Compare</h2>
+  <p class="sub">My scores, informed by the novelty searches. Weights start at phone-first, as in round one. Change them and the ranking updates.</p>
+  <div class="presets" role="group" aria-label="Weight presets">
+    <span>Presets</span>
+    <button class="btn" type="button" id="preset-phone" data-preset="phone">Phone-first</button>
+    <button class="btn" type="button" id="preset-pc" data-preset="pc">PC / Steam-first</button>
+    <button class="btn" type="button" id="preset-novel" data-preset="novel">Novelty above all</button>
+  </div>
+  <div class="table-wrap"><table class="matrix" id="matrix"><thead><tr id="mhead"><th>Criterion and weight</th></tr></thead><tbody></tbody><tfoot><tr id="mfoot"><td>Weighted score, out of 100</td></tr></tfoot></table></div>
+  <div class="chart"><h3>Weighted score</h3><p class="cap">One bar per idea at the current weights. The leader is highlighted.</p><div class="bars" id="bars"></div><div class="axis" aria-hidden="true"><span></span><div><span>0</span><span>20</span><span>40</span><span>60</span><span>80</span><span>100</span></div></div></div>
+</section>
+
+<section id="next" class="sec">
+  <h2>The next two weeks</h2>
+  <p class="sub">Greybox fun-tests again: boxes and text, no art.</p>
+  <div class="weeks">
+    <div class="week"><p class="eyebrow">Week 1</p><h3>Barrowdeep: bury to build</h3>
+      <ul><li>A graveyard strip of 12 plots above, empty ground below.</li><li>A raid every two minutes delivers bodies with a trade and a cause of death.</li><li>Burying asks for a plot and one of four epitaphs; the chamber grows over two nights.</li><li>Four chamber types, one adjacency bonus each.</li><li>Robbers dig up a plot; an exorcist consecrates one tile a night.</li></ul>
+      <p class="pass"><b>Pass:</b> you plan burials ahead and argue with yourself about where the next body goes.</p>
+      <p class="kill"><b>Kill:</b> placement doesn't matter, or waiting for chambers to grow is dead time.</p></div>
+    <div class="week"><p class="eyebrow">Week 2</p><h3>Tombwright: the deadline</h3>
+      <ul><li>One pyramid section and a 20-day deadline.</li><li>Three trap types. Robbers path through the section toward the treasure.</li><li>Dead robbers become mummy labor that hauls stone.</li><li>Treasure placement sets how many robbers come.</li></ul>
+      <p class="pass"><b>Pass:</b> the last three days feel frantic, and luring robbers is a real gamble.</p>
+      <p class="kill"><b>Kill:</b> traps are set-and-forget, or the deadline is trivial or impossible.</p>
+      <p class="note" style="margin-top:10px">To stay with both halves instead, run Mourning Glass in week 2: two rosters and a dawn rite.</p></div>
+  </div>
+</section>
+
+<section id="ledger" class="sec">
+  <h2>What's checked and what isn't</h2>
+  <div class="ledger">
+    <div class="est"><h3>Established</h3><ul><li>Existing games and name conflicts, from web searches on 25 September 2026. Store pages couldn't be opened, so details come from search results.</li><li>Graveyard Keeper 2's release on 22 September 2026.</li><li>Real-world details: the Sedlec and Capuchin ossuaries, the Great Pyramid's 440 by 280 cubits, spring tides at full and new moon, and "sinister" meaning left.</li></ul></div>
+    <div class="jud"><h3>My judgment</h3><ul><li>Every score and weight in Compare.</li><li>The art-style cost table.</li><li>Scope sizes and the recommendation.</li></ul></div>
+    <div class="unk"><h3>Unknown until built</h3><ul><li>Whether any of these is fun. That's what the greybox tests are for.</li><li>Small itch.io and jam games, which searches miss most.</li><li>Eight of the ten names: only Tombwright and Hourglass Keep have been checked.</li></ul></div>
+  </div>
+</section>
+
+<p class="foot">Every mockup on this page is drawn live in the browser by code in the page. Working titles are placeholders.</p>
+</div>
+<div class="tip" id="tip" hidden></div>
+<script>
+'use strict';
+/* ---------- pixel kit: palette (ENDESGA 32 + a few extras) ---------- */
+const P = {
+  rust:'#be4a2f', ochre:'#d77643', bone:'#ead4aa', tan:'#e4a672', clay:'#b86f50', brown:'#733e39', plum:'#3e2731',
+  crimson:'#a22633', red:'#e43b44', orange:'#f77622', amber:'#feae34', yellow:'#fee761',
+  green:'#63c74d', forest:'#3e8948', pine:'#265c42', deep:'#193c3e',
+  navy:'#124e89', blue:'#0099db', cyan:'#2ce8f5', white:'#ffffff',
+  silver:'#c0cbdc', steel:'#8b9bb4', slate:'#5a6988', indigo:'#3a4466', ink:'#262b44', night:'#181425',
+  hot:'#ff0044', grape:'#68386c', mauve:'#b55088', pink:'#f6757a', peach:'#e8b796', skin2:'#c28569',
+  void:'#0e0b18', soot:'#1f1a24', earth:'#2a1d18'
+};
+const MR = Math.round, MF = Math.floor;
+const SCENES = {};
+
+function rngOf(a){ return function(){ a|=0; a=a+0x6D2B79F5|0; let t=Math.imul(a^a>>>15,1|a); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
+function R(c,x,y,w,h,col){ w=MR(w); h=MR(h); if(w<=0||h<=0) return; c.fillStyle=col; c.fillRect(MR(x),MR(y),w,h); }
+function D(c,x,y,col){ c.fillStyle=col; c.fillRect(MR(x),MR(y),1,1); }
+function A(c,a,fn){ const o=c.globalAlpha; c.globalAlpha=o*a; fn(); c.globalAlpha=o; }
+function clip(c,x,y,w,h,fn){ c.save(); c.beginPath(); c.rect(x,y,w,h); c.clip(); fn(); c.restore(); }
+
+function sky(c,x,y,w,h,cols){
+  const n=cols.length, bh=h/n;
+  for(let i=0;i<n;i++) R(c,x,y+MF(i*bh),w,Math.ceil(bh)+1,cols[i]);
+  for(let i=1;i<n;i++){
+    const by=y+MF(i*bh);
+    for(let xx=x;xx<x+w;xx++){
+      if((xx&1)===0) D(c,xx,by-1,cols[i]);
+      if((xx&1)===1) D(c,xx,by,cols[i-1]);
+    }
+  }
+}
+function ridge(c,rnd,x0,x1,base,amp,col,freq){
+  const p1=rnd()*6,p2=rnd()*6,p3=rnd()*6, hs=[];
+  for(let x=x0;x<x1;x++){
+    const v=0.5+0.3*Math.sin(x*freq+p1)+0.14*Math.sin(x*freq*2.3+p2)+0.07*Math.sin(x*freq*5.7+p3);
+    const top=MR(base-amp*v); hs.push(top); R(c,x,top,1,base-top+1,col);
+  }
+  return hs;
+}
+function speck(c,rnd,x,y,w,h,col,d){ const n=MR(w*h*d); for(let i=0;i<n;i++) D(c,x+MF(rnd()*w),y+MF(rnd()*h),col); }
+function texture(c,rnd,x,y,w,h,base,specks){ R(c,x,y,w,h,base); for(const s of specks) speck(c,rnd,x,y,w,h,s[0],s[1]); }
+function bricks(c,rnd,x,y,w,h,o){
+  const bw=o.bw||6, bh=o.bh||3;
+  clip(c,x,y,w,h,()=>{
+    R(c,x,y,w,h,o.base);
+    for(let row=0,yy=y; yy<y+h; row++,yy+=bh+1){
+      R(c,x,yy+bh,w,1,o.dark);
+      const off=(row&1)?MF(bw/2)+1:0;
+      for(let xx=x-off; xx<x+w; xx+=bw+1){
+        R(c,xx+bw,yy,1,bh,o.dark);
+        if(rnd()<0.45) R(c,xx+1,yy,2,1,o.light);
+        if(rnd()<0.25) D(c,xx+bw-1,yy+bh-1,o.dark);
+      }
+    }
+  });
+}
+function crenel(c,x,y,w,col,shade){ for(let xx=x; xx<x+w-1; xx+=4){ R(c,xx,y-3,2,3,col); D(c,xx+1,y-3,shade||col); } }
+function roof(c,cx,base,hw,ht,col,shade){
+  for(let i=0;i<ht;i++){ const w=Math.max(1,MR(hw*(i+1)/ht)); R(c,cx-w,base-ht+i,w,1,col); R(c,cx,base-ht+i,w,1,shade); }
+  D(c,cx,base-ht-1,P.amber);
+}
+function ellipse(c,cx,cy,rx,ry,col){ c.fillStyle=col; for(let dy=-ry;dy<=ry;dy++){ const w=MR(rx*Math.sqrt(Math.max(0,1-(dy*dy)/((ry+.5)*(ry+.5))))); c.fillRect(MR(cx-w),MR(cy+dy),w*2+1,1); } }
+function poly(c,pts,col){
+  let y0=Infinity,y1=-Infinity; for(const p of pts){ y0=Math.min(y0,p[1]); y1=Math.max(y1,p[1]); }
+  c.fillStyle=col;
+  for(let y=MF(y0); y<=Math.ceil(y1); y++){
+    const yc=y+.5, xs=[];
+    for(let i=0,j=pts.length-1;i<pts.length;j=i++){ const a=pts[i],b=pts[j]; if((a[1]>yc)!==(b[1]>yc)) xs.push(a[0]+(yc-a[1])*(b[0]-a[0])/(b[1]-a[1])); }
+    xs.sort((m,n)=>m-n);
+    for(let k=0;k+1<xs.length;k+=2){ const xa=MR(xs[k]), xb=MR(xs[k+1]); if(xb>xa) c.fillRect(xa,y,xb-xa,1); }
+  }
+}
+function line(c,x0,y0,x1,y1,col,dash){
+  x0=MR(x0); y0=MR(y0); x1=MR(x1); y1=MR(y1);
+  const dx=Math.abs(x1-x0), sx=x0<x1?1:-1, dy=-Math.abs(y1-y0), sy=y0<y1?1:-1; let err=dx+dy, i=0;
+  for(let guard=0; guard<2000; guard++){
+    if(!dash || (i%dash) < Math.ceil(dash/2)) D(c,x0,y0,col);
+    i++; if(x0===x1&&y0===y1) break;
+    const e2=2*err; if(e2>=dy){ err+=dy; x0+=sx; } if(e2<=dx){ err+=dx; y0+=sy; }
+  }
+}
+function ring(c,cx,cy,r,col,keep){
+  r=MR(r); if(r<1) return; let x=r,y=0,err=1-r;
+  while(x>=y){
+    for(const [dx,dy] of [[x,y],[y,x],[-y,x],[-x,y],[-x,-y],[-y,-x],[y,-x],[x,-y]]) if(!keep||keep(dx,dy)) D(c,cx+dx,cy+dy,col);
+    y++; if(err<0) err+=2*y+1; else { x--; err+=2*(y-x)+1; }
+  }
+}
+function room(c,rnd,x,y,w,h,o){
+  R(c,x,y,w,h,o.wall);
+  speck(c,rnd,x,y,w,h-2,o.wall2,0.06);
+  R(c,x,y,w,1,o.wall2);
+  R(c,x,y+h-2,w,2,o.floor); R(c,x,y+h-2,w,1,o.floorTop||o.floor);
+}
+function flame(c,x,y,t,s){
+  const f=MF(t*9+(s||0))%3;
+  D(c,x,y,P.yellow); D(c,x,y-1,f===0?P.amber:P.yellow);
+  if(f!==2) D(c,x,y-2,P.orange);
+  if(f===1) D(c,x+1,y-1,P.orange); if(f===2) D(c,x-1,y-1,P.orange);
+}
+function glow(c,x,y,r,col,a){ for(let i=0;i<3;i++){ const rr=MR(r*(1-i/3)); if(rr>0) A(c,a*.45,()=>ellipse(c,x,y,rr,rr,col)); } }
+function torch(c,x,y,t,s){ R(c,x,y,1,3,P.brown); glow(c,x,y-1,5,P.amber,.14); flame(c,x,y-1,t,s); }
+function zGlyph(c,x,y,col){ R(c,x,y,3,1,col); D(c,x+1,y+1,col); R(c,x,y+2,3,1,col); }
+
+/* characters: x = left, y = feet baseline (exclusive) */
+function human(c,x,y,o,t){
+  const h=o.h||8, top=y-h, f=o.face||1, ph=o.ph||0;
+  const walking = o.walk && MF(t*o.walk+ph)%2===1;
+  const legs=o.legs||P.ink;
+  if(walking){ D(c,x,y-2,legs); D(c,x,y-1,legs); D(c,x+3,y-2,legs); D(c,x+3,y-1,legs); R(c,x+1,y-2,2,1,legs); }
+  else R(c,x+1,y-2,2,2,legs);
+  R(c,x,top+2,4,h-4,o.body);
+  if(o.robe) R(c,x,top+2,4,h-3,o.body);
+  if(o.trim) R(c,x,top+h-4,4,1,o.trim);
+  R(c,x+1,top,2,2,o.skin||P.peach);
+  if(o.hair) R(c,x+1,top,2,1,o.hair);
+  if(o.beard) R(c,x+1,top+2,2,1,o.beard);
+  if(o.helm){ R(c,x,top,4,1,o.helm); R(c,x+1,top-1,2,1,o.helm); }
+  if(o.plume){ D(c,x+1,top-2,o.plume); D(c,x+2,top-3,o.plume); }
+  if(o.hood){ R(c,x,top-1,4,1,o.hood); D(c,x,top,o.hood); D(c,x+3,top,o.hood); D(c,x,top+1,o.hood); D(c,x+3,top+1,o.hood); }
+  if(o.hat){ R(c,x-1,top,6,1,o.hat); R(c,x+1,top-1,2,1,o.hat); D(c,x+2,top-2,o.hat); D(c,x+3,top-3,o.hat); }
+  if(o.horns){ D(c,x,top-1,P.bone); D(c,x+3,top-1,P.bone); }
+  if(o.eyes){ D(c,x+1,top+1,o.eyes); D(c,x+2,top+1,o.eyes); }
+  if(o.arms){ D(c, f>0?x+4:x-1, top+3, o.arms); }
+  const sx = f>0 ? x+4 : x-1;
+  if(o.spear){ R(c,sx,top-3,1,h+1,P.clay); D(c,sx,top-4,P.silver); }
+  if(o.torch){ R(c,sx,top+2,1,3,P.brown); glow(c,sx,top,6,P.amber,.18); flame(c,sx,top+1,t,ph); }
+  if(o.staff){ R(c,sx,top-1,1,h,P.brown); D(c,sx,top-2,o.staff); glow(c,sx,top-2,3,o.staff,.3); }
+  if(o.fork){ R(c,sx,top-2,1,h,P.clay); D(c,sx-1,top-3,P.silver); D(c,sx+1,top-3,P.silver); D(c,sx,top-3,P.silver); }
+  if(o.bow){ R(c,sx,top+1,1,4,P.brown); D(c,sx+f,top,P.brown); D(c,sx+f,top+5,P.brown); D(c,sx,top+3,P.bone); }
+  if(o.banner){ R(c,sx,top-8,1,h+7,P.bone); R(c, f>0?sx+1:sx-5, top-8, 5, 5, o.banner); if(o.emblem) D(c, f>0?sx+3:sx-3, top-6, o.emblem); }
+  if(o.pick){
+    const up = MF(t*o.pick+ph)%2===0;
+    if(up){ R(c,sx,top-1,1,4,P.clay); R(c,sx-1,top-2,3,1,P.silver); }
+    else { if(f>0){ R(c,sx,top+3,3,1,P.clay); D(c,sx+3,top+2,P.silver); D(c,sx+3,top+4,P.silver);} else { R(c,sx-2,top+3,3,1,P.clay); D(c,sx-3,top+2,P.silver); D(c,sx-3,top+4,P.silver);} }
+  }
+  if(o.carry) R(c,x,top-2,4,2,o.carry);
+}
+function kobold(c,x,y,o,t){
+  const top=y-6, f=o.face||1, ph=o.ph||0, skin=o.skin||P.ochre, tun=o.body||P.brown;
+  const walking = o.walk && MF(t*o.walk+ph)%2===1;
+  if(walking){ D(c,x,y-1,skin); D(c,x+2,y-1,skin); } else { D(c,x+1,y-1,skin); D(c,x+2,y-1,skin); }
+  R(c,x,top+2,3,3,tun);
+  D(c, f>0?x-1:x+3, top+4, skin); D(c, f>0?x-2:x+4, top+5, skin);
+  R(c,x,top,3,2,skin); D(c, f>0?x+3:x-1, top+1, skin);
+  D(c, f>0?x:x+2, top-1, P.bone); D(c, f>0?x+2:x, top, P.night);
+  const sx = f>0 ? x+3 : x-1;
+  if(o.spear){ R(c,sx,top-2,1,8,P.clay); D(c,sx,top-3,P.silver); }
+  if(o.hammer){ const up=MF(t*o.hammer+ph)%2===0; if(up){ R(c,sx,top-1,1,3,P.clay); R(c,sx-1,top-2,3,1,P.steel);} else { R(c,sx,top+2,2,1,P.clay); R(c,sx+2,top+1,1,3,P.steel);} }
+  if(o.carry) R(c,x,top-2,3,2,o.carry);
+}
+
+/* ---------- Mirrorhold (180x320) ---------- */
+const MH_UMBRA=['#0e0b18','#1b1430','#2a1d45','#3e2a5c','#5b3a7a','#7d4f9e','#a36ac0','#d9a6ff'];
+function mhCastle(rnd){
+  const cv=document.createElement('canvas'); cv.width=180; cv.height=160; const c=cv.getContext('2d');
+  const S={base:P.steel,dark:P.slate,light:P.silver};
+  bricks(c,rnd,40,92,100,64,S); crenel(c,40,92,40,P.steel,P.slate); crenel(c,100,92,40,P.steel,P.slate);
+  bricks(c,rnd,26,70,14,86,S); roof(c,33,70,9,14,P.navy,P.ink);
+  bricks(c,rnd,140,84,14,72,S); roof(c,147,84,9,14,P.navy,P.ink);
+  bricks(c,rnd,80,54,20,44,S); roof(c,90,54,12,16,P.navy,P.ink);
+  for(const [x,y] of [[32,80],[32,100],[32,120],[146,94],[146,114],[89,64],[89,78]]) R(c,x,y,2,4,P.amber);
+  const W={wall:'#5a4038',wall2:P.brown,floor:P.brown,floorTop:P.clay};
+  room(c,rnd,56,98,68,18,{wall:'#3f3a58',wall2:P.indigo,floor:P.brown,floorTop:P.clay});
+  R(c,56,116,68,2,P.slate);
+  room(c,rnd,40,118,44,18,{wall:'#4a3a52',wall2:P.grape,floor:P.brown,floorTop:P.clay}); room(c,rnd,86,118,54,18,W);
+  R(c,40,136,100,2,P.slate);
+  room(c,rnd,30,138,36,18,{wall:'#4a2a26',wall2:P.plum,floor:P.brown,floorTop:P.clay}); room(c,rnd,68,138,38,18,W); room(c,rnd,108,138,42,18,W);
+  // library
+  R(c,58,101,22,12,P.brown); for(let r=0;r<3;r++) for(let i=0;i<20;i++) if((i*7+r*3)%5) D(c,59+i,102+r*4,[P.red,P.blue,P.green,P.amber,P.bone,P.mauve][(i+r)%6]);
+  R(c,100,110,12,1,P.clay); D(c,101,111,P.brown); D(c,110,111,P.brown); ellipse(c,116,106,2,2,P.cyan);
+  // chapel: stained glass + altar
+  R(c,57,121,9,11,P.ink); for(let y=0;y<9;y++) for(let x=0;x<7;x++) D(c,58+x,122+y,[P.red,P.blue,P.yellow,P.green][(x+y*2)%4]);
+  R(c,52,132,16,2,P.bone);
+  // hall: banner, table, throne
+  R(c,100,121,6,9,P.navy); D(c,102,124,P.yellow); D(c,103,124,P.yellow); R(c,92,131,16,1,P.clay); R(c,128,126,6,8,P.amber); R(c,129,127,4,4,P.crimson);
+  // forge, granary, barracks
+  R(c,32,144,9,10,P.indigo); R(c,34,148,5,6,P.night); R(c,50,150,6,2,P.steel); R(c,52,152,2,2,P.indigo);
+  for(let i=0;i<5;i++) ellipse(c,73+i*6,151,2,2,i%2?P.tan:P.bone); ellipse(c,80,146,3,2,P.bone); ellipse(c,92,146,3,2,P.tan);
+  for(const x of [112,124,136]){ R(c,x,146,9,1,P.bone); R(c,x,151,9,1,P.bone); R(c,x,146,1,8,P.clay); }
+  return cv;
+}
+function mhReflect(src){
+  const w=src.width,h=src.height, s=src.getContext('2d').getImageData(0,0,w,h), out=document.createElement('canvas');
+  out.width=w; out.height=h; const oc=out.getContext('2d'), o=oc.createImageData(w,h);
+  const hex=MH_UMBRA.map(v=>[parseInt(v.slice(1,3),16),parseInt(v.slice(3,5),16),parseInt(v.slice(5,7),16)]);
+  for(let y=0;y<h;y++) for(let x=0;x<w;x++){
+    const si=((h-1-y)*w+x)*4, di=(y*w+x)*4; if(s.data[si+3]<128) continue;
+    const L=(.3*s.data[si]+.59*s.data[si+1]+.11*s.data[si+2]); const warm=s.data[si]>200&&s.data[si+1]>150&&s.data[si+2]<120;
+    const k=warm?7:Math.min(6,MF(L/256*7.2)); const col=hex[k];
+    o.data[di]=col[0]; o.data[di+1]=col[1]; o.data[di+2]=col[2]; o.data[di+3]=255;
+  }
+  oc.putImageData(o,0,0); return out;
+}
+SCENES.mirrorhold = {
+  w:180, h:320, seed:23, still:3.5, crop:[0,70,180,180],
+  bg(c,rnd){
+    sky(c,0,0,180,156,['#3b7dd8','#5a9be6','#86bff0','#bfe1f6']);
+    for(const [x,y,r] of [[40,30,6],[50,28,5],[58,31,4],[128,44,5],[137,42,6],[146,45,4]]) ellipse(c,x,y,r,MF(r/2)+1,P.white);
+    ridge(c,rnd,0,180,156,30,'#6fa878',.045); ridge(c,rnd,0,180,156,16,'#4b8a5c',.07);
+    R(c,0,154,180,2,P.forest); R(c,0,156,180,2,P.pine); R(c,0,158,180,2,P.brown);
+    sky(c,0,160,180,160,['#2a1d45','#1d1636','#150f28','#0e0b18']);
+    speck(c,rnd,0,170,180,150,'#3e2a5c',.01);
+    this.castle=mhCastle(rnd); this.refl=mhReflect(this.castle);
+    c.drawImage(this.castle,0,0);
+  },
+  fg(c,t,st,host){
+    const p=t%16, n = p<7?0 : p<8?(p-7) : p<15?1 : 1-(p-15);
+    // reflection with shimmer
+    for(let r=0;r<160;r++){ const dx=MR(Math.sin(r*.45+t*2.6)*(r<6?0:1)); c.drawImage(this.refl,0,r,180,1,dx,160+r,180,1); }
+    // above: night overlay + lit windows, sun/moon
+    if(n>0){ A(c,.62*n,()=>R(c,0,0,180,158,'#101433')); for(const [x,y] of [[32,80],[32,100],[32,120],[146,94],[146,114],[89,64],[89,78]]) { A(c,n,()=>R(c,x,y,2,4,P.yellow)); glow(c,x+1,y+2,4,P.amber,.25*n); } for(const [x,y] of [[20,14],[70,8],[160,22],[110,12],[150,50]]) A(c,n,()=>D(c,x,y,P.white)); A(c,n,()=>{ ellipse(c,30,24,6,6,P.bone); }); }
+    if(n<1) A(c,1-n,()=>{ ellipse(c,152,22,7,7,P.yellow); ellipse(c,152,22,5,5,'#fff6c8'); });
+    // flags on towers
+    const fl=(x,y)=>{ R(c,x,y-10,1,10,P.ink); const ph=MF(t*6)%3; for(let i=0;i<5;i++){ const dy=[0,1,0][(i+ph)%3]; R(c,x+1+i,y-10+dy,1,3,i<3?P.crimson:P.red); } };
+    fl(33,55); fl(147,69); fl(90,37);
+    // people above (day work) and their shadows below (night work)
+    const folk=[[44,156,P.bone,1],[82,156,P.forest,-1],[118,156,P.navy,1],[70,136,P.mauve,1],[112,136,P.crimson,-1],[88,116,P.navy,1]];
+    folk.forEach(([x,y,col,f],i)=>{
+      const dx = n<.5 ? MR(Math.sin(t*.8+i)*3) : 0;
+      human(c,x+dx,y,{body:col,hair:P.brown,walk: n<.5?4:0,face:f,ph:i},t);
+      c.save(); c.setTransform(1,0,0,-1,0,320);
+      const sx = n>=.5 ? MR(Math.sin(t*.8+i)*3) : 0;
+      A(c,.55+.45*n,()=>human(c,x+sx,y,{body:'#07060d',skin:'#07060d',eyes:P.cyan,walk:n>=.5?4:0,face:f,ph:i},t));
+      c.restore();
+    });
+    // forge fire above
+    flame(c,36,153,t,0); glow(c,36,151,5,P.orange,.25);
+    // below dims by day
+    if(n<1) A(c,.5*(1-n),()=>R(c,0,162,180,158,'#07060d'));
+    // the Veil
+    R(c,0,159,180,1,P.grape); R(c,0,160,180,1,P.mauve); R(c,0,161,180,1,P.grape);
+    for(let i=0;i<12;i++){ const x=MF((i*47+t*18))%180; if(x<118||x>136) D(c,x,160,i%3?P.pink:P.white); }
+    R(c,118,159,18,3,'#0e0b18'); for(let x=118;x<136;x+=2) D(c,x,160+((x+MF(t*6))%3)-1,P.mauve);
+    for(let i=0;i<6;i++){ const k=(t*9+i*5)%26; A(c,1-k/26,()=>D(c,120+((i*5)%14)+MR(Math.sin(t*2+i)*2),158-k,i%2?P.mauve:'#d9a6ff')); }
+    // umbral horrors rising
+    for(const [x,ph] of [[30,0],[72,1.7],[118,3.1],[154,.9]]){
+      const rise=6+MR((Math.sin(t*.9+ph)+1)*5)+MR(n*6), top=318-18-rise;
+      for(let y=top;y<320;y++){ const w=3+MR((y-top)/5)+(MF(y*.7+t*4+ph)%2); R(c,x-w-1,y,w*2+2,1,'#3e2a5c'); R(c,x-w,y,w*2,1,'#07060d'); }
+      for(let k=0;k<3;k++){ const tx=x-4+k*4, ty=top-2-MR((Math.sin(t*2+k+ph)+1)*3); line(c,x,top+4,tx,ty,'#07060d'); }
+      D(c,x-2,top+5,P.hot); D(c,x+1,top+5,P.hot); if(n>.5){ glow(c,x,top+5,3,P.hot,.25); }
+    }
+    // raiders by day
+    if(n<1) A(c,1-n,()=>{ for(const [x,ph] of [[160,0],[166,.5],[172,.2]]) human(c,x,156,{body:P.brown,skin:'#9fb38a',helm:P.slate,horns:1,spear:1,face:-1,walk:3,ph},t); });
+    if(host){ const lab=n<.5?'DAY: THE KEEP':'NIGHT: THE REFLECTION'; if(st.lab!==lab){ st.lab=lab; const e=host.querySelector('[data-phase]'); if(e) e.textContent=lab; } }
+  }
+};
+
+/* ===================== Round 2: vector style kit — styles ===================== */
+function hex2rgb(h){ h=h.replace('#',''); if(h.length===3) h=h.split('').map(x=>x+x).join(''); const n=parseInt(h,16); return [n>>16&255,n>>8&255,n&255]; }
+function rgb2hex(r,g,b){ return '#'+[r,g,b].map(v=>Math.max(0,Math.min(255,Math.round(v))).toString(16).padStart(2,'0')).join(''); }
+function mix(a,b,t){ const A=hex2rgb(a),B=hex2rgb(b); return rgb2hex(A[0]+(B[0]-A[0])*t,A[1]+(B[1]-A[1])*t,A[2]+(B[2]-A[2])*t); }
+function mk(w,h){ const c=document.createElement('canvas'); c.width=Math.max(1,Math.round(w)); c.height=Math.max(1,Math.round(h)); return c; }
+const ROLE={ stone:'#9aa1b3', stoneDark:'#6c7390', roof:'#9b3f55', wood:'#8a5a3c', warm:'#5e4038', cold:'#39405c', crypt:'#2d2736', glowRoom:'#5a412c',
+  earth:'#4a3a33', grass:'#5f8f4e', water:'#3f6f9e', bone:'#eee4cc', cloth:'#c9744a', cloth2:'#3f6aa0', clothDark:'#4b3f6b',
+  flesh:'#f0c9a0', metal:'#b8c2d6', ghost:'#d6ecff', shadow:'#14111c', rot:'#8fae6b', gold:'#f2c14e', glass:'#bfe3ef',
+  veil:'#c78ae8', sand:'#e2bd83', dark:'#14111c', light:'#ffe7a3', accent:'#d9534f', hill:'#6f8f6a', hill2:'#4f6f55', paper:'#efe7d6', line:'#2a2433' };
+const GLOW={ amber:'#ffb347', green:'#7dff8a', violet:'#c28bff', cyan:'#7fe7ff', red:'#ff4d5e', white:'#ffffff' };
+const LIGHT_ROLES=new Set(['bone','paper','glass','light','ghost','flesh','sand','gold']);
+const DARK_ROLES=new Set(['shadow','dark','crypt','clothDark','earth','stoneDark','cold','warm','glowRoom','line']);
+const SKY={ day:['#8fc3e8','#cfe6f3'], dusk:['#2f2d58','#8c4f7c','#f09a6b'], night:['#0e1124','#22284a','#39406a'], desert:['#e8a260','#f6d9a0'], umbra:['#2a1d45','#0e0b18'] };
+function grad(c,x0,y0,x1,y1,stops){ const g=c.createLinearGradient(x0,y0,x1,y1); stops.forEach((s,i)=>g.addColorStop(i/(stops.length-1||1),s)); return g; }
+function stars(c,rnd,W,H,n,col){ c.fillStyle=col; for(let i=0;i<n;i++){ const s=rnd()<.8?.5:.9; c.fillRect(rnd()*W,rnd()*H,s,s); } }
+function grain(c,rnd,W,H,n,col,a){ c.save(); c.globalAlpha=a; c.fillStyle=col; for(let i=0;i<n;i++) c.fillRect(rnd()*W,rnd()*H,.35+rnd()*.4,.35+rnd()*.4); c.restore(); }
+function radial(c,x,y,r,col,a){ const g=c.createRadialGradient(x,y,0,x,y,r); const [R_,G_,B_]=hex2rgb(col); g.addColorStop(0,`rgba(${R_},${G_},${B_},${a})`); g.addColorStop(1,`rgba(${R_},${G_},${B_},0)`); c.fillStyle=g; c.beginPath(); c.arc(x,y,r,0,Math.PI*2); c.fill(); }
+function hatchLines(c,W,H,h){ c.save(); c.strokeStyle=h.c; c.lineWidth=h.w||.3; c.beginPath(); const ang=(h.ang||45)*Math.PI/180, dx=Math.cos(ang), dy=Math.sin(ang), L=W+H;
+  for(let d=-L; d<L; d+=h.gap){ const px=-dy*d, py=dx*d; c.moveTo(px-dx*L,py-dy*L); c.lineTo(px+dx*L,py+dy*L); }
+  if(h.cross){ const a2=ang+Math.PI/2, ex=Math.cos(a2), ey=Math.sin(a2); for(let d=-L; d<L; d+=h.gap){ const px=-ey*d, py=ex*d; c.moveTo(px-ex*L,py-ey*L); c.lineTo(px+ex*L,py+ey*L); } }
+  c.stroke(); c.restore(); }
+function skyFill(c,sc,cols,y1){ c.fillStyle=grad(c,0,0,0,y1,cols); c.fillRect(0,0,sc.w,y1); }
+function veilGlow(c,sc,t,cols){ const y=sc.mirror; c.save(); c.fillStyle=cols[0]; c.fillRect(0,y-.7,sc.w,1.4); c.globalAlpha=.55+.25*Math.sin(t*2); radial(c,sc.w*.5,y,sc.w*.6,cols[1],.18); c.fillStyle=cols[2]; for(let i=0;i<14;i++){ const x=((i*37+t*14)%sc.w); c.fillRect(x,y-.4,1.2,.8); } c.restore(); }
+
+const STYLES={
+  flat:{ name:'Flat vector',
+    bg(c,sc){ const y1=sc.mirror ?? sc.below ?? sc.h; skyFill(c,sc,SKY[sc.sky||'dusk'],y1); if(sc.sky==='night'||sc.sky==='dusk') stars(c,c._rnd,sc.w,y1*.5,40,'rgba(255,255,255,.8)'); },
+    under(c,sc,y0){ c.fillStyle=grad(c,0,y0,0,sc.h,SKY.umbra); c.fillRect(0,y0,sc.w,sc.h-y0); },
+    fill(r,b){ const v=ROLE[r]||r; return b? mix(v,'#2a1d45',.62) : v; },
+    stroke(){ return null; }, masonry:{c:'rgba(20,16,28,.14)',w:.3},
+    glow(c,x,y,r,col,b,t){ radial(c,x,y,r*(1+.08*Math.sin(t*3)),col,.55); },
+    veil(c,sc,t){ veilGlow(c,sc,t,['#d9a6ff','#b77cff','#ffffff']); } },
+  silhouette:{ name:'Silhouette',
+    bg(c,sc){ const y1=sc.mirror ?? sc.below ?? sc.h; skyFill(c,sc,['#2a1433','#8a3b5c','#f28a55','#ffd08a'],y1); radial(c,sc.w*.72,y1*.78,sc.w*.28,'#fff1c4',.55); c.fillStyle='#ffe7b0'; c.beginPath(); c.arc(sc.w*.72,y1*.78,Math.min(sc.w,y1)*.09,0,Math.PI*2); c.fill(); },
+    under(c,sc,y0){ c.fillStyle=grad(c,0,y0,0,sc.h,['#4b2463','#1a0e26','#07050b']); c.fillRect(0,y0,sc.w,sc.h-y0); },
+    fill(r,b){ const lit={warm:'#f6a04d',cold:'#8fb2e3',glowRoom:'#ffcf6b',crypt:'#6a3b82',glass:'#cfeeff',light:'#ffe7a3',ghost:'#e8f4ff'}; if(lit[r]) return b? mix(lit[r],'#7a45c8',.55) : lit[r]; return b? '#06040a' : '#0c0a11'; },
+    stroke(){ return null; }, masonry:null,
+    glow(c,x,y,r,col,b,t){ radial(c,x,y,r*1.3*(1+.1*Math.sin(t*3)),col,.7); },
+    veil(c,sc,t){ veilGlow(c,sc,t,['#ffd6a8','#ff9a6b','#fff4e0']); } },
+  woodcut:{ name:'Woodcut',
+    bg(c,sc){ c.fillStyle='#f1eadb'; c.fillRect(0,0,sc.w,sc.h); grain(c,c._rnd,sc.w,sc.h,900,'#8a7a5c',.25); const y1=sc.mirror ?? sc.below ?? sc.h;
+      c.save(); c.beginPath(); c.rect(0,0,sc.w,y1); c.clip(); const n=sc.sky==='day'?0:(sc.sky==='dusk'?1:2); for(let y=2;y<y1;y+= (n===2?1.4:2.6)){ c.strokeStyle='#1a1612'; c.lineWidth=.28*(1-y/y1)+.06; c.beginPath(); for(let x=0;x<=sc.w;x+=4) c.lineTo(x,y+Math.sin(x*.07+y)*.25); c.stroke(); } c.restore(); },
+    under(c,sc,y0){ c.fillStyle='#16120f'; c.fillRect(0,y0,sc.w,sc.h-y0); grain(c,c._rnd,sc.w,sc.h-y0,300,'#efe6d2',.12); },
+    fill(r,b){ if(b) return '#16120f'; return DARK_ROLES.has(r)&&r!=='warm'&&r!=='cold'&&r!=='glowRoom' ? '#1a1612' : '#f1eadb'; },
+    stroke(r,b){ return {c:b?'#efe6d2':'#1a1612', w:.5}; },
+    hatch(r,b){ if(LIGHT_ROLES.has(r)) return null; if(['warm','cold','glowRoom','crypt'].includes(r)) return {c:b?'#efe6d2':'#1a1612',gap:1.25,ang:-35,w:.26}; if(DARK_ROLES.has(r)) return b?{c:'#efe6d2',gap:1.1,ang:45,w:.22,cross:true}:null; return {c:b?'#efe6d2':'#1a1612',gap:1.7,ang:45,w:.26}; },
+    masonry:{c:'#1a1612',w:.28}, masonryB:{c:'#efe6d2',w:.28},
+    glow(c,x,y,r,col,b,t){ c.save(); c.strokeStyle=b?'#efe6d2':'#1a1612'; c.lineWidth=.3; c.beginPath(); for(let i=0;i<12;i++){ const a=i/12*Math.PI*2+t*.2; c.moveTo(x+Math.cos(a)*r*.35,y+Math.sin(a)*r*.35); c.lineTo(x+Math.cos(a)*r*.7,y+Math.sin(a)*r*.7); } c.stroke(); c.restore(); },
+    veil(c,sc,t){ const y=sc.mirror; c.save(); c.strokeStyle='#1a1612'; c.lineWidth=.8; c.beginPath(); c.moveTo(0,y-.8); c.lineTo(sc.w,y-.8); c.stroke(); c.strokeStyle='#efe6d2'; c.beginPath(); c.moveTo(0,y+.8); c.lineTo(sc.w,y+.8); c.stroke(); c.restore(); } },
+  paper:{ name:'Paper cut-out',
+    bg(c,sc){ const y1=sc.mirror ?? sc.below ?? sc.h; const night=sc.sky==='night'; c.fillStyle=night?'#2e3352':(sc.sky==='dusk'?'#e8b9a0':'#d9e6ea'); c.fillRect(0,0,sc.w,y1); grain(c,c._rnd,sc.w,y1,700,night?'#ffffff':'#7a6a55',.12);
+      const rnd=c._rnd; c.save(); c.shadowColor='rgba(0,0,0,.2)'; c.shadowOffsetY=1*c._k; c.shadowBlur=2*c._k; c.fillStyle=night?'#3a4066':'#f4efe4'; for(let i=0;i<3;i++){ const x=rnd()*sc.w, y=8+rnd()*y1*.3; c.beginPath(); c.ellipse(x,y,10,3.2,0,0,Math.PI*2); c.ellipse(x+6,y-2,6,3,0,0,Math.PI*2); c.fill(); } c.restore(); },
+    under(c,sc,y0){ c.fillStyle='#3b2f5a'; c.fillRect(0,y0,sc.w,sc.h-y0); grain(c,c._rnd,sc.w,sc.h,500,'#ffffff',.06); },
+    fill(r,b){ const v=ROLE[r]||r; return b? mix(v,'#3b2f5a',.55) : mix(v,'#efe7d6',.22); },
+    stroke(r,b){ return {c:b?'rgba(255,255,255,.12)':'rgba(255,255,255,.35)', w:.25}; },
+    shadow:{c:'rgba(20,12,8,.32)',x:.5,y:.8,b:1.3}, jitter:.25, masonry:null,
+    glow(c,x,y,r,col,b,t){ c.save(); c.globalAlpha=.35+.1*Math.sin(t*2); c.fillStyle=col; c.beginPath(); c.arc(x,y,r*.55,0,Math.PI*2); c.fill(); c.restore(); },
+    veil(c,sc,t){ const y=sc.mirror; c.save(); c.fillStyle='#e9d8ff'; c.beginPath(); c.moveTo(0,y-.6); for(let x=0;x<=sc.w;x+=3) c.lineTo(x,y-.6+Math.sin(x*1.7)*.5); c.lineTo(sc.w,y+.9); c.lineTo(0,y+.9); c.fill(); c.restore(); } },
+  glass:{ name:'Stained glass',
+    bg(c,sc){ const y1=sc.mirror ?? sc.below ?? sc.h; skyFill(c,sc,['#1d2a6b','#3c3f99','#7c4fa8','#d9824a'],y1); const rnd=c._rnd; c.save(); c.strokeStyle='#15101c'; c.lineWidth=.9; c.beginPath(); for(let i=0;i<9;i++){ let x=rnd()*sc.w, y=0; c.moveTo(x,y); while(y<y1){ x+= (rnd()-.5)*sc.w*.25; y+= y1*(.15+rnd()*.2); c.lineTo(x,Math.min(y,y1)); } } for(let i=0;i<5;i++){ const y=rnd()*y1; c.moveTo(0,y); c.lineTo(sc.w,y+(rnd()-.5)*20); } c.stroke(); c.restore(); },
+    under(c,sc,y0){ c.fillStyle=grad(c,0,y0,0,sc.h,['#3a2466','#1c1236','#0c0816']); c.fillRect(0,y0,sc.w,sc.h-y0); },
+    fill(r,b){ const J={stone:'#6f8fbf',stoneDark:'#44598a',roof:'#b3263b',wood:'#b8752f',warm:'#d9892b',cold:'#2f4f8f',crypt:'#3b2a5c',glowRoom:'#e6a93a',grass:'#2f8f5b',earth:'#4a3524',flesh:'#f3c98b',cloth:'#c43b3b',cloth2:'#2f63b8',clothDark:'#3b2f7a',metal:'#9fb3cf',bone:'#f2e6c8',ghost:'#bfe6ff',shadow:'#1b1030',gold:'#f2b632',glass:'#a8e0f0',water:'#2f6fa8',rot:'#6f9f3f',accent:'#c42b4b',light:'#ffe39a',sand:'#e0b060',dark:'#1b1030'}; const v=J[r]||ROLE[r]||r; return b? mix(v,'#2a1850',.5) : v; },
+    stroke(){ return {c:'#15101c', w:.85}; }, leads:true, masonry:null,
+    glow(c,x,y,r,col,b,t){ c.save(); c.globalCompositeOperation='lighter'; radial(c,x,y,r*1.2*(1+.08*Math.sin(t*3)),col,.5); c.restore(); },
+    veil(c,sc,t){ veilGlow(c,sc,t,['#f2d27a','#ffcf6b','#ffffff']); } },
+  water:{ name:'Watercolor',
+    bg(c,sc){ c.fillStyle='#f5f0e6'; c.fillRect(0,0,sc.w,sc.h); const y1=sc.mirror ?? sc.below ?? sc.h; const rnd=c._rnd; const cols=sc.sky==='night'?['#3b4a7a','#6b6fa8']:['#9cc4e4','#f3c9a6']; for(let i=0;i<7;i++){ c.save(); c.globalAlpha=.16; c.fillStyle=cols[i%2]; c.beginPath(); c.ellipse(rnd()*sc.w,rnd()*y1*.8,sc.w*(.3+rnd()*.3),y1*(.12+rnd()*.15),rnd(),0,Math.PI*2); c.fill(); c.restore(); } grain(c,rnd,sc.w,sc.h,1200,'#8a7a66',.12); },
+    under(c,sc,y0){ c.save(); c.globalAlpha=.55; c.fillStyle=grad(c,0,y0,0,sc.h,['#5b6fa3','#3b2f6a']); c.fillRect(0,y0,sc.w,sc.h-y0); c.restore(); },
+    fill(r,b){ const v=mix(ROLE[r]||r,'#f5f0e6',.18); return b? mix(v,'#4b3f8a',.55) : v; },
+    stroke(r,b){ const v=ROLE[r]||r; return {c:(b?mix(v,'#241a4a',.6):mix(v,'#2a1f1a',.45))+'88', w:.35}; },
+    alpha:.62, passes:2, jitter:.7, masonry:null,
+    glow(c,x,y,r,col,b,t){ radial(c,x,y,r*1.2,col,.35); },
+    veil(c,sc,t){ const y=sc.mirror; c.save(); c.globalAlpha=.5; c.strokeStyle='#6b5fb0'; c.lineWidth=.8; c.beginPath(); for(let x=0;x<=sc.w;x+=2) c.lineTo(x,y+Math.sin(x*.3+t*1.5)*.5); c.stroke(); c.restore(); } },
+  blueprint:{ name:'Blueprint',
+    bg(c,sc){ c.fillStyle='#1d4c86'; c.fillRect(0,0,sc.w,sc.h); c.save(); c.strokeStyle='rgba(255,255,255,.08)'; c.lineWidth=.2; c.beginPath(); for(let x=0;x<=sc.w;x+=5){ c.moveTo(x,0); c.lineTo(x,sc.h); } for(let y=0;y<=sc.h;y+=5){ c.moveTo(0,y); c.lineTo(sc.w,y); } c.stroke(); c.strokeStyle='rgba(255,255,255,.16)'; c.beginPath(); for(let x=0;x<=sc.w;x+=25){ c.moveTo(x,0); c.lineTo(x,sc.h); } for(let y=0;y<=sc.h;y+=25){ c.moveTo(0,y); c.lineTo(sc.w,y); } c.stroke(); c.restore(); },
+    under(c,sc,y0){ c.save(); c.fillStyle='rgba(8,20,48,.35)'; c.fillRect(0,y0,sc.w,sc.h-y0); c.restore(); },
+    fill(r,b){ return (r==='earth'||r==='stoneDark')? 'rgba(255,255,255,.04)' : null; },
+    stroke(r,b){ return {c:b?'#8fb8ff':'#eaf2ff', w:.45, dash:b?[1.2,1]:null}; },
+    hatch(r){ return (r==='earth'||r==='stoneDark')? {c:'rgba(234,242,255,.35)',gap:2.2,ang:45,w:.2} : null; },
+    masonry:null,
+    glow(c,x,y,r,col,b,t){ c.save(); c.strokeStyle='#eaf2ff'; c.lineWidth=.3; c.setLineDash([.8,.8]); c.beginPath(); c.arc(x,y,r*.6,0,Math.PI*2); c.stroke(); c.restore(); },
+    veil(c,sc,t){ const y=sc.mirror; c.save(); c.strokeStyle='#ffd27a'; c.lineWidth=.5; c.setLineDash([3,1.5]); c.beginPath(); c.moveTo(0,y); c.lineTo(sc.w,y); c.stroke(); c.restore(); } }
+};
+
+/* ===================== Round 2: vector kit — paths, painter, figures, props, pipeline ===================== */
+function RP(x,y,w,h){ const p=new Path2D(); p.rect(x,y,w,h); p._bb=[x,y,w,h]; return p; }
+function PP(pts){ const p=new Path2D(); p.moveTo(pts[0][0],pts[0][1]); for(let i=1;i<pts.length;i++) p.lineTo(pts[i][0],pts[i][1]); p.closePath(); let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9; for(const q of pts){ x0=Math.min(x0,q[0]); y0=Math.min(y0,q[1]); x1=Math.max(x1,q[0]); y1=Math.max(y1,q[1]); } p._bb=[x0,y0,x1-x0,y1-y0]; return p; }
+function CP(x,y,r,ry){ const p=new Path2D(); p.ellipse(x,y,r,ry??r,0,0,Math.PI*2); p._bb=[x-r,y-(ry??r),2*r,2*(ry??r)]; return p; }
+function hatchBB(c,bb,h){ const [x,y,w,hh]=bb, cx=x+w/2, cy=y+hh/2, D=Math.hypot(w,hh)/2+1, a=(h.ang||45)*Math.PI/180;
+  const lines=(ang)=>{ const dx=Math.cos(ang), dy=Math.sin(ang), nx=-dy, ny=dx; for(let d=-D; d<=D; d+=h.gap){ const px=cx+nx*d, py=cy+ny*d; c.moveTo(px-dx*D,py-dy*D); c.lineTo(px+dx*D,py+dy*D); } };
+  c.save(); c.strokeStyle=h.c; c.lineWidth=h.w||.3; c.beginPath(); lines(a); if(h.cross) lines(a+Math.PI/2); c.stroke(); c.restore(); }
+function paint(c,st,path,role,b){
+  const f=st.fill(role,b), s=st.stroke?st.stroke(role,b):null, k=c._k||1;
+  if(f){ c.save(); if(st.shadow&&!b){ c.shadowColor=st.shadow.c; c.shadowOffsetX=st.shadow.x*k; c.shadowOffsetY=st.shadow.y*k; c.shadowBlur=st.shadow.b*k; }
+    const n=st.passes||1; for(let i=0;i<n;i++){ c.globalAlpha=(c._alpha??1)*(st.alpha??1); c.fillStyle=f; if(st.jitter){ c.save(); c.translate((c._rnd()-.5)*st.jitter,(c._rnd()-.5)*st.jitter); c.fill(path); c.restore(); } else c.fill(path); } c.restore(); }
+  if(st.hatch&&path._bb){ const h=st.hatch(role,b); if(h){ c.save(); c.clip(path); hatchBB(c,path._bb,h); c.restore(); } }
+  if(st.leads&&!b&&path._bb&&path._bb[2]*path._bb[3]>90){ const [x,y,w,hh]=path._bb; c.save(); c.clip(path); c.strokeStyle='#15101c'; c.lineWidth=.6; c.beginPath(); const r=c._rnd; for(let i=0;i<2+MF(w*hh/400);i++){ c.moveTo(x+r()*w,y); c.lineTo(x+r()*w,y+hh); c.moveTo(x,y+r()*hh); c.lineTo(x+w,y+r()*hh); } c.stroke(); c.restore(); }
+  if(s){ c.save(); c.globalAlpha=c._alpha??1; c.strokeStyle=s.c; c.lineWidth=s.w; c.lineJoin='round'; c.lineCap='round'; if(s.dash) c.setLineDash(s.dash); c.stroke(path); c.restore(); }
+}
+function inkOf(st,b){ const s=st.stroke&&st.stroke('line',b); return s? s.c : (b?'#e9dcff':'#1a1420'); }
+function fig(c,st,f,b,t){
+  const s=f.s||1, dir=f.dir||1, ph=f.ph||0; c.save(); c.translate(f.x,f.y); if(f.rot) c.rotate(f.rot); c.scale(dir*s,(f.flip?-1:1)*s);
+  const bob=f.a? Math.sin(t*3+ph)*.35 : 0, wk=f.walk? Math.sin(t*f.walk*2+ph) : 0; c.translate(0,bob);
+  const R_=(x,y,w,h,r)=>paint(c,st,RP(x,y,w,h),r,b), C_=(x,y,r,ro)=>paint(c,st,CP(x,y,r),ro,b), P_=(p,r)=>paint(c,st,PP(p),r,b);
+  const dot=(x,y,col)=>{ c.fillStyle=col; c.fillRect(x,y,.6,.55); };
+  const k=f.k||'living';
+  if(k==='ghost'){ const p=new Path2D(); p.moveTo(-2.4,-1); p.quadraticCurveTo(-2.7,-9.6,0,-9.6); p.quadraticCurveTo(2.7,-9.6,2.4,-1); for(let i=0;i<4;i++) p.quadraticCurveTo(1.8-i*1.2,.5+(i%2)*.4,1.2-i*1.2,-1); p.closePath(); p._bb=[-2.7,-9.6,5.4,10.4]; const o=c._alpha; c._alpha=.85; paint(c,st,p,'ghost',b); c._alpha=o; dot(-1,-7.4,'#1a1830'); dot(.4,-7.4,'#1a1830'); c.restore(); return; }
+  if(k==='monster'){ const p=new Path2D(); p.moveTo(-4,0); p.quadraticCurveTo(-4.6,-9,0,-10.5); p.quadraticCurveTo(4.6,-9,4,0); p.closePath(); p._bb=[-4.6,-10.5,9.2,10.5]; paint(c,st,p,'shadow',b);
+    c.save(); c.strokeStyle=st.fill('shadow',b)||'#14111c'; c.lineWidth=.9; c.lineCap='round'; for(let i=0;i<3;i++){ const a=-.9+i*.9+Math.sin(t*2+i+ph)*.25; c.beginPath(); c.moveTo(Math.sin(a)*2,-9); c.quadraticCurveTo(Math.sin(a)*5,-12,Math.sin(a)*6.5,-14.5+Math.cos(t*3+i)*.8); c.stroke(); } c.restore(); dot(-1.6,-7,'#ff4d5e'); dot(.9,-7,'#ff4d5e'); c.restore(); return; }
+  const role={head:'flesh',torso:f.c||'cloth',legs:'clothDark',arms:f.c||'cloth'};
+  if(k==='skeleton'||k==='mummy'){ role.head=role.torso=role.legs=role.arms='bone'; }
+  if(k==='zombie'){ role.head='rot'; role.arms='rot'; role.torso=f.c||'clothDark'; }
+  if(k==='knight'){ role.torso='metal'; role.legs='stoneDark'; role.arms='metal'; }
+  if(k==='shade'){ role.head=role.torso=role.legs=role.arms='shadow'; }
+  if(k==='necro'||k==='priest'){ const robe=k==='necro'?'clothDark':'bone'; P_([[-1.8,-6.2],[1.8,-6.2],[2.8,0],[-2.8,0]],robe); C_(0,-7.6,1.6,k==='necro'?'shadow':'flesh'); P_([[-2,-7],[-1.4,-9.8],[1.4,-9.8],[2,-7],[1.3,-8.8],[-1.3,-8.8]],robe);
+    if(k==='necro'){ dot(-.9,-7.8,'#7dff8a'); dot(.3,-7.8,'#7dff8a'); c.save(); c.strokeStyle=st.fill('wood',b)||'#8a5a3c'; c.lineWidth=.5; c.beginPath(); c.moveTo(3,0); c.lineTo(3,-10); c.stroke(); c.restore(); st.glow(c,3,-10.6,3.2,GLOW.green,b,t); C_(3,-10.6,.9,'light'); }
+    else { R_(1.4,-5,1.8,2.2,'cloth'); }
+    c.restore(); return; }
+  if(k==='fallen'){ c.rotate(-Math.PI/2); c.translate(-1,-2); }
+  R_(-1.5+wk*.4,-2.4,1.2,2.4,role.legs); R_(.3-wk*.4,-2.4,1.2,2.4,role.legs);
+  if(k==='mummy'){ R_(-1.8,-6.1,3.6,4,'bone'); } else P_([[-1.7,-6.1],[1.7,-6.1],[2,-2.2],[-2,-2.2]],role.torso);
+  if(k==='zombie') R_(1.4,-5.7,2.8,.9,'rot'); else { R_(-2.5,-5.9,.9,3.1,role.arms); R_(1.6,-5.9,.9,3.1,role.arms); }
+  if(k==='robber'){ C_(-2.3,-4.6,1.8,'cloth'); }
+  C_(0,-7.6,1.6,role.head);
+  const ink=inkOf(st,b);
+  if(k==='skeleton'){ c.save(); c.strokeStyle=ink; c.lineWidth=.25; c.beginPath(); for(let i=0;i<3;i++){ c.moveTo(-1.3,-5.4+i*.9); c.lineTo(1.3,-5.4+i*.9); } c.stroke(); c.restore(); dot(-.9,-7.9,'#1a1612'); dot(.3,-7.9,'#1a1612'); }
+  if(k==='mummy'){ c.save(); c.strokeStyle=ink; c.lineWidth=.22; c.beginPath(); for(let i=0;i<6;i++){ c.moveTo(-1.8,-6+i*.9); c.lineTo(1.8,-5.4+i*.9); } c.stroke(); c.restore(); dot(-.9,-7.8,'#ffe7a3'); dot(.3,-7.8,'#ffe7a3'); }
+  if(k==='shade'){ dot(-.9,-7.8,'#7fe7ff'); dot(.3,-7.8,'#7fe7ff'); if(f.glowing) st.glow(c,0,-5,5,GLOW.cyan,b,t); }
+  if(k==='living'||k==='villager'||k==='raider'||k==='robber'){ P_([[-1.6,-7.8],[-1.2,-9.3],[1.2,-9.3],[1.6,-7.8]],f.hair||'clothDark'); }
+  if(k==='knight'){ P_([[-1.8,-7.2],[-1.6,-9.4],[1.6,-9.4],[1.8,-7.2]],'metal'); R_(-.3,-11,.6,1.8,'accent'); }
+  if(k==='raider'){ P_([[-1.8,-8],[-1.6,-9.6],[1.6,-9.6],[1.8,-8]],'metal'); P_([[-1.6,-9.2],[-3,-11],[-2.2,-9]],'bone'); P_([[1.6,-9.2],[3,-11],[2.2,-9]],'bone'); }
+  if(k==='robber'){ P_([[-1.9,-7],[-1.5,-9.6],[1.5,-9.6],[1.9,-7]],'clothDark'); }
+  const hand=f.tool; if(hand){ c.save(); c.strokeStyle=st.fill('wood',b)||inkOf(st,b); c.lineWidth=.5; c.beginPath();
+    if(hand==='spear'||hand==='torch'||hand==='fork'||hand==='axe'||hand==='pick'){ c.moveTo(2.6,-1.5); c.lineTo(2.6,-10); } c.stroke(); c.restore();
+    if(hand==='spear') P_([[2.1,-10],[3.1,-10],[2.6,-11.6]],'metal');
+    if(hand==='axe') P_([[2.6,-9.8],[4.4,-10.6],[4.4,-8.2],[2.6,-8.6]],'metal');
+    if(hand==='fork') R_(1.8,-10.6,1.6,.4,'metal');
+    if(hand==='pick') P_([[.8,-10.2],[4.4,-10.2],[4.6,-9.6],[1,-9.7]],'metal');
+    if(hand==='torch'){ st.glow(c,2.6,-10.6,4,GLOW.amber,b,t); C_(2.6,-10.6,.8,'light'); }
+    if(hand==='lantern'){ R_(2.2,-5,1.2,1.6,'metal'); st.glow(c,2.8,-4.2,4,GLOW.amber,b,t); }
+    if(hand==='sign'){ R_(2.4,-11,.4,8,'wood'); R_(.2,-13,6,3,'paper'); }
+  }
+  c.restore();
+}
+function prop(c,st,p,b,t){
+  const x=p.x, y=p.y, R_=(xx,yy,w,h,r)=>paint(c,st,RP(xx,yy,w,h),r,b), P_=(q,r)=>paint(c,st,PP(q),r,b), ink=inkOf(st,b);
+  switch(p.k){
+    case 'mirror': R_(x-2.3,y-9,4.6,7,'wood'); R_(x-1.6,y-8.3,3.2,5.6,'glass'); c.save(); c.strokeStyle='rgba(255,255,255,.8)'; c.lineWidth=.35; c.beginPath(); c.moveTo(x-1,y-4.2); c.lineTo(x+.8,y-7.4); c.stroke(); c.restore(); if(p.glow) st.glow(c,x,y-5.5,5,GLOW.violet,b,t); break;
+    case 'coveredMirror': R_(x-2.3,y-9,4.6,7,'wood'); P_([[x-3,y-9.5],[x+3,y-9.5],[x+2.5,y-1.2],[x+.4,y-2.2],[x-2.6,y-1.4]],'cloth2'); break;
+    case 'altar': R_(x-4,y-3,8,3,'stone'); R_(x-3.2,y-4.4,.6,1.4,'bone'); R_(x+2.6,y-4.4,.6,1.4,'bone'); st.glow(c,x,y-5,4,GLOW.amber,b,t); break;
+    case 'shelf': R_(x-4,y-9,8,9,'wood'); for(let r=0;r<2;r++) for(let i=0;i<6;i++) R_(x-3.5+i*1.2,y-8.4+r*4,.9,3,['cloth','cloth2','accent','bone','gold','rot'][(i+r*2)%6]); break;
+    case 'table': R_(x-4,y-3.4,8,1,'wood'); R_(x-3.6,y-2.4,.8,2.4,'wood'); R_(x+2.8,y-2.4,.8,2.4,'wood'); break;
+    case 'bed': R_(x-4,y-2.4,8,2.4,'wood'); R_(x-2.6,y-3.2,6.2,1,'cloth2'); R_(x-4,y-3.4,1.6,1.2,'bone'); break;
+    case 'anvil': P_([[x-2.6,y-3.2],[x+2.8,y-3.2],[x+1.4,y-1.9],[x+1,y],[x-1,y],[x-1.4,y-1.9]],'metal'); break;
+    case 'forge': R_(x-3,y-7,6,7,'stoneDark'); R_(x-1.8,y-4,3.6,4,'dark'); st.glow(c,x,y-2.2,6,GLOW.amber,b,t); break;
+    case 'barrel': P_([[x-1.6,y],[x-2,y-2],[x-1.6,y-4.4],[x+1.6,y-4.4],[x+2,y-2],[x+1.6,y]],'wood'); break;
+    case 'banner': P_([[x-2,y-10],[x+2,y-10],[x+2,y-3],[x,y-4.3],[x-2,y-3]],'accent'); break;
+    case 'coffin': P_([[x-1.5,y-9],[x+1.5,y-9],[x+2.3,y-6.4],[x+1.6,y],[x-1.6,y],[x-2.3,y-6.4]],'wood'); break;
+    case 'circle': c.save(); c.strokeStyle=st===STYLES.woodcut?ink:(st===STYLES.blueprint?'#eaf2ff':'#7dff8a'); c.lineWidth=.5; c.beginPath(); c.ellipse(x,y-.6,p.r||9,1.5,0,0,Math.PI*2); c.stroke(); c.restore(); st.glow(c,x,y-2,(p.r||9)*.9,GLOW.green,b,t); break;
+    case 'cauldron': paint(c,st,CP(x,y-2,2.6,2.2),'dark',b); R_(x-3,y-4.2,6,.8,'metal'); st.glow(c,x,y-4.6,4,GLOW.green,b,t); break;
+    case 'desk': R_(x-4.5,y-3.6,9,1,'wood'); R_(x-4,y-2.6,1,2.6,'wood'); R_(x+3,y-2.6,1,2.6,'wood'); R_(x-2.4,y-4.4,3.2,.8,'paper'); R_(x+1,y-4.8,1,1.2,'gold'); break;
+    case 'bones': c.save(); c.strokeStyle=st.fill('bone',b)||ink; c.lineWidth=.6; c.lineCap='round'; c.beginPath(); c.moveTo(x-2.4,y-.4); c.lineTo(x+2.4,y-2); c.moveTo(x-2.2,y-2.2); c.lineTo(x+2.2,y-.5); c.stroke(); c.restore(); break;
+    case 'lantern': R_(x-.9,y-2.8,1.8,2.4,'metal'); st.glow(c,x,y-1.6,6,GLOW.amber,b,t); break;
+    case 'throne': R_(x-2,y-7.5,4,7.5,'gold'); R_(x-1.4,y-4.2,2.8,2,'accent'); break;
+    case 'crate': R_(x-2.2,y-4,4.4,4,'wood'); break;
+    case 'mug': R_(x-.6,y-1.4,1.2,1.4,'bone'); break;
+  }
+}
+function drawItem(c,st,it,b,t,sc){
+  const R_=(x,y,w,h,r)=>paint(c,st,RP(x,y,w,h),r,b);
+  switch(it.t){
+    case 'block':{ const {x,y,w,h}=it; let p;
+      if(it.top==='crenel'){ const q=[[x,y+h],[x,y]]; for(let xx=x; xx<x+w-.1; xx+=4.6){ q.push([xx,y-2.4],[Math.min(xx+2.4,x+w),y-2.4],[Math.min(xx+2.4,x+w),y],[Math.min(xx+4.6,x+w),y]); } q.push([x+w,y],[x+w,y+h]); p=PP(q); }
+      else if(it.top==='broken'){ const q=[[x,y+h],[x,y]]; const r=rngOf((x*7+y)|0); for(let xx=x; xx<x+w; xx+=3) q.push([Math.min(xx+1.5,x+w),y-r()*5]); q.push([x+w,y+2],[x+w,y+h]); p=PP(q); }
+      else p=RP(x,y,w,h);
+      paint(c,st,p,it.role||'stone',b);
+      const m=b?(st.masonryB||st.masonry):st.masonry; if(m){ c.save(); c.clip(p); c.strokeStyle=m.c; c.lineWidth=m.w; c.beginPath(); for(let yy=y+3,row=0; yy<y+h; yy+=3,row++){ c.moveTo(x,yy); c.lineTo(x+w,yy); for(let xx=x+(row%2?2.5:0); xx<x+w; xx+=5){ c.moveTo(xx,yy-3); c.lineTo(xx,yy); } } c.stroke(); c.restore(); }
+      (it.win||[]).forEach(([wx,wy])=>{ const q=new Path2D(); q.moveTo(wx-1,wy+2.6); q.lineTo(wx-1,wy); q.arc(wx,wy,1,Math.PI,0); q.lineTo(wx+1,wy+2.6); q.closePath(); q._bb=[wx-1,wy-1,2,3.6]; paint(c,st,q,it.lit===false?'dark':'light',b); });
+      break; }
+    case 'roof': paint(c,st,PP([[it.x,it.y+it.h],[it.x+it.w/2,it.y],[it.x+it.w,it.y+it.h]]),it.role||'roof',b); break;
+    case 'poly': paint(c,st,PP(it.pts),it.role||'stone',b); break;
+    case 'rect': R_(it.x,it.y,it.w,it.h,it.role||'stone'); break;
+    case 'room': R_(it.x,it.y,it.w,it.h,it.tone||'warm'); R_(it.x,it.y+it.h-1.3,it.w,1.3,'wood'); (it.props||[]).forEach(p=>prop(c,st,p,b,t)); break;
+    case 'fig': fig(c,st,it,b,t); break;
+    case 'prop': prop(c,st,it,b,t); break;
+    case 'glow': st.glow(c,it.x,it.y,it.r,GLOW[it.c]||it.c,b,t); break;
+    case 'grave':{ const q=new Path2D(); q.moveTo(it.x-2.4,it.y); q.lineTo(it.x-2.4,it.y-5.2); q.arc(it.x,it.y-5.2,2.4,Math.PI,0); q.lineTo(it.x+2.4,it.y); q.closePath(); q._bb=[it.x-2.4,it.y-7.6,4.8,7.6]; paint(c,st,q,'stone',b);
+      if(it.sym){ c.save(); c.strokeStyle=inkOf(st,b); c.lineWidth=.3; c.beginPath(); const s=it.sym, X=it.x, Y=it.y-4.6; if(s==='sword'){ c.moveTo(X,Y-2); c.lineTo(X,Y+2); c.moveTo(X-1,Y-.8); c.lineTo(X+1,Y-.8); } if(s==='anvil'){ c.moveTo(X-1.3,Y-.6); c.lineTo(X+1.3,Y-.6); c.moveTo(X,Y-.6); c.lineTo(X,Y+1.4); } if(s==='book'){ c.rect(X-1.2,Y-1,2.4,1.8); c.moveTo(X,Y-1); c.lineTo(X,Y+.8); } if(s==='wheat'){ c.moveTo(X,Y+1.8); c.lineTo(X,Y-1.8); c.moveTo(X,Y-.6); c.lineTo(X-.9,Y-1.5); c.moveTo(X,Y-.6); c.lineTo(X+.9,Y-1.5); } if(s==='cup'){ c.moveTo(X-1,Y-1); c.lineTo(X+1,Y-1); c.lineTo(X,Y+.4); c.closePath(); c.moveTo(X,Y+.4); c.lineTo(X,Y+1.6); } c.stroke(); c.restore(); } break; }
+    case 'tree':{ c.save(); c.strokeStyle=st.fill('dark',b)||inkOf(st,b); c.lineCap='round'; const X=it.x, Y=it.y, h=it.h||18; c.lineWidth=1.1; c.beginPath(); c.moveTo(X,Y); c.lineTo(X+.5,Y-h); c.stroke(); c.lineWidth=.5; c.beginPath(); c.moveTo(X+.3,Y-h*.55); c.lineTo(X-5,Y-h*.9); c.moveTo(X+.4,Y-h*.7); c.lineTo(X+5,Y-h*1.05); c.moveTo(X-2.6,Y-h*.72); c.lineTo(X-3.4,Y-h*1.02); c.moveTo(X+2.8,Y-h*.86); c.lineTo(X+4.4,Y-h*.8); c.stroke(); c.restore(); break; }
+    case 'moon': paint(c,st,CP(it.x,it.y,it.r),'bone',b); if(st!==STYLES.woodcut&&st!==STYLES.blueprint) radial(c,it.x,it.y,it.r*2.4,'#fff6d8',.18); break;
+    case 'sun': st.glow(c,it.x,it.y,it.r*2.2,GLOW.amber,b,t); paint(c,st,CP(it.x,it.y,it.r),'light',b); break;
+    case 'flow':{ const pts=it.pts, col=st===STYLES.woodcut?inkOf(st,b):(st===STYLES.blueprint?'#ffd27a':(GLOW[it.c]||it.c)); c.save(); c.strokeStyle=col; c.fillStyle=col; c.lineWidth=it.w||.7; c.setLineDash([2,1.4]); c.lineDashOffset=-t*6; c.beginPath(); c.moveTo(pts[0][0],pts[0][1]);
+      for(let i=1;i<pts.length-1;i++){ const mx=(pts[i][0]+pts[i+1][0])/2, my=(pts[i][1]+pts[i+1][1])/2; c.quadraticCurveTo(pts[i][0],pts[i][1],mx,my); } const L=pts[pts.length-1], Q=pts[pts.length-2]; c.lineTo(L[0],L[1]); c.stroke(); c.setLineDash([]);
+      const a=Math.atan2(L[1]-Q[1],L[0]-Q[0]); c.beginPath(); c.moveTo(L[0]+Math.cos(a)*1.6,L[1]+Math.sin(a)*1.6); c.lineTo(L[0]+Math.cos(a+2.4)*2,L[1]+Math.sin(a+2.4)*2); c.lineTo(L[0]+Math.cos(a-2.4)*2,L[1]+Math.sin(a-2.4)*2); c.fill(); c.restore(); break; }
+    case 'water':{ const o=c._alpha; c._alpha=it.alpha??.85; R_(0,it.y,sc.w,(it.h||sc.h-it.y),'water'); c._alpha=o; c.save(); c.strokeStyle='rgba(255,255,255,.5)'; c.lineWidth=.3; c.beginPath(); for(let i=0;i<8;i++){ const yy=it.y+2+i*2.4; const x0=(i*53+t*3)%sc.w; c.moveTo(x0,yy); c.lineTo(x0+8+i,yy); } c.stroke(); c.restore(); break; }
+    case 'text':{ c.save(); c.font=`${it.wt||800} ${it.size||5}px 'Alegreya Sans',system-ui,sans-serif`; c.textAlign=it.align||'center'; c.textBaseline='middle'; c.fillStyle= it.col || (st===STYLES.blueprint?'#eaf2ff':inkOf(st,b)); if(it.rot){ c.translate(it.x,it.y); c.rotate(it.rot); c.fillText(it.s,0,0); } else c.fillText(it.s,it.x,it.y); c.restore(); break; }
+    case 'dim':{ c.save(); c.strokeStyle='#eaf2ff'; c.fillStyle='#eaf2ff'; c.lineWidth=.3; c.beginPath(); c.moveTo(it.x0,it.y0); c.lineTo(it.x1,it.y1); const a=Math.atan2(it.y1-it.y0,it.x1-it.x0), n=a+Math.PI/2; for(const [X,Y] of [[it.x0,it.y0],[it.x1,it.y1]]){ c.moveTo(X+Math.cos(n)*1.6,Y+Math.sin(n)*1.6); c.lineTo(X-Math.cos(n)*1.6,Y-Math.sin(n)*1.6); } c.stroke(); c.font=`700 3.6px 'Alegreya Sans',sans-serif`; c.textAlign='center'; c.translate((it.x0+it.x1)/2+Math.cos(n)*-2.4,(it.y0+it.y1)/2+Math.sin(n)*-2.4); c.rotate(Math.abs(a)>1.5?a-Math.PI:a); c.fillText(it.s,0,0); c.restore(); break; }
+    case 'wisp':{ c.save(); c.strokeStyle= st===STYLES.woodcut?inkOf(st,b):(st===STYLES.paper?'#5b4a7a':'rgba(214,236,255,.75)'); c.lineWidth=.6; c.setLineDash([1,1.2]); c.lineDashOffset=-t*5; c.beginPath(); c.moveTo(it.pts[0][0],it.pts[0][1]); c.bezierCurveTo(it.pts[1][0],it.pts[1][1],it.pts[2][0],it.pts[2][1],it.pts[3][0],it.pts[3][1]); c.stroke(); c.restore(); break; }
+    case 'bar':{ R_(it.x,it.y,it.w,2.2,'paper'); const o=c._alpha; R_(it.x+.3,it.y+.3,(it.w-.6)*it.v,1.6,it.v>.7?'accent':(it.v>.4?'gold':'grass')); c._alpha=o; break; }
+  }
+}
+/* pipeline: cache static layers per size, draw dynamic items per frame */
+function vCache(sc,st,k){
+  const W=sc.w,H=sc.h, prep=(cv)=>{ const c=cv.getContext('2d'); c.setTransform(k,0,0,k,0,0); c._k=k; c._rnd=rngOf(sc.seed||3); c._alpha=1; return c; };
+  const bg=mk(W*k,H*k), g=prep(bg); st.bg(g,sc); const y0=sc.mirror??sc.below; if(y0!=null) st.under(g,sc,y0);
+  let refl=null; if(sc.mirror!=null){ refl=mk(W*k,H*k); const r=prep(refl); r.save(); r.beginPath(); r.rect(0,sc.mirror,W,H-sc.mirror); r.clip(); r.translate(0,2*sc.mirror); r.scale(1,-1);
+    for(const it of sc.items) if(!it.a&&!it.below&&it.mirror!==false&&it.t!=='fig') drawItem(r,st,it,true,0,sc); r.restore(); }
+  const fore=mk(W*k,H*k), f=prep(fore); for(const it of sc.items) if(!it.a) drawItem(f,st,it,!!it.below,sc.still||2,sc);
+  return {bg,refl,fore,k};
+}
+function vFrame(ctx,sc,st,cache,t,shimmer){
+  const k=cache.k; ctx.setTransform(1,0,0,1,0,0); ctx.clearRect(0,0,ctx.canvas.width,ctx.canvas.height); ctx.drawImage(cache.bg,0,0);
+  if(cache.refl){ if(shimmer){ const y0=Math.floor(sc.mirror*k), step=Math.max(2,Math.round(k*1.5)), w=cache.refl.width; for(let y=y0;y<cache.refl.height;y+=step){ const dx=(y-y0>4*k)? Math.sin(y/k*.45+t*2.4)*.55*k : 0; ctx.drawImage(cache.refl,0,y,w,step,dx,y,w,step); } } else ctx.drawImage(cache.refl,0,0); }
+  ctx.drawImage(cache.fore,0,0);
+  ctx.setTransform(k,0,0,k,0,0); ctx._k=k; ctx._rnd=rngOf(11); ctx._alpha=1;
+  for(const it of sc.items) if(it.a) drawItem(ctx,st,it,!!it.below,t,sc);
+  if(sc.mirror!=null&&st.veil&&sc.veil!==false) st.veil(ctx,sc,t);
+  if(sc.overlay) sc.overlay(ctx,st,t);
+}
+function vStill(cv,sc,styleName,t){ const st=STYLES[styleName]; const k=cv.width/sc.w; const cache=vCache(sc,st,k); vFrame(cv.getContext('2d'),sc,st,cache,t??(sc.still||2),false); }
+
+/* ===================== Round 2: pixel renderer for scene graphs ===================== */
+const PX_SKY={ dusk:[P.night,P.ink,P.indigo,P.grape,P.mauve,P.pink], night:[P.void,P.night,P.ink,P.indigo], day:['#3b7dd8','#5a9be6','#86bff0','#bfe1f6'], desert:[P.orange,P.amber,P.yellow] };
+const PX_TONE={ warm:{wall:'#5a4038',wall2:P.brown}, cold:{wall:'#3f3a58',wall2:P.indigo}, crypt:{wall:'#1c1720',wall2:P.soot}, glowRoom:{wall:'#4a2a26',wall2:P.plum} };
+const PX_ROLE={ cloth:P.clay, cloth2:P.navy, clothDark:P.grape, rot:P.forest, accent:P.crimson, bone:P.bone, metal:P.steel, gold:P.amber };
+function pxFig(c,f,t){
+  const k=f.k||'living', x=MR(f.x-2), y=MR(f.y), o={face:f.dir||1,ph:f.ph||0,walk:f.walk?4:0};
+  const body=PX_ROLE[f.c]||P.clay;
+  const draw=()=>{
+    if(k==='ghost'){ const yy=y+MR(Math.sin(t*3+(f.ph||0))); R(c,x,yy-8,4,7,'#d6ecff'); D(c,x,yy-1,'#d6ecff'); D(c,x+2,yy-1,'#d6ecff'); D(c,x+1,yy-6,P.night); D(c,x+2,yy-6,P.night); return; }
+    if(k==='monster'){ for(let i=0;i<10;i++){ const w=2+MR(i/3); R(c,x+2-w,y-10+i,w*2,1,'#07060d'); } D(c,x,y-7,P.hot); D(c,x+3,y-7,P.hot); return; }
+    if(k==='fallen'){ R(c,x-2,y-2,7,2,body); R(c,x-4,y-2,2,2,P.peach); return; }
+    if(k==='skeleton') return human(c,x,y,Object.assign(o,{body:P.bone,skin:P.bone,legs:P.bone,eyes:P.night}),t);
+    if(k==='shade') return human(c,x,y,Object.assign(o,{body:'#07060d',skin:'#07060d',legs:'#07060d',eyes:P.cyan}),t);
+    if(k==='knight') return human(c,x,y,Object.assign(o,{body:P.steel,helm:P.silver,plume:P.red,spear:f.tool==='spear'}),t);
+    if(k==='raider') return human(c,x,y,Object.assign(o,{body:P.brown,skin:'#9fb38a',helm:P.slate,horns:1,spear:1}),t);
+    if(k==='necro') return human(c,x,y,Object.assign(o,{body:P.grape,hood:P.grape,robe:1,staff:P.green,eyes:P.green}),t);
+    if(k==='zombie') return human(c,x,y,Object.assign(o,{body:P.pine,skin:'#8fb07a',arms:'#8fb07a'}),t);
+    return human(c,x,y,Object.assign(o,{body,hair:P.brown,torch:f.tool==='torch',bow:f.tool==='bow'}),t);
+  };
+  if(f.flip){ c.save(); c.translate(0,2*MR(f.y)); c.scale(1,-1); draw(); c.restore(); } else draw();
+}
+function pxProp(c,p,t){ const x=MR(p.x), y=MR(p.y);
+  switch(p.k){
+    case 'mirror': R(c,x-2,y-8,5,7,P.brown); R(c,x-1,y-7,3,5,'#bfe3ef'); D(c,x,y-6,P.white); break;
+    case 'coveredMirror': R(c,x-2,y-8,5,7,P.brown); R(c,x-3,y-8,7,6,P.navy); D(c,x-3,y-2,P.navy); break;
+    case 'altar': R(c,x-4,y-3,8,3,P.steel); D(c,x-3,y-4,P.bone); D(c,x+2,y-4,P.bone); flame(c,x-3,y-5,t,0); flame(c,x+2,y-5,t,1); break;
+    case 'shelf': R(c,x-4,y-9,8,9,P.brown); for(let r=0;r<2;r++) for(let i=0;i<7;i++) D(c,x-3+i,y-8+r*4,[P.red,P.blue,P.green,P.amber,P.bone][(i+r)%5]); break;
+    case 'table': R(c,x-4,y-3,8,1,P.clay); D(c,x-3,y-2,P.brown); D(c,x+2,y-2,P.brown); D(c,x-3,y-1,P.brown); D(c,x+2,y-1,P.brown); break;
+    case 'bed': R(c,x-4,y-2,8,2,P.clay); R(c,x-2,y-3,6,1,P.navy); R(c,x-4,y-3,2,1,P.bone); break;
+    case 'anvil': R(c,x-2,y-3,5,1,P.steel); R(c,x-1,y-2,3,2,P.indigo); break;
+    case 'forge': R(c,x-3,y-7,6,7,P.indigo); R(c,x-2,y-4,4,4,P.night); flame(c,x-1,y-1,t,0); flame(c,x+1,y-1,t,1.3); glow(c,x,y-3,6,P.orange,.25); break;
+    case 'barrel': R(c,x-2,y-4,4,4,P.clay); R(c,x-2,y-3,4,1,P.brown); break;
+    case 'banner': R(c,x-2,y-10,4,7,P.crimson); D(c,x,y-7,P.amber); break;
+    case 'coffin': R(c,x-1,y-9,3,9,P.brown); R(c,x-2,y-7,5,4,P.brown); break;
+    case 'circle': for(let i=-9;i<=9;i++){ const e=MR(Math.sqrt(Math.max(0,1-(i/9)**2))*1.5); D(c,x+i,y-1-e,P.green); D(c,x+i,y-1+e,P.green); } glow(c,x,y-2,8,P.green,.2); break;
+    case 'lantern': R(c,x-1,y-3,2,2,P.steel); glow(c,x,y-2,5,P.amber,.3); D(c,x,y-2,P.yellow); break;
+    case 'throne': R(c,x-2,y-7,4,7,P.amber); R(c,x-1,y-4,2,2,P.crimson); break;
+    case 'crate': R(c,x-2,y-4,4,4,P.clay); R(c,x-2,y-4,4,1,P.tan); break;
+    case 'bones': D(c,x-2,y-1,P.bone); D(c,x-1,y-1,P.bone); D(c,x,y-2,P.bone); D(c,x+1,y-2,P.bone); break;
+  }
+}
+function pxItem(c,it,t,rnd,W,H){
+  switch(it.t){
+    case 'block': bricks(c,rnd,MR(it.x),MR(it.y),MR(it.w),MR(it.h),{base:P.steel,dark:P.slate,light:P.silver}); if(it.top==='crenel') crenel(c,MR(it.x),MR(it.y),MR(it.w),P.steel,P.slate); (it.win||[]).forEach(([wx,wy])=>R(c,MR(wx)-1,MR(wy),2,3,it.lit===false?P.night:P.amber)); break;
+    case 'roof':{ const cx=MR(it.x+it.w/2); poly(c,[[it.x,it.y+it.h],[cx,it.y],[it.x+it.w,it.y+it.h]],P.crimson); poly(c,[[cx,it.y],[it.x+it.w,it.y+it.h],[cx,it.y+it.h]],P.plum); break; }
+    case 'poly': poly(c,it.pts,{hill:'#4b8a5c',hill2:'#3f7a52',earth:P.earth,grass:P.forest,stone:P.slate,dark:P.night,sand:P.tan}[it.role]||P.slate); break;
+    case 'rect': R(c,it.x,it.y,it.w,it.h,{earth:P.earth,grass:P.forest,stone:P.slate,dark:P.night,water:P.navy,wood:P.brown}[it.role]||P.slate); break;
+    case 'room':{ const tn=PX_TONE[it.tone||'warm']; room(c,rnd,MR(it.x),MR(it.y),MR(it.w),MR(it.h),{wall:tn.wall,wall2:tn.wall2,floor:P.brown,floorTop:P.clay}); (it.props||[]).forEach(p=>pxProp(c,p,t)); break; }
+    case 'prop': pxProp(c,it,t); break;
+    case 'fig': pxFig(c,it,t); break;
+    case 'glow': glow(c,it.x,it.y,it.r,{amber:P.orange,green:P.green,violet:P.mauve,cyan:P.cyan,red:P.hot}[it.c]||P.orange,.3); break;
+    case 'flow': for(let i=0;i+1<it.pts.length;i++) line(c,it.pts[i][0],it.pts[i][1],it.pts[i+1][0],it.pts[i+1][1],{green:P.green,cyan:P.cyan,violet:'#d9a6ff',amber:P.amber,red:P.hot}[it.c]||P.cyan,3); break;
+    case 'grave': R(c,MR(it.x)-2,MR(it.y)-6,5,6,P.slate); R(c,MR(it.x)-1,MR(it.y)-7,3,1,P.slate); D(c,MR(it.x),MR(it.y)-4,P.indigo); break;
+    case 'tree': line(c,it.x,it.y,it.x,it.y-(it.h||18),P.soot); line(c,it.x,it.y-(it.h||18)*.6,it.x-5,it.y-(it.h||18)*.9,P.soot); line(c,it.x,it.y-(it.h||18)*.7,it.x+5,it.y-(it.h||18),P.soot); break;
+    case 'moon': ellipse(c,it.x,it.y,it.r,it.r,P.bone); break;
+    case 'sun': ellipse(c,it.x,it.y,it.r,it.r,P.yellow); break;
+    case 'water': R(c,0,it.y,W,H-it.y,P.navy); R(c,0,it.y,W,1,P.blue); break;
+  }
+}
+function pxRender(sc,t){
+  const W=sc.w,H=sc.h, cv=mk(W,H), c=cv.getContext('2d'), rnd=rngOf(sc.seed||3);
+  const y1=sc.mirror??sc.below??H; sky(c,0,0,W,y1,PX_SKY[sc.sky||'dusk']);
+  if(sc.mirror!=null||sc.below!=null) sky(c,0,y1,W,H-y1,['#2a1d45','#1d1636','#150f28','#0e0b18']);
+  if(sc.mirror!=null){ const top=mk(W,sc.mirror), tc=top.getContext('2d'), r2=rngOf(sc.seed||3); for(const it of sc.items) if(!it.below&&it.mirror!==false&&it.t!=='fig'&&!it.a) pxItem(tc,it,t,r2,W,H); const refl=mhReflect(top); c.drawImage(refl,0,sc.mirror); }
+  for(const it of sc.items) pxItem(c,it,t,rnd,W,H);
+  if(sc.mirror!=null){ R(c,0,sc.mirror-1,W,1,P.grape); R(c,0,sc.mirror,W,1,P.mauve); }
+  return cv;
+}
+
+/* ===================== Round 2: scene graphs ===================== */
+const R2 = {};
+R2.glasswake = function(){
+  const it=[];
+  it.push({t:'rect',x:0,y:158,w:180,h:3,role:'grass',mirror:false},{t:'rect',x:0,y:161,w:180,h:3,role:'earth',mirror:false});
+  it.push({t:'block',x:26,y:66,w:16,h:92,win:[[34,78],[34,100],[34,122]]},{t:'roof',x:22,y:46,w:24,h:20});
+  it.push({t:'block',x:138,y:80,w:16,h:78,win:[[146,92],[146,114]]},{t:'roof',x:134,y:62,w:24,h:18});
+  it.push({t:'block',x:80,y:56,w:20,h:40,win:[[90,66],[90,80]]},{t:'roof',x:75,y:34,w:30,h:22});
+  it.push({t:'block',x:40,y:94,w:100,h:64,top:'crenel'});
+  it.push({t:'room',x:54,y:99,w:72,h:17,tone:'cold',props:[{k:'shelf',x:62,y:114.7},{k:'table',x:88,y:114.7},{k:'mirror',x:112,y:114.7,glow:1}]});
+  it.push({t:'room',x:44,y:119,w:44,h:17,tone:'warm',props:[{k:'altar',x:57,y:134.7},{k:'coveredMirror',x:79,y:134.7}]});
+  it.push({t:'room',x:90,y:119,w:46,h:17,tone:'warm',props:[{k:'banner',x:99,y:134.7},{k:'table',x:115,y:134.7},{k:'throne',x:130,y:134.7}]});
+  it.push({t:'room',x:44,y:139,w:30,h:18,tone:'glowRoom',props:[{k:'forge',x:50,y:155.7},{k:'anvil',x:64,y:155.7}]});
+  it.push({t:'room',x:76,y:139,w:28,h:18,tone:'warm',props:[{k:'barrel',x:81,y:155.7},{k:'barrel',x:86,y:155.7},{k:'crate',x:97,y:155.7}]});
+  it.push({t:'room',x:106,y:139,w:30,h:18,tone:'cold',props:[{k:'bed',x:113,y:155.7},{k:'bed',x:128,y:155.7}]});
+  it.push({t:'moon',x:150,y:24,r:7,mirror:false});
+  it.push({t:'fig',k:'fallen',x:160,y:158,c:'cloth2'});
+  it.push({t:'fig',k:'living',x:58,y:155.7,c:'cloth',a:1,tool:'pick'},{t:'fig',k:'living',x:92,y:155.7,c:'cloth2',a:1,walk:1,ph:1});
+  it.push({t:'fig',k:'priest',x:68,y:134.7,a:1,ph:2},{t:'fig',k:'knight',x:62,y:94,a:1,tool:'spear',ph:.5},{t:'fig',k:'knight',x:122,y:94,a:1,tool:'spear',ph:1.5});
+  it.push({t:'fig',k:'raider',x:168,y:158,dir:-1,a:1,tool:'axe',ph:.3},{t:'fig',k:'raider',x:176,y:158,dir:-1,a:1,tool:'axe',ph:1.1});
+  it.push({t:'fig',k:'shade',x:58,y:172.3,flip:1,below:1,a:1,ph:.4},{t:'fig',k:'shade',x:94,y:172.3,flip:1,below:1,a:1,ph:1.2},{t:'fig',k:'shade',x:121,y:172.3,flip:1,below:1,a:1,ph:2,glowing:1});
+  it.push({t:'flow',pts:[[160,156],[166,166],[152,178],[126,181]],c:'cyan',a:1,below:1});
+  it.push({t:'fig',k:'monster',x:34,y:324,below:1,a:1,s:1.3},{t:'fig',k:'monster',x:96,y:328,below:1,a:1,s:1.6,ph:1},{t:'fig',k:'monster',x:152,y:324,below:1,a:1,s:1.2,ph:2});
+  it.push({t:'glow',x:112,y:108,r:8,c:'violet',a:1});
+  return {w:180,h:320,sky:'dusk',mirror:164,items:it,seed:5,still:2.4};
+};
+R2.undercroft = function(){
+  const it=[], G=96;
+  it.push({t:'rect',x:0,y:G-1.5,w:320,h:1.5,role:'grass',mirror:false});
+  it.push({t:'block',x:14,y:46,w:50,h:48.5,top:'crenel',win:[[26,58],[39,58],[52,58],[26,76],[52,76]]},{t:'block',x:30,y:24,w:18,h:22,win:[[39,31]]},{t:'roof',x:27,y:6,w:24,h:18});
+  it.push({t:'tree',x:78,y:G,h:24,mirror:false},{t:'moon',x:284,y:22,r:8,mirror:false});
+  const graves=[[96,'sword'],[118,'anvil'],[140,'book'],[162,'wheat'],[184,'cup'],[206,'sword'],[228,'anvil']];
+  const inner={sword:[{k:'banner',x:0},{k:'crate',x:6}],anvil:[{k:'forge',x:-4},{k:'anvil',x:5}],book:[{k:'shelf',x:0}],wheat:[{k:'barrel',x:-3},{k:'barrel',x:3}],cup:[{k:'altar',x:0}]};
+  graves.forEach(([x,s],i)=>{ it.push({t:'grave',x,y:G-.5,sym:s,mirror:false}); const h=18+(i%3)*5, y=G+4; it.push({t:'room',x:x-9,y,w:18,h,tone:['cold','glowRoom','warm'][i%3],below:1,props:inner[s].map(p=>({k:p.k,x:x+p.x,y:y+h-1.3}))}); it.push({t:'rect',x:x-1,y:G,w:2,h:4,role:'dark',below:1}); it.push({t:'fig',k:'shade',x:x-3+(i%2)*5,y:y+h-1.3,below:1,a:1,ph:i*.7}); if(i<graves.length-1) it.push({t:'rect',x:x+9,y:y+h-5,w:4,h:3.5,role:'crypt',below:1}); });
+  it.push({t:'rect',x:246,y:G-1.5,w:13,h:3,role:'dark',mirror:false},{t:'fig',k:'fallen',x:250,y:G-1.2,c:'cloth2'},{t:'fig',k:'living',x:264,y:G,c:'cloth',tool:'pick',a:1,dir:-1});
+  it.push({t:'fig',k:'robber',x:290,y:G,dir:-1,a:1,walk:1,tool:'lantern'},{t:'fig',k:'robber',x:300,y:G,dir:-1,a:1,walk:1,ph:1},{t:'fig',k:'priest',x:311,y:G,dir:-1,a:1,ph:2});
+  it.push({t:'flow',pts:[[252,G+1],[252,G+8],[252,G+15]],c:'green',a:1,below:1});
+  return {w:320,h:180,sky:'night',mirror:G,items:it,seed:9,still:1.5,
+    overlay(c,st,t){ c.save(); c.strokeStyle=st===STYLES.woodcut?'#efe6d2':'#c28bff'; c.lineWidth=.5; c.setLineDash([1.6,1.2]); c.lineDashOffset=-t*3; c.strokeRect(243,G+4,18,20); c.restore(); }};
+};
+R2.harrow = function(){
+  const it=[];
+  it.push({t:'poly',role:'hill',pts:[[0,122],[40,96],[90,106],[140,80],[190,98],[250,78],[320,96],[320,180],[0,180]]});
+  it.push({t:'poly',role:'water',pts:[[236,128],[320,112],[320,152],[228,152]]});
+  it.push({t:'poly',role:'hill2',pts:[[0,142],[50,124],[110,134],[168,114],[222,128],[250,150],[0,150]]});
+  it.push({t:'rect',x:0,y:148,w:320,h:32,role:'grass'});
+  const house=(x,y,s)=>{ it.push({t:'block',x,y:y-5*s,w:6*s,h:5*s,role:'bone',win:[[x+3*s,y-3.4*s]]},{t:'roof',x:x-1,y:y-9*s,w:6*s+2,h:4*s}); };
+  house(128,86,1); house(136,84,1.2); it.push({t:'block',x:146,y:62,w:8,h:22,role:'stone',win:[[150,68]]},{t:'roof',x:144,y:48,w:12,h:14});
+  house(178,112,1); house(186,110,1); house(194,113,.9); it.push({t:'poly',role:'dark',pts:[[204,114],[206,106],[212,106],[214,114]]});
+  house(262,122,1); house(271,124,1); house(280,121,1.1); it.push({t:'poly',role:'wood',pts:[[292,134],[306,134],[303,138],[295,138]]},{t:'rect',x:298.5,y:126,w:.8,h:8,role:'wood'});
+  it.push({t:'bar',x:130,y:40,w:22,v:.45},{t:'bar',x:180,y:96,w:22,v:.92},{t:'bar',x:262,y:104,w:22,v:.25});
+  it.push({t:'text',s:'Lumen Abbey',x:141,y:36,size:4.2,col:'#3b2f2a'},{t:'text',s:'Grayvein mine',x:191,y:92,size:4.2,col:'#3b2f2a'},{t:'text',s:'Saltmere',x:273,y:100,size:4.2,col:'#3b2f2a'});
+  it.push({t:'block',x:12,y:108,w:44,h:40,top:'crenel',role:'stoneDark',win:[[22,118],[34,118],[46,118]]},{t:'block',x:22,y:88,w:14,h:20,role:'stoneDark',win:[[29,94]]},{t:'roof',x:19,y:74,w:20,h:14,role:'clothDark'});
+  it.push({t:'wisp',pts:[[36,86],[70,40],[110,30],[136,44]],a:1},{t:'wisp',pts:[[40,90],[100,70],[150,80],[188,100]],a:1},{t:'wisp',pts:[[44,94],[140,110],[220,96],[268,110]],a:1});
+  it.push({t:'fig',k:'ghost',x:112,y:40,a:1,s:.9},{t:'fig',k:'ghost',x:160,y:88,a:1,s:.9,ph:1},{t:'fig',k:'ghost',x:232,y:100,a:1,s:.9,ph:2});
+  for(let i=0;i<7;i++) it.push({t:'fig',k:'villager',x:96+i*9,y:152,dir:-1,a:1,walk:1.2,ph:i*.6,c:['cloth','cloth2','rot'][i%3],tool:i%2?'torch':'fork'});
+  it.push({t:'fig',k:'skeleton',x:62,y:150,a:1,tool:'spear'},{t:'fig',k:'skeleton',x:70,y:150,a:1,tool:'spear',ph:1},{t:'fig',k:'necro',x:30,y:108,a:1});
+  return {w:320,h:180,sky:'dusk',items:it,seed:13,still:2};
+};
+R2.shift = function(){
+  const it=[];
+  it.push({t:'rect',x:0,y:150,w:320,h:30,role:'grass'},{t:'moon',x:292,y:22,r:8});
+  it.push({t:'block',x:24,y:40,w:236,h:110,top:'crenel',win:[]},{t:'block',x:118,y:12,w:30,h:28,win:[[133,22]]},{t:'roof',x:114,y:0,w:38,h:12});
+  it.push({t:'room',x:32,y:48,w:72,h:44,tone:'warm',props:[{k:'desk',x:62,y:90.7},{k:'shelf',x:44,y:90.7},{k:'banner',x:92,y:74}]});
+  it.push({t:'room',x:108,y:48,w:68,h:44,tone:'cold',props:[{k:'desk',x:142,y:90.7},{k:'crate',x:160,y:90.7}]});
+  it.push({t:'room',x:180,y:48,w:72,h:44,tone:'glowRoom',props:[{k:'table',x:214,y:90.7},{k:'mug',x:211,y:87.3},{k:'mug',x:217,y:87.3}]});
+  it.push({t:'room',x:32,y:96,w:72,h:50,tone:'cold',props:[{k:'coffin',x:44,y:144.7},{k:'coffin',x:52,y:144.7}]});
+  it.push({t:'room',x:108,y:96,w:68,h:50,tone:'warm',props:[{k:'anvil',x:124,y:144.7},{k:'forge',x:162,y:144.7},{k:'bones',x:142,y:144.7}]});
+  it.push({t:'room',x:180,y:96,w:72,h:50,tone:'crypt',props:[{k:'banner',x:198,y:122},{k:'banner',x:236,y:122}]});
+  it.push({t:'fig',k:'necro',x:66,y:90.7,a:1,s:1.3},{t:'text',s:'!!',x:72,y:66,size:6,col:'#d9534f'});
+  it.push({t:'fig',k:'ghost',x:136,y:88,a:1,s:1.2});
+  it.push({t:'fig',k:'skeleton',x:200,y:90.7,s:1.2,a:1},{t:'fig',k:'skeleton',x:226,y:90.7,s:1.2,dir:-1,a:1,ph:1});
+  it.push({t:'fig',k:'zombie',x:64,y:144.7,s:1.2,a:1},{t:'fig',k:'zombie',x:80,y:144.7,s:1.2,a:1,ph:1.3});
+  it.push({t:'fig',k:'skeleton',x:132,y:144.7,s:1.2,tool:'pick',a:1},{t:'fig',k:'skeleton',x:150,y:144.7,s:1.2,rot:-Math.PI/2});
+  it.push({t:'rect',x:207.6,y:124,w:.8,h:14,role:'wood'},{t:'rect',x:198,y:117,w:20,h:7.5,role:'paper'},{t:'rect',x:231.6,y:124,w:.8,h:14,role:'wood'},{t:'rect',x:222,y:115,w:20,h:9.5,role:'paper'});
+  it.push({t:'fig',k:'skeleton',x:204,y:144.7,s:1.2,a:1},{t:'fig',k:'skeleton',x:236,y:144.7,s:1.2,dir:-1,a:1,ph:1.4});
+  it.push({t:'text',s:'REST DAYS',x:208,y:120.9,size:3.6,col:'#1a1420'},{t:'text',s:'BONES NOT',x:232,y:118,size:3.4,col:'#1a1420'},{t:'text',s:'DRONES',x:232,y:121.8,size:3.4,col:'#1a1420'});
+  it.push({t:'text',s:'UNION OF BONES · LOCAL 13',x:216,y:104,size:4,col:'#f2c14e'});
+  it.push({t:'fig',k:'knight',x:282,y:150,dir:-1,s:1.3,tool:'spear',a:1,walk:1},{t:'fig',k:'living',x:300,y:150,dir:-1,s:1.2,c:'gold',a:1,walk:1,ph:1});
+  it.push({t:'text',s:'Payroll',x:142,y:56,size:4.4,col:'#eaf2ff'},{t:'text',s:'Break room',x:216,y:56,size:4.4,col:'#fff4d6'},{t:'text',s:'Cold room',x:68,y:104,size:4.4,col:'#eaf2ff'},{t:'text',s:"Necromancer's office",x:68,y:56,size:4.4,col:'#fff4d6'},{t:'text',s:'Workshop',x:142,y:104,size:4.4,col:'#fff4d6'});
+  return {w:320,h:180,sky:'dusk',items:it,seed:17,still:1.8};
+};
+
+R2.tomb = function(){
+  const it=[];
+  it.push({t:'rect',x:0,y:150,w:320,h:30,role:'earth'});
+  it.push({t:'poly',role:'stone',pts:[[40,150],[128,62],[192,62],[280,150]]});
+  const pass=(x0,y0,x1,y1,w)=>{ const dx=x1-x0, dy=y1-y0, L=Math.hypot(dx,dy), nx=-dy/L*w/2, ny=dx/L*w/2; it.push({t:'poly',role:'dark',pts:[[x0+nx,y0+ny],[x1+nx,y1+ny],[x1-nx,y1-ny],[x0-nx,y0-ny]]}); };
+  pass(108,92,150,164,2.2); it.push({t:'rect',x:146,y:160,w:18,h:7,role:'dark'});
+  pass(132,125,150,106,2); pass(150,106,170,86,4.4);
+  it.push({t:'rect',x:170,y:80,w:18,h:8,role:'dark'}); for(let i=0;i<4;i++) it.push({t:'rect',x:171,y:72-i*2.8,w:16,h:1.6,role:'dark'});
+  pass(150,106,160,106,1.6); it.push({t:'rect',x:160,y:101,w:10,h:7,role:'dark'});
+  pass(188,82,212,62,.7); pass(170,82,150,64,.7); pass(118,102,128,112,1.6);
+  it.push({t:'poly',role:'wood',pts:[[236,150],[300,150],[204,70],[196,70]]});
+  for(let i=0;i<3;i++){ const u=.25+i*.22, x=268-(268-204)*u, y=150-(150-70)*u; it.push({t:'fig',k:'mummy',x,y,s:1.1,dir:-1,a:1,walk:1,ph:i}); it.push({t:'rect',x:x-9,y:y-5,w:5,h:4,role:'stone',a:1}); }
+  it.push({t:'fig',k:'robber',x:14,y:150,a:1,walk:1,tool:'lantern'},{t:'fig',k:'robber',x:26,y:150,a:1,walk:1,ph:1});
+  it.push({t:'dim',x0:40,y0:158,x1:280,y1:158,s:'BASE 440 ROYAL CUBITS'},{t:'dim',x0:30,y0:30,x1:30,y1:150,s:'HEIGHT 280 CUBITS'});
+  return {w:320,h:180,items:it,seed:19,still:1,
+    overlay(c,st,t){ c.save(); c.strokeStyle='#eaf2ff'; c.fillStyle='#eaf2ff'; c.lineWidth=.4; c.setLineDash([2,1.5]); c.beginPath(); c.moveTo(128,62); c.lineTo(160,30); c.lineTo(192,62); c.stroke(); c.setLineDash([]);
+      c.font="700 3.5px 'Alegreya Sans',sans-serif"; c.textBaseline='middle';
+      const lab=(tx,ty,x,y,s,r)=>{ c.beginPath(); c.moveTo(x,y); c.lineTo(tx,ty); c.stroke(); c.textAlign=r?'right':'left'; c.fillText(s,tx+(r?-1:1),ty); };
+      lab(216,86,188,84,"KING'S CHAMBER"); lab(216,74,187,70,'RELIEVING CHAMBERS'); lab(110,72,160,96,'GRAND GALLERY',1); lab(216,104,170,104,"QUEEN'S CHAMBER");
+      lab(92,110,116,98,'DESCENDING PASSAGE',1); lab(92,122,124,108,'FALSE PASSAGE',1); lab(92,166,146,164,'SUBTERRANEAN CHAMBER',1); lab(214,40,176,46,'UNFINISHED: 9 COURSES'); lab(92,134,138,118,'PORTCULLIS TRAP',1);
+      const u=(t%2.4)/2.4; c.save(); c.translate(149-17*u,107+18*u); c.rotate(-.82); c.fillStyle='#ffd27a'; c.fillRect(-1.8,-1.1,3.6,2.2); c.restore();
+      c.strokeRect(232,152,84,24); c.beginPath(); c.moveTo(232,160); c.lineTo(316,160); c.moveTo(232,168); c.lineTo(316,168); c.stroke();
+      c.textAlign='left'; c.font="800 3.8px 'Alegreya Sans',sans-serif"; c.fillText('TOMB OF THE LICH-KING',235,156); c.font="700 3.3px 'Alegreya Sans',sans-serif"; c.fillText('SECTION A–A  ·  SHEET 3 OF 7',235,164); c.fillStyle='#ffd27a'; c.fillText('ENTOMBMENT IN 12 DAYS',235,172); c.restore(); }};
+};
+R2.tide = function(tide){
+  const wl=MR(214-tide*56), it=[];
+  it.push({t:'moon',x:142,y:34,r:tide?9:6,mirror:false});
+  it.push({t:'poly',role:'stoneDark',pts:[[26,320],[40,236],[66,226],[114,230],[140,244],[156,320]]});
+  it.push({t:'block',x:46,y:74,w:12,h:164,win:[[52,86],[52,110]]},{t:'roof',x:43,y:58,w:18,h:16},{t:'block',x:122,y:80,w:12,h:158,win:[[128,92],[128,116]]},{t:'roof',x:119,y:64,w:18,h:16});
+  it.push({t:'block',x:56,y:92,w:68,h:146,top:'crenel'});
+  const rooms=[['cold',[{k:'shelf',x:72},{k:'table',x:100}]],['warm',[{k:'banner',x:70},{k:'table',x:92},{k:'throne',x:110}]],['warm',[{k:'bed',x:74},{k:'bed',x:100}]],['glowRoom',[{k:'forge',x:70},{k:'anvil',x:84}]],['cold',[{k:'barrel',x:70},{k:'crate',x:82},{k:'barrel',x:106}]],['crypt',[{k:'coffin',x:74},{k:'coffin',x:104}]]];
+  rooms.forEach(([tone,props],i)=>{ const y=98+i*23, h=20, below=y>=wl; it.push({t:'room',x:62,y,w:56,h,tone,below:below?1:0,props:props.map(p=>({k:p.k,x:p.x,y:y+h-1.3}))});
+    it.push(below?{t:'fig',k:'shade',x:90+(i%2?8:-6),y:y+h-1.3,below:1,a:1,ph:i}:{t:'fig',k:'living',x:90+(i%2?8:-6),y:y+h-1.3,c:['cloth','cloth2','rot'][i%3],a:1,ph:i}); });
+  it.push({t:'water',y:wl,mirror:false,alpha:.42});
+  it.push({t:'rect',x:150,y:146,w:1.6,h:96,role:'wood',mirror:false});
+  for(let i=0;i<9;i++) it.push({t:'rect',x:151.6,y:156+i*9,w:i%2?2:3.4,h:.6,role:'line',mirror:false});
+  it.push({t:'text',s:'HIGH',x:157,y:158,size:4,align:'left',col:'#2a3b5a',mirror:false},{t:'text',s:'LOW',x:157,y:214,size:4,align:'left',col:'#2a3b5a',mirror:false});
+  if(!tide){ it.push({t:'poly',role:'wood',pts:[[4,wl-1],[30,wl-1],[26,wl+3],[8,wl+3]],mirror:false}); it.push({t:'fig',k:'raider',x:12,y:wl-1,a:1,tool:'axe'},{t:'fig',k:'raider',x:21,y:wl-1,a:1,ph:1}); }
+  return {w:180,h:320,sky:'day',mirror:wl,items:it,seed:21,still:1.2};
+};
+R2.story = function(n){
+  const it=[], G=70, sky=['day','dusk','night'][n-1];
+  it.push({t:'rect',x:0,y:G-1.2,w:160,h:1.2,role:'grass',mirror:false});
+  it.push({t:'block',x:30,y:38,w:40,h:30.8,top:'crenel'},{t:'block',x:110,y:38,w:40,h:30.8,top:'crenel'},{t:'block',x:70,y:20,w:40,h:48.8,top:'crenel',win:[[80,30],[100,30]]},{t:'rect',x:84,y:48,w:12,h:20.8,role:'dark'});
+  if(n===1) it.push({t:'fig',k:'living',x:92,y:G-1.2,c:'cloth2',tool:'spear',rot:-.5},{t:'fig',k:'raider',x:108,y:G-1.2,dir:-1,tool:'axe'},{t:'fig',k:'raider',x:120,y:G-1.2,dir:-1,tool:'axe'},{t:'sun',x:136,y:16,r:5,mirror:false});
+  if(n===2) it.push({t:'fig',k:'fallen',x:96,y:G-1.2,c:'cloth2'},{t:'fig',k:'shade',x:93,y:G+1.4,flip:1,below:1,glowing:1},{t:'flow',pts:[[98,G-3],[104,G+2],[97,G+8]],c:'cyan',below:1});
+  if(n===3) it.push({t:'fig',k:'shade',x:90,y:G+1.4,flip:1,below:1,tool:'spear',glowing:1},{t:'fig',k:'monster',x:124,y:104,below:1,s:1.4},{t:'moon',x:136,y:16,r:5,mirror:false});
+  return {w:160,h:100,sky,mirror:G,items:it,seed:31,still:1};
+};
+R2.capGlass = function(){
+  const it=[], M=74;
+  it.push({t:'block',x:92,y:40,w:46,h:34,top:'crenel',win:[[104,52],[126,52]]},{t:'block',x:80,y:26,w:12,h:48,win:[[86,36]]},{t:'roof',x:77,y:12,w:18,h:14},{t:'block',x:138,y:30,w:12,h:44,win:[[144,40]]},{t:'roof',x:135,y:16,w:18,h:14},{t:'block',x:106,y:18,w:18,h:22},{t:'roof',x:102,y:2,w:26,h:16});
+  it.push({t:'room',x:98,y:56,w:34,h:15,tone:'warm',props:[{k:'mirror',x:115,y:69.7,glow:1}]});
+  it.push({t:'fig',k:'living',x:108,y:69.7,a:0},{t:'fig',k:'shade',x:108,y:78.3,flip:1,below:1,glowing:1});
+  it.push({t:'moon',x:196,y:20,r:7,mirror:false});
+  return {w:230,h:108,sky:'dusk',mirror:M,items:it,seed:41,still:1};
+};
+R2.capUnder = function(){
+  const it=[], G=70;
+  it.push({t:'rect',x:0,y:G-1.2,w:230,h:1.2,role:'grass',mirror:false},{t:'moon',x:200,y:18,r:7,mirror:false},{t:'tree',x:24,y:G,h:22,mirror:false});
+  [[120,'sword'],[140,'anvil'],[160,'book'],[180,'cup']].forEach(([x,s],i)=>{ it.push({t:'grave',x,y:G-.5,sym:s,mirror:false},{t:'room',x:x-8,y:G+4,w:16,h:18+(i%2)*6,tone:['cold','glowRoom'][i%2],below:1},{t:'fig',k:'shade',x:x,y:G+20.7+(i%2)*6,below:1}); });
+  return {w:230,h:108,sky:'night',mirror:G,items:it,seed:43,still:1};
+};
+R2.iconGlass = function(){ return {w:64,h:64,sky:'dusk',mirror:40,seed:47,still:1,items:[{t:'prop',k:'mirror',x:32,y:40,glow:1,mirror:false},{t:'fig',k:'living',x:22,y:40,s:1.5},{t:'fig',k:'shade',x:42,y:40,s:1.5,flip:1,below:1,glowing:1}],
+  overlay(c){ } }; };
+R2.iconUnder = function(){ return {w:64,h:64,sky:'night',mirror:34,seed:49,still:1,items:[{t:'grave',x:32,y:33.5,sym:'sword',mirror:false},{t:'room',x:20,y:37,w:24,h:18,tone:'glowRoom',below:1},{t:'fig',k:'shade',x:32,y:53.7,below:1,s:1.3}]}; };
+
+/* ===================== Round 2: custom mockups ===================== */
+STYLES.neon={ name:'Neon line',
+  bg(c,sc){ c.fillStyle='#07060d'; c.fillRect(0,0,sc.w,sc.h); stars(c,c._rnd,sc.w,sc.h*.5,50,'rgba(160,200,255,.6)'); },
+  under(c,sc,y0){ c.fillStyle='#0b0614'; c.fillRect(0,y0,sc.w,sc.h-y0); },
+  fill(r,b){ return (r==='light'||r==='glass')? (b?'#3a2a66':'#27405a') : null; },
+  stroke(r,b){ const m={stone:'#5ee7ff',stoneDark:'#3fa3ff',roof:'#ff4fd8',wood:'#ffb14f',warm:'#ff8a3d',cold:'#5e8bff',crypt:'#9b5cff',glowRoom:'#ffcf4f',earth:'#3f5aa0',grass:'#4fff9b',water:'#3fd0ff',bone:'#f4f0ff',cloth:'#ff6b6b',cloth2:'#6bb8ff',clothDark:'#b36bff',flesh:'#ffd3a8',metal:'#cfe3ff',ghost:'#e8f4ff',shadow:'#b36bff',rot:'#9bff6b',gold:'#ffd84f',glass:'#8ff0ff',accent:'#ff4f6b',light:'#fff3b0',sand:'#ffcf8a',dark:'#6b5cff',line:'#5ee7ff',paper:'#f4f0ff',hill:'#4fff9b',hill2:'#3fbf7b'}; const v=m[r]||'#5ee7ff'; return {c:b?mix(v,'#8b4fff',.5):v, w:.5, glow:1}; },
+  masonry:null, glow(c,x,y,r,col,b,t){ radial(c,x,y,r*1.2,col,.4); },
+  veil(c,sc,t){ veilGlow(c,sc,t,['#ff4fd8','#b36bff','#ffffff']); } };
+{ const _p=paint; paint=function(c,st,path,role,b){ if(st===STYLES.neon){ c.save(); c.shadowColor=(st.stroke(role,b)||{}).c||'#5ee7ff'; c.shadowBlur=2.2*(c._k||1); _p(c,st,path,role,b); c.restore(); } else _p(c,st,path,role,b); }; }
+
+/* ---- Hourglass Keep: castle on an axle, flips at dusk (neon) ---- */
+const HG={ w:180, h:320, axle:[90,158],
+  castle(){ const day=[], night=[];
+    day.push({t:'block',x:30,y:62,w:80,h:38,top:'crenel',win:[[44,74],[70,74],[96,74]]},{t:'block',x:18,y:38,w:14,h:62,win:[[25,50]]},{t:'roof',x:15,y:22,w:20,h:16},{t:'block',x:108,y:44,w:14,h:56,win:[[115,56]]},{t:'roof',x:105,y:28,w:20,h:16},{t:'block',x:60,y:26,w:20,h:36,win:[[70,36]]},{t:'roof',x:56,y:8,w:28,h:18});
+    day.push({t:'room',x:36,y:80,w:30,h:18,tone:'warm',props:[{k:'table',x:50,y:96.7}]},{t:'room',x:70,y:80,w:34,h:18,tone:'cold',props:[{k:'bed',x:86,y:96.7}]});
+    day.push({t:'fig',k:'knight',x:44,y:62,tool:'spear'},{t:'fig',k:'knight',x:94,y:62,tool:'spear'},{t:'fig',k:'living',x:56,y:96.7,c:'cloth'});
+    night.push({t:'block',x:30,y:64,w:80,h:36,role:'stoneDark',top:'broken',win:[[48,76],[92,76]]},{t:'poly',role:'stoneDark',pts:[[18,100],[18,40],[25,24],[32,40],[32,100]]},{t:'poly',role:'stoneDark',pts:[[108,100],[108,46],[115,30],[122,46],[122,100]]},{t:'poly',role:'stoneDark',pts:[[60,64],[60,30],[70,8],[80,30],[80,64]]});
+    night.push({t:'room',x:36,y:80,w:30,h:18,tone:'crypt',props:[{k:'circle',x:51,y:96.7,r:9}]},{t:'room',x:70,y:80,w:34,h:18,tone:'crypt',props:[{k:'coffin',x:80,y:96.7},{k:'coffin',x:92,y:96.7}]});
+    night.push({t:'prop',k:'lantern',x:25,y:34},{t:'prop',k:'lantern',x:115,y:40},{t:'prop',k:'lantern',x:70,y:20});
+    night.push({t:'fig',k:'shade',x:50,y:96.7,glowing:1},{t:'fig',k:'shade',x:44,y:64,tool:'spear'},{t:'fig',k:'shade',x:96,y:64,tool:'spear'});
+    return {w:140,h:200,sky:'night',day,night,seed:51,still:1}; },
+  theta(t){ const u=t%8; const ease=x=>x<.5?2*x*x:1-Math.pow(-2*x+2,2)/2; if(u<3) return 0; if(u<4) return Math.PI*ease(u-3); if(u<7) return Math.PI; return Math.PI+Math.PI*ease(u-7); }
+};
+function hgRender(ctx,k,t,cache){
+  const W=HG.w,H=HG.h; if(!cache.castle||cache.k!==k){ cache.k=k; const sc=HG.castle(), cv=mk(sc.w*k,sc.h*k), c=cv.getContext('2d'); c.setTransform(k,0,0,k,0,0); c._k=k; c._rnd=rngOf(5); c._alpha=1;
+    for(const it of sc.day) drawItem(c,STYLES.neon,it,false,1,sc); c.save(); c.translate(0,200); c.scale(1,-1); for(const it of sc.night) drawItem(c,STYLES.neon,it,true,1,sc); c.restore();
+    c.save(); c.strokeStyle='#cfe3ff'; c.shadowColor='#cfe3ff'; c.shadowBlur=2*k; c.lineWidth=.9; c.strokeRect(24,98.8,92,2.4); c.restore(); cache.castle=cv; }
+  const th=HG.theta(t), night=(1-Math.cos(th))/2;
+  ctx.setTransform(k,0,0,k,0,0);
+  ctx.fillStyle=grad(ctx,0,0,0,H,[mix('#0d2140','#140726',night),mix('#1f4a7a','#2a0f3f',night),'#05040a']); ctx.fillRect(0,0,W,H);
+  ctx.save(); ctx.globalAlpha=1-night; radial(ctx,146,40,26,'#ffcf6b',.5); ctx.fillStyle='#ffe7a3'; ctx.beginPath(); ctx.arc(146,40,6,0,Math.PI*2); ctx.fill(); ctx.restore();
+  ctx.save(); ctx.globalAlpha=night; ctx.fillStyle='#e8e0ff'; ctx.beginPath(); ctx.arc(34,40,5,0,Math.PI*2); ctx.fill(); stars(ctx,rngOf(3),W,120,40,'rgba(220,210,255,.8)'); ctx.restore();
+  ctx.save(); ctx.strokeStyle='#5ee7ff'; ctx.shadowColor='#5ee7ff'; ctx.shadowBlur=3*k; ctx.lineWidth=.6;
+  ctx.beginPath(); ctx.moveTo(0,110); ctx.lineTo(10,118); ctx.lineTo(6,150); ctx.lineTo(14,170); ctx.lineTo(8,230); ctx.lineTo(16,320); ctx.moveTo(180,104); ctx.lineTo(170,116); ctx.lineTo(175,160); ctx.lineTo(166,200); ctx.lineTo(172,320); ctx.stroke();
+  ctx.strokeStyle='#ffb14f'; ctx.shadowColor='#ffb14f'; ctx.beginPath(); ctx.moveTo(10,158); ctx.lineTo(80,158); ctx.moveTo(100,158); ctx.lineTo(172,158); ctx.stroke(); ctx.restore();
+  const [ax,ay]=HG.axle; ctx.save(); ctx.translate(ax,ay); ctx.rotate(th); ctx.drawImage(cache.castle,-70,-100,140,200); ctx.restore();
+  ctx.save(); ctx.strokeStyle='#ffd84f'; ctx.shadowColor='#ffd84f'; ctx.shadowBlur=3*k; ctx.lineWidth=.8; ctx.beginPath(); ctx.arc(ax,ay,6,0,Math.PI*2); ctx.stroke(); for(let i=0;i<6;i++){ const a=th+i*Math.PI/3; ctx.moveTo(ax,ay); ctx.lineTo(ax+Math.cos(a)*6,ay+Math.sin(a)*6); } ctx.stroke(); ctx.restore();
+  const u=t%8, spin=(u>=3&&u<4)||(u>=7); if(spin){ const s=(u%4)-3; ctx.save(); ctx.fillStyle='#ffb14f'; ctx.shadowColor='#ffb14f'; ctx.shadowBlur=2*k; for(let i=0;i<6;i++){ const x=ax-40+i*16+Math.sin(i*7)*6, y=ay-20+s*s*140+i*6; if(y<H) ctx.fillRect(x,y,2.4,2.4); } ctx.restore(); }
+  return night;
+}
+
+/* ---- Lampblack: lights cast the shadows the Umbra lives in (silhouette) ---- */
+const LB={ w:320,h:180,
+  rooms:[[24,36,126,60],[154,36,142,60],[24,102,126,60],[154,102,142,60]],
+  occ:[[0,118,52,14,44],[0,58,84,8,12],[1,190,84,30,12],[1,240,56,12,40],[2,60,146,26,4],[2,104,112,12,50],[3,196,148,14,14],[3,262,102,6,60]],
+  lights(t){ return [[0,86+Math.sin(t*1.4)*16,62,95,'#ffcf7a'],[1,294,62,120,'#9fc4ff'],[2,34,118,95,'#ffb35a'],[3,244,150,90,'#ff9a4a']]; } };
+function lbShadowQuads(lx,ly,o){ const [,x,y,w,h]=o, pts=[[x,y],[x+w,y],[x+w,y+h],[x,y+h]], F=400, q=[]; for(let i=0;i<4;i++){ const a=pts[i], b=pts[(i+1)%4]; const pa=[a[0]+(a[0]-lx)*F/Math.hypot(a[0]-lx,a[1]-ly), a[1]+(a[1]-ly)*F/Math.hypot(a[0]-lx,a[1]-ly)], pb=[b[0]+(b[0]-lx)*F/Math.hypot(b[0]-lx,b[1]-ly), b[1]+(b[1]-ly)*F/Math.hypot(b[0]-lx,b[1]-ly)]; q.push([a,b,pb,pa]); } return q; }
+function lbRender(ctx,k,t,cache){
+  const W=LB.w,H=LB.h; if(!cache.buf||cache.k!==k){ cache.k=k; cache.buf=mk(W*k,H*k); }
+  ctx.setTransform(k,0,0,k,0,0);
+  ctx.fillStyle=grad(ctx,0,0,0,H,['#0b1026','#1b1f45','#2a2350']); ctx.fillRect(0,0,W,H); stars(ctx,rngOf(9),W,40,30,'rgba(255,255,255,.7)');
+  ctx.fillStyle='#120c10'; for(const r of LB.rooms) ctx.fillRect(r[0],r[1],r[2],r[3]);
+  const L=cache.buf.getContext('2d');
+  for(const [ri,lx,ly,rad,col] of LB.lights(t)){ const r=LB.rooms[ri]; L.setTransform(1,0,0,1,0,0); L.clearRect(0,0,cache.buf.width,cache.buf.height); L.setTransform(k,0,0,k,0,0);
+    L.save(); L.beginPath(); L.rect(r[0],r[1],r[2],r[3]); L.clip(); radial(L,lx,ly,rad,col,.95); L.globalCompositeOperation='destination-out'; L.fillStyle='#000';
+    for(const o of LB.occ) if(o[0]===ri) for(const q of lbShadowQuads(lx,ly,o)){ L.beginPath(); L.moveTo(q[0][0],q[0][1]); for(let i=1;i<4;i++) L.lineTo(q[i][0],q[i][1]); L.closePath(); L.fill(); } L.restore();
+    ctx.save(); ctx.setTransform(1,0,0,1,0,0); ctx.globalCompositeOperation='lighter'; ctx.drawImage(cache.buf,0,0); ctx.restore(); }
+  ctx.fillStyle='#050306'; ctx.fillRect(18,30,284,6); ctx.fillRect(18,96,284,6); ctx.fillRect(18,162,284,8); ctx.fillRect(18,30,6,140); ctx.fillRect(150,30,4,132); ctx.fillRect(296,30,6,140);
+  ctx.fillRect(296,50,6,22); ctx.fillStyle='#9fc4ff'; ctx.globalAlpha=.5; ctx.fillRect(297,52,4,18); ctx.globalAlpha=1;
+  ctx.fillStyle='#050306'; for(const o of LB.occ) ctx.fillRect(o[1],o[2],o[3],o[4]);
+  const lx=86+Math.sin(t*1.4)*16; ctx.strokeStyle='#050306'; ctx.lineWidth=.5; ctx.beginPath(); ctx.moveTo(86,36); ctx.lineTo(lx,59); ctx.stroke(); ctx.fillRect(lx-2,59,4,5);
+  ctx.fillRect(30,114,3,8); ctx.fillRect(238,150,12,4); ctx.fillRect(240,154,8,8);
+  const st=STYLES.silhouette; ctx._k=k; ctx._rnd=rngOf(2); ctx._alpha=1;
+  fig(ctx,st,{k:'living',x:74,y:162,s:1.5,a:1},false,t); fig(ctx,st,{k:'living',x:226,y:162,s:1.5,dir:-1,a:1,ph:1},false,t); fig(ctx,st,{k:'living',x:74,y:96,s:1.4,a:1,ph:2},false,t);
+  const eyes=(x,y,s)=>{ ctx.fillStyle='#ff4d5e'; ctx.fillRect(x-1.4*s,y,.8*s,.6*s); ctx.fillRect(x+.6*s,y,.8*s,.6*s); };
+  const lean=Math.sin(t*1.4); fig(ctx,st,{k:'monster',x:142-lean*2,y:96,s:1.3,a:1},true,t);
+  fig(ctx,st,{k:'monster',x:128,y:162,s:1.4,a:1,ph:1},true,t); fig(ctx,st,{k:'monster',x:184,y:162,s:1.2,a:1,ph:2},true,t); fig(ctx,st,{k:'monster',x:228,y:96,s:1.2,a:1,ph:3},true,t);
+  ctx.save(); ctx.strokeStyle='rgba(181,120,255,.55)'; ctx.setLineDash([1.4,1.2]); ctx.lineWidth=.4; for(const [ri,lx2,ly2] of LB.lights(t)){ const r=LB.rooms[ri]; ctx.save(); ctx.beginPath(); ctx.rect(r[0],r[1],r[2],r[3]); ctx.clip(); for(const o of LB.occ) if(o[0]===ri){ const [,x,y,w,h]=o, cx=x+w/2, cy=y+h/2, th0=Math.atan2(cy-ly2,cx-lx2); let lo=null, hi=null, dlo=9, dhi=-9; for(const p of [[x,y],[x+w,y],[x+w,y+h],[x,y+h]]){ let d=Math.atan2(p[1]-ly2,p[0]-lx2)-th0; while(d>Math.PI) d-=2*Math.PI; while(d<-Math.PI) d+=2*Math.PI; if(d<dlo){dlo=d;lo=p;} if(d>dhi){dhi=d;hi=p;} } for(const p of [lo,hi]){ const L2=Math.hypot(p[0]-lx2,p[1]-ly2); ctx.beginPath(); ctx.moveTo(p[0],p[1]); ctx.lineTo(p[0]+(p[0]-lx2)/L2*300,p[1]+(p[1]-ly2)/L2*300); ctx.stroke(); } } ctx.restore(); } ctx.restore();
+}
+
+/* ---- Bonemason: a keep built from its attackers (pixel) ---- */
+const BONE={hi:'#efe6cf',mid:'#d3c7a8',lo:'#a89b7c',dk:'#5a4d3c',eye:'#1c1520',knight:'#b7c0cc',mage:'#b89bd8'};
+function skullTile(c,x,y,col){ R(c,x,y,5,4,col||BONE.mid); R(c,x+1,y-1,3,1,col||BONE.mid); D(c,x+1,y+1,BONE.eye); D(c,x+3,y+1,BONE.eye); D(c,x+2,y+2,BONE.dk); D(c,x+1,y+3,BONE.lo); D(c,x+3,y+3,BONE.lo); D(c,x+2,y-1,BONE.hi); }
+function femurRow(c,x,y,w,col){ for(let xx=x;xx<x+w-5;xx+=6){ R(c,xx+1,y,4,1,col||BONE.hi); D(c,xx,y-1,BONE.mid); D(c,xx,y+1,BONE.mid); D(c,xx+5,y-1,BONE.mid); D(c,xx+5,y+1,BONE.mid); } }
+function boneWall(c,x,y,w,h,col){ R(c,x,y,w,h,'#3a3029'); for(let yy=y+1,row=0; yy<y+h-4; yy+=6,row++){ if(row%2===0){ for(let xx=x+1+(row%4?3:0); xx<x+w-5; xx+=6) skullTile(c,xx,yy+1,col); } else femurRow(c,x,yy+2,w,col); } }
+const BM={ w:320,h:180,
+  bg(c,rnd){ sky(c,0,0,320,112,[P.void,P.night,P.ink,'#23304a']); speck(c,rnd,0,0,320,60,P.white,.004); ellipse(c,272,26,9,9,P.bone); ellipse(c,276,23,8,8,P.night);
+    texture(c,rnd,0,112,320,68,P.earth,[[P.plum,.07],[P.soot,.05]]); R(c,0,112,320,1,'#2b3a2c');
+    boneWall(c,40,48,22,64); ellipse(c,51,46,12,9,BONE.mid); ellipse(c,51,44,10,6,BONE.hi); R(c,45,44,4,4,BONE.eye); R(c,53,44,4,4,BONE.eye); D(c,51,49,BONE.dk); for(let i=0;i<5;i++) D(c,47+i*2,53,BONE.eye);
+    boneWall(c,62,64,140,48); for(let x=64;x<198;x+=12) for(let a=0;a<=Math.PI;a+=.12) D(c,x+5+Math.cos(a)*5,64-Math.sin(a)*10,BONE.hi);
+    boneWall(c,202,50,20,62,BONE.knight); for(let x=203;x<220;x+=6) skullTile(c,x,46,BONE.knight);
+    R(c,68,70,60,38,'#1f1a1c'); R(c,132,70,64,38,'#1f1a1c'); R(c,68,106,60,2,BONE.lo); R(c,132,106,64,2,BONE.lo);
+    line(c,98,70,98,78,BONE.lo); for(let i=0;i<7;i++){ const a=Math.PI*(i/6); line(c,98,79,98+Math.cos(a)*12,79+Math.sin(a)*3,BONE.hi); } skullTile(c,96,77);
+    for(let r=0;r<4;r++) for(let i=0;i<=r;i++) skullTile(c,84-r*3+i*6,104-(3-r)*5);
+    for(const [x,col] of [[140,BONE.knight],[158,BONE.mage],[176,BONE.mid]]){ R(c,x,97,14,9,BONE.dk); R(c,x+1,98,12,8,'#2a2226'); for(let i=0;i<5;i++) R(c,x+2+((i*3)%10),99+(i%3)*2,4,1,col); }
+    D(c,146,91,P.silver); R(c,145,92,3,1,P.silver); D(c,164,90,P.mauve); D(c,163,91,P.mauve); D(c,165,91,P.mauve); D(c,164,92,P.mauve); D(c,183,90,P.amber); D(c,182,91,P.amber); D(c,184,91,P.amber); D(c,183,92,P.amber);
+    R(c,40,120,200,52,'#171214'); for(let y=124,row=0;y<164;y+=7,row++){ if(row%2) femurRow(c,42,y+2,196); else for(let x=43+(row%4?3:0);x<234;x+=6) skullTile(c,x,y+1); } R(c,40,166,200,6,'#231c1e');
+    R(c,186,108,5,14,P.night); for(let y=109;y<122;y+=3) R(c,186,y,5,1,BONE.lo); },
+  fg(c,t){
+    for(const [x,y] of [[88,82],[108,82],[80,80],[116,80]]) flame(c,x,y,t,x*.1);
+    glow(c,98,84,10,P.amber,.25);
+    for(let i=0;i<2;i++){ const k=(t*.35+i*.5)%1, x=MR(136+k*52); human(c,x,106,{body:BONE.mid,skin:BONE.mid,legs:BONE.mid,eyes:P.night,walk:4,carry:BONE.hi,ph:i},t); }
+    human(c,60+MR((Math.sin(t*.8)+1)*40),164,{body:BONE.mid,skin:BONE.mid,legs:BONE.mid,eyes:P.night,walk:4,carry:BONE.hi,face:Math.cos(t*.8)>0?1:-1},t);
+    const ext=18+MR(Math.sin(t*1.2)*10), ex=222+MR(ext*.55), ey=80, hx=222+ext, hy=92;
+    line(c,222,86,ex,ey,BONE.hi); line(c,222,87,ex,ey+1,BONE.mid); line(c,ex,ey,hx,hy,BONE.hi); line(c,ex+1,ey,hx+1,hy,BONE.mid); R(c,ex-1,ey-1,3,3,BONE.lo);
+    for(let i=0;i<4;i++) line(c,hx,hy,hx+2+i,hy+3+(i%2),BONE.hi);
+    human(c,hx-1,hy+11,{body:P.steel,helm:P.silver,plume:P.red,face:-1},t);
+    for(const [x,ph] of [[264,0],[276,.5],[290,.2]]) human(c,x,112,{body:P.steel,helm:P.silver,plume:P.red,spear:1,face:-1,ph,walk:2},t);
+    const dx=MR((t*6)%30); human(c,244-dx,112,{body:BONE.mid,skin:BONE.mid,legs:BONE.mid,eyes:P.night,walk:5,face:-1},t); R(c,249-dx,110,7,2,P.steel); D(c,256-dx,109,P.silver);
+  } };
+
+/* ---- Wronghand: portrait and its mirror-image double ---- */
+const TELLS=[['part',44,34],['brooch',33,124],['scar',75,76],['mole',51,82],['earring',84,78],['hammer',22,130]];
+function drawPortrait(cv,mirrored,reveal){
+  const W=120,H=150, k=cv.width/W, c=cv.getContext('2d'); c.setTransform(k,0,0,k,0,0); c.clearRect(0,0,W,H);
+  const g=c.createRadialGradient(60,60,10,60,70,90); g.addColorStop(0,'#5a4f6e'); g.addColorStop(1,'#2a2433'); c.fillStyle=g; c.fillRect(0,0,W,H);
+  c.save(); if(mirrored){ c.translate(W,0); c.scale(-1,1); }
+  const f=(col,fn)=>{ c.fillStyle=col; c.beginPath(); fn(); c.fill(); };
+  f('#6b4a3a',()=>{ c.moveTo(6,150); c.quadraticCurveTo(14,108,60,104); c.quadraticCurveTo(106,108,114,150); });
+  f('#d8cdb8',()=>{ c.moveTo(48,106); c.lineTo(60,122); c.lineTo(72,106); });
+  f('#d9a987',()=>{ c.rect(51,86,18,22); });
+  f('#e9c2a0',()=>{ c.ellipse(38,70,4,6,0,0,Math.PI*2); c.ellipse(82,70,4,6,0,0,Math.PI*2); });
+  f('#e9c2a0',()=>{ c.ellipse(60,66,22,28,0,0,Math.PI*2); });
+  f('#3b2a22',()=>{ c.moveTo(36,64); c.quadraticCurveTo(34,34,60,34); c.quadraticCurveTo(88,34,86,70); c.quadraticCurveTo(84,52,74,46); c.quadraticCurveTo(58,44,46,48); c.quadraticCurveTo(40,54,36,64); });
+  c.strokeStyle='#8a6a52'; c.lineWidth=1.2; c.beginPath(); c.moveTo(45,36); c.lineTo(43,47); c.stroke();
+  f('#2a2230',()=>{ c.ellipse(51,64,2.6,2,0,0,Math.PI*2); c.ellipse(69,64,2.6,2,0,0,Math.PI*2); });
+  f('#ffffff',()=>{ c.rect(51.5,63,1,1); c.rect(69.5,63,1,1); });
+  c.strokeStyle='#3b2a22'; c.lineWidth=1.3; c.beginPath(); c.moveTo(46,58); c.lineTo(55,57); c.moveTo(65,57); c.lineTo(74,58); c.stroke();
+  c.strokeStyle='#b88a6a'; c.lineWidth=1; c.beginPath(); c.moveTo(60,66); c.lineTo(58,74); c.lineTo(61,75); c.stroke();
+  c.strokeStyle='#a4574c'; c.lineWidth=1.4; c.beginPath(); c.moveTo(54,82); c.quadraticCurveTo(60,85,66,82); c.stroke();
+  c.strokeStyle='#c9747a'; c.lineWidth=1.3; c.beginPath(); c.moveTo(72,70); c.lineTo(78,82); c.stroke(); c.lineWidth=.7; c.beginPath(); for(let i=0;i<3;i++){ c.moveTo(72.5+i*2,74+i*3); c.lineTo(76.5+i*2,72.5+i*3); } c.stroke();
+  f('#3b2a22',()=>{ c.arc(51,82,1.1,0,Math.PI*2); });
+  f('#e0b04a',()=>{ c.arc(84,78,1.8,0,Math.PI*2); });
+  f('#e0b04a',()=>{ c.arc(33,124,4.2,0,Math.PI*2); }); f('#b3263b',()=>{ c.arc(33,124,1.8,0,Math.PI*2); });
+  c.strokeStyle='#8a5a3c'; c.lineWidth=3; c.beginPath(); c.moveTo(18,150); c.lineTo(24,122); c.stroke(); f('#9aa3b5',()=>{ c.rect(14,114,18,8); });
+  c.restore();
+  if(reveal){ c.strokeStyle='#ff4d5e'; c.lineWidth=1.6; for(const [,x,y] of TELLS){ c.beginPath(); c.arc(mirrored?W-x:x,y,7,0,Math.PI*2); c.stroke(); } }
+}
+
+/* ===================== Round 2: mounting, loop, compare ===================== */
+const RED = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+const live2=[];
+const io2=('IntersectionObserver' in window)? new IntersectionObserver(es=>{ for(const e of es){ const it=live2.find(i=>i.host===e.target); if(it) it.visible=e.isIntersecting; } },{rootMargin:'120px'}) : null;
+const SCN={ glasswake:R2.glasswake, undercroft:R2.undercroft, harrow:R2.harrow, shift:R2.shift, tomb:R2.tomb, tide0:()=>R2.tide(0), tide1:()=>R2.tide(1), story1:()=>R2.story(1), story2:()=>R2.story(2), story3:()=>R2.story(3), capGlass:R2.capGlass, capUnder:R2.capUnder, iconGlass:R2.iconGlass, iconUnder:R2.iconUnder };
+function mountC(host,W,H,draw,o){
+  o=o||{}; const cv=document.createElement('canvas'); cv.setAttribute('aria-hidden','true'); host.insertBefore(cv,host.firstChild); const ctx=cv.getContext('2d'), cache={};
+  const it={host,visible:!io2,last:0,t:o.t0??1.5,k:0};
+  it.draw=(t)=>{ it.t=t; try{ ctx.setTransform(1,0,0,1,0,0); draw(ctx,it.k,t,cache); }catch(e){ if(!it.err){ it.err=1; console.error(e); } } };
+  const size=()=>{ const r=host.getBoundingClientRect(); if(!r.width) return; const dpr=Math.min(window.devicePixelRatio||1,2.5); const k=Math.max(.5,r.width*dpr/W); if(Math.abs(it.k-k)>.01){ it.k=k; cv.width=Math.round(W*k); cv.height=Math.round(H*k); for(const key in cache) delete cache[key]; } it.draw(it.t); };
+  if('ResizeObserver' in window) new ResizeObserver(size).observe(host); else addEventListener('resize',size);
+  size(); if(o.anim&&!RED){ live2.push(it); if(io2) io2.observe(host); } return it;
+}
+function vDraw(sc,st){ return (ctx,k,t,cache)=>{ if(!cache.c) cache.c=vCache(sc,st,k); vFrame(ctx,sc,st,cache.c,t,sc.mirror!=null); }; }
+document.querySelectorAll('[data-v]').forEach(h=>{ const [key,style]=h.dataset.v.split(':'); const sc=SCN[key](); const st=STYLES[style]; mountC(h,sc.w,sc.h,vDraw(sc,st),{anim:!h.dataset.still,t0:sc.still}); });
+document.querySelectorAll('[data-pxg]').forEach(h=>{ const sc=SCN[h.dataset.pxg](); mountC(h,sc.w,sc.h,(ctx,k,t)=>{ const src=pxRender(sc,t); ctx.imageSmoothingEnabled=false; ctx.drawImage(src,0,0,ctx.canvas.width,ctx.canvas.height); },{t0:2}); });
+document.querySelectorAll('[data-bm]').forEach(h=>{ mountC(h,BM.w,BM.h,(ctx,k,t,cache)=>{ if(!cache.base){ cache.base=mk(BM.w,BM.h); BM.bg(cache.base.getContext('2d'),rngOf(61)); cache.buf=mk(BM.w,BM.h); } const b=cache.buf.getContext('2d'); b.clearRect(0,0,BM.w,BM.h); b.drawImage(cache.base,0,0); BM.fg(b,t); ctx.imageSmoothingEnabled=false; ctx.drawImage(cache.buf,0,0,ctx.canvas.width,ctx.canvas.height); },{anim:1,t0:1.2}); });
+document.querySelectorAll('[data-lb]').forEach(h=>{ mountC(h,LB.w,LB.h,(ctx,k,t,cache)=>lbRender(ctx,k,t,cache),{anim:1,t0:1}); });
+document.querySelectorAll('[data-hg]').forEach(h=>{ const lab=h.querySelector('[data-hgphase]'); let last=''; mountC(h,HG.w,HG.h,(ctx,k,t,cache)=>{ const n=hgRender(ctx,k,t,cache); const s=n>.5?'NIGHT FACE UP':'DAY FACE UP'; if(lab&&s!==last){ last=s; lab.textContent=s; } },{anim:1,t0:1}); });
+function titleOver(ctx,k,W,H,title,sub,st){ ctx.setTransform(k,0,0,k,0,0); const dark=st!==STYLES.woodcut; ctx.save(); ctx.textAlign='left'; ctx.textBaseline='alphabetic'; ctx.font=`400 30px 'Jacquard 24','Alegreya Sans',serif`; ctx.lineWidth=3; ctx.strokeStyle=dark?'rgba(12,8,20,.85)':'#f1eadb'; ctx.fillStyle=dark?'#f7ecd2':'#1a1612'; ctx.strokeText(title,12,40); ctx.fillText(title,12,40); ctx.font=`700 7px 'Alegreya Sans',sans-serif`; ctx.lineWidth=2; ctx.strokeText(sub,13,52); ctx.fillText(sub,13,52); ctx.restore(); }
+const caps={glass:['capGlass','glass','Mourning Glass','The dead keep the night shift.'],under:['capUnder','woodcut','Barrowdeep','Every grave grows a room below.']};
+const capIts=[];
+document.querySelectorAll('[data-cap]').forEach(h=>{ const [key,style,title,sub]=caps[h.dataset.cap]; const sc=SCN[key](), st=STYLES[style]; capIts.push(mountC(h,sc.w,sc.h,(ctx,k,t,cache)=>{ vDraw(sc,st)(ctx,k,t,cache); titleOver(ctx,k,sc.w,sc.h,title,sub,st); },{t0:1})); });
+document.querySelectorAll('[data-icon]').forEach(h=>{ const key=h.dataset.icon==='glass'?'iconGlass':'iconUnder', st=STYLES[h.dataset.icon==='glass'?'glass':'woodcut'], sc=SCN[key](); mountC(h,sc.w,sc.h,vDraw(sc,st),{t0:1}); });
+if(document.fonts&&document.fonts.load){ document.fonts.load("30px 'Jacquard 24'").then(()=>capIts.forEach(i=>i.draw(i.t))).catch(()=>{}); }
+/* thumbnails: static square crops */
+const THUMB={ mourning:{key:'glasswake',style:'glass',crop:[0,70,180,180]}, barrowdeep:{key:'undercroft',style:'woodcut',crop:[70,0,180,180]}, dreadmonger:{key:'harrow',style:'paper',crop:[0,0,180,180]}, boneunion:{key:'shift',style:'flat',crop:[120,0,180,180]}, tombwright:{key:'tomb',style:'blueprint',crop:[70,0,180,180]}, ebbhold:{key:'tide1',style:'water',crop:[0,90,180,180]} };
+function cropInto(ctx,src,crop,W){ const s=src.width/W; ctx.drawImage(src,crop[0]*s,crop[1]*s,crop[2]*s,crop[3]*s,0,0,ctx.canvas.width,ctx.canvas.height); }
+document.querySelectorAll('[data-thumb2]').forEach(h=>{ const id=h.dataset.thumb2, T=THUMB[id];
+  mountC(h,180,180,(ctx,k,t,cache)=>{
+    if(T){ const sc=SCN[T.key](), st=STYLES[T.style]; if(!cache.src){ cache.src=mk(sc.w*k,sc.h*k); vStill(cache.src,sc,T.style,sc.still); } cropInto(ctx,cache.src,T.crop,sc.w); return; }
+    if(id==='bonemason'){ const b=mk(BM.w,BM.h), bc=b.getContext('2d'); BM.bg(bc,rngOf(61)); BM.fg(bc,1.2); ctx.imageSmoothingEnabled=false; ctx.drawImage(b,110,0,180,180,0,0,ctx.canvas.width,ctx.canvas.height); return; }
+    if(id==='lampblack'){ const s=mk(LB.w*k,LB.h*k), sc2=s.getContext('2d'); lbRender(sc2,k,1,{}); cropInto(ctx,s,[30,10,180,180],LB.w); return; }
+    if(id==='hourglass'){ const s=mk(HG.w*k,HG.h*k), sc2=s.getContext('2d'); hgRender(sc2,k,5.5,{}); cropInto(ctx,s,[0,68,180,180],HG.w); return; }
+    if(id==='wronghand'){ const s=mk(240,150), c2=s.getContext('2d'); const a=mk(120,150), b=mk(120,150); drawPortrait(a,false,false); drawPortrait(b,true,true); c2.drawImage(a,0,0); c2.drawImage(b,120,0); ctx.fillStyle='#1d1924'; ctx.fillRect(0,0,ctx.canvas.width,ctx.canvas.height); const w=ctx.canvas.width, hh=w*150/240; ctx.drawImage(s,0,(ctx.canvas.height-hh)/2,w,hh); return; }
+  },{t0:1}); });
+/* portraits */
+const whBtn=document.getElementById('wh-reveal'); let whOn=false;
+const pcs=[...document.querySelectorAll('canvas[data-portrait]')];
+function drawPcs(){ pcs.forEach(cv=>{ const r=cv.parentElement.getBoundingClientRect(); const dpr=Math.min(window.devicePixelRatio||1,2.5); cv.width=Math.max(120,Math.round(r.width*dpr)); cv.height=Math.round(cv.width*150/120); drawPortrait(cv,cv.dataset.portrait==='1',whOn&&cv.dataset.portrait==='1'); }); }
+if(pcs.length){ drawPcs(); if('ResizeObserver' in window) new ResizeObserver(drawPcs).observe(pcs[0].parentElement); }
+if(whBtn) whBtn.addEventListener('click',()=>{ whOn=!whOn; whBtn.setAttribute('aria-pressed',String(whOn)); whBtn.textContent=whOn?'Hide the tells':'Show the tells'; drawPcs(); });
+/* animation loop */
+if(!RED&&live2.length){ const t0=performance.now(); const tick=now=>{ for(const it of live2){ if(it.visible&&now-it.last>=50){ it.last=now; it.draw(1.5+(now-t0)/1000); } } requestAnimationFrame(tick); }; requestAnimationFrame(tick); }
+/* pins + legend */
+document.querySelectorAll('figure.fig').forEach(fig=>{ const stage=fig.querySelector('.stage'), pins=[...fig.querySelectorAll('.pin')], items=[...fig.querySelectorAll('.legend li')], btn=fig.querySelector('.pins-toggle');
+  if(btn&&stage) btn.addEventListener('click',()=>{ const off=stage.classList.toggle('nopins'); btn.textContent=off?'Show labels':'Hide labels'; });
+  const hot=(i,on)=>{ if(pins[i]) pins[i].classList.toggle('hot',on); if(items[i]) items[i].classList.toggle('hot',on); };
+  items.forEach((li,i)=>{ li.addEventListener('mouseenter',()=>hot(i,true)); li.addEventListener('mouseleave',()=>hot(i,false)); });
+  pins.forEach((p,i)=>{ p.addEventListener('mouseenter',()=>hot(i,true)); p.addEventListener('mouseleave',()=>hot(i,false)); }); });
+(()=>{ const links=[...document.querySelectorAll('.toc a')], map=new Map(links.map(a=>[a.getAttribute('href').slice(1),a])); if(!('IntersectionObserver' in window)) return;
+  const obs=new IntersectionObserver(es=>{ for(const e of es) if(e.isIntersecting){ links.forEach(a=>a.removeAttribute('aria-current')); const a=map.get(e.target.id); if(a){ a.setAttribute('aria-current','true'); a.scrollIntoView({block:'nearest',inline:'nearest'}); } } },{rootMargin:'-35% 0px -60% 0px'});
+  map.forEach((a,id)=>{ const s=document.getElementById(id); if(s) obs.observe(s); }); })();
+/* compare */
+(()=>{
+  const N=['Mourning Glass','Barrowdeep','Bonemason','Dreadmonger','Bone Union','Tombwright','Ebbhold','Lampblack','Hourglass Keep','Wronghand'];
+  const LINE=['both','both','dead','dead','dead','dead','glass','glass','glass','glass'];
+  const C=[{id:'novel',name:'Novelty',note:'From the September 2026 searches',s:[4,5,3,3,2,5,5,3,5,2]},{id:'hook',name:'One-line hook',note:'Would a stranger get it from one sentence?',s:[4,4,4,4,5,4,4,4,5,4]},{id:'scope',name:'Solo scope',note:'Higher means smaller',s:[3,4,3,2,3,4,3,2,2,3]},{id:'loop',name:'Core-loop confidence',note:'How sure I am the central decision is fun',s:[4,3,3,4,3,4,3,3,2,3]},{id:'phone',name:'Phone fit',note:'Portrait, short sessions, works as a TWA',s:[4,3,3,3,4,3,4,2,4,4]},{id:'replay',name:'Replay per asset',note:'Play time bought by each piece of content',s:[3,4,3,4,2,5,3,3,3,3]},{id:'side',name:'Side view is essential',note:'Would it break in top-down?',s:[5,5,3,2,2,5,5,4,5,1]}];
+  const PRE={phone:{novel:3,hook:2,scope:3,loop:3,phone:2,replay:2,side:1},pc:{novel:3,hook:2,scope:3,loop:3,phone:0,replay:3,side:2},novel:{novel:5,hook:1,scope:2,loop:2,phone:1,replay:1,side:2}};
+  const KEY='boneglass.weights'; let W=Object.assign({},PRE.phone);
+  try{ const v=JSON.parse(localStorage.getItem(KEY)||'null'); if(v&&typeof v==='object') C.forEach(c=>{ if(Number.isInteger(v[c.id])&&v[c.id]>=0&&v[c.id]<=5) W[c.id]=v[c.id]; }); }catch(e){}
+  const head=document.getElementById('mhead'), foot=document.getElementById('mfoot'), tb=document.querySelector('#matrix tbody'), bars=document.getElementById('bars'), tip=document.getElementById('tip'); if(!head||!tb||!bars) return;
+  N.forEach((n,i)=>{ const th=document.createElement('th'); th.textContent=n; head.append(th); const td=document.createElement('td'); td.dataset.total=i; foot.append(td); });
+  C.forEach(c=>{ const tr=document.createElement('tr'), td=document.createElement('td'); td.className='crit'; const b=document.createElement('b'); b.textContent=c.name; const sm=document.createElement('small'); sm.textContent=c.note;
+    const lab=document.createElement('label'); lab.style.cssText='display:flex;align-items:center;gap:8px;margin-top:6px;font-size:13.5px;color:var(--ink-2)'; lab.htmlFor='w2-'+c.id; lab.append('Weight ');
+    const inp=document.createElement('input'); inp.type='range'; inp.min='0'; inp.max='5'; inp.step='1'; inp.id='w2-'+c.id; inp.value=W[c.id]; const out=document.createElement('span'); out.className='w'; out.textContent=W[c.id];
+    inp.addEventListener('input',()=>{ W[c.id]=+inp.value; out.textContent=inp.value; update(); }); lab.append(inp,out); td.append(b,sm,lab); tr.append(td);
+    c.s.forEach((v,i)=>{ const d=document.createElement('td'), sp=document.createElement('span'); sp.className='score s'+v; sp.textContent=v; sp.title=N[i]+': '+v+' of 5'; d.append(sp); tr.append(d); }); tb.append(tr); c.inp=inp; c.out=out; });
+  const rows=N.map((n,i)=>{ const r=document.createElement('div'); r.className='brow'; const l=document.createElement('div'); l.className='lab'; const sg=document.createElement('span'); sg.className='sigil'; sg.style.background=LINE[i]==='both'?'linear-gradient(90deg,var(--bone) 50%,var(--glass) 50%)':(LINE[i]==='dead'?'var(--bone)':'var(--glass)'); l.append(sg,document.createTextNode(n));
+    const tr=document.createElement('div'); tr.className='track'; tr.tabIndex=0; const g=document.createElement('i'); g.className='grid'; const f=document.createElement('div'); f.className='fill'; const v=document.createElement('span'); v.className='val'; tr.append(g,f,v); r.append(l,tr); bars.append(r);
+    const show=(x,y)=>{ tip.hidden=false; tip.textContent=''; const s=document.createElement('strong'); s.textContent=r.dataset.score; const d=document.createElement('div'); d.textContent=n+(f.classList.contains('lead')?' · leader':'')+' · out of 100'; tip.append(s,d); tip.style.left=Math.min(x+14,innerWidth-250)+'px'; tip.style.top=(y+14)+'px'; };
+    tr.addEventListener('pointermove',e=>show(e.clientX,e.clientY)); tr.addEventListener('pointerleave',()=>{ tip.hidden=true; }); tr.addEventListener('focus',()=>{ const b=tr.getBoundingClientRect(); show(b.left+b.width*.5,b.top); }); tr.addEventListener('blur',()=>{ tip.hidden=true; });
+    return {r,f,v,tr}; });
+  function update(){ const sw=C.reduce((a,c)=>a+W[c.id],0); const tot=N.map((n,i)=> sw? MR(C.reduce((a,c)=>a+W[c.id]*c.s[i],0)/(sw*5)*100) : null); const best=Math.max(...tot.map(v=>v??-1));
+    tot.forEach((v,i)=>{ const cell=foot.querySelector('[data-total="'+i+'"]'); if(cell) cell.textContent=v==null?'—':v; const R_=rows[i]; R_.r.dataset.score=v==null?'—':v; const w=v??0; R_.f.style.width='calc((100% - 36px) * '+(w/100)+')'; R_.v.style.left='calc((100% - 36px) * '+(w/100)+')'; R_.v.textContent=v==null?'—':v; R_.f.classList.toggle('lead',v!=null&&v===best); R_.tr.setAttribute('aria-label',N[i]+': '+(v==null?'no score':v+' out of 100')); });
+    C.forEach(c=>{ c.inp.value=W[c.id]; c.out.textContent=W[c.id]; }); document.querySelectorAll('[data-preset]').forEach(bt=>{ const p=PRE[bt.dataset.preset]; bt.setAttribute('aria-pressed',String(C.every(c=>p[c.id]===W[c.id]))); }); try{ localStorage.setItem(KEY,JSON.stringify(W)); }catch(e){} }
+  document.querySelectorAll('[data-preset]').forEach(bt=>bt.addEventListener('click',()=>{ W=Object.assign({},PRE[bt.dataset.preset]); update(); })); update();
+})();
+</script>
+</body>
+</html>
