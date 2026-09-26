@@ -34,3 +34,7 @@ Weeks 1–2 greybox two rosters and the rite; weeks 3–4 the night on its own; 
 ## Name
 
 Afterglass returned no game matches in a web search. Tainhold and Candlewake are clean backups. Names ending in "-glass" are common, so check trademarks before committing. Rejected: Lychgate (Lichgate: Tower Survivor), Stillwake (a Steam horror game), Duskward, Nightglass.
+
+## Prototype
+
+The weeks 1–2 greybox (two rosters and the rite) is in [`prototype/`](../../../prototype/README.md).
