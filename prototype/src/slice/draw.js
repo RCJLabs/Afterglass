@@ -7,6 +7,7 @@ import { P, MF, rngOf, R, D, A, clip, bricks, crenel, roof, ellipse, ring, room 
 import { UMBRA, applyTain, applyLight } from '../px/lut.js';
 import { MAP, DEEP_FLOOR, VEIL_FLOOR } from './data.js';
 import { FLOORS, feet, roomSpan, lightMap, unitAt } from './geo.js';
+import { figure, livingLook, shadeLook, eyesAt, FIG_H } from './people.js';
 
 const { W, VEIL, ROOM_H } = MAP;
 
@@ -315,24 +316,24 @@ function clouds(c, x0, w, t) {
 
 /* ---------------------------------------------------------------- the day */
 
-const JOB_LOOK = {
-  chapel: { body: P.bone, hood: P.bone, robe: 1 },
-  glazier: { body: P.navy, trim: P.bone },
-  chandlery: { body: P.tan, trim: P.brown },
-  infirmary: { body: P.white, trim: P.red, robe: 1 },
-  barracks: { body: P.steel, helm: P.silver, spear: 1 },
-  hearth: { body: P.clay, trim: P.bone },
-  none: { body: P.slate },
-};
-const HAIR = [P.brown, P.plum, P.tan, P.earth, P.rust];
-
-function person(c, p, i, x, y, t, dim = 0) {
-  const look = JOB_LOOK[p.job || 'none'];
-  const hair = p.age === 'old' ? P.silver : HAIR[(p.name.charCodeAt(0) + p.name.length) % HAIR.length];
-  const skin = p.sick > 0 ? '#a9c79a' : [P.peach, P.skin2, P.tan][p.name.charCodeAt(1) % 3];
-  const o = { ...look, hair: look.hood || look.helm ? undefined : hair, skin, h: p.age === 'young' ? 7 : 8, ph: i, walk: p.sick > 0 ? 0 : 2, face: i % 2 ? -1 : 1 };
-  A(c, 1 - dim, () => human(c, Math.round(x), y, o, t));
-  if (p.grief) D(c, Math.round(x) + 3, y - o.h - 1, P.blue);
+// One of the living at work. Each keeps a station in their room and works it (guards stand to), and now
+// and then walks a few steps out and back; the idle wander more. All of it runs off the clock, so it holds
+// no state. The sick stay put.
+function person(c, p, i, home, y, t, dim = 0) {
+  const look = livingLook(p);
+  const cyc = (t * 0.1 + i * 0.37 + (p.name.length % 7) * 0.13) % 1;
+  const walkFrom = p.job ? 0.72 : 0.35;
+  let face = i % 2 ? -1 : 1;
+  let x = home;
+  let pose = p.job && p.job !== 'barracks' ? 'work' : 'stand';
+  if (!(p.sick > 0) && cyc > walkFrom) {
+    const k = (cyc - walkFrom) / (1 - walkFrom);
+    x = home + (k < 0.5 ? k * 2 : (1 - k) * 2) * (p.job ? 5 : 9) * face;
+    if (k >= 0.5) face = -face;
+    pose = 'walk';
+  }
+  A(c, 1 - dim, () => figure(c, Math.round(x), y, { ...look, pose, face, ph: i * 1.7 }, t));
+  if (p.grief) D(c, Math.round(x), y - FIG_H[look.age] - 3, P.blue);
 }
 
 // Everything alive in the keep by day, in world coordinates: fires, the living at work, the dead in the
@@ -351,9 +352,8 @@ function dayActors(c, s, t, dusk = 0) {
     const { f, x0, x1 } = span(id);
     const n = ps.length;
     ps.forEach((p, i) => {
-      const home = x0 + 4 + ((i + 0.5) * (x1 - x0 - 12)) / n;
-      const x = home + (p.sick > 0 ? 0 : Math.sin(t * 0.5 + i * 1.7 + p.name.length) * 3);
-      person(c, p, i, x, feet(f), t, Math.min(1, dusk * 1.6));
+      const home = x0 + 6 + ((i + 0.5) * (x1 - x0 - 14)) / n;
+      person(c, p, i, home, feet(f), t, Math.min(1, dusk * 1.6));
     });
   }
   const cr = span('crypt');
@@ -370,10 +370,12 @@ function dayActors(c, s, t, dusk = 0) {
   });
   if (s.inspection && s.inspection.day === s.day) {
     const ch = span('chapel');
-    const x = Math.round(ch.x0 + 8 + (s.inspection.done ? 0 : Math.sin(t * 0.4) * 4));
-    human(c, x, feet(ch.f), { body: P.ink, hood: P.ink, robe: 1, trim: P.amber, ph: 9 }, t);
-    glow(c, x + 5, feet(ch.f) - 6, 4, P.yellow, 0.4);
-    D(c, x + 5, feet(ch.f) - 6, P.yellow);
+    const x = Math.round(ch.x0 + 10 + (s.inspection.done ? 0 : Math.sin(t * 0.4) * 4));
+    const walking = !s.inspection.done && Math.abs(Math.cos(t * 0.4)) > 0.3;
+    figure(c, x, feet(ch.f), {
+      tunic: P.ink, legs: P.ink, belt: P.amber, shoes: P.night, skin: P.peach, hair: P.night, robe: 1, hood: P.ink, prop: 'lantern',
+      pose: walking ? 'walk' : 'stand', face: Math.cos(t * 0.4) >= 0 ? 1 : -1, ph: 9,
+    }, t);
   }
   // A raid on the way: war banners on the turrets, and the Host's torches coming over the eastern hills.
   const r = s.raid;
@@ -405,17 +407,20 @@ function dayActors(c, s, t, dusk = 0) {
 
 /* ---------------------------------------------------------------- the night */
 
-const EYES = { loyal: P.cyan, serene: '#cfe0ff', pale: P.white, stranger: P.green };
-const SHADE_BODY = { pale: ['#4a4466', '#5a5478'] };
 
-function shadeSprite(c, d, x, y, t) {
-  const [body, skin] = SHADE_BODY[d.kind] || ['#07060d', '#07060d'];
-  human(c, Math.round(x - 2), Math.round(y), { body, skin, legs: body, hood: d.kind === 'serene' ? body : undefined, ph: x, walk: d.path?.length ? 3 : 0 }, t);
+// A shade faces the way it's going, or inward from its post.
+function shadeFigure(d, x) {
+  const next = d.path?.[0];
+  const face = next && Math.abs(next.x - x) > 0.5 ? (next.x > x ? 1 : -1) : x < W / 2 ? 1 : -1;
+  return { ...shadeLook(d), face, pose: d.path?.length ? 'walk' : 'stand', ph: d.id.charCodeAt(1) || 0 };
 }
-function shadeEyes(c, d, x, y) {
-  const col = EYES[d.kind] || P.cyan;
-  D(c, Math.round(x - 1), Math.round(y) - 7, col);
-  D(c, Math.round(x), Math.round(y) - 7, col);
+function shadeSprite(c, d, x, y, t) {
+  figure(c, Math.round(x), Math.round(y), shadeFigure(d, x), t);
+}
+function shadeEyes(c, d, x, y, t) {
+  const o = shadeFigure(d, x);
+  const bob = o.pose === 'walk' ? MF(t * 3 + o.ph) % 2 : 0;
+  for (const e of eyesAt(Math.round(x), Math.round(y) - bob, o)) D(c, e.x, e.y, o.eyes);
 }
 function creeperSprite(c, u, x, y, t) {
   const bx = Math.round(x - 3);
@@ -584,23 +589,24 @@ function composeTain(s, t, opts = {}) {
   }
   // Every shade carries a faint glow of its own, so a silhouette in the dark can still be found.
   for (const { d, x, y } of shadePos) {
-    glow(c, Math.round(x), Math.round(y) - 4, 5, '#7d6bd6', 0.3);
+    glow(c, Math.round(x), Math.round(y) - 6, 6, '#7d6bd6', 0.3);
     shadeSprite(c, d, x, y, t);
   }
   for (const { d, x, y } of shadePos) {
-    shadeEyes(c, d, x, y);
-    if (d.grabbedBy && MF(t * 4) % 2) R(c, Math.round(x) - 3, Math.round(y) - 10, 6, 1, P.hot);
-    if (d.named) D(c, Math.round(x) + 1, Math.round(y) - 4, P.amber);
+    shadeEyes(c, d, x, y, t);
+    const hh = FIG_H[shadeLook(d).age];
+    const bx = Math.round(x);
+    const by = Math.round(y);
+    if (d.grabbedBy && MF(t * 4) % 2) R(c, bx - 3, by - 7, 6, 1, P.hot);
+    if (d.named) D(c, bx, by - hh + 5, P.amber);
     const m = Math.max(0, Math.min(4, Math.ceil(d.memory / 25)));
     if (opts.selected === d.id || d.memory < 40) {
-      R(c, Math.round(x) - 2, Math.round(y) - 11, 4, 1, UMBRA[2]);
-      R(c, Math.round(x) - 2, Math.round(y) - 11, m, 1, d.memory < 40 ? P.hot : UMBRA[7]);
+      R(c, bx - 2, by - hh - 3, 4, 1, UMBRA[2]);
+      R(c, bx - 2, by - hh - 3, m, 1, d.memory < 40 ? P.hot : UMBRA[7]);
     }
     if (opts.selected === d.id) {
-      const bx = Math.round(x);
-      const by = Math.round(y) - 14;
-      D(c, bx, by + 1, P.yellow);
-      R(c, bx - 1, by, 3, 1, P.yellow);
+      D(c, bx, by - hh - 5, P.yellow);
+      R(c, bx - 1, by - hh - 6, 3, 1, P.yellow);
     }
   }
   for (const { u, x, y } of foes) {
@@ -621,9 +627,9 @@ function composeTain(s, t, opts = {}) {
     const rf = MAP.rifts[i % MAP.rifts.length];
     const x = rf.x + (i % 2 ? 5 : -5) + Math.round(Math.sin(t * 1.3 + i) * 2);
     if (MF(t * 5 + i) % 4) {
-      D(c, x, feet(DEEP_FLOOR) - 7, P.silver);
-      D(c, x + 1, feet(DEEP_FLOOR) - 7, P.silver);
-      A(c, 0.35, () => R(c, x - 1, feet(DEEP_FLOOR) - 8, 4, 7, '#cfe0ff'));
+      const o = { silhouette: '#cfe0ff', wisp: true, pose: 'stand', face: i % 2 ? -1 : 1 };
+      A(c, 0.35, () => figure(c, x, feet(DEEP_FLOOR), o, t));
+      for (const e of eyesAt(x, feet(DEEP_FLOOR), o)) D(c, e.x, e.y, P.silver);
     }
   });
   return work;

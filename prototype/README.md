@@ -15,7 +15,7 @@ All four are live on GitHub Pages at https://rcjlabs.github.io/Base-Manager/ (ev
 
 ```sh
 cd prototype
-npm test                        # 65 tests: rules, replay, save and load, soak runs, the pixel quiz, the app's file list (Node 20+, no dependencies)
+npm test                        # 68 tests: rules, replay, save and load, soak runs, the pixel quiz, the people sprites, the app's file list (Node 20+, no dependencies)
 npm run serve                   # then open http://localhost:8080, /night.html, /pixel.html or /season.html (any static server works)
 npm run bundle                  # dist/afterglass-greybox.html, -night, -pixel and -season.html: single files that open from disk
 npm run balance -- 20 40        # weeks 1-2 autopilot report: 40 seeds x 20 days per policy
@@ -36,10 +36,10 @@ The pages load ES modules, so they need a web server; GitHub Pages works as is. 
 | `src/autopilot.js`, `src/night-autopilot.js` | Crude players for tests and balance runs |
 | `src/px/` | The pixel pass: `kit.js` (palette and drawing primitives from the round-three mockups), `lut.js` (the palette lookup and dithered light), `scene.js` (geometry, cameras, the quiz), `draw.js` (the art) |
 | `src/pixel-ui.js` | The pixel page: day, crossing, night and the readability test |
-| `src/slice/` | The season slice: `data.js` (content and tuning), `geo.js` (the keep's geometry, light, routes and cameras), `sim.js` (the whole season as one state), `autopilot.js`, `draw.js` (the art, built on `src/px/`), `book.js` (the Book of the Dead's pages) |
+| `src/slice/` | The season slice: `data.js` (content and tuning), `geo.js` (the keep's geometry, light, routes and cameras), `sim.js` (the whole season as one state), `autopilot.js`, `draw.js` (the art, built on `src/px/`), `people.js` (the living and the dead as pixel figures), `book.js` (the Book of the Dead's pages) |
 | `src/slice-ui.js` | The season page |
 | `sw.js`, `season.webmanifest`, `icons/` | The installable season: the service worker that keeps it playable offline, the manifest, and the icons `tools/icons.mjs` draws |
-| `test/` | 16 weeks 1–2 tests, 15 night tests, 8 pixel tests, 24 season tests and 2 for the installable app, including soak runs |
+| `test/` | 16 weeks 1–2 tests, 15 night tests, 8 pixel tests, 24 season tests, 3 for the people sprites and 2 for the installable app, including soak runs |
 | `tools/` | Balance reports, the single-file bundler and the icon drawer |
 
 Everything is seeded and every action is logged, so `replay()` (in `src/sim.js` and `src/slice/sim.js`) and `replayNight()` rebuild any session exactly, including one from a playtester's export.
@@ -68,7 +68,7 @@ The vertical slice: seven days in one keep, ending on the night of the new moon,
    Season 2 now finishes 68% for the balanced plan, 61% for the keeper and 46% for the mourner, each ±7. The mourner holds only 34% of day-6 raids and loses nearly half its failed seasons on night 7. The target, harder than season 1 but not a coin flip, is my guess at "harder but fair", nothing more. Both multipliers and the Maws' numbers are in Settings.
 4. **The Hollow usually gets through.** On the new moon it reaches the Veil and takes someone in 69 of the 90 finished seasons. Shades drive it back in 16, and it withdraws at dawn in 5. Whether that's too soft or too hard for people is for the playtest.
 5. **Dread rarely forces a choice in the first season.** A season kills about 4 of your people. The balanced plan is blessed at every inspection by covering shades before day 5. A plan that never covers anyone is censured in only 6 seasons of 100, and warned in 15. It bites in season 2, where that plan is censured 104 times in 183 second seasons. In season 1, keep or cover is still mostly a Dread valve.
-6. **Shades are hard to find in the dark.** They're 4 by 8 pixel silhouettes (12 by 24 CSS pixels at 3×) with a faint glow, and the Unlit show only their eyes. Creeper red against Stranger green is still a colour-blindness risk; a gnawing Creeper's eyes turn orange.
+6. **Shades are hard to find in the dark.** They're 6 by 12 pixel silhouettes (18 by 36 CSS pixels at 3×) with a faint glow, and the Unlit show only their eyes. In the default reflection camera they hang upside down, as the Tain does; the flipped camera shows them upright. Creeper red against Stranger green is still a colour-blindness risk; a gnawing Creeper's eyes turn orange.
 7. **On a phone, the panels cover most of the castle.** Dusk and dawn open a sheet over about two-thirds of the screen. Close it to look, or play on a wider screen, where the panel is a drawer beside the castle.
 8. **The guide, the crossing and the Book are untested with people.**
    - **The guide** is 12 cards of my text, each shown once, when its moment first comes. The first raid, the first night, the Church, the first Maw and the new moon pause the clock. Whether a newcomer can play from the cards alone is the question.
@@ -86,6 +86,7 @@ The vertical slice: seven days in one keep, ending on the night of the new moon,
   - **The bar** at the bottom holds the tools for the moment (Candle, Move, Ward, Hush, Flip, or the phase's next step). It also opens three panels: this phase (Day, Crossing, Dusk, Night, Rite or Season), People, and Records. Panels are a sheet from the bottom on phones and a drawer on the right on wide screens. They open by themselves when a decision is waiting, at the crypt, the rite and the season's end.
   - **Zoom and pan.** Pinch or the mouse wheel zooms in whole-pixel steps toward your fingers or the pointer, from 1× to 10×. Dragging pans, and a tap still acts, since it's judged on release. The +, − and Fit buttons at the right edge do the same. Panning stays near the castle and resets when day turns to night.
   - **Keys:** space, 1, 2 and 4 for time; C, M, W, H and V for the tools; + and − to zoom, 0 to fit, arrows to pan; K, P and R for the panels; L for room names; Esc to close.
+- **People** are 6 by 12 pixels (10 for the young, 11 and stooped for the old). They're dressed by their job: the guard in a helm and crimson tabard with a spear, the priest in a hood and robe, the cook in a cap and apron, the healer marked with a red cross. Hair, beard and skin come from each name. By day each works a station in their room and now and then walks a few steps. The shades are the same bodies as dark silhouettes with glowing eyes; their feet thin into a wisp, and the Loyal wear a helm, the Serene a hood and Strangers horns.
 - **Day** (60 s at 1×). Eight living work six rooms. The Chandlery makes the night's candles, and thanks to the Granary, raiders who break in take only half as much food. Raids come on days 2, 4 and 6 at strength about 4, 7 and 11 (±1.5). War banners go up over the turrets when one is on the road. Sickness, old age and an empty larder kill as before, and a newcomer arrives every second day. Jobs are in People; pick a name there, then tap a room on the castle, or use the job list.
 - **Dusk** (paused). The crossing:
   1. The sun sets over the keep and its lights go out.
