@@ -34,7 +34,7 @@ Sizes were my estimates when the list was made: S, M, L.
 | 12 | The Book of the Dead: each shade's story | S | Built |
 | 13 | A season recap card to share | S | Queued, 3rd |
 | 14 | A daily seed everyone plays | S | Queued, 4th; replays are already exact from a seed |
-| 15 | Watch a replay of a season or a tester's export | S–M | Queued, 2nd |
+| 15 | Watch a replay of a season or a tester's export | S–M | Parked for later, your call |
 | 16 | A threat preview at dusk: likely Creeper routes and the Hollow's path | M | Built, as the black mirror: the Dusk panel says where each rift's tide will go, and the Tain shows the ways |
 | 17 | A guided first season | M | Built |
 | 18 | An installable app, the first step toward Google Play | S–M | Built; Chromium only |
@@ -89,7 +89,7 @@ The Maw name, the fourth open question from before, is settled: they break rooms
 The candidates not built yet when the queue was made, in the order I'd build them. The first two help the playtest itself; the next two matter once there are players; the rest add to the game.
 
 1. **A threat preview at dusk (16), with the black mirror (6) in it.** M. Done. The Dusk panel's black mirror says where each rift's tide will go past the candles set so far: the light it will gnaw, a mirror left open, or a shade it will catch. It also names where candle hunters go, what a Maw would make for, the Hollow's way, each tide's size, and tomorrow's raid as a range. The Tain shows the same ways as marching chevrons. It asks the Creepers' own planner, so it's exact until the night begins and candles burn down.
-2. **Watch a replay (15).** S–M. A tester's export already replays exactly. A viewer that plays it back lets you see where they struggled, which is most of what a playtest can tell beyond its one question.
+2. **Watch a replay (15).** S–M. Parked for later, your call. A tester's export already replays exactly. A viewer that plays it back lets you see where they struggled, which is most of what a playtest can tell beyond its one question.
 3. **A season recap card (13).** S. One image per season to share, drawn from the season summary and the Book of the Dead.
 4. **A daily seed (14).** S. Everyone plays the same keep each day. Worth it once there are players to compare.
 5. **Break a mirror in an emergency (8).** S. A last resort on a bad night: it frees its shades and curses the room. A new decision, and cheap.
