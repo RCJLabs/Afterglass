@@ -2,14 +2,14 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   newSeason, step, act, replay, ritePreview, crossingPreview, capacity, canWork, defense, bear, dayTicks, nightTicks, addCreeper,
-  lastSeason, kill, byId, addFoe, retune, playerTuning, jobCap, jobCount, nextSlot,
+  lastSeason, kill, byId, addFoe, retune, playerTuning, jobCap, jobCount, nextSlot, roomPower, upgrade,
 } from '../src/slice/sim.js';
 import { runSeasonAuto, autoStep, PLANS } from '../src/slice/autopilot.js';
 import { epitaph } from '../src/slice/book.js';
 import { MAP, TUNING, START_SHADES, BUILDABLE } from '../src/slice/data.js';
 import {
   geoOf, geo, typeAt, roomsOf, mirrorGoals, MAX_FLOORS, lightMap, isLit, roomAt, route, darkRooms, darkGaps, roomSpan, feet as feetG, MODES, toView, fromView, floorAtY as floorAtYG,
-  unitAt as unitAtG, VIEW_H, DEEP_FLOOR,
+  unitAt as unitAtG, VIEW_H, DEEP_FLOOR, lineSpots,
 } from '../src/slice/geo.js';
 
 // The starting keep's geometry, for the tests that check geometry on its own.
@@ -23,7 +23,9 @@ const ok = (s, a) => {
   const r = act(s, a);
   assert.ok(r.ok, `${a.type}: ${r.error}`);
 };
-const quiet = { sickChance: 0, oldAgeChance: 0, raidDays: { 2: 0, 4: 0, 6: 0 } };
+// Most of these tests are about the rules on the original four-floor keep; seasons now start from two rooms.
+const FULL = { startFloors: 4 };
+const quiet = { ...FULL, sickChance: 0, oldAgeChance: 0, raidDays: { 2: 0, 4: 0, 6: 0 } };
 function toDusk(s) {
   while (s.phase === 'day') step(s);
   assert.equal(s.phase, 'dusk');
@@ -72,7 +74,7 @@ test('seeded runs are identical, and the action log replays to the same state', 
 });
 
 test('the day feeds, makes candles and glass, and raids escalate through the season', () => {
-  const s = newSeason(2, { sickChance: 0, oldAgeChance: 0 });
+  const s = newSeason(2, { ...FULL, sickChance: 0, oldAgeChance: 0 });
   const food = s.res.food;
   const candles = s.res.candles;
   toDusk(s);
@@ -300,6 +302,67 @@ test('wards on the stairs keep a Maw below them', () => {
   assert.equal(s.night.candles.length, 2);
 });
 
+// A doubled line on the left stair up to the Veil, three chandlers by day, and a Maw at a rift.
+function thickLine(seed) {
+  const s = newSeason(seed, quiet);
+  emptyNight(s);
+  ok(s, { type: 'candle', f: 2, x: 16 });
+  ok(s, { type: 'candle', f: 2, x: 96 });
+  const [a, b] = s.shades;
+  Object.assign(a, { f: 2, x: 16, post: { f: 2, x: 16 } });
+  Object.assign(b, { f: 2, x: 18, post: { f: 2, x: 18 } });
+  s.living.forEach((p, i) => (p.job = i < 3 ? 'chandlery' : null));
+  const maw = addFoe(s, 'maw', DEEP_FLOOR, 12);
+  return { s, maw, a, b, wick: roomAt(geo(s), 1, 30) };
+}
+
+test('a Maw passes a thick line for a room the line left bare, breaks it, and the keep pays in Dread', () => {
+  const { s, maw, b, wick } = thickLine(25);
+  stepFor(s, 2);
+  assert.deepEqual([maw.target.kind, maw.target.id], ['room', wick], 'three chandlers\' room, and no one on the way');
+  stepFor(s, 20);
+  assert.deepEqual(s.night.broken, [wick]);
+  assert.equal(s.night.stats.smashed, 0, 'the line is left alone');
+  // A broken room: a lit shade at its post there does no work for the rest of the night.
+  s.night.foes = [];
+  Object.assign(b, { f: 1, x: 30, ox: 30, of: 1, post: { f: 1, x: 30 }, path: [] });
+  ok(s, { type: 'candle', f: 1, x: 30 });
+  stepFor(s, 10);
+  assert.equal(s.night.stats.wick, 0);
+  toDawn(s);
+  assert.deepEqual(s.haunted, [wick]);
+  assert.equal(ritePreview(s).dread.broken, TUNING.dreadPerBroken, 'Dread for the haunting at dawn');
+  ok(s, { type: 'beginDay' });
+  assert.ok(s.log.some((l) => /Chandlery is haunted/.test(l.text)));
+  toDusk(s);
+  assert.deepEqual(s.haunted, [], 'the haunting lifts at dusk');
+});
+
+test('once on its target\'s floor a Maw keeps to it, however many come to meet it', () => {
+  const { s, maw, a, b, wick } = thickLine(26);
+  for (let i = 0; i < 100 && maw.f !== 1; i++) step(s);
+  assert.equal(maw.f, 1);
+  // Everyone leaves the line for the Wick Room: the line is bare, but the Maw is committed.
+  for (const [d, x] of [[a, 34], [b, 38]]) Object.assign(d, { f: 1, x, ox: x, of: 1, post: { f: 1, x }, path: [] });
+  ok(s, { type: 'candle', f: 1, x: 36 });
+  stepFor(s, 1);
+  assert.equal(maw.target.id, wick);
+  stepFor(s, 12);
+  assert.ok(!s.night.foes.includes(maw), 'and they cut it down');
+  assert.deepEqual(s.night.broken, []);
+});
+
+test('a room holds roomCap workers; in a haunted room they make hauntWork of their work', () => {
+  const s = newSeason(27, quiet);
+  s.living.forEach((p) => (p.job = 'hearth'));
+  s.living[0].sick = 5; // the strongest work: the sick cook is the one left over
+  assert.equal(roomPower(s).hearth, 3, 'three of eight cook; the rest stand idle');
+  s.haunted = ['hearth'];
+  assert.equal(roomPower(s).hearth, 3 * TUNING.hauntWork);
+  s.tuning.hauntWork = 0;
+  assert.equal(roomPower(s).hearth, 0);
+});
+
 test('Maws come one a night from night 3, but not on the new moon', () => {
   const count = (day) => {
     const s = newSeason(24, quiet);
@@ -397,10 +460,85 @@ test('an older save takes the current defaults, keeps the player\'s own settings
   assert.equal(fresh.tuning.daySecs, 30, 'with the player\'s own settings');
 });
 
+test('a season starts from two rooms: whoever has no room quarries, and the dead hold the line between rift and mirror', () => {
+  const s = newSeason(1);
+  const G = geo(s);
+  assert.equal(G.n, 1);
+  assert.deepEqual(s.keep.floors[0].map((r) => r.type), ['hearth', 'crypt']);
+  assert.equal(G.deep, G.veil, 'the rifts and the mirrors share the one floor');
+  assert.equal(G.stairs.length, 0);
+  assert.deepEqual(s.living.filter((p) => p.job !== 'yard').map((p) => p.job), ['hearth', 'hearth']);
+  const pw = roomPower(s);
+  assert.equal(pw.hearth, 2);
+  assert.equal(pw.yard, 6);
+  assert.equal(pw.barracks + pw.chapel + pw.chandlery, 0, 'no room, no work');
+  assert.ok(s.res.stone >= s.tuning.roomStone, 'the first room can go up at once');
+  const line = lineSpots(G);
+  s.shades.forEach((d, i) => {
+    assert.equal(d.post.f, 0);
+    assert.ok(Math.abs(d.post.x - line[i].x) <= 2, `${d.name} on the line`);
+  });
+  ok(s, { type: 'assign', id: s.living[0].id, room: 'yard' });
+  assert.match(act(s, { type: 'assign', id: s.living[0].id, room: 'barracks' }).error, /no Barracks yet/);
+  ok(s, { type: 'raise', room: 'barracks' });
+  ok(s, { type: 'assign', id: s.living[0].id, room: 'barracks' });
+  assert.equal(geo(s).n, 2);
+});
+
+test('a one-floor Tain: a candle between each rift and its mirror, and a shade in its light, hold the night', () => {
+  const run = (lit) => {
+    const s = newSeason(9, { sickChance: 0, oldAgeChance: 0 });
+    toNight(s);
+    s.night.spawns = [];
+    if (lit) for (const p of lineSpots(geo(s))) ok(s, { type: 'candle', f: p.f, x: p.x });
+    for (const r of MAP.rifts) for (let i = 0; i < 2; i++) addCreeper(s, 0, r.x);
+    stepFor(s, 40);
+    return s.night.stats;
+  };
+  const held = run(true);
+  assert.equal(held.crossed, 0);
+  assert.equal(held.killed, 4);
+  assert.ok(run(false).crossed > 0, 'in the dark they reach the mirrors in moments');
+});
+
+test('a Maw takes mawRise seconds to haul itself out of its rift, and does nothing until then', () => {
+  const s = newSeason(28, quiet);
+  toNight(s);
+  s.night.spawns = [{ at: 1, type: 'maw', seep: false, snuff: false, rift: 'r1' }];
+  step(s);
+  const maw = s.night.foes.find((f) => f.type === 'maw');
+  assert.ok(maw && maw.rising > 0);
+  assert.ok(s.log.some((l) => /hauling itself out of the left rift/.test(l.text)));
+  const x = maw.x;
+  stepFor(s, TUNING.mawRise - 0.5);
+  assert.equal(maw.x, x, 'still in its rift');
+  stepFor(s, 3);
+  assert.ok(maw.target, 'then it picks what to go for');
+});
+
+test('an older save keeps the four floors it started with, and still replays', () => {
+  const s = newSeason(29, { ...quiet, creepersBase: 0, creepersPerNight: 0 });
+  toNight(s);
+  toDawn(s);
+  ok(s, { type: 'beginDay' });
+  const old = JSON.parse(JSON.stringify(s));
+  delete old.keep;
+  delete old.haunted;
+  for (const t of [old.tuning, old.tuning0]) delete t.startFloors;
+  const g = upgrade(old);
+  assert.equal(geo(g).n, 4);
+  assert.equal(g.tuning0.startFloors, 4);
+  const r = replay(g.seed, g.tuning0, g.actions);
+  while (r.t < s.t) step(r);
+  assert.deepEqual(r.keep, s.keep);
+  assert.deepEqual(r.res, s.res);
+});
+
 test('masons raise rooms on top of the keep: a floor with a bare hall, then the hall, and the shades keep their places', () => {
   const s = newSeason(4, quiet);
   const T = s.tuning;
   assert.equal(s.res.stone, T.startStone);
+  s.res.stone = T.roomStone - 1;
   assert.equal(act(s, { type: 'raise', room: 'barracks' }).error, `A room takes ${T.roomStone} stone.`);
   s.res.stone = 3 * T.roomStone;
   assert.match(act(s, { type: 'raise', room: 'crypt' }).error, /cannot be built/);
@@ -572,7 +710,7 @@ test('the Book of the Dead tells every death as a story', () => {
       assert.ok(!/season of the \w+ season/.test(text), text);
     }
   }
-  const s = newSeason(1);
+  const s = newSeason(1, FULL);
   const garrick = s.ledger.find((e) => e.name === 'Garrick');
   assert.equal(epitaph(garrick), "Of the last keeper's household, a guard, parent of Osk. Died on duty before you came. Still in the glass.");
   const osk = s.living.find((p) => p.name === 'Osk');

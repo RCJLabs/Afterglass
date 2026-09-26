@@ -12,8 +12,15 @@ export const clampX = (x) => Math.max(MAP.LEFT, Math.min(MAP.RIGHT - 1, x));
 export const DEEP_FLOOR = 0;
 export const PITCH = MAP.ROOM_H + 2; // a floor's rooms and the slab under them
 
-// The keep a season starts with: the original four floors, each room named for its type.
-export const START_KEEP = { floors: MAP.floors.map((fl) => fl.rooms.map(([id]) => ({ id, type: id }))) };
+// The original keep, four floors, each room named for its type. Seasons used to start with all of it, so
+// it's the layout of a save that has none, and geoOf()'s default (the geometry tests use it).
+export const FULL_KEEP = { floors: MAP.floors.map((fl) => fl.rooms.map(([id]) => ({ id, type: id }))) };
+// The keep a season starts with: the lowest `floors` floors of the original. At 1 it's the ground floor
+// alone, the Hearth and the Crypt, and everything else has to be built.
+export function startKeep(floors) {
+  const k = Math.max(1, Math.min(FULL_KEEP.floors.length, Math.round(floors) || 1));
+  return { floors: FULL_KEEP.floors.slice(FULL_KEEP.floors.length - k) };
+}
 // The two room slots on every floor.
 export const SLOTS = MAP.floors[0].rooms.map(([, a, b]) => [a, b]);
 
@@ -29,7 +36,7 @@ export const MAX_FLOORS = MAP.floors.length + STAIR_XS.length - 3;
 // layout, so the per-tick lookups cost nothing.
 const byKeep = new WeakMap();
 const cache = new Map();
-export function geoOf(keep = START_KEEP) {
+export function geoOf(keep = FULL_KEEP) {
   let G = byKeep.get(keep);
   if (G) return G;
   const key = keep.floors.map((fl) => fl.map((r) => `${r.id}:${r.type}`).join(',')).join('|');
@@ -59,7 +66,7 @@ export function geoOf(keep = START_KEEP) {
   byKeep.set(keep, G);
   return G;
 }
-export const geo = (s) => geoOf(s.keep || START_KEEP);
+export const geo = (s) => geoOf(s.keep || FULL_KEEP);
 
 export const feet = (G, f) => G.floors[f].y + MAP.ROOM_H - 2; // the row everyone on floor f stands on
 
@@ -240,6 +247,13 @@ export function touching(G, L, u, candleId) {
 }
 
 export const mirrorGoals = (G) => G.mirrors.map((m) => ({ f: G.veil, x: m.x, id: m.id }));
+
+// Where the line is held: the feet of the two stairs up to the Veil floor. A keep one floor high has no
+// stairs, so there it's halfway between each rift and the mirror on its side.
+export function lineSpots(G) {
+  if (G.n > 1) return G.stairs.filter((st) => st.f === G.veil - 1).map((st) => ({ id: st.id, f: st.f, x: st.x }));
+  return G.rifts.map((r, i) => ({ f: 0, x: Math.round((r.x + G.mirrors[i].x) / 2) }));
+}
 
 /* ---------------------------------------------------------------- cameras */
 

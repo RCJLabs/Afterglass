@@ -468,7 +468,8 @@ function dayActors(c, s, t, dusk = 0) {
     }
   });
   if (s.inspection && s.inspection.day === s.day) {
-    const ch = span('chapel');
+    // The inspector walks the Chapel, or the Hearth in a keep that hasn't built one.
+    const ch = span(every('chapel')[0]?.id || 'hearth');
     const x = Math.round(ch.x0 + 10 + (s.inspection.done ? 0 : Math.sin(t * 0.4) * 4));
     const walking = !s.inspection.done && Math.abs(Math.cos(t * 0.4)) > 0.3;
     figure(c, x, feet(ch.f), {
@@ -594,6 +595,33 @@ function candleStick(c, k) {
   R(c, Math.round(k.x), feet(k.f) - h + 1, 1, h, UMBRA[6]);
   return feet(k.f) - h;
 }
+// A room a Maw broke tonight: three cracks down its back wall.
+function cracked(c, r, y) {
+  for (let i = 0; i < 3; i++) {
+    let x = r.x0 + 7 + ((r.x0 * 5 + i * 13) % (r.x1 - r.x0 - 14));
+    for (let yy = y + 1; yy < y + ROOM_H - 2; yy++) {
+      D(c, x, yy, i === 1 ? P.hot : P.crimson);
+      if ((yy * 3 + i + r.x0) % 4 === 0) x += ((yy + i) % 3) - 1;
+    }
+  }
+}
+// Corner brackets round a room: what a Maw is making for.
+function brackets(c, r, y, col) {
+  const y1 = y + ROOM_H - 1;
+  for (const [x, dx] of [[r.x0, 1], [r.x1 - 1, -1]]) {
+    for (const yy of [y, y1]) R(c, dx > 0 ? x : x - 3, yy, 4, 1, col);
+    R(c, x, y, 1, 4, col);
+    R(c, x, y1 - 3, 1, 4, col);
+  }
+}
+// A room haunted by day: cold light, and one of the dead drifting through it.
+function haunt(c, r, y, t) {
+  A(c, 0.18, () => R(c, r.x0, y, r.x1 - r.x0, ROOM_H, '#9fc7ff'));
+  const k = Math.sin(t * 0.6 + r.x0);
+  const x = Math.round(r.x0 + 8 + ((k + 1) * (r.x1 - r.x0 - 16)) / 2);
+  const o = { silhouette: '#dbe8ff', wisp: true, pose: 'stand', face: Math.cos(t * 0.6 + r.x0) > 0 ? 1 : -1 };
+  A(c, 0.45 + 0.15 * Math.sin(t * 3), () => figure(c, x, y + ROOM_H - 2, o, t));
+}
 function sigil(c, x, y, hold) {
   const col = hold != null && hold < 6 ? P.hot : '#f0b0ff';
   ring(c, x, y, 3, col);
@@ -651,6 +679,14 @@ function composeTain(s, t, opts = {}) {
   applyLight(img.data, W, VEIL - y0, lightFor(s, hollow && !hollow.u.climb ? { f: hollow.u.f, x: hollow.x } : null, opts.ambient ?? 0.2), y0);
   c.putImageData(img, 0, 0);
 
+  // Rooms broken tonight, and what each Maw is making for (blinking): brackets on a room, a ring on a candle.
+  for (const id of n?.broken || []) if (G.rooms[id]) cracked(c, G.rooms[id], G.floors[G.rooms[id].f].y);
+  for (const m of n?.foes || []) {
+    const tg = m.type === 'maw' && m.target;
+    if (!tg || !(MF(t * 3) % 2)) continue;
+    if (tg.kind === 'room' && G.rooms[tg.id]) brackets(c, G.rooms[tg.id], G.floors[tg.f].y, P.hot);
+    else ring(c, Math.round(tg.x), feet(tg.f) - 3, 4, P.hot);
+  }
   // What gives off its own light goes on after the lighting.
   for (const h of every('hearth')) {
     flame(c, h.x0 + 38, feet(h.f) - 1, t, 3, [P.cyan, '#9fe6ff', P.blue]);
@@ -789,6 +825,7 @@ function dayScene(c, w, h, s, v) {
     if (dk > 0) A(u, dk, () => u.drawImage(L.nightKeep, 0, L.y0));
     if (sunset > 0 && dk < 0.6) A(u, 0.25 * sunset * (1 - dk / 0.6), () => R(u, cx, yTop, w, upH, P.orange));
     dayActors(u, s, t, dk);
+    for (const id of s.haunted || []) if (G.rooms[id]) A(u, 1 - dk, () => haunt(u, G.rooms[id], G.floors[G.rooms[id].f].y, t));
     // Souls of the dead crossing: down through the Veil to wake, or up and away to rest.
     for (const sl of v.souls || []) {
       A(u, sl.a, () => {

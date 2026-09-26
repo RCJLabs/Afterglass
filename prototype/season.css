@@ -43,6 +43,7 @@ body.game-page {
   text-overflow: ellipsis;
 }
 .glabels span.up { transform: translate(-50%, calc(-100% - 3px)); }
+.glabels span.marked { color: #ffd0d8; box-shadow: inset 0 0 0 1px rgb(255 90 120 / 0.6); }
 
 /* Glass panels over the castle. */
 .ghud, .gbar {

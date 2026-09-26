@@ -4,11 +4,11 @@
 
 import { TICKS_PER_SEC, DAY_ROOMS, WORK_ROOMS, TWINS, KINDS, MIRRORS, CAUSES, MAP, BOND_OTHER, TUNING, BUILDABLE } from './slice/data.js';
 import {
-  newSeason, step, act, retune, playerTuning, jobCap, jobCount, nextSlot, ritePreview, crossingPreview, capacity, canWork, defense, roomPower, bear, priests, funeralCap, eatRate,
+  newSeason, step, act, retune, playerTuning, upgrade, jobCap, jobCount, nextSlot, ritePreview, crossingPreview, capacity, canWork, defense, roomPower, bear, priests, funeralCap, eatRate,
   dayTicks, nightTicks, isNewMoon, choicesFor, byId, isTwinnedLiving, isTwinnedShade, lastSeason, SAVE_VERSION, fmt, mirrorCap,
   postRoom,
 } from './slice/sim.js';
-import { geo, feet, floorAtY, roomAt, typeAt, typeOf, roomSpan, roomsOf, lightMap, isLit, unitAt, DEEP_FLOOR } from './slice/geo.js';
+import { geo, feet, floorAtY, roomAt, typeAt, typeOf, roomSpan, roomsOf, lightMap, isLit, unitAt, DEEP_FLOOR, lineSpots as lineOf } from './slice/geo.js';
 import { drawScene } from './slice/draw.js';
 import { epitaph, ordinal, RESTING, LOST } from './slice/book.js';
 
@@ -43,9 +43,9 @@ function loadGame() {
   const g = store.get(SAVE_KEY);
   if (!g || g.v !== SAVE_VERSION || g.mode !== 'season' || !Array.isArray(g.shades)) return null;
   g.alerts = [];
-  // A save from before a tuning number existed takes its default (that's how the Maws reach older saves).
-  for (const t of [g.tuning, g.tuning0]) if (t) for (const [k, v] of Object.entries(TUNING)) if (!(k in t)) t[k] = v;
-  g.res.stone ??= 0;
+  // What an older save predates, it gets: a tuning number its default (that's how the Maws reach older
+  // saves), and a save from before seasons started from two rooms keeps the whole original keep.
+  upgrade(g);
   // Numbers the player never set in Settings follow this build's defaults.
   retuned = retune(g, TUNING);
   return g;
@@ -224,6 +224,7 @@ function introHTML() {
     <p>Weeks 7–10 of the Afterglass plan: one whole season. Seven days and nights, ending on the new moon, when the Hollow rises. The question is <b>would you play a second season?</b> You'll be asked at the end.</p>
     <ul>
       <li><b>By day</b> the living work the keep. Raiders come on days 2, 4 and 6, each time stronger. Anyone who dies inside the walls wakes at dusk as a shade.</li>
+      ${K().n === 1 ? '<li><b>The keep is two rooms</b>, the Hearth and the Crypt. Everyone else quarries stone in the Yard, and you raise the rest of the keep a room at a time: a Barracks before the raid on day 2.</li>' : ''}
       <li><b>By night</b> the shades work the Tain, the keep's reflection. Creepers climb from the rifts in the Deep toward the mirrors under the Veil. They can't enter candlelight; shades standing in light fight them at its edge.</li>
       <li><b>At dawn</b> you decide which of the dead stay. Every shade kept adds to the keep's Dread; the living bear some of it.</li>
       <li><b>The Lantern Church</b> inspects on day 5, and again whenever Dread reaches 5. Low Dread is blessed; high Dread costs you a mirror and the shades in it.</li>
@@ -299,6 +300,7 @@ function dayPanel() {
     ${inspectionCard()}
     ${sick.length ? `<p class="note bad">Sick: ${esc(listOf(sick.map((p) => p.name)))}. A healer in the Infirmary cures one a day; untreated, the sickness kills.</p>` : ''}
     ${s.hungry ? '<p class="note bad">The larder is empty. Everyone works hungry, and the weakest will starve. Put more cooks in the Hearth.</p>' : ''}
+    ${s.haunted.length ? `<p class="note">Haunted today: the ${esc(listOf(s.haunted.map((id) => roomName(id))))}. A Maw broke ${s.haunted.length === 1 ? 'its twin' : 'their twins'} last night${T.hauntWork < 1 ? `, and whoever works there manages ${Math.round(100 * T.hauntWork)}% of their work` : ''}.</p>` : ''}
     <div class="card"><h3>Work today</h3><ul class="facts">${rows}</ul></div>
     <div class="card"><h3>The mirrors</h3><p class="note">Each shade needs a place in a mirror. With no room, the dead wake Restless.</p>${mirrorsHTML()}${buildRow()}</div>`;
 }
@@ -359,14 +361,27 @@ function duskPlace() {
     ${wraiths.length ? `<p class="note bad">${esc(listOf(wraiths.map((d) => d.name)))} will rise as ${wraiths.length === 1 ? 'a Wraith' : 'Wraiths'} in the Waking Room. Cut ${wraiths.length === 1 ? 'it' : 'them'} down to banish for good.</p>` : ''}
     <details class="card"><summary><b>How the Tain works</b></summary>
       <ul class="facts">
-        <li><span>Creepers rise from the two rifts on the deepest floor and climb the stairs toward the two mirrors by the Veil.</span></li>
+        <li><span>Creepers rise from the two rifts on the deepest floor and make for the two mirrors on the floor under the Veil, climbing the stairs between. The more floors the keep has, the longer their way.</span></li>
         <li><span>They can't cross light or climb a stair lit at either end, so they gnaw at the light's edge. Some hunt candles first.</span></li>
         <li><span>A shade standing in light fights anything at its edge. In the dark, shades get caught and drained.</span></li>
         <li><span>Each twin room has a night job for a lit shade at its post: the Choir sings essence, the Silvering makes glass, the Wick Room saves candles, the Threshold readies gentler deaths, the Watch adds to tomorrow's defense and the Cold Hearth halves fading.</span></li>
         <li><span>From night ${T.seepFrom}, some Unlit seep up in rooms with no candle at all.</span></li>
-        <li><span>From night ${T.mawFrom}, a Maw comes with the last tide. It walks through light to tear down the candle barring the way up, and hits the shades there. A lone Serene can't stop one.</span></li>
+        <li><span>From night ${T.mawFrom}, a Maw comes with the last tide. It walks through light to whatever is worth most for the least fight: the candle barring the way up, or a room where people work, counting every fighter on its way. It tears a candle down. A room it stands in for ${fmt(T.mawBreak)} seconds breaks: no work there that night, and ${T.dreadPerBroken} Dread at dawn. It hits the shades beside it.</span></li>
       </ul></details>
     <div class="row"><button class="btn primary" id="btn-start" data-act="start">Begin the night</button></div>`;
+}
+
+// What a Maw is after, in words.
+function mawNote(m) {
+  const T = s.tuning;
+  const tg = m.target;
+  if (m.rising > 0) return `A Maw is hauling itself out of the ${m.x < W / 2 ? 'left' : 'right'} rift. In ${Math.ceil(m.rising / TICKS_PER_SEC)} seconds it goes for whatever is worth most for the least fight. It can be cut down while it climbs.`;
+  if (!tg) return 'A Maw is prowling. Nothing it can reach is worth its while yet.';
+  if (tg.kind === 'candle') {
+    return `A Maw is ${m.gnawing ? 'tearing down' : 'making for'} the candle in the ${roomName(roomAt(K(), tg.f, tg.x), true)}. One strong fighter in the light can stop it; a second makes sure. Relight if it falls.`;
+  }
+  const left = m.gnawing ? ` It breaks in ${fmt(Math.max(0, T.mawBreak - (m.breaking || 0) / TICKS_PER_SEC))} seconds.` : ` It breaks a room it stands in for ${fmt(T.mawBreak)} seconds.`;
+  return `A Maw is ${m.gnawing ? 'breaking' : 'making for'} the ${roomName(tg.id, true)}.${left} Send a fighter to meet it there, with a candle, or pay ${T.dreadPerBroken} Dread at dawn.`;
 }
 
 function nightPanel() {
@@ -381,7 +396,8 @@ function nightPanel() {
       <li><span>Essence sung, glass silvered</span><b class="num"><span data-live="t-ess">${fmt(n.stats.essence)}</span>, <span data-live="t-glass">${fmt(n.stats.glass)}</span></b></li>
     </ul>
     ${h ? `<p class="note bad">The Hollow is in the ${esc(roomName(roomAt(K(), h.f, h.x) || 'chapel', true))}${h.mode === 'batter' ? ', battering a ward' : ''}. It eats light and drains shades near it. Only shades fighting it drive it back.</p>` : ''}
-    ${n.foes.filter((f) => f.type === 'maw').map((m) => `<p class="note bad">A Maw is ${m.gnawing ? 'tearing down' : 'heading for'} the candle in the ${esc(roomName(roomAt(K(), m.f, m.x) || 'chapel', true))}. One strong fighter in the light can stop it; a second makes sure. Relight if it falls.</p>`).join('')}
+    ${n.foes.filter((f) => f.type === 'maw').map((m) => `<p class="note bad">${esc(mawNote(m))}</p>`).join('')}
+    ${n.broken.length ? `<p class="note">Broken tonight: the ${esc(listOf(n.broken.map((id) => roomName(id, true))))}. Nobody works there until dawn.</p>` : ''}
     ${caught.map((d) => `<p class="note bad">${esc(d.name)} is caught in the ${esc(roomName(roomAt(K(), d.f, d.x) || 'crypt', true))}. Drop a candle on the spot or send a fighter.</p>`).join('')}
     ${n.hush ? '<p class="note">Hushed: no work, no fighting, and the Unlit pass the shades by.</p>' : ''}`;
 }
@@ -398,6 +414,7 @@ function nightReport() {
   return `<div class="card"><h3>The night</h3>
     <p>${plural(r.spawned, 'Creeper')}, ${r.killed} cut down, ${r.crossed} through the Veil, ${plural(r.grabbed, 'shade')} caught.${made ? ` Made: ${made}.` : ''}</p>
     ${r.hollow ? `<p class="note ${r.hollow === 'driven back' ? '' : 'bad'}">The Hollow ${r.hollow === 'crossed' ? `reached the Veil${r.taken ? ` and took ${esc(r.taken)}` : ''}` : r.hollow}.</p>` : ''}
+    ${r.broken?.length ? `<p class="note bad">The Maws broke the ${esc(listOf(r.broken.map((id) => roomName(id, true))))}. The living saw the dead walk there: Dread for each.</p>` : ''}
     <ul class="fadelist">${rows}</ul>
     ${r.lost.length ? `<p class="note bad">Lost: ${esc(listOf(r.lost))}.</p>` : ''}</div>`;
 }
@@ -436,6 +453,7 @@ function dawnPanel() {
     D.restless ? `+${D.restless} Restless left` : '',
     D.wraith ? `+${D.wraith} Wraiths left` : '',
     D.cracks ? `+${D.cracks} from the cracked Veil` : '',
+    D.broken ? `+${D.broken} from the rooms the Maws broke` : '',
     `−${D.bear} borne by the living`,
     D.vigils ? `−${D.vigils} vigils` : '',
   ].filter(Boolean).join(', ');
@@ -643,6 +661,10 @@ const TUNE = [
   ['mawsPerNight', 'Maws a night (none on the new moon)'],
   ['mawHp', 'A Maw’s strength'],
   ['mawSmash', 'Wax a second a Maw tears from a candle'],
+  ['mawBreak', 'Seconds a Maw needs in a room to break it'],
+  ['mawLine', 'What the candle barring the way up is worth to a Maw, in workers'],
+  ['dreadPerBroken', 'Dread at dawn for each room a Maw broke'],
+  ['hauntWork', 'Share of the work done the next day in a room a Maw broke'],
   ['hollowHp', 'The Hollow’s strength'],
   ['hollowAt', 'When the Hollow rises, as a share of the night'],
   ['hollowReach', 'How far the Hollow eats light, pixels'],
@@ -657,6 +679,7 @@ const TUNE = [
   ['roomStone', 'Stone a room costs'],
   ['roomCap', 'Workers a room holds'],
   ['startStone', 'Stone a new keep starts with'],
+  ['startFloors', 'Floors a new keep starts with, from the ground (1 to 4)'],
   ['steelFight', 'How much harder shades fight with grave-steel'],
 ];
 function settingsTab() {
@@ -871,7 +894,8 @@ function stageAt(clientX, clientY) {
 let drawnLabels = '';
 function placeLabels() {
   const night = nightView();
-  const key = `${prefs.labels}|${night}|${prefs.mode}|${ui.scale}|${view.x.toFixed(2)}|${view.y.toFixed(2)}|${view.ch}`;
+  const marked = night ? s.night?.broken || [] : s.haunted || [];
+  const key = `${prefs.labels}|${night}|${prefs.mode}|${ui.scale}|${view.x.toFixed(2)}|${view.y.toFixed(2)}|${view.ch}|${K().key}|${marked.join()}`;
   if (key === drawnLabels) return;
   drawnLabels = key;
   labelsEl.hidden = !prefs.labels;
@@ -880,12 +904,13 @@ function placeLabels() {
   const out = [];
   const G = K();
   for (let f = 0; f < G.n; f++) {
-    for (const [, a, b, type] of G.floors[f].rooms) {
+    for (const [id, a, b, type] of G.floors[f].rooms) {
       // Each tag sits on the ceiling side of its room, so it never covers anyone's feet.
       const ceiling = night ? keepToWorldY(G.floors[f].y) : G.floors[f].y;
       const p = worldToScreen((a + b) / 2, ceiling);
       const up = night && !flipped();
-      out.push(`<span class="${up ? 'up' : ''}" style="left:${box.left + p.x}px;top:${box.top + p.y}px;max-width:${(b - a) * ui.scale - 6}px">${esc(night ? TWINS[type].name : DAY_ROOMS[type].name)}</span>`);
+      const mark = marked.includes(id) ? (night ? ', broken' : ', haunted') : '';
+      out.push(`<span class="${up ? 'up' : ''}${mark ? ' marked' : ''}" style="left:${box.left + p.x}px;top:${box.top + p.y}px;max-width:${(b - a) * ui.scale - 6}px">${esc((night ? TWINS[type].name : DAY_ROOMS[type].name) + mark)}</span>`);
     }
   }
   labelsEl.innerHTML = out.join('');
@@ -1206,20 +1231,20 @@ function closeSheet() {
 // button (a pulsing outline) or at spots on the Tain (pulsing rings), and some pause the clock to be read.
 const seen = (id) => !!prefs.guideSeen?.[id];
 const first = () => s.season === 1;
-const lineSpots = () => K().stairs.filter((st) => st.f === K().veil - 1).map((st) => ({ f: st.f, x: st.x }));
+const lineSpots = () => lineOf(K());
 const litAt = (f, x) => !!s.night && isLit(lightMap(K(), s.tuning, s.night.candles), f, x);
 const GUIDE = [
   {
     id: 'welcome', target: '#btn-play',
     when: () => first() && s.phase === 'day' && s.day === 1,
     done: () => running() && !ui.paused,
-    text: 'This is your keep on the Veil. Eight people work its rooms by day. Press Play to start the day, and pause whenever you like.',
+    text: () => `This is your keep on the Veil${K().n === 1 ? ', what there is of it: a Hearth and a Crypt. You will build the rest' : ''}. Press Play to start the day, and pause whenever you like.`,
   },
   {
     id: 'jobs', target: '#open-people',
     when: () => first() && s.phase === 'day' && s.day === 1 && s.t > dayTicks(s) * 0.15,
     done: () => ui.sheet === 'people',
-    text: "People holds everyone's jobs. Cooks feed the keep, chandlers make tonight's candles, glaziers make mirrors for the dead, and guards hold the gate.",
+    text: "People holds everyone's jobs. A job needs its room: cooks in the Hearth, chandlers in a Chandlery, guards in a Barracks. Anyone without a room quarries stone in the Yard to build one.",
   },
   {
     id: 'raid', target: '#open-phase', pause: true,
@@ -1243,7 +1268,7 @@ const GUIDE = [
     when: () => first() && seen('tain') && s.phase === 'dusk' && s.dusk.step === 'place' && nightView(),
     marks: () => lineSpots().filter((p) => !litAt(p.f, p.x)),
     done: () => lineSpots().every((p) => litAt(p.f, p.x)),
-    text: 'Light the feet of the two stairs up to the Veil (marked), with a shade at each. Creepers stopped there gnaw at the edge of the light, and a shade standing in it cuts them down.',
+    text: () => `${K().n === 1 ? 'Light the two marked spots between each rift and its mirror' : 'Light the feet of the two stairs up to the Veil (marked)'}, with a shade at each. Creepers stopped there gnaw at the edge of the light, and a shade standing in it cuts them down.`,
   },
   {
     id: 'begin', target: '#bar-start',
@@ -1263,9 +1288,9 @@ const GUIDE = [
   },
   {
     id: 'build', target: '#btn-build',
-    when: () => first() && s.phase === 'day' && s.day >= 2 && s.t > dayTicks(s) * 0.3,
+    when: () => first() && s.phase === 'day' && seen('jobs') && s.t > dayTicks(s) * 0.2,
     done: () => ui.sheet === 'build',
-    text: 'Build raises a room on top of the keep for 8 stone; masons in the Yard quarry 2 a day each. A room holds three workers, so a second Barracks lets more guards stand. What you build on top by day is the Tain\'s deepest room by night, next to the rifts.',
+    text: () => `Build raises a room on top of the keep for ${s.tuning.roomStone} stone; masons in the Yard quarry ${DAY_ROOMS.yard.rate} a day each. Raiders come on day 2, so a Barracks first, and a Chandlery before the candles run out. A room holds ${s.tuning.roomCap} workers. What you build on top by day is the Tain's deepest room by night, next to the rifts.`,
   },
   {
     id: 'church', target: '#open-phase', pause: true,
@@ -1275,7 +1300,7 @@ const GUIDE = [
   {
     id: 'maw', target: '#tool-move', pause: true,
     when: () => first() && s.phase === 'night' && s.night.foes.some((f) => f.type === 'maw'),
-    text: 'A Maw. It walks through light to tear down the candle holding the stairs, and hits the shades there. Move a second fighter to stand with the one holding it, and relight if it falls.',
+    text: 'A Maw. It goes for whatever is worth most for the least fight: the candle holding the stairs, or a room where people work. It counts every fighter on its way, so a thick line only sends it elsewhere. Watch where it heads, and send a fighter there with a candle. A room it stands in for 12 seconds breaks, and costs Dread at dawn.',
   },
   {
     id: 'moon', target: '#open-phase', pause: true,
@@ -1304,7 +1329,7 @@ function showCoach(step) {
   bump();
   coachEl.hidden = !step;
   coachEl.innerHTML = step
-    ? `<p>${esc(step.text)}</p><div class="row"><button class="btn sm primary" id="coach-ok" data-act="guide-ok" data-id="${step.id}">Got it</button><button class="btn sm" id="coach-off" data-act="guide-off">Skip the guide</button></div>`
+    ? `<p>${esc(typeof step.text === 'function' ? step.text() : step.text)}</p><div class="row"><button class="btn sm primary" id="coach-ok" data-act="guide-ok" data-id="${step.id}">Got it</button><button class="btn sm" id="coach-off" data-act="guide-off">Skip the guide</button></div>`
     : '';
   if (step?.pause && running() && !ui.paused) {
     ui.paused = true;
@@ -1332,7 +1357,7 @@ function toast(text, tone = '', open = null) {
   if (ui.toasts.length > room) ui.toasts.splice(0, ui.toasts.length - room);
   ui.toastRev++;
 }
-const STOPS = /has caught|The Hollow rises|Raiders on the road|inspector|has turned Wraith|A Maw is tearing/;
+const STOPS = /has caught|The Hollow rises|Raiders on the road|inspector|has turned Wraith|A Maw is tearing|A Maw is breaking/;
 const OPENS = /Raiders on the road|inspector|fallen sick|larder is empty|arrives at the gate/;
 function takeAlerts(fromClock) {
   let stop = false;

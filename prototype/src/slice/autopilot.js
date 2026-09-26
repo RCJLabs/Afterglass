@@ -4,12 +4,14 @@
 //   mourner  holds every funeral it can and covers shades whenever Dread climbs
 //   balanced keeps shades while Dread allows, and aims low before an inspection
 //   double   the balanced plan, but from the first Maw night it posts two fighters on each stair of the
-//            line and never sends anyone to meet a Maw: the static answer the Maws are meant to break
+//            line and never moves anyone: the static answer the Maws are meant to break
 //   idle     works the day but leaves the night alone: no candles, no posts (a baseline)
+// All but double and idle react at night: a second fighter to each stair of the line for each tide, a ward
+// on the line for the biggest tides when the essence is there, and a fighter to meet a Maw.
 
 import { step, act, newSeason, ritePreview, crossingPreview, capacity, canWork, defense, funeralCap, choicesFor, jobCap, jobCount } from './sim.js';
 import { DAY_ROOMS, MIRRORS, KINDS } from './data.js';
-import { geo, roomSpan, roomAt, roomsOf } from './geo.js';
+import { geo, roomSpan, roomAt, roomsOf, lineSpots } from './geo.js';
 
 export const PLANS = ['balanced', 'keeper', 'mourner', 'double', 'idle'];
 
@@ -17,13 +19,17 @@ const doAct = (s, a) => act(s, a).ok;
 
 /* ---------------------------------------------------------------- day */
 
-// What it builds, in order: a second Barracks (one holds only three guards), a Forge for grave-steel, then
-// a Cellar. A crude player: nothing past that.
+// What it builds, in order, counting what's already standing: a Barracks for the day-2 raid, a Chapel (its
+// priests bear Dread and hold funerals), a Chandlery before the first candles run out, a Glazier for mirrors,
+// an Infirmary, a second Barracks (one holds only three guards), a Forge for grave-steel, a Granary and a
+// Cellar. A crude player: nothing past that.
+const BUILD_ORDER = ['barracks', 'chapel', 'chandlery', 'glazier', 'infirmary', 'barracks', 'forge', 'granary', 'cellar'];
 function nextBuild(s) {
-  const has = (type) => roomsOf(geo(s), type).length;
-  if (has('barracks') < 2) return 'barracks';
-  if (!has('forge')) return 'forge';
-  if (!has('cellar')) return 'cellar';
+  const want = {};
+  for (const type of BUILD_ORDER) {
+    want[type] = (want[type] || 0) + 1;
+    if (roomsOf(geo(s), type).length < want[type]) return type;
+  }
   return null;
 }
 
@@ -32,7 +38,7 @@ function wantedJobs(s) {
   const r = s.raid;
   const threat = r && r.state === 'coming' && r.warned && defense(s) < r.strength;
   const food = n * s.tuning.eatPerDay + (s.res.food < n ? 2 : 0) - (s.res.food > 3 * n ? 3 : 0);
-  return {
+  const want = {
     hearth: Math.max(1, Math.ceil(food / DAY_ROOMS.hearth.rate)),
     chapel: n >= 10 ? 2 : 1,
     infirmary: s.living.some((p) => p.sick > 0) ? 1 : 0,
@@ -40,6 +46,9 @@ function wantedJobs(s) {
     glazier: threat || n < 6 ? 0 : 1,
     yard: !threat && nextBuild(s) && s.res.stone < s.tuning.roomStone ? 1 : 0,
   };
+  // Nobody can work a room that isn't built.
+  for (const k of Object.keys(want)) want[k] = Math.min(want[k], jobCap(s, k));
+  return want;
 }
 
 function staff(s) {
@@ -60,9 +69,11 @@ function staff(s) {
       count[k]++;
     }
   }
-  // The rest hold the gate, as many as the barracks hold; anyone left over quarries stone.
+  // The rest hold the gate on a raid day, or when there's nothing to build, as many as the barracks hold;
+  // everyone else quarries stone.
+  const gate = !!s.raid || !nextBuild(s);
   for (const p of free) {
-    const room = p.job === 'barracks' || jobCount(s, 'barracks') < jobCap(s, 'barracks') ? 'barracks' : 'yard';
+    const room = gate && (p.job === 'barracks' || jobCount(s, 'barracks') < jobCap(s, 'barracks')) ? 'barracks' : 'yard';
     if (p.job !== room) doAct(s, { type: 'assign', id: p.id, room });
   }
 }
@@ -84,6 +95,9 @@ function dayMoves(s) {
 
 /* ---------------------------------------------------------------- dusk */
 
+// Where each shade was posted at dusk, so those called to the line for a tide can go back to work after.
+const homes = new WeakMap();
+
 const fighter = (d) => KINDS[d.kind].fight;
 const worker = (d) => KINDS[d.kind].work;
 
@@ -103,21 +117,22 @@ function funerals(s, plan) {
   for (const x of crossingPreview(s)) if (x.to === 'overflow' && n < cap && doAct(s, { type: 'funeral', id: x.b.id, on: true })) n++;
 }
 
-// The line: the feet of the two stairs up to the Veil floor. Lit, they turn every climber aside to gnaw
-// at the light's edge, where a shade standing in it can fight.
-const lineOf = (s) => geo(s).stairs.filter((st) => st.f === geo(s).veil - 1);
+// The line: the feet of the two stairs up to the Veil floor (or between rift and mirror, in a keep with no
+// stairs). Lit, they turn every climber aside to gnaw at the light's edge, where a shade in it can fight.
+const lineOf = (s) => lineSpots(geo(s));
 
 // Where the shades not holding the line work tonight: [room, shades].
 function postings(s, ds) {
   const T = s.tuning;
   const rooms = [];
   const take = (room, score) => {
-    if (!ds.length) return;
+    if (!ds.length || !roomsOf(geo(s), room).length) return false;
     const d = [...ds].sort((a, b) => score(b) - score(a))[0];
     ds.splice(ds.indexOf(d), 1);
     const r = rooms.find((x) => x[0] === room);
     if (r) r[1].push(d);
     else rooms.push([room, [d]]);
+    return true;
   };
   take('chapel', worker);
   if (roomsOf(geo(s), 'forge').length) take('forge', worker);
@@ -125,7 +140,8 @@ function postings(s, ds) {
   if (capacity(s).free <= 1) take('glazier', worker);
   if (s.res.candles < 6) take('chandlery', worker);
   if (s.living.some((p) => p.sick > 0)) take('infirmary', worker);
-  while (ds.length) take(T.raidDays[s.day + 1] ? 'barracks' : 'chapel', fighter);
+  // The rest: the Watch before a raid, else the Choir, else rest at the Cold Hearth.
+  while (ds.length && (take(T.raidDays[s.day + 1] ? 'barracks' : 'chapel', fighter) || take('chapel', fighter) || take('hearth', fighter)));
   return rooms;
 }
 
@@ -159,6 +175,7 @@ function placeNight(s, plan) {
     group.forEach((d, i) => doAct(s, { type: 'move', id: d.id, f, x: mid - 4 + (i % 3) * 4 }));
     if (!(f === LINE[0].f) && s.res.candles > 1) doAct(s, { type: 'candle', f, x: mid });
   }
+  homes.set(s, new Map(s.shades.filter(canWork).map((d) => [d.id, { ...d.post }])));
 }
 
 /* ---------------------------------------------------------------- night */
@@ -178,16 +195,54 @@ function tendNight(s, plan) {
   }
   // Free the caught.
   for (const d of s.shades) if (d.grabbedBy && s.res.candles > 0) doAct(s, { type: 'candle', f: d.f, x: d.x });
-  // A Maw going for a candle: send the best free fighter to stand with whoever holds it.
-  for (const m of n.foes.filter((f) => plan !== 'double' && f.type === 'maw' && f.gnaw)) {
-    const k = n.candles.find((c) => c.id === m.gnaw);
-    if (!k) continue;
-    const near = s.shades.filter((d) => canWork(d) && d.f === k.f && Math.abs(d.x - k.x) <= 8);
+  // A Maw going for a candle or a room: send the best free fighter to stand with whoever holds it.
+  for (const m of n.foes.filter((f) => plan !== 'double' && f.type === 'maw' && f.target)) {
+    const t = m.target;
+    const at = (d) => d.f === t.f && (t.kind === 'candle' ? Math.abs(d.x - t.x) <= 8 : roomAt(G, d.f, d.x) === t.id);
+    const near = s.shades.filter((d) => canWork(d) && at(d));
     if (near.length >= 2) continue;
     const help = s.shades
       .filter((d) => canWork(d) && !near.includes(d) && !d.grabbedBy && !d.climb && d.memory > 30 && !LINE.some((st) => d.post.f === st.f && d.post.x === st.x))
       .sort((a, b) => fighter(b) * b.memory - fighter(a) * a.memory)[0];
-    if (help && !(help.post.f === k.f && Math.abs(help.post.x - k.x) <= 8)) doAct(s, { type: 'move', id: help.id, f: k.f, x: k.x + (help.x < k.x ? -2 : 2) });
+    if (!help || (help.post.f === t.f && Math.abs(help.post.x - t.x) <= 8)) continue;
+    const x = t.x + (help.x < t.x ? -2 : 2);
+    doAct(s, { type: 'move', id: help.id, f: t.f, x });
+    // Don't send anyone to stand in the dark: light the spot, with the last candle if need be.
+    if (!n.candles.some((c) => c.f === t.f && roomAt(G, c.f, c.x) === roomAt(G, t.f, x) && Math.abs(c.x - x) <= 12 && c.wax > 15)) doAct(s, { type: 'candle', f: t.f, x });
+  }
+  // The tides, announced at dusk: from a few seconds before each until it has spent itself, a second fighter
+  // from the rooms stands at each stair of the line; then they go back to work. (Double never moves anyone.)
+  const home = homes.get(s);
+  if (plan !== 'double' && home && s.day < T.seasonDays) {
+    const at = (d, p) => d.post.f === p.f && Math.abs(d.post.x - p.x) <= 3;
+    const onLine = (d) => LINE.some((st) => at(d, st));
+    const busy = new Set();
+    for (const m of n.foes) {
+      const tg = m.type === 'maw' && m.target;
+      if (tg) for (const d of s.shades) if (d.post.f === tg.f && (tg.kind === 'candle' ? Math.abs(d.post.x - tg.x) <= 8 : roomAt(G, d.post.f, d.post.x) === tg.id)) busy.add(d.id);
+    }
+    if (n.tides.some((tt) => s.t >= tt - 50 && s.t <= tt + 350)) {
+      for (const st of LINE) {
+        if (s.shades.filter((d) => canWork(d) && at(d, st)).length >= 2) continue;
+        // Only from the line's floor or behind it: never up through the floors the tide is climbing.
+        const d = s.shades
+          .filter((x) => canWork(x) && !onLine(x) && !busy.has(x.id) && !x.grabbedBy && !x.climb && x.memory > 30 && fighter(x) >= 0.8 && x.post.f >= st.f)
+          .sort((a, b) => fighter(b) * b.memory - fighter(a) * a.memory)[0];
+        if (d) doAct(s, { type: 'move', id: d.id, f: st.f, x: st.x + 2 });
+      }
+    } else {
+      for (const d of s.shades.filter(canWork)) {
+        const h = home.get(d.id);
+        if (h && onLine(d) && !LINE.some((st) => at({ post: h }, st))) doAct(s, { type: 'move', id: d.id, f: h.f, x: h.x });
+      }
+    }
+  }
+  // The last tide of the two biggest nights before the new moon: ward the stairs of the line if the
+  // Choir has sung enough essence. Warded stairs turn the whole tide back.
+  const last = n.tides[n.tides.length - 1];
+  const unwarded = LINE.filter((st) => st.id && !n.wards.includes(st.id));
+  if (plan !== 'double' && s.day >= T.seasonDays - 2 && s.day < T.seasonDays && s.t >= last - 60 && s.t <= last && unwarded.length && s.res.essence >= unwarded.length * T.wardCost) {
+    for (const st of unwarded) doAct(s, { type: 'ward', target: st.id });
   }
   // The Hollow: ward the stairs above it while the essence lasts, and meet it with fighters near the top.
   const h = n.foes.find((f) => f.type === 'hollow');

@@ -1,9 +1,10 @@
 // The Book of the Dead: each of the dead as a short story, told from what the ledger kept about them.
 // Pure, so the stories can be tested in Node.
 
-import { KINDS, TWINS } from './data.js';
+import { KINDS, TWINS, DAY_ROOMS } from './data.js';
 
-const ROLE = { chapel: 'priest', glazier: 'glazier', chandlery: 'chandler', infirmary: 'healer', barracks: 'guard', hearth: 'cook' };
+// What each job made someone: a priest, a smith, a mason.
+const ROLE = Object.fromEntries(Object.entries(DAY_ROOMS).filter(([, R]) => R.role).map(([k, R]) => [k, R.role]));
 const ORD = ['', 'first', 'second', 'third', 'fourth', 'fifth', 'sixth', 'seventh', 'eighth', 'ninth', 'tenth'];
 export const ordinal = (n) => ORD[n] || `${n}th`;
 const capital = (x) => x.charAt(0).toUpperCase() + x.slice(1);

@@ -52,6 +52,7 @@ export const TUNING = {
   dreadPerRestless: 1,
   dreadPerWraith: 2,
   dreadPerCrack: 1,
+  dreadPerBroken: 1, // each room a Maw broke in the night haunts the keep: Dread at dawn
   dreadLivingPer: 3,
   dreadMax: 5,
   vigilCost: 3,
@@ -86,14 +87,22 @@ export const TUNING = {
   hollowAt: 0.3,
   hollowReward: 3,
   wardHold: 20, // seconds a ward on a stair holds the Hollow back
-  // Maws, the round-three brutes: they walk through light to the candle holding the way up and tear it
-  // down, hitting any shade in their way. One lone Loyal shade can just about stop one; a Serene can't.
+  // Maws, the round-three brutes: they walk through light to whatever is worth most for the least fight,
+  // the candle holding the way up or a room where the living or the dead work, hitting any shade in their
+  // way. A candle they tear down; a room they break. One lone Loyal shade can just about stop one.
   mawFrom: 3,
   mawsPerNight: 1,
   mawHp: 6,
   mawSpeed: 6,
   mawSmash: 20, // wax a second torn from a candle a Maw has reached
   mawHit: 2, // memory a second from each shade standing where a Maw is
+  mawRise: 8, // seconds a Maw takes to haul itself out of its rift, when it can be hit but does nothing
+  mawBreak: 12, // seconds a Maw needs in a twin room to break it: no work there tonight, the day room haunted tomorrow
+  mawLine: 3, // what the candle barring the way up is worth to a Maw, against a room's workers
+  // The share of their work the living manage the day after in a room a Maw broke. Below 1 it decided
+  // seasons through one room, the Chandlery broken the night before the new moon, so haunting costs
+  // Dread (dreadPerBroken) and the work stands.
+  hauntWork: 1,
   shadeSpeed: 9,
   shadeClimb: 1,
   reach: 6,
@@ -127,11 +136,14 @@ export const TUNING = {
   hardness: 1.2,
   mawHardness: 1,
 
-  // Building. Masons in the Yard quarry stone; a room costs roomStone and goes on top of the keep. Each room
-  // holds roomCap workers, so a job needs another room of its kind to grow. Grave-steel from the Cold Forge
-  // makes every shade fight steelFight times harder the next night.
-  startStone: 4,
-  roomStone: 8,
+  // Building. A season starts with startFloors floors of the original keep, counted from the ground: at 1,
+  // only the Hearth and the Crypt stand, and whoever has no room to work in quarries stone in the Yard.
+  // A room costs roomStone and goes on top of the keep. Each room holds roomCap workers, so a job needs
+  // another room of its kind to grow. Grave-steel from the Cold Forge makes every shade fight steelFight
+  // times harder the next night.
+  startFloors: 1,
+  startStone: 8,
+  roomStone: 6,
   roomCap: 3,
   steelFight: 1.25,
 };
@@ -171,10 +183,10 @@ export const TWINS = {
   empty: { name: 'Hollow Hall', job: null, note: 'Bare and dark: a weak spot until something is built.' },
 };
 
-// The keep a season starts with, top to bottom in its upright (day) layout. The Tain is the same rooms
-// reflected under the Veil, so floor 0 (Chapel and Glazier by day) is the Tain's deepest floor, where the
-// rifts open, and the last floor (Hearth and Crypt) sits right under the Veil, where the mirrors hang.
-// Building adds floors on top (geo.js builds each keep's geometry); these are the starting four.
+// The original keep, top to bottom in its upright (day) layout. The Tain is the same rooms reflected under
+// the Veil, so floor 0 (Chapel and Glazier by day) is the Tain's deepest floor, where the rifts open, and
+// the last floor (Hearth and Crypt) sits right under the Veil, where the mirrors hang. A season starts
+// with the lowest startFloors of these; building adds floors on top (geo.js builds each keep's geometry).
 export const MAP = {
   W: 112,
   VEIL: 114,
@@ -235,6 +247,7 @@ export const MIRRORS = {
 export const START_MIRRORS = [['pier', 'Chapel'], ['hand', 'Hall']];
 export const MIRROR_PLACES = ['Stair', 'Solar', 'Well', 'Tower', 'Kitchen', 'Gate', 'Library', 'Cellar', 'Loft', 'Cloister'];
 
+// The living. Anyone whose room isn't built yet starts in the Yard.
 export const CAST = [
   { name: 'Ada', age: 'adult', job: 'barracks' },
   { name: 'Wil', age: 'adult', job: 'barracks' },
@@ -250,11 +263,12 @@ export const BONDS = [
   ['Bran', 'Mira', 'spouse'],
   ['Tam', 'Nell', 'friend'],
 ];
-// The last keeper's dead, already in the Chapel glass when the season opens, posted at the feet of the
-// two stairs up to the Veil. Garrick is Osk's father: posted in the Wick Room he and Osk both work x1.25.
+// The last keeper's dead, already in the Chapel glass when the season opens, posted on the line (the feet of
+// the two stairs up to the Veil, or between rift and mirror in a keep with no stairs). Garrick is Osk's
+// father: posted in the Wick Room he and Osk both work x1.25.
 export const START_SHADES = [
-  { name: 'Garrick', age: 'adult', job: 'barracks', kind: 'loyal', cause: 'duty', memory: 80, named: false, bond: ['Osk', 'parent'], post: [2, 18] },
-  { name: 'Hesper', age: 'old', job: 'chapel', kind: 'serene', cause: 'oldage', memory: 60, named: true, bond: null, post: [2, 94] },
+  { name: 'Garrick', age: 'adult', job: 'barracks', kind: 'loyal', cause: 'duty', memory: 80, named: false, bond: ['Osk', 'parent'] },
+  { name: 'Hesper', age: 'old', job: 'chapel', kind: 'serene', cause: 'oldage', memory: 60, named: true, bond: null },
 ];
 // What each side of a bond is to the other: Garrick is Osk's parent, so Osk is Garrick's child.
 export const BOND_OTHER = { parent: 'child', child: 'parent', sibling: 'sibling', spouse: 'spouse', friend: 'friend' };
