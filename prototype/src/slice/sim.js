@@ -12,7 +12,7 @@ import {
 } from './data.js';
 import {
   geo, FULL_KEEP, startKeep, lineSpots, MAX_FLOORS, roomsOf, roomAt, roomSpan, typeOf, typeAt, lightMap, isLit, spanAt, darkBetween, darkRooms, darkGaps, route, firstLight, fleePath, touching,
-  mirrorGoals, GNAW_GAP, DEEP_FLOOR,
+  mirrorGoals, GNAW_GAP, DEEP_FLOOR, guardLit,
 } from './geo.js';
 import { rand, randInt, pick, chance } from '../rng.js';
 
@@ -801,6 +801,8 @@ function shadeTick(s, L, d) {
   if (n.broken.includes(id)) return;
   const room = typeOf(geo(s), id);
   const job = room && TWINS[room].job;
+  // Guarding the line is keeping watch: in the guard light the Watch's is the only work a shade does.
+  if (T.lineGuard && job !== 'watch' && guardLit(geo(s), L, d.f, d.x)) return;
   const w = K.work * p * (isTwinnedShade(s, d) ? T.twinMult : 1) * DT;
   if (job === 'essence') {
     gain(s, 'essence', T.essencePerSec * w);

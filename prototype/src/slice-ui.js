@@ -8,7 +8,7 @@ import {
   dayTicks, nightTicks, isNewMoon, choicesFor, byId, isTwinnedLiving, isTwinnedShade, lastSeason, SAVE_VERSION, fmt, mirrorCap,
   postRoom,
 } from './slice/sim.js';
-import { geo, feet, floorAtY, roomAt, typeAt, typeOf, roomSpan, roomsOf, lightMap, isLit, unitAt, DEEP_FLOOR, lineSpots as lineOf } from './slice/geo.js';
+import { geo, feet, floorAtY, roomAt, typeAt, typeOf, roomSpan, roomsOf, lightMap, isLit, unitAt, DEEP_FLOOR, lineSpots as lineOf, guardLit } from './slice/geo.js';
 import { drawScene } from './slice/draw.js';
 import { epitaph, ordinal, RESTING, LOST } from './slice/book.js';
 
@@ -124,7 +124,9 @@ function shadeStatus(d, L) {
   if (s.night.foes.some((c) => c.f === d.f && Math.abs(c.x - d.x) <= s.tuning.reach + 0.5)) return 'fighting';
   const job = TWINS[room].job;
   const at = Math.abs(d.post.x - d.x) <= 1.5 && d.post.f === d.f;
+  if (s.tuning.lineGuard && job !== 'watch' && guardLit(K(), L, d.f, d.x)) return 'guarding the line';
   if (!at || !job) return `holding the light, ${roomName(room, true)}`;
+  if (s.night.broken.includes(roomAt(K(), d.f, d.x))) return `in the broken ${roomName(room, true)}`;
   return { essence: 'singing in the Choir', glass: 'silvering glass', wick: 'saving wax', guidance: 'at the Threshold', watch: 'keeping watch', rest: 'resting by the Cold Hearth' }[job];
 }
 
@@ -364,6 +366,7 @@ function duskPlace() {
         <li><span>Creepers rise from the two rifts on the deepest floor and make for the two mirrors on the floor under the Veil, climbing the stairs between. The more floors the keep has, the longer their way.</span></li>
         <li><span>They can't cross light or climb a stair lit at either end, so they gnaw at the light's edge. Some hunt candles first.</span></li>
         <li><span>A shade standing in light fights anything at its edge. In the dark, shades get caught and drained.</span></li>
+        ${T.lineGuard ? '<li><span>A shade in the light at the foot of a stair up to the Veil is guarding the line: it fights, and keeps the Watch if it stands in the Watch of the Dead, but does no other work. To work another room on that floor, light it with a candle of its own, away from the stair.</span></li>' : ''}
         <li><span>Each twin room has a night job for a lit shade at its post: the Choir sings essence, the Silvering makes glass, the Wick Room saves candles, the Threshold readies gentler deaths, the Watch adds to tomorrow's defense and the Cold Hearth halves fading.</span></li>
         <li><span>From night ${T.seepFrom}, some Unlit seep up in rooms with no candle at all.</span></li>
         <li><span>From night ${T.mawFrom}, a Maw comes with the last tide. It walks through light to whatever is worth most for the least fight: the candle barring the way up, or a room where people work, counting every fighter on its way. It tears a candle down. A room it stands in for ${fmt(T.mawBreak)} seconds breaks: no work there that night, and ${T.dreadPerBroken} Dread at dawn. It hits the shades beside it.</span></li>
@@ -681,6 +684,7 @@ const TUNE = [
   ['startStone', 'Stone a new keep starts with'],
   ['startFloors', 'Floors a new keep starts with, from the ground (1 to 4)'],
   ['steelFight', 'How much harder shades fight with grave-steel'],
+  ['lineGuard', 'Shades in the light at the stairs up to the Veil only guard and keep the Watch (1 on, 0 off)'],
 ];
 function settingsTab() {
   return `<div class="fields">${TUNE.map(([k, label]) => `<label for="tune-${k}">${esc(label)}<input type="number" id="tune-${k}" data-act="tune" data-key="${k}" value="${s.tuning[k]}" min="0" step="any"></label>`).join('')}</div>
@@ -1268,7 +1272,7 @@ const GUIDE = [
     when: () => first() && seen('tain') && s.phase === 'dusk' && s.dusk.step === 'place' && nightView(),
     marks: () => lineSpots().filter((p) => !litAt(p.f, p.x)),
     done: () => lineSpots().every((p) => litAt(p.f, p.x)),
-    text: () => `${K().n === 1 ? 'Light the two marked spots between each rift and its mirror' : 'Light the feet of the two stairs up to the Veil (marked)'}, with a shade at each. Creepers stopped there gnaw at the edge of the light, and a shade standing in it cuts them down.`,
+    text: () => `${K().n === 1 ? 'Light the two marked spots between each rift and its mirror' : 'Light the feet of the two stairs up to the Veil (marked)'}, with a shade at each. Creepers stopped there gnaw at the edge of the light, and a shade standing in it cuts them down.${K().n > 1 && s.tuning.lineGuard ? ' A shade in that light guards the line: it can keep the Watch, but does no other work.' : ''}`,
   },
   {
     id: 'begin', target: '#bar-start',

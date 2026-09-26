@@ -248,6 +248,17 @@ export function touching(G, L, u, candleId) {
 
 export const mirrorGoals = (G) => G.mirrors.map((m) => ({ f: G.veil, x: m.x, id: m.id }));
 
+// Guard light: the light of any candle that reaches the foot of a stair up to the Veil floor. A shade
+// standing in it is guarding the line: it fights, and keeps the Watch if it's in the Watch of the Dead, but
+// does no other work. Judged candle by candle, so a room on the line's floor can still be worked under a
+// candle of its own, away from the stair.
+export function guardLit(G, L, f, x) {
+  if (f !== G.veil - 1) return false;
+  const ids = new Set();
+  for (const [a, b, id] of L.spans[f]) if (G.stairs.some((st) => st.f === f && st.x >= a - EPS && st.x <= b + EPS)) ids.add(id);
+  return L.spans[f].some(([a, b, id]) => ids.has(id) && x >= a - EPS && x <= b + EPS);
+}
+
 // Where the line is held: the feet of the two stairs up to the Veil floor. A keep one floor high has no
 // stairs, so there it's halfway between each rift and the mirror on its side.
 export function lineSpots(G) {

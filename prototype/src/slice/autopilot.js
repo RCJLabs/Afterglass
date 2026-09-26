@@ -171,9 +171,14 @@ function placeNight(s, plan) {
   }
   for (const [room, group] of postings(s, ds)) {
     const { f, x0, x1 } = roomSpan(G, room);
-    const mid = f === LINE[0].f ? (room === roomAt(G, f, LINE[0].x) ? LINE[0].x + 10 : LINE[1].x - 10) : (x0 + x1) / 2;
+    // On the line's floor: just behind the line, in its light. With lineGuard on, only to keep the Watch (the
+    // one job a shade guarding the line does); anything else goes to the far side of the room from the stair,
+    // out of the guard light, under a candle of its own.
+    const st = LINE.find((p) => p.f === f && roomAt(G, f, p.x) === roomAt(G, f, x0));
+    const near = st && (!T.lineGuard || G.n === 1 || room === 'barracks');
+    const mid = !st ? (x0 + x1) / 2 : near ? (st === LINE[0] ? st.x + 10 : st.x - 10) : st.x - x0 < x1 - st.x ? x1 - 8 : x0 + 8;
     group.forEach((d, i) => doAct(s, { type: 'move', id: d.id, f, x: mid - 4 + (i % 3) * 4 }));
-    if (!(f === LINE[0].f) && s.res.candles > 1) doAct(s, { type: 'candle', f, x: mid });
+    if (!near && s.res.candles > 1) doAct(s, { type: 'candle', f, x: mid });
   }
   homes.set(s, new Map(s.shades.filter(canWork).map((d) => [d.id, { ...d.post }])));
 }

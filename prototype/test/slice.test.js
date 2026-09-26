@@ -9,7 +9,7 @@ import { epitaph } from '../src/slice/book.js';
 import { MAP, TUNING, START_SHADES, BUILDABLE } from '../src/slice/data.js';
 import {
   geoOf, geo, typeAt, roomsOf, mirrorGoals, MAX_FLOORS, lightMap, isLit, roomAt, route, darkRooms, darkGaps, roomSpan, feet as feetG, MODES, toView, fromView, floorAtY as floorAtYG,
-  unitAt as unitAtG, VIEW_H, DEEP_FLOOR, lineSpots,
+  unitAt as unitAtG, VIEW_H, DEEP_FLOOR, lineSpots, guardLit,
 } from '../src/slice/geo.js';
 
 // The starting keep's geometry, for the tests that check geometry on its own.
@@ -181,8 +181,8 @@ test('twin rooms work only for a lit shade at its post: Choir, Wick Room, Watch 
   const t = newSeason(6, quiet);
   toDusk(t);
   const [a, b] = t.shades;
-  ok(t, { type: 'move', id: a.id, f: 2, x: 20 });
-  ok(t, { type: 'candle', f: 2, x: 20 });
+  ok(t, { type: 'move', id: a.id, f: 2, x: 44 }); // the Watch, away from the stair up to the Veil
+  ok(t, { type: 'candle', f: 2, x: 44 });
   ok(t, { type: 'move', id: b.id, f: choir.f, x: 40 });
   ok(t, { type: 'candle', f: choir.f, x: 40 });
   ok(t, { type: 'startNight' });
@@ -192,6 +192,41 @@ test('twin rooms work only for a lit shade at its post: Choir, Wick Room, Watch 
   assert.ok(t.watchBonus > 2, "the Watch adds to tomorrow's defense");
   ok(t, { type: 'beginDay' });
   assert.ok(defense(t) >= 4 + t.watchBonus - 1e-9);
+});
+
+test('with lineGuard on, a shade in the light at the foot of a stair up to the Veil guards the line: it fights and keeps the Watch, but does no other work', () => {
+  // Two rooms built on the ground floor's keep, a Barracks and a Chapel: that floor is the line's, and the Choir is on it.
+  const night = (x, over = {}) => {
+    const s = newSeason(30, { sickChance: 0, oldAgeChance: 0, raidDays: { 2: 0, 4: 0, 6: 0 }, lineGuard: 1, ...over });
+    s.res.stone = 2 * s.tuning.roomStone;
+    ok(s, { type: 'raise', room: 'barracks' });
+    ok(s, { type: 'raise', room: 'chapel' });
+    toDusk(s);
+    const [g, h] = s.shades;
+    ok(s, { type: 'move', id: g.id, f: 0, x: 20 }); // the Watch, by the left stair
+    ok(s, { type: 'candle', f: 0, x: 20 });
+    ok(s, { type: 'move', id: h.id, f: 0, x }); // the Choir
+    ok(s, { type: 'candle', f: 0, x });
+    if (x < 76) ok(s, { type: 'candle', f: 0, x: 96 }); // the right stair lit too
+    ok(s, { type: 'startNight' });
+    s.night.spawns = [];
+    const G = geo(s);
+    const guarding = guardLit(G, lightMap(G, s.tuning, s.night.candles), 0, x);
+    addCreeper(s, 0, 100);
+    const e0 = s.res.essence;
+    toDawn(s);
+    return { guarding, essence: s.res.essence - e0, watch: s.watchBonus, killed: s.today.night.killed };
+  };
+  const by = night(92);
+  assert.ok(by.guarding, 'the Choir by the stair is in guard light');
+  assert.equal(by.essence, 0, 'guarding, not singing');
+  assert.equal(by.killed, 1, 'but it fights');
+  assert.ok(by.watch > 1, 'guarding the line is keeping the Watch');
+  const away = night(64);
+  assert.ok(!away.guarding);
+  assert.ok(away.essence > 3, 'under its own candle, away from the stair, it sings');
+  assert.ok(night(92, { lineGuard: 0 }).essence > 3, 'lineGuard 0, the default, turns the rule off');
+  assert.equal(TUNING.lineGuard, 0);
 });
 
 test('the rite: keeping costs Dread, the living bear some, vigils and covering bring it down', () => {

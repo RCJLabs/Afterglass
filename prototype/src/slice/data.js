@@ -103,6 +103,10 @@ export const TUNING = {
   // seasons through one room, the Chandlery broken the night before the new moon, so haunting costs
   // Dread (dreadPerBroken) and the work stands.
   hauntWork: 1,
+  // An experiment, off: at 1, a shade in the light at the foot of a stair up to the Veil guards the line and
+  // keeps the Watch, but does no other work. It made every autopilot plan worse and the doubled line no weaker
+  // (README, problem 1).
+  lineGuard: 0,
   shadeSpeed: 9,
   shadeClimb: 1,
   reach: 6,
