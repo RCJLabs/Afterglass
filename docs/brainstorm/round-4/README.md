@@ -5,7 +5,8 @@ Round three's ten-week plan is built: four prototypes, ending in a one-season ve
 ## Where it stands
 
 - **Nobody has played it yet.** The slice's question, *do people want to play a second season?*, is unanswered. Everything below comes from autopilot runs (a scripted player, 40 to 200 seeds a result) and scripted runs in Chromium.
-- **A static defense still wins on a keep built from two rooms.** Two fighters on each stair up to the Veil, never moved, finish 98% of first seasons and 89% of the second seasons they reach. The balanced plan, which reacts, finishes 95% and 73%. On the original four-floor keep the Maws now beat that static line: 173 second seasons in 200 for the balanced plan against 165.
+- **The night collapses onto the line's floor.** The static defense no longer wins: over 200 seeds the reacting plan and a doubled line finish 176 and 179 second seasons on the two-room start, and 179 and 171 on the four-floor keep. But the best play either way keeps nearly everyone on the line's floor. Below it only the Choir is worth working at night, so most twin rooms' night jobs don't matter on a built-up keep.
+- **Both seasons may be too easy.** The autopilot finishes 98–99% of first seasons and about 90% of the second seasons it reaches. People will do worse than a script that knows the rules, but by how much is unknown.
 - **Keep or cover at dawn is still mostly a Dread valve** in the first season. The rite is meant to be the game's best decision.
 - **The new moon turns on a couple of candles.** When a room a Maw broke also lost its day's work, the balanced plan fell from 95% to 67% of first seasons on the four-floor keep, almost all of it through the Chandlery broken the night before the new moon.
 - **Creeper red against Stranger green** is a colour-blindness risk.
@@ -17,7 +18,7 @@ Sizes were my estimates when the list was made: S, M, L.
 | # | Idea | Size | Status |
 |---|---|---|---|
 | | **Fixes for problems already measured** | | |
-| 1 | Break the fixed stair setup that won nights 1–5 | M | Built twice, half solved (below) |
+| 1 | Break the fixed stair setup that won nights 1–5 | M | Built. The static line no longer wins; the night now centres on the line's floor (below) |
 | 2 | Make the rite bite: traits such as Devout turning Bitter, and fire by day | M | Not built; queued after the playtest |
 | 3 | Colour-blind-safe eyes: Creepers and Strangers told apart by shape | S | Not built; queued |
 | | **Designed in round three, not built yet** | | |
@@ -47,7 +48,8 @@ My picks for playtest readiness were 1, 11, 12, 17 and 18. All five are built. B
 - **Season 2** finished 35% of the time at ×1.35 difficulty a season. At ×1.2, with the Maws on their own multiplier, it's 73% for the balanced plan on the two-room start.
 - **The Maws (1), second version:** Maws now weigh the candle barring the way against every room where people work, count the fighters on the way, and break whatever is worth most for the least fight. A broken room costs a night's work there and 1 Dread.
   - On the four-floor keep that reversed the doubled line's lead over two seasons. It used to finish 133 second seasons in 200 against the balanced plan's 116. With the new Maws it finished 116 against 123, and with a better autopilot as well, 165 against 173.
-  - On the two-room start it didn't. The first floor you build is always the line's floor, so a doubled line stands in working rooms.
+  - On the two-room start it didn't at first: 174 second seasons against 138. The first floor you build is always the line's floor, so a doubled line stands in working rooms.
+- **An autopilot that plays sensibly (to settle 1):** the reacting plan had been pulling reinforcements across a dark floor for each tide, and posting shades in rooms below the line's floor. Fixing both levelled it with the doubled line on the two-room start (176 second seasons against 179) and put it ahead on the four-floor keep (179 against 171). So the static line's lead was my autopilot's, not the rules'. What's left is a design problem: on a built-up keep the night is all about the line's floor.
 - **Guarding the line (to fix 1):** a rule that shades in the light at the stairs do no work but keep the Watch. It took the balanced plan from 92% to 73% of first seasons and barely moved the doubled line (98% to 95%). It's off, as a switch in Settings.
 - **Building (9):** stone from masons in the Yard, 6 stone a room, three workers a room, a Forge and a Cellar, and a keep that starts as the Hearth and the Crypt. The autopilot's results depend heavily on build order: swapping the Chapel and the Chandlery once took it from 93% to 30%.
 - **The crossing, the guide, the Book and installing (11, 17, 12, 18)** work in scripted runs. None has been tried by a person.
@@ -62,8 +64,8 @@ The Maw name, the fourth open question from before, is settled: they break rooms
 
 ## Next, in order
 
-1. This write-up.
-2. **The doubled line:** make the reacting autopilot play sensibly (reinforce each stair from its own side, keep singers singing), then measure again. That tells whether the gap is the rules' or the autopilot's.
+1. This write-up. Done.
+2. **The doubled line.** Done: the gap was my autopilot's. With it playing sensibly the reacting plan levels with the doubled line on the two-room start and beats it on the four-floor keep.
 3. **Colour-blind-safe eyes (3).**
 4. **The playtest.**
 5. **Traits that make the rite bite (2 and 4).**

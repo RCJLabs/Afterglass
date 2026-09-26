@@ -129,7 +129,8 @@ footer{margin-top:56px;padding-top:16px;border-top:1px solid var(--rule);font-si
   <p class="sub">Everything on this page comes from an autopilot (a scripted player, 40 to 200 seeds a result) and scripted runs in Chromium. Nobody has played it yet.</p>
   <div class="fixes">
     <div class="row"><b>The slice's question is unanswered.</b><p>It exists to ask <em>do people want to play a second season?</em> The page asks at the end of a season and saves the answer in the playtest export, but no tester has seen it.</p></div>
-    <div class="row"><b>A static line still wins on a keep built from two rooms.</b><p>Two fighters on each stair up to the Veil, never moved, finish 98% of first seasons and 89% of the second seasons they reach. The balanced plan, which reacts, finishes 95% and 73%. On the original four-floor keep the Maws now beat that line.</p></div>
+    <div class="row"><b>The night collapses onto the line's floor.</b><p>The static line no longer wins: the reacting plan and a doubled line finish 176 and 179 second seasons of 200 on the two-room start, and 179 and 171 on the four-floor keep. But the best play either way keeps nearly everyone on the line's floor. Below it only the Choir is worth working at night, so most twin rooms' night jobs don't matter on a built-up keep.</p></div>
+    <div class="row"><b>Both seasons may be too easy.</b><p>The autopilot finishes 98–99% of first seasons and about 90% of the second seasons it reaches. People will do worse than a script that knows the rules, but by how much is unknown.</p></div>
     <div class="row"><b>The dawn rite isn't a real choice yet.</b><p>In the first season, keeping or covering a shade is mostly a way to manage Dread. The rite is meant to be the game's best decision.</p></div>
     <div class="row"><b>The new moon turns on a couple of candles.</b><p>When a room a Maw broke also lost its day's work, the balanced plan fell from 95% to 67% of first seasons on the four-floor keep. Almost all of that was the Chandlery, broken the night before the new moon.</p></div>
     <div class="row"><b>Two colours carry too much.</b><p>Creeper red against Stranger green is the main way to tell an enemy from your own shade in the dark: a colour-blindness risk.</p></div>
@@ -144,7 +145,7 @@ footer{margin-top:56px;padding-top:16px;border-top:1px solid var(--rule);font-si
       <thead><tr><th>#</th><th>Idea</th><th>Status</th></tr></thead>
       <tbody>
         <tr class="group"><td colspan="3">Fixes for problems already measured</td></tr>
-        <tr><td class="n">1</td><td class="idea"><b>Break the fixed stair setup</b> that won nights 1–5<small>M</small></td><td class="status"><span class="lvl md">Half solved</span><span class="why">Built twice; see what the builds showed.</span></td></tr>
+        <tr><td class="n">1</td><td class="idea"><b>Break the fixed stair setup</b> that won nights 1–5<small>M</small></td><td class="status"><span class="lvl ok">Built</span><span class="why">The static line no longer wins; the night now centres on the line's floor.</span></td></tr>
         <tr><td class="n">2</td><td class="idea"><b>Make the rite bite:</b> traits such as Devout turning Bitter, and fire by day<small>M</small></td><td class="status"><span class="lvl next">Queued</span><span class="why">After the playtest.</span></td></tr>
         <tr><td class="n">3</td><td class="idea"><b>Colour-blind-safe eyes:</b> Creepers and Strangers told apart by shape<small>S</small></td><td class="status"><span class="lvl next">Queued</span><span class="why">Before the playtest.</span></td></tr>
         <tr class="group"><td colspan="3">Designed in round three, not built yet</td></tr>
@@ -183,6 +184,8 @@ footer{margin-top:56px;padding-top:16px;border-top:1px solid var(--rule);font-si
         <tr><td>Four-floor keep, second seasons, and a better autopilot</td><td class="num">165</td><td class="num">173</td></tr>
         <tr><td>Two-room start, first seasons</td><td class="num">196</td><td class="num">190</td></tr>
         <tr><td>Two-room start, second seasons</td><td class="num">174</td><td class="num">138</td></tr>
+        <tr><td>Two-room start, second seasons, the autopilot playing sensibly</td><td class="num">179</td><td class="num">176</td></tr>
+        <tr><td>Four-floor keep, second seasons, the autopilot playing sensibly</td><td class="num">171</td><td class="num">179</td></tr>
       </tbody>
     </table>
   </div>
@@ -190,7 +193,8 @@ footer{margin-top:56px;padding-top:16px;border-top:1px solid var(--rule);font-si
   <div class="pillars">
     <div><b>The first Maws</b><p>They tore down the candle holding the line. That made the line cost something, but a doubled line beat them outright: 96 first seasons in 100 against 95, and 0.2 shades lost a season against 2.4.</p></div>
     <div><b>An easier second season</b><p>At ×1.35 difficulty a season, the second finished 35% of the time. At ×1.2, with the Maws on their own multiplier, it's 73% for the balanced plan on the two-room start.</p></div>
-    <div><b>Maws that break rooms</b><p>They weigh the candle barring the way against every room where people work, count the fighters on the way, and go for the most worth for the least fight. A broken room loses its night's work and costs 1 Dread.</p><p>On the four-floor keep that reversed the static line's lead. On the two-room start it didn't: the first floor you build is always the line's floor, so a doubled line stands in working rooms.</p></div>
+    <div><b>Maws that break rooms</b><p>They weigh the candle barring the way against every room where people work, count the fighters on the way, and go for the most worth for the least fight. A broken room loses its night's work and costs 1 Dread.</p><p>On the four-floor keep that reversed the static line's lead. On the two-room start it didn't at first: the first floor you build is always the line's floor, so a doubled line stands in working rooms.</p></div>
+    <div><b>An autopilot that plays sensibly</b><p>The reacting plan had been pulling reinforcements across a dark floor for each tide, and posting shades in rooms below the line's floor. Fixing both levelled it with the doubled line on the two-room start and put it ahead on the four-floor keep. The static line's lead was my autopilot's, not the rules'.</p><p>What's left is a design problem: on a built-up keep the night is all about the line's floor.</p></div>
     <div><b>Guarding the line</b><p>A rule that shades in the light at the stairs do no work but keep the Watch. It took the balanced plan from 92% to 73% of first seasons and barely moved the doubled line, from 98% to 95%. It's off, as a switch in Settings.</p></div>
     <div><b>Building</b><p>Stone from masons in the Yard, 6 stone a room, three workers a room, a Forge and a Cellar, and a keep that starts as the Hearth and the Crypt. The autopilot's results depend heavily on its build order: swapping the Chapel and the Chandlery once took it from 93% to 30%.</p></div>
     <div><b>The crossing, the guide, the Book, installing</b><p>They work in scripted runs: the crossing animates, the guide's cards fire, the Book tells every death, and the app installs and plays offline in Chromium. None of it has been tried by a person.</p></div>
@@ -212,7 +216,7 @@ footer{margin-top:56px;padding-top:16px;border-top:1px solid var(--rule);font-si
   <h2>Next, in order</h2>
   <ol class="queue">
     <li class="done"><div><b>This write-up.</b><p>Round four, next to the other three.</p></div></li>
-    <li><div><b>The static line.</b><p>Make the reacting autopilot play sensibly (reinforce each stair from its own side, keep singers singing), then measure again. That shows whether the gap belongs to the rules or to the autopilot.</p></div></li>
+    <li class="done"><div><b>The static line.</b><p>Done: the gap was my autopilot's. Playing sensibly, the reacting plan levels with the doubled line on the two-room start and beats it on the four-floor keep.</p></div></li>
     <li><div><b>Colour-blind-safe eyes.</b><p>Tell Creepers and Strangers apart by shape, not only by red and green.</p></div></li>
     <li><div><b>The playtest.</b><p>After you've played it on a phone and picked how results come back.</p></div></li>
     <li><div><b>Traits that make the rite bite.</b><p>Candidates 2 and 4, so that keeping or covering a shade is a real choice.</p></div></li>

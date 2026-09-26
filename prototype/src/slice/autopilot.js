@@ -121,12 +121,15 @@ function funerals(s, plan) {
 // stairs). Lit, they turn every climber aside to gnaw at the light's edge, where a shade in it can fight.
 const lineOf = (s) => lineSpots(geo(s));
 
-// Where the shades not holding the line work tonight: [room, shades].
+// Where the shades not holding the line work tonight: [room, shades]. Nobody works below the line's floor,
+// out where the tides and the Maws come up, except in the Choir: its essence is worth the risk.
 function postings(s, ds) {
   const T = s.tuning;
+  const lf = lineOf(s)[0].f;
   const rooms = [];
   const take = (room, score) => {
     if (!ds.length || !roomsOf(geo(s), room).length) return false;
+    if (room !== 'chapel' && roomSpan(geo(s), room).f < lf) return false;
     const d = [...ds].sort((a, b) => score(b) - score(a))[0];
     ds.splice(ds.indexOf(d), 1);
     const r = rooms.find((x) => x[0] === room);
@@ -229,9 +232,9 @@ function tendNight(s, plan) {
     if (n.tides.some((tt) => s.t >= tt - 50 && s.t <= tt + 350)) {
       for (const st of LINE) {
         if (s.shades.filter((d) => canWork(d) && at(d, st)).length >= 2) continue;
-        // Only from the line's floor or behind it: never up through the floors the tide is climbing.
+        // Only from the stair's own room: nobody crosses a dark floor, or climbs the tide's way, to get there.
         const d = s.shades
-          .filter((x) => canWork(x) && !onLine(x) && !busy.has(x.id) && !x.grabbedBy && !x.climb && x.memory > 30 && fighter(x) >= 0.8 && x.post.f >= st.f)
+          .filter((x) => canWork(x) && !onLine(x) && !busy.has(x.id) && !x.grabbedBy && !x.climb && x.memory > 30 && fighter(x) >= 0.8 && roomAt(G, x.post.f, x.post.x) === roomAt(G, st.f, st.x))
           .sort((a, b) => fighter(b) * b.memory - fighter(a) * a.memory)[0];
         if (d) doAct(s, { type: 'move', id: d.id, f: st.f, x: st.x + 2 });
       }
