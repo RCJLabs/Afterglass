@@ -6,8 +6,18 @@ import {
 } from '../src/slice/sim.js';
 import { runSeasonAuto, autoStep, PLANS } from '../src/slice/autopilot.js';
 import { epitaph } from '../src/slice/book.js';
-import { MAP, TUNING, DEEP_FLOOR, VEIL_FLOOR, START_SHADES } from '../src/slice/data.js';
-import { lightMap, isLit, roomAt, route, darkRooms, darkGaps, roomSpan, feet, MODES, toView, fromView, floorAtY, unitAt, VIEW_H } from '../src/slice/geo.js';
+import { MAP, TUNING, START_SHADES } from '../src/slice/data.js';
+import {
+  geoOf, geo, lightMap, isLit, roomAt, route, darkRooms, darkGaps, roomSpan, feet as feetG, MODES, toView, fromView, floorAtY as floorAtYG,
+  unitAt as unitAtG, VIEW_H, DEEP_FLOOR,
+} from '../src/slice/geo.js';
+
+// The starting keep's geometry, for the tests that check geometry on its own.
+const G0 = geoOf();
+const VEIL_FLOOR = G0.veil;
+const feet = (f) => feetG(G0, f);
+const floorAtY = (y) => floorAtYG(G0, y);
+const unitAt = (u, a) => unitAtG(G0, u, a);
 
 const ok = (s, a) => {
   const r = act(s, a);
@@ -97,27 +107,27 @@ test('the dead cross at dusk: a funeral, a mirror, and Restless when the mirrors
 
 test('a candle lights only its own room, and rifts drink the light', () => {
   const T = TUNING;
-  const L = lightMap(T, [{ id: 'k', f: 1, x: 50, wax: T.candleWax, max: T.candleWax }]);
+  const L = lightMap(G0, T, [{ id: 'k', f: 1, x: 50, wax: T.candleWax, max: T.candleWax }]);
   assert.ok(isLit(L, 1, 45));
   assert.ok(!isLit(L, 1, 60), 'the wall stops it');
-  const D = lightMap(T, [{ id: 'k', f: DEEP_FLOOR, x: 14, wax: T.candleWax, max: T.candleWax }]);
+  const D = lightMap(G0, T, [{ id: 'k', f: DEEP_FLOOR, x: 14, wax: T.candleWax, max: T.candleWax }]);
   assert.ok(!isLit(D, DEEP_FLOOR, MAP.rifts[0].x));
   assert.ok(isLit(D, DEEP_FLOOR, 25));
-  const dark = darkRooms(D);
+  const dark = darkRooms(G0, D);
   assert.ok(!dark.some(([f, id]) => f === DEEP_FLOOR && id === 'chapel'));
   assert.ok(!dark.some(([f]) => f === VEIL_FLOOR), 'nothing seeps up under the Veil');
-  assert.ok(darkGaps(D).some(([f, a]) => f === DEEP_FLOOR && a >= 6), 'the unlit stretch by the rift is a gap');
+  assert.ok(darkGaps(G0, D).some(([f, a]) => f === DEEP_FLOOR && a >= 6), 'the unlit stretch by the rift is a gap');
 });
 
 test('Creepers climb to the mirrors in the dark, and a lit stair turns them aside', () => {
   const T = TUNING;
-  const dark = lightMap(T, []);
-  const r = route(dark, { f: DEEP_FLOOR, x: 12 }, [{ f: VEIL_FLOOR, x: 30 }], { creeper: true });
+  const dark = lightMap(G0, T, []);
+  const r = route(G0, dark, { f: DEEP_FLOOR, x: 12 }, [{ f: VEIL_FLOOR, x: 30 }], { creeper: true });
   assert.ok(r && r.path.filter((p) => p.climb).length === 3, 'three climbs from the Deep to the Veil');
-  const line = MAP.stairs.filter((st) => st.f === VEIL_FLOOR - 1).map((st, i) => ({ id: 'k' + i, f: st.f, x: st.x, wax: T.candleWax, max: T.candleWax }));
-  const lit = lightMap(T, line);
-  assert.equal(route(lit, { f: DEEP_FLOOR, x: 12 }, [{ f: VEIL_FLOOR, x: 30 }], { creeper: true }), null, 'no dark way past the line');
-  assert.ok(route(lit, { f: DEEP_FLOOR, x: 12 }, [{ f: VEIL_FLOOR, x: 30 }]), 'shades walk through light');
+  const line = G0.stairs.filter((st) => st.f === VEIL_FLOOR - 1).map((st, i) => ({ id: 'k' + i, f: st.f, x: st.x, wax: T.candleWax, max: T.candleWax }));
+  const lit = lightMap(G0, T, line);
+  assert.equal(route(G0, lit, { f: DEEP_FLOOR, x: 12 }, [{ f: VEIL_FLOOR, x: 30 }], { creeper: true }), null, 'no dark way past the line');
+  assert.ok(route(G0, lit, { f: DEEP_FLOOR, x: 12 }, [{ f: VEIL_FLOOR, x: 30 }]), 'shades walk through light');
 });
 
 test('a Creeper that reaches a mirror cracks the Veil, and five cracks lose the keep', () => {
@@ -151,8 +161,8 @@ test('twin rooms work only for a lit shade at its post: Choir, Wick Room, Watch 
   const s = newSeason(6, quiet);
   toDusk(s);
   const [g, h] = s.shades;
-  const choir = roomSpan('chapel');
-  const hearth = roomSpan('hearth');
+  const choir = roomSpan(G0, 'chapel');
+  const hearth = roomSpan(G0, 'hearth');
   ok(s, { type: 'move', id: h.id, f: choir.f, x: 40 });
   ok(s, { type: 'move', id: g.id, f: hearth.f, x: 20 });
   ok(s, { type: 'candle', f: hearth.f, x: 20 });
@@ -315,7 +325,7 @@ test('the Hollow: wards hold it a while, it eats light, and at the Veil it takes
   step(s);
   const h = s.night.foes.find((f) => f.type === 'hollow');
   assert.ok(h);
-  for (const st of MAP.stairs.filter((x) => x.f === h.f)) ok(s, { type: 'ward', target: st.id });
+  for (const st of geo(s).stairs.filter((x) => x.f === h.f)) ok(s, { type: 'ward', target: st.id });
   ok(s, { type: 'candle', f: h.f, x: h.x + 8 < 54 ? h.x + 8 : h.x - 8 });
   stepFor(s, 5);
   assert.ok(s.night.candles.length === 0 || s.night.candles[0].wax < TUNING.candleWax - 40, 'it eats the candle');
@@ -398,7 +408,7 @@ test('soak: every plan runs whole seasons without breaking the rules', () => {
       assert.ok(s.shades.every((d) => d.memory > 0));
       const ids = [...s.living, ...s.shades].map((x) => x.id);
       assert.equal(new Set(ids).size, ids.length, 'no one is both living and dead');
-      for (const d of s.shades.filter(canWork)) assert.ok(roomAt(d.post.f, d.post.x), 'posts are inside rooms');
+      for (const d of s.shades.filter(canWork)) assert.ok(roomAt(geo(s), d.post.f, d.post.x), 'posts are inside rooms');
       assert.equal(s.seasons.length, s.season);
     }
   }

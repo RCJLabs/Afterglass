@@ -7,12 +7,12 @@
 // escalating raids, the Lantern Church's inspections, and the Hollow on the night of the new moon.
 
 import {
-  TICKS_PER_SEC, TUNING, DAY_ROOMS, WORK_ROOMS, TWINS, MAP, DEEP_FLOOR, VEIL_FLOOR, KINDS, WORKING, CAUSES, GUIDE_UP,
+  TICKS_PER_SEC, TUNING, DAY_ROOMS, WORK_ROOMS, TWINS, MAP, KINDS, WORKING, CAUSES, GUIDE_UP,
   MIRRORS, START_MIRRORS, MIRROR_PLACES, CAST, BONDS, START_SHADES, BOND_OTHER, NAMES, RAIDER_NAMES,
 } from './data.js';
 import {
-  roomAt, roomSpan, lightMap, isLit, spanAt, darkBetween, darkRooms, darkGaps, route, firstLight, fleePath, touching, mirrorGoals,
-  GNAW_GAP,
+  geo, roomAt, roomSpan, typeOf, typeAt, lightMap, isLit, spanAt, darkBetween, darkRooms, darkGaps, route, firstLight, fleePath, touching,
+  mirrorGoals, GNAW_GAP, DEEP_FLOOR,
 } from './geo.js';
 import { rand, randInt, pick, chance } from '../rng.js';
 
@@ -159,18 +159,19 @@ export function capacity(s) {
 }
 const freeMirror = (s) => s.mirrors.find((m) => mirrorUse(s, m) < mirrorCap(m)) || null;
 export const canWork = (d) => !!d.mirror && WORKING.includes(d.kind);
-export const postRoom = (d) => (d.post ? roomAt(d.post.f, d.post.x) : null);
+// The type of room a shade is posted in (its twin's type), or null.
+export const postRoom = (s, d) => (d.post ? typeAt(geo(s), d.post.f, d.post.x) : null);
 export const griefMult = (s, p) => (p.grief ? p.grief.mult : 1);
 export const bondedShade = (s, p) => (p.bond ? byId(s.shades, p.bond.with) : null);
 // A living worker and a bonded shade posted in the twin of the same room work x1.25, both of them.
 export function isTwinnedLiving(s, p) {
   const d = bondedShade(s, p);
-  return !!(d && p.job && canWork(d) && postRoom(d) === p.job);
+  return !!(d && p.job && canWork(d) && postRoom(s, d) === p.job);
 }
 export function isTwinnedShade(s, d) {
   if (!d.bond || !canWork(d)) return false;
   const p = byId(s.living, d.bond.with);
-  return !!(p && p.job && postRoom(d) === p.job);
+  return !!(p && p.job && postRoom(s, d) === p.job);
 }
 export function livingMult(s, p) {
   if (!p.job) return 0;
@@ -520,7 +521,7 @@ function bury(s, b) {
 
 // A free spot in the Waking Room for the newly woken.
 function wakingSpot(s) {
-  const { f, x0 } = roomSpan('crypt');
+  const { f, x0 } = roomSpan(geo(s), 'crypt');
   const taken = s.shades.filter((d) => d.post && d.post.f === f).map((d) => d.post.x);
   for (let i = 0; i < 12; i++) {
     const x = x0 + 8 + ((i * 7) % 36);
@@ -597,7 +598,7 @@ function startNight(s) {
     Object.assign(d, { path: [], climb: 0, grabbedBy: null, rest: 0, sang: 0, watch: 0, drained: 0 });
     if (canWork(d)) Object.assign(d, { f: d.post.f, x: d.post.x, ox: d.post.x, of: d.post.f });
   }
-  const { f, x0 } = roomSpan('crypt');
+  const { f, x0 } = roomSpan(geo(s), 'crypt');
   for (const [i, w] of s.shades.filter((d) => d.kind === 'wraith').entries()) {
     addFoe(s, 'wraith', f, x0 + 10 + i * 9, { shade: w.id, temper: 'snuff' });
     s.night.stats.wraiths++;
@@ -655,7 +656,7 @@ function nightTick(s) {
   const n = s.night;
   const T = s.tuning;
   s.t++;
-  const L = lightMap(T, n.candles);
+  const L = lightMap(geo(s), T, n.candles);
   spawnFoes(s, L);
   for (const c of n.candles) c.wax -= DT;
   for (const h of n.foes) {
@@ -679,14 +680,14 @@ function spawnFoes(s, L) {
     const rift = open.find((r) => r.id === sp.rift) || open[0] || null;
     let at = null;
     if (sp.type === 'creeper' && (sp.seep || !rift)) {
-      const dark = darkRooms(L);
+      const dark = darkRooms(geo(s), L);
       if (dark.length) {
         const [f, id, a, b] = pick(s, dark);
         at = { f, x: a + (b - a) * (0.25 + 0.5 * rand(s)) };
-        say(s, `The Unlit seep up in the ${TWINS[id].name}. It has no candle.`, 'bad', n.foes.length < 3);
+        say(s, `The Unlit seep up in the ${TWINS[typeOf(geo(s), id)].name}. It has no candle.`, 'bad', n.foes.length < 3);
       } else if (!rift) {
         // Every rift warded and every room lit: they come up wherever the light doesn't reach.
-        const gaps = darkGaps(L);
+        const gaps = darkGaps(geo(s), L);
         if (gaps.length) {
           const [f, a, b] = pick(s, gaps);
           at = { f, x: (a + b) / 2 };
@@ -712,7 +713,7 @@ function drainShade(s, d, amount) {
   d.memory -= amount;
   d.drained += amount;
   s.night.stats.drained += amount;
-  if (d.memory <= 0) fadeAway(s, d, `${d.name} was drained to nothing in the ${TWINS[roomAt(d.f, d.x) || 'crypt'].name} and is gone.`, 'drained');
+  if (d.memory <= 0) fadeAway(s, d, `${d.name} was drained to nothing in the ${TWINS[typeAt(geo(s), d.f, d.x) || 'crypt'].name} and is gone.`, 'drained');
 }
 
 function shadeTick(s, L, d) {
@@ -752,7 +753,7 @@ function shadeTick(s, L, d) {
     return;
   }
   if (d.path.length || d.post.f !== d.f || Math.abs(d.post.x - d.x) > 1.5 || !isLit(L, d.f, d.x)) return;
-  const room = roomAt(d.f, d.x);
+  const room = typeAt(geo(s), d.f, d.x);
   const job = room && TWINS[room].job;
   const w = K.work * p * (isTwinnedShade(s, d) ? T.twinMult : 1) * DT;
   if (job === 'essence') {
@@ -801,7 +802,7 @@ function foeTick(s, L, c) {
   if (--c.replan <= 0 && !c.climb) plan(s, L, c);
   advance(c, c.type === 'wraith' ? T.wraithSpeed : T.creeperSpeed, Math.round(T.creeperClimb * TICKS_PER_SEC));
   if (c.climb) return;
-  if (c.type === 'creeper' && c.f === VEIL_FLOOR) {
+  if (c.type === 'creeper' && c.f === geo(s).veil) {
     const m = MAP.mirrors.find((x) => Math.abs(x.x - c.x) < 2);
     if (m) {
       cross(s, c, m, 1);
@@ -816,12 +817,12 @@ function foeTick(s, L, c) {
       d.grabbedBy = c.id;
       d.path = [];
       n.stats.grabbed++;
-      say(s, `${c.type === 'wraith' ? 'A Wraith' : 'A Creeper'} has caught ${d.name} in the dark of the ${TWINS[roomAt(d.f, d.x) || 'crypt'].name}.`, 'bad', true);
+      say(s, `${c.type === 'wraith' ? 'A Wraith' : 'A Creeper'} has caught ${d.name} in the dark of the ${TWINS[typeAt(geo(s), d.f, d.x) || 'crypt'].name}.`, 'bad', true);
     }
   }
   if (c.mode === 'gnaw' && !c.path.length) {
     const k = byId(n.candles, c.gnaw);
-    if (k && touching(L, c, k.id)) {
+    if (k && touching(geo(s), L, c, k.id)) {
       k.wax -= T.gnawRate * (c.type === 'wraith' ? 2 : 1) * DT;
       c.gnawing = true;
     } else c.replan = 0;
@@ -854,7 +855,7 @@ function plan(s, L, c) {
     for (let f = 0; f < L.spans.length; f++) {
       for (const [a, b, id] of L.spans[f]) for (const x of [a - GNAW_GAP, b + GNAW_GAP]) if (x >= MAP.LEFT && x <= MAP.RIGHT - 1 && !isLit(L, f, x)) edges.push({ f, x, candle: id });
     }
-    const to = edges.length && route(L, c, edges, { creeper: true, wards: n.wards });
+    const to = edges.length && route(geo(s), L, c, edges, { creeper: true, wards: n.wards });
     if (to) {
       c.mode = 'gnaw';
       c.gnaw = to.goal.candle;
@@ -867,14 +868,14 @@ function plan(s, L, c) {
     c.path = [];
     return;
   }
-  const r = route(L, c, mirrorGoals(), { creeper: true, wards: n.wards });
+  const r = route(geo(s), L, c, mirrorGoals(geo(s)), { creeper: true, wards: n.wards });
   if (r) {
     c.mode = 'climb';
     c.gnaw = null;
     c.path = r.path;
     return;
   }
-  const open = route(L, c, mirrorGoals(), { creeper: true, ignoreLight: true, wards: n.wards });
+  const open = route(geo(s), L, c, mirrorGoals(geo(s)), { creeper: true, ignoreLight: true, wards: n.wards });
   const cut = open && firstLight(L, c, open.path);
   if (!cut) {
     c.mode = 'idle';
@@ -892,11 +893,11 @@ function plan(s, L, c) {
 function mawTarget(s, L, m) {
   const n = s.night;
   if (!n.candles.length) return null;
-  const open = route(L, m, mirrorGoals(), { creeper: true, ignoreLight: true, wards: n.wards });
+  const open = route(geo(s), L, m, mirrorGoals(geo(s)), { creeper: true, ignoreLight: true, wards: n.wards });
   const cut = open && firstLight(L, m, open.path);
   const barring = cut && byId(n.candles, cut.candle);
   const goals = (barring ? [barring] : n.candles).map((k) => ({ f: k.f, x: k.x, candle: k.id }));
-  const r = route(L, m, goals, { creeper: true, ignoreLight: true, wards: n.wards });
+  const r = route(geo(s), L, m, goals, { creeper: true, ignoreLight: true, wards: n.wards });
   return r ? { path: r.path, candle: r.goal.candle } : null;
 }
 function mawTick(s, L, m) {
@@ -918,7 +919,7 @@ function mawTick(s, L, m) {
   if (k && !m.climb && !m.path.length && k.f === m.f && Math.abs(k.x - m.x) <= 2) {
     if (!m.smashing) {
       m.smashing = true;
-      say(s, `A Maw is tearing down the candle in the ${TWINS[roomAt(k.f, k.x)].name}.`, 'bad', true);
+      say(s, `A Maw is tearing down the candle in the ${TWINS[typeAt(geo(s), k.f, k.x)].name}.`, 'bad', true);
     }
     k.wax -= T.mawSmash * DT;
     m.gnawing = true;
@@ -945,10 +946,10 @@ function hollowTick(s, L, h) {
   if (!h.climb && --h.replan <= 0) {
     h.replan = 10;
     h.batter = null;
-    let r = route(L, h, mirrorGoals(), { creeper: true, ignoreLight: true, wards: n.wards });
+    let r = route(geo(s), L, h, mirrorGoals(geo(s)), { creeper: true, ignoreLight: true, wards: n.wards });
     if (!r) {
       // Every way up is warded: go and break the nearest ward.
-      const open = route(L, h, mirrorGoals(), { creeper: true, ignoreLight: true });
+      const open = route(geo(s), L, h, mirrorGoals(geo(s)), { creeper: true, ignoreLight: true });
       const i = open ? open.path.findIndex((st) => st.climb && n.wards.includes(st.climb)) : -1;
       if (i >= 0) {
         h.batter = open.path[i].climb;
@@ -972,7 +973,7 @@ function hollowTick(s, L, h) {
     return;
   }
   advance(h, T.hollowSpeed, Math.round(T.creeperClimb * 2 * TICKS_PER_SEC));
-  if (h.climb || h.f !== VEIL_FLOOR) return;
+  if (h.climb || h.f !== geo(s).veil) return;
   const m = MAP.mirrors.find((x) => Math.abs(x.x - h.x) < 2);
   if (m) cross(s, h, m, T.hollowCracks);
 }
@@ -983,7 +984,7 @@ function cross(s, c, m, cracks) {
   s.cracks += cracks;
   n.stats.crossed++;
   n.stats.cracks += cracks;
-  const where = TWINS[roomAt(VEIL_FLOOR, m.x)].name;
+  const where = TWINS[typeAt(geo(s), geo(s).veil, m.x)].name;
   if (c.type === 'hollow') {
     n.stats.hollow = 'crossed';
     say(s, `The Hollow reached the mirror in the ${where} and tore through the Veil: ${cracks} cracks.`, 'bad', true);
@@ -1096,7 +1097,7 @@ function endNight(s) {
     if (e) {
       e.nights = d.nights;
       e.memory = Math.max(0, d.memory);
-      const room = postRoom(d);
+      const room = postRoom(s, d);
       if (room) {
         e.posts ||= {};
         e.posts[room] = (e.posts[room] || 0) + 1;
@@ -1296,7 +1297,7 @@ function nextSeason(s) {
 
 /* ---------------------------------------------------------------- player actions */
 
-const onFloor = (f, x) => Number.isInteger(f) && f >= 0 && f < MAP.floors.length && Number.isFinite(x) && x >= MAP.LEFT && x <= MAP.RIGHT;
+const onFloor = (s, f, x) => Number.isInteger(f) && f >= 0 && f < geo(s).n && Number.isFinite(x) && x >= MAP.LEFT && x <= MAP.RIGHT;
 
 const ACTIONS = {
   assign(s, { id, room }) {
@@ -1357,8 +1358,8 @@ const ACTIONS = {
   },
   candle(s, { f, x }) {
     if (!(s.phase === 'night' || (s.phase === 'dusk' && s.dusk.step === 'place'))) return 'Candles are set at dusk, once the dead have woken, or during the night.';
-    if (!onFloor(f, x)) return 'That is not a place in the Tain.';
-    if (!roomAt(f, x)) return 'That is inside a wall.';
+    if (!onFloor(s, f, x)) return 'That is not a place in the Tain.';
+    if (!roomAt(geo(s), f, x)) return 'That is inside a wall.';
     if (s.res.candles < 1) return 'No candles left. The Chandlery makes them by day.';
     s.res.candles--;
     s.night.candles.push({ id: 'k' + s.nextId++, f, x, wax: s.tuning.candleWax, max: s.tuning.candleWax });
@@ -1368,7 +1369,7 @@ const ACTIONS = {
     const d = byId(s.shades, id);
     if (!d) return 'No such shade.';
     if (!canWork(d)) return `${d.name} can't be posted.`;
-    if (!onFloor(f, x) || !roomAt(f, x)) return 'That is not a place in the Tain.';
+    if (!onFloor(s, f, x) || !roomAt(geo(s), f, x)) return 'That is not a place in the Tain.';
     if (s.phase === 'dusk' || s.phase === 'dawn' || s.phase === 'day') {
       Object.assign(d, { post: { f, x }, f, x, ox: x, of: f, path: [], climb: 0 });
       return undefined;
@@ -1376,19 +1377,19 @@ const ACTIONS = {
     if (s.phase !== 'night') return 'Not now.';
     if (d.grabbedBy) return `${d.name} is held. Light the spot to free it.`;
     if (d.climb) return `${d.name} is on the stairs.`;
-    const r = route(lightMap(s.tuning, s.night.candles), d, [{ f, x }]);
+    const r = route(geo(s), lightMap(geo(s), s.tuning, s.night.candles), d, [{ f, x }]);
     if (!r) return 'No way there.';
     d.path = r.path;
     d.post = { f, x };
   },
   ward(s, { target }) {
     if (s.phase !== 'night' && s.phase !== 'dusk') return 'Wards are set at dusk or during the night.';
-    if (!MAP.stairs.some((x) => x.id === target) && !MAP.rifts.some((x) => x.id === target)) return 'Wards seal a stair or a rift.';
+    if (!geo(s).stairs.some((x) => x.id === target) && !MAP.rifts.some((x) => x.id === target)) return 'Wards seal a stair or a rift.';
     if (s.night.wards.includes(target)) return 'Already warded tonight.';
     if (s.res.essence + EPS < s.tuning.wardCost) return `A ward costs ${s.tuning.wardCost} essence.`;
     s.res.essence -= s.tuning.wardCost;
     s.night.wards.push(target);
-    if (MAP.stairs.some((x) => x.id === target)) s.night.wardHold[target] = s.tuning.wardHold;
+    if (geo(s).stairs.some((x) => x.id === target)) s.night.wardHold[target] = s.tuning.wardHold;
     s.night.stats.wards++;
     for (const c of s.night.foes) c.replan = 0;
   },

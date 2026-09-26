@@ -8,8 +8,8 @@
 //   idle     works the day but leaves the night alone: no candles, no posts (a baseline)
 
 import { step, act, newSeason, ritePreview, crossingPreview, capacity, canWork, defense, funeralCap, choicesFor } from './sim.js';
-import { DAY_ROOMS, MIRRORS, KINDS, MAP, VEIL_FLOOR } from './data.js';
-import { roomSpan, roomAt } from './geo.js';
+import { DAY_ROOMS, MIRRORS, KINDS } from './data.js';
+import { geo, roomSpan, roomAt } from './geo.js';
 
 export const PLANS = ['balanced', 'keeper', 'mourner', 'double', 'idle'];
 
@@ -88,7 +88,7 @@ function funerals(s, plan) {
 
 // The line: the feet of the two stairs up to the Veil floor. Lit, they turn every climber aside to gnaw
 // at the light's edge, where a shade standing in it can fight.
-const LINE = MAP.stairs.filter((st) => st.f === VEIL_FLOOR - 1);
+const lineOf = (s) => geo(s).stairs.filter((st) => st.f === geo(s).veil - 1);
 
 // Where the shades not holding the line work tonight: [room, shades].
 function postings(s, ds) {
@@ -113,6 +113,8 @@ function postings(s, ds) {
 
 function placeNight(s, plan) {
   const T = s.tuning;
+  const G = geo(s);
+  const LINE = lineOf(s);
   const ds = s.shades.filter(canWork).sort((a, b) => fighter(b) * b.memory - fighter(a) * a.memory);
   for (const st of LINE) {
     doAct(s, { type: 'candle', f: st.f, x: st.x });
@@ -128,14 +130,14 @@ function placeNight(s, plan) {
   }
   // The new moon: no work tonight. Everyone off the line waits by the Veil for the Hollow.
   if (s.day >= T.seasonDays) {
-    const { f, x0 } = roomSpan('hearth');
+    const { f, x0 } = roomSpan(G, 'hearth');
     ds.forEach((d, i) => doAct(s, { type: 'move', id: d.id, f, x: x0 + 14 + (i % 4) * 5 }));
     if (ds.length) doAct(s, { type: 'candle', f, x: x0 + 24 });
     return;
   }
   for (const [room, group] of postings(s, ds)) {
-    const { f, x0, x1 } = roomSpan(room);
-    const mid = f === LINE[0].f ? (room === roomAt(f, LINE[0].x) ? LINE[0].x + 10 : LINE[1].x - 10) : (x0 + x1) / 2;
+    const { f, x0, x1 } = roomSpan(G, room);
+    const mid = f === LINE[0].f ? (room === roomAt(G, f, LINE[0].x) ? LINE[0].x + 10 : LINE[1].x - 10) : (x0 + x1) / 2;
     group.forEach((d, i) => doAct(s, { type: 'move', id: d.id, f, x: mid - 4 + (i % 3) * 4 }));
     if (!(f === LINE[0].f) && s.res.candles > 1) doAct(s, { type: 'candle', f, x: mid });
   }
@@ -146,10 +148,12 @@ function placeNight(s, plan) {
 function tendNight(s, plan) {
   const n = s.night;
   const T = s.tuning;
+  const G = geo(s);
+  const LINE = lineOf(s);
   // Relight the line first, then any post whose candle is going out.
   const lit = (f, x) => n.candles.some((c) => c.f === f && Math.abs(c.x - x) <= 6 && c.wax > 15);
   for (const st of LINE) if (!lit(st.f, st.x)) doAct(s, { type: 'candle', f: st.f, x: st.x });
-  const inRoom = (f, x) => n.candles.some((c) => c.f === f && roomAt(c.f, c.x) === roomAt(f, x) && c.wax > 15);
+  const inRoom = (f, x) => n.candles.some((c) => c.f === f && roomAt(G, c.f, c.x) === roomAt(G, f, x) && c.wax > 15);
   for (const d of s.shades.filter(canWork)) {
     const { f, x } = d.post;
     if (f !== LINE[0].f && !inRoom(f, x) && s.res.candles > 1) doAct(s, { type: 'candle', f, x });
@@ -170,9 +174,9 @@ function tendNight(s, plan) {
   // The Hollow: ward the stairs above it while the essence lasts, and meet it with fighters near the top.
   const h = n.foes.find((f) => f.type === 'hollow');
   if (h && !h.climb) {
-    const up = MAP.stairs.filter((st) => st.f === h.f && !n.wards.includes(st.id));
-    if (h.f < VEIL_FLOOR && up.length && s.res.essence >= up.length * T.wardCost) for (const st of up) doAct(s, { type: 'ward', target: st.id });
-    if (h.f === VEIL_FLOOR) {
+    const up = G.stairs.filter((st) => st.f === h.f && !n.wards.includes(st.id));
+    if (h.f < G.veil && up.length && s.res.essence >= up.length * T.wardCost) for (const st of up) doAct(s, { type: 'ward', target: st.id });
+    if (h.f === G.veil) {
       for (const d of s.shades.filter((x) => canWork(x) && fighter(x) >= 1 && x.memory > 30 && !x.grabbedBy && !x.climb)) {
         if (d.f !== h.f || Math.abs(d.x - h.x) > 6) doAct(s, { type: 'move', id: d.id, f: h.f, x: h.x + (d.x < h.x ? -5.5 : 5.5) });
       }

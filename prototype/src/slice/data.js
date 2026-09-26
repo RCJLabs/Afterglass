@@ -153,9 +153,10 @@ export const TWINS = {
   crypt: { name: 'Waking Room', job: null, note: 'Where the dead wake.' },
 };
 
-// The keep, top to bottom in its upright (day) layout. The Tain is the same rooms reflected under the
-// Veil, so floor 0 (Chapel and Glazier by day) is the Tain's deepest floor, where the rifts open, and
-// floor 3 (Hearth and Crypt) sits right under the Veil, where the mirrors hang.
+// The keep a season starts with, top to bottom in its upright (day) layout. The Tain is the same rooms
+// reflected under the Veil, so floor 0 (Chapel and Glazier by day) is the Tain's deepest floor, where the
+// rifts open, and the last floor (Hearth and Crypt) sits right under the Veil, where the mirrors hang.
+// Building adds floors on top (geo.js builds each keep's geometry); these are the starting four.
 export const MAP = {
   W: 112,
   VEIL: 114,
@@ -186,8 +187,6 @@ export const MAP = {
     { id: 'm2', x: 82 },
   ],
 };
-export const DEEP_FLOOR = 0;
-export const VEIL_FLOOR = MAP.floors.length - 1;
 
 export const KINDS = {
   loyal: { name: 'Loyal', work: 1, fight: 1.5, speed: 1, desc: 'Died on duty. Fights hardest.' },

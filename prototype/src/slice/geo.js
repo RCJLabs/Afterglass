@@ -1,27 +1,78 @@
-// Geometry of the slice's keep and its Tain: rooms, candlelight, and routes through the stairs.
-// Ported from the weeks 3–4 night greybox, driven by MAP instead of fixed constants. Pure.
+// Geometry of a keep and its Tain: floors, rooms, candlelight, and routes through the stairs. Pure.
+// A keep's layout is part of its save (s.keep: floors top to bottom, two rooms each), because the keep can
+// be built up. Its geometry G is built from the layout and memoised; everything that needs it takes G.
+// Floor 0 is always the top floor by day, so it is always the Tain's deepest, where the rifts open; the
+// last floor stands on the Veil, where the mirrors hang. Building a floor adds a new floor 0.
 
-import { MAP, DEEP_FLOOR, VEIL_FLOOR } from './data.js';
+import { MAP } from './data.js';
 
 const EPS = 1e-9;
 export const GNAW_GAP = 1.5; // a gnawing Creeper waits this far outside the light
-export const FLOORS = MAP.floors;
-export const feet = (f) => FLOORS[f].y + MAP.ROOM_H - 2; // the row everyone on floor f stands on
 export const clampX = (x) => Math.max(MAP.LEFT, Math.min(MAP.RIGHT - 1, x));
+export const DEEP_FLOOR = 0;
+export const PITCH = MAP.ROOM_H + 2; // a floor's rooms and the slab under them
 
-// The room at a spot, or null inside a wall.
-export function roomAt(f, x) {
-  const r = FLOORS[f]?.rooms.find(([, a, b]) => x >= a && x < b);
+// The keep a season starts with: the original four floors, each room named for its type.
+export const START_KEEP = { floors: MAP.floors.map((fl) => fl.rooms.map(([id]) => ({ id, type: id }))) };
+// The two room slots on every floor.
+export const SLOTS = MAP.floors[0].rooms.map(([, a, b]) => [a, b]);
+
+// Stairs by level, counting up from the pair that joins the Veil floor to the floor above. The first three
+// are the original keep's; later ones alternate so no two flights line up.
+const STAIR_XS = [[16, 96], [40, 72], [24, 88], [32, 80], [20, 92], [44, 68], [28, 84], [36, 76], [12, 100], [48, 64]];
+const STAIR_IDS = [['s5', 's6'], ['s3', 's4'], ['s1', 's2']];
+export const MAX_FLOORS = MAP.floors.length + STAIR_XS.length - 3;
+
+// Memoised by the keep object (a save's keep is never changed in place: building replaces it), then by
+// layout, so the per-tick lookups cost nothing.
+const byKeep = new WeakMap();
+const cache = new Map();
+export function geoOf(keep = START_KEEP) {
+  let G = byKeep.get(keep);
+  if (G) return G;
+  const key = keep.floors.map((fl) => fl.map((r) => `${r.id}:${r.type}`).join(',')).join('|');
+  G = cache.get(key);
+  if (G) {
+    byKeep.set(keep, G);
+    return G;
+  }
+  const n = keep.floors.length;
+  const ground = MAP.floors[MAP.floors.length - 1].y;
+  const floors = keep.floors.map((fl, f) => ({
+    y: ground - (n - 1 - f) * PITCH,
+    rooms: fl.map((r, i) => [r.id, SLOTS[i][0], SLOTS[i][1], r.type]),
+  }));
+  // Top to bottom, as the original map listed them (the order breaks ties between equal routes).
+  const stairs = [];
+  for (let f = 0; f < n - 1; f++) {
+    const level = n - 2 - f;
+    const xs = STAIR_XS[level];
+    const ids = STAIR_IDS[level] || [`s${2 * level + 1}`, `s${2 * level + 2}`];
+    stairs.push({ id: ids[0], f, x: xs[0] }, { id: ids[1], f, x: xs[1] });
+  }
+  const rooms = {};
+  floors.forEach((fl, f) => fl.rooms.forEach(([id, x0, x1, type]) => (rooms[id] = { id, type, f, x0, x1 })));
+  G = { key, n, deep: DEEP_FLOOR, veil: n - 1, floors, stairs, rifts: MAP.rifts, mirrors: MAP.mirrors, rooms, top: floors[0].y };
+  cache.set(key, G);
+  byKeep.set(keep, G);
+  return G;
+}
+export const geo = (s) => geoOf(s.keep || START_KEEP);
+
+export const feet = (G, f) => G.floors[f].y + MAP.ROOM_H - 2; // the row everyone on floor f stands on
+
+// The room at a spot (its id), or null inside a wall; its type; a room's span; every room of a type.
+export function roomAt(G, f, x) {
+  const r = G.floors[f]?.rooms.find(([, a, b]) => x >= a && x < b);
   return r ? r[0] : null;
 }
-export function roomSpan(id) {
-  for (let f = 0; f < FLOORS.length; f++) {
-    for (const [rid, a, b] of FLOORS[f].rooms) if (rid === id) return { f, x0: a, x1: b };
-  }
-  return null;
+export const typeOf = (G, id) => G.rooms[id]?.type ?? null;
+export const typeAt = (G, f, x) => typeOf(G, roomAt(G, f, x));
+export function roomSpan(G, id) {
+  const r = G.rooms[id];
+  return r ? { f: r.f, x0: r.x0, x1: r.x1 } : null;
 }
-export const ROOM_IDS = FLOORS.flatMap((fl) => fl.rooms.map((r) => r[0]));
-export const ROOMS_ON = (f) => FLOORS[f].rooms.map((r) => r[0]);
+export const roomsOf = (G, type) => Object.values(G.rooms).filter((r) => r.type === type);
 
 /* ---------------------------------------------------------------- light */
 
@@ -39,16 +90,16 @@ function merge(spans) {
 
 // Lit spans per floor. spans keep each candle's id (for gnawing); merged is for passability.
 // A candle lights only its own room, and rifts on the deepest floor drink the light around them.
-export function lightMap(T, candles) {
-  const spans = FLOORS.map(() => []);
+export function lightMap(G, T, candles) {
+  const spans = G.floors.map(() => []);
   for (const c of candles) {
-    const id = roomAt(c.f, c.x);
+    const id = roomAt(G, c.f, c.x);
     if (!id) continue;
-    const { x0, x1 } = roomSpan(id);
+    const { x0, x1 } = roomSpan(G, id);
     const r = radius(T, c);
     let pieces = [[Math.max(x0, c.x - r), Math.min(x1, c.x + r)]];
-    if (c.f === DEEP_FLOOR) {
-      for (const rift of MAP.rifts) {
+    if (c.f === G.deep) {
+      for (const rift of G.rifts) {
         const g0 = rift.x - T.riftGap;
         const g1 = rift.x + T.riftGap;
         pieces = pieces.flatMap(([p, q]) => (q <= g0 || p >= g1 ? [[p, q]] : [[p, g0], [g1, q]].filter(([u, v]) => v - u > EPS)));
@@ -62,22 +113,22 @@ export const isLit = (L, f, x) => L.merged[f].some(([a, b]) => x >= a - EPS && x
 export const spanAt = (L, f, x) => L.merged[f].find(([a, b]) => x >= a - EPS && x <= b + EPS) || null;
 export const darkBetween = (L, f, x1, x2) => !L.merged[f].some(([a, b]) => a <= Math.max(x1, x2) + EPS && b >= Math.min(x1, x2) - EPS);
 
-// Rooms with no light at all, away from the Veil: where the Unlit can seep up.
-export function darkRooms(L) {
+// Rooms with no light at all, away from the Veil: where the Unlit can seep up. [f, id, x0, x1]
+export function darkRooms(G, L) {
   const out = [];
-  for (let f = 0; f < FLOORS.length; f++) {
-    if (f === VEIL_FLOOR) continue;
-    for (const [id, a, b] of FLOORS[f].rooms) if (!L.merged[f].some(([p, q]) => p < b && q > a)) out.push([f, id, a, b]);
+  for (let f = 0; f < G.n; f++) {
+    if (f === G.veil) continue;
+    for (const [id, a, b] of G.floors[f].rooms) if (!L.merged[f].some(([p, q]) => p < b && q > a)) out.push([f, id, a, b]);
   }
   return out;
 }
 
 // Dark stretches at least `min` wide inside rooms, away from the Veil: [f, a, b].
-export function darkGaps(L, min = 4) {
+export function darkGaps(G, L, min = 4) {
   const out = [];
-  for (let f = 0; f < FLOORS.length; f++) {
-    if (f === VEIL_FLOOR) continue;
-    for (const [, a, b] of FLOORS[f].rooms) {
+  for (let f = 0; f < G.n; f++) {
+    if (f === G.veil) continue;
+    for (const [, a, b] of G.floors[f].rooms) {
       let x = a;
       for (const [p, q] of L.merged[f]) {
         if (q <= x || p >= b) continue;
@@ -95,10 +146,10 @@ export function darkGaps(L, min = 4) {
 // Shortest route from `from` to the nearest of `goals` through the stairs. Creepers can't use a warded
 // stair or one with light at either end, and can't walk through light unless ignoreLight is set.
 // Returns { path, goal, cost } or null; steps are { f, x } to walk to or { f, x, climb } to climb to.
-export function route(L, from, goals, { creeper = false, ignoreLight = false, wards = [] } = {}) {
+export function route(G, L, from, goals, { creeper = false, ignoreLight = false, wards = [] } = {}) {
   const nodes = [{ f: from.f, x: from.x }];
   for (const g of goals) nodes.push({ f: g.f, x: g.x, goal: g });
-  for (const st of MAP.stairs) {
+  for (const st of G.stairs) {
     if (creeper && wards.includes(st.id)) continue;
     if (creeper && !ignoreLight && (isLit(L, st.f, st.x) || isLit(L, st.f + 1, st.x))) continue;
     nodes.push({ f: st.f, x: st.x, stair: st.id, end: 0 }, { f: st.f + 1, x: st.x, stair: st.id, end: 1 });
@@ -177,39 +228,38 @@ export function fleePath(L, u) {
 }
 
 // Is a gnawer at the edge of this candle's light, or at the foot of a stair whose top it lights?
-export function touching(L, u, candleId) {
+export function touching(G, L, u, candleId) {
   const near = GNAW_GAP + 1;
   if (L.spans[u.f].some(([a, b, id]) => id === candleId && u.x >= a - near && u.x <= b + near)) return true;
-  const st = MAP.stairs.find((x) => Math.abs(x.x - u.x) < 1 && (x.f === u.f || x.f + 1 === u.f));
+  const st = G.stairs.find((x) => Math.abs(x.x - u.x) < 1 && (x.f === u.f || x.f + 1 === u.f));
   if (!st) return false;
   const other = st.f === u.f ? st.f + 1 : st.f;
   return L.spans[other].some(([a, b, id]) => id === candleId && st.x >= a - EPS && st.x <= b + EPS);
 }
 
-export const mirrorGoals = () => MAP.mirrors.map((m) => ({ f: VEIL_FLOOR, x: m.x, id: m.id }));
+export const mirrorGoals = (G) => G.mirrors.map((m) => ({ f: G.veil, x: m.x, id: m.id }));
 
 /* ---------------------------------------------------------------- cameras */
 
-// Views are W wide and VIEW_H tall: the keep (or its Tain) plus 8 rows on the far side of the Veil.
-// Tain objects live in the keep's upright coordinates. 'reflection' shows the Tain as the world has it,
-// mirrored under the Veil with everyone hanging upside down; 'flipped' turns that view over so the
-// Tain reads upright, with the Veil along the bottom. Each is its own inverse.
+// The weeks 5–6 cameras, kept for the tests: views are W wide and VIEW_H tall, the original keep (or its
+// Tain) plus 8 rows on the far side of the Veil. 'reflection' shows the Tain as the world has it, mirrored
+// under the Veil; 'flipped' turns that over so the Tain reads upright. Each is its own inverse.
 export const VIEW_H = MAP.VEIL + 8;
 export const MODES = ['reflection', 'flipped'];
 export const toView = (mode, x, y) => ({ x, y: mode === 'reflection' ? MAP.VEIL + 7 - y : y });
 export const fromView = toView;
 
 // The floor a row of the keep belongs to (its room, slab and the gap under it), or -1.
-export function floorAtY(y) {
-  return FLOORS.findIndex((fl) => y >= fl.y - 1 && y < fl.y + MAP.ROOM_H + 1);
+export function floorAtY(G, y) {
+  return G.floors.findIndex((fl) => y >= fl.y - 1 && y < fl.y + MAP.ROOM_H + 1);
 }
 // Where a unit stands between ticks: alpha 0 is last tick, 1 is this one. Climbers slide between floors.
-export function unitAt(u, alpha = 1) {
+export function unitAt(G, u, alpha = 1) {
   let x = u.ox + (u.x - u.ox) * alpha;
-  let y = feet(u.f);
+  let y = feet(G, u.f);
   if (u.climb > 0 && u.climbTotal > 0 && u.path?.[0]) {
     const k = Math.max(0, Math.min(1, 1 - (u.climb - alpha) / u.climbTotal));
-    y = feet(u.f) + (feet(u.path[0].f) - feet(u.f)) * k;
+    y = feet(G, u.f) + (feet(G, u.path[0].f) - feet(G, u.f)) * k;
     x = u.x;
   }
   return { x, y };

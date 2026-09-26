@@ -5,8 +5,8 @@
 
 import { P, MF, rngOf, R, D, A, clip, bricks, crenel, roof, ellipse, ring, room as paintRoom, flame, glow, human } from '../px/kit.js';
 import { UMBRA, applyTain, applyLight } from '../px/lut.js';
-import { MAP, DEEP_FLOOR, VEIL_FLOOR } from './data.js';
-import { FLOORS, feet, roomSpan, lightMap, unitAt } from './geo.js';
+import { MAP } from './data.js';
+import { geo, geoOf, feet as feetOf, roomSpan, roomsOf, lightMap, unitAt as unitAtOf } from './geo.js';
 import { figure, livingLook, shadeLook, eyesAt, FIG_H } from './people.js';
 
 const { W, VEIL, ROOM_H } = MAP;
@@ -29,8 +29,15 @@ const TONES = {
   chapel: ['#4a3a52', P.grape], glazier: ['#39485a', P.indigo], chandlery: ['#5a4632', P.brown], infirmary: ['#4c5361', P.slate],
   barracks: ['#4a3e36', P.brown], granary: ['#5a4a38', P.brown], hearth: ['#5a4038', P.brown], crypt: ['#2a2430', P.soot],
 };
-const span = (id) => roomSpan(id);
-const top = (id) => FLOORS[span(id).f].y;
+// The keep being drawn: its geometry, set at the start of every frame (it grows as rooms are built).
+let G = geoOf();
+const feet = (f) => feetOf(G, f);
+const unitAt = (u, a) => unitAtOf(G, u, a);
+const span = (id) => roomSpan(G, id);
+const top = (id) => G.floors[span(id).f].y;
+const every = (type) => roomsOf(G, type);
+// The keep's highest row: the flag on the roof, 24 rows above the top floor.
+const roofY = () => G.top - 24;
 
 function mirrorFrame(c, x, y) {
   R(c, x, y, 5, 7, P.amber);
@@ -115,7 +122,7 @@ const FURNISH = {
     R(c, x + 42, y + 4, 4, 5, P.ink);
     R(c, x + 43, y + 5, 2, 3, '#86bff0');
   },
-  hearth(c, x, y) {
+  hearth(c, x, y, f) {
     R(c, x + 32, y + 5, 12, 13, P.indigo);
     R(c, x + 34, y + 9, 8, 9, P.night);
     R(c, x + 31, y + 4, 14, 1, P.slate);
@@ -126,18 +133,21 @@ const FURNISH = {
     R(c, x + 2, y + 6, 6, 1, P.clay);
     D(c, x + 3, y + 5, P.bone);
     D(c, x + 6, y + 5, P.green);
-    mirrorFrame(c, MAP.mirrors[0].x - 2, y + 4);
+    if (f === G.veil) mirrorFrame(c, MAP.mirrors[0].x - 2, y + 4);
   },
-  crypt(c, x, y) {
+  crypt(c, x, y, f) {
     for (const [dx, dy] of [[2, 4], [2, 9], [7, 4], [30, 4], [30, 9]]) {
       R(c, x + dx, y + dy, 4, 3, P.night);
       D(c, x + dx + 1, y + dy + 1, P.bone);
     }
     R(c, x + 4, y + 14, 14, 4, P.slate);
     R(c, x + 4, y + 14, 14, 1, P.steel);
-    mirrorFrame(c, MAP.mirrors[1].x - 2, y + 4);
+    if (f === G.veil) mirrorFrame(c, MAP.mirrors[1].x - 2, y + 4);
   },
 };
+
+// Details only a room's twin has, for room types beyond the original eight (keyed by type).
+const TWIN_ART = {};
 
 function ladder(c, st) {
   const y0 = feet(st.f);
@@ -149,67 +159,74 @@ function ladder(c, st) {
   for (let y = y0 + 1; y < y1; y += 3) R(c, st.x - 1, y, 3, 1, P.brown);
 }
 
+// The keep's layers cover it from the roof (row roofY) down to the Veil, in world coordinates: each is
+// drawn with a translate and placed at (0, roofY). The roof sits on whichever floor is highest.
 function keepLayer(rnd) {
-  const cv = mk(W, VEIL);
+  const y0 = roofY();
+  const cv = mk(W, VEIL - y0);
   const c = ctxOf(cv);
+  c.translate(0, -y0);
   const S = { base: P.steel, dark: P.slate, light: P.silver };
-  bricks(c, rnd, 0, 20, W, VEIL - 20, S);
-  crenel(c, 0, 20, W, P.steel, P.slate);
-  bricks(c, rnd, 44, 6, 24, 14, S);
-  crenel(c, 44, 6, 24, P.steel, P.slate);
-  R(c, 55, 0, 1, 6, P.brown);
-  R(c, 56, 0, 5, 3, P.crimson);
+  bricks(c, rnd, 0, y0 + 20, W, VEIL - y0 - 20, S);
+  crenel(c, 0, y0 + 20, W, P.steel, P.slate);
+  bricks(c, rnd, 44, y0 + 6, 24, 14, S);
+  crenel(c, 44, y0 + 6, 24, P.steel, P.slate);
+  R(c, 55, y0, 1, 6, P.brown);
+  R(c, 56, y0, 5, 3, P.crimson);
   for (const x of [0, 104]) {
-    bricks(c, rnd, x, 12, 8, 8, S);
-    roof(c, x + 4, 12, 5, 8, P.crimson, P.plum);
+    bricks(c, rnd, x, y0 + 12, 8, 8, S);
+    roof(c, x + 4, y0 + 12, 5, 8, P.crimson, P.plum);
   }
-  for (const [x, y] of [[50, 11], [60, 11]]) R(c, x, y, 2, 3, P.amber);
-  for (let f = 0; f < FLOORS.length; f++) {
-    for (const [id, a, b] of FLOORS[f].rooms) {
-      paintRoom(c, rnd, a, FLOORS[f].y, b - a, ROOM_H, { wall: TONES[id][0], wall2: TONES[id][1], floor: P.brown, floorTop: P.clay });
-      FURNISH[id](c, a, FLOORS[f].y);
+  for (const [x, y] of [[50, 11], [60, 11]]) R(c, x, y0 + y, 2, 3, P.amber);
+  G.floors.forEach((fl, f) => {
+    for (const [, a, b, type] of fl.rooms) {
+      paintRoom(c, rnd, a, fl.y, b - a, ROOM_H, { wall: TONES[type][0], wall2: TONES[type][1], floor: P.brown, floorTop: P.clay });
+      FURNISH[type](c, a, fl.y, f);
     }
-  }
-  for (const st of MAP.stairs) ladder(c, st);
+  });
+  for (const st of G.stairs) ladder(c, st);
   bricks(c, rnd, 0, VEIL - 4, W, 4, { base: P.slate, dark: P.indigo, light: P.steel });
   return cv;
 }
 
 // The Tain upright: the keep through the palette lookup, over the Deep, with each twin's own details.
 function tainLayer(keep, rnd) {
-  const cv = mk(W, VEIL);
+  const y0 = roofY();
+  const H = VEIL - y0;
+  const cv = mk(W, H);
   const c = ctxOf(cv);
-  const k = mk(W, VEIL);
+  const k = mk(W, H);
   const kc = ctxOf(k);
   kc.drawImage(keep, 0, 0);
-  const img = kc.getImageData(0, 0, W, VEIL);
+  const img = kc.getImageData(0, 0, W, H);
   applyTain(img.data);
   kc.putImageData(img, 0, 0);
   c.drawImage(k, 0, 0);
-  // Hollow Granary: the stores are gone; only their outlines remain.
-  let x = span('granary').x0;
-  let y = top('granary');
-  R(c, x + 2, y + 8, 36, 10, UMBRA[2]);
-  for (let i = 0; i < 3; i++) ring(c, x + 4 + i * 5, y + 15, 2, UMBRA[3]);
-  for (let i = 0; i < 3; i++) ring(c, x + 19 + i * 5, y + 15, 2, UMBRA[3]);
-  for (const dy of [0, 7]) R(c, x + 30, y + 10 + dy, 6, 1, UMBRA[3]);
-  // Waking Room: the slab glows.
-  x = span('crypt').x0;
-  y = top('crypt');
-  R(c, x + 4, y + 14, 14, 1, UMBRA[6]);
-  // Silvering: a pool of quicksilver under the bench.
-  x = span('glazier').x0;
-  y = top('glazier');
-  R(c, x + 15, y + 17, 13, 1, UMBRA[7]);
-  R(c, x + 17, y + 16, 9, 1, UMBRA[6]);
-  // Threshold: a door of pale light in the far wall.
-  x = span('infirmary').x0;
-  y = top('infirmary');
-  R(c, x + 28, y + 5, 4, 13, UMBRA[5]);
-  R(c, x + 29, y + 6, 2, 12, UMBRA[7]);
+  c.translate(0, -y0);
+  // Each twin's own details, in every room of its type.
+  for (const r of every('granary')) {
+    // Hollow Granary: the stores are gone; only their outlines remain.
+    const [x, y] = [r.x0, G.floors[r.f].y];
+    R(c, x + 2, y + 8, 36, 10, UMBRA[2]);
+    for (let i = 0; i < 3; i++) ring(c, x + 4 + i * 5, y + 15, 2, UMBRA[3]);
+    for (let i = 0; i < 3; i++) ring(c, x + 19 + i * 5, y + 15, 2, UMBRA[3]);
+    for (const dy of [0, 7]) R(c, x + 30, y + 10 + dy, 6, 1, UMBRA[3]);
+  }
+  for (const r of every('crypt')) R(c, r.x0 + 4, G.floors[r.f].y + 14, 14, 1, UMBRA[6]); // Waking Room: the slab glows
+  for (const r of every('glazier')) {
+    // Silvering: a pool of quicksilver under the bench.
+    R(c, r.x0 + 15, G.floors[r.f].y + 17, 13, 1, UMBRA[7]);
+    R(c, r.x0 + 17, G.floors[r.f].y + 16, 9, 1, UMBRA[6]);
+  }
+  for (const r of every('infirmary')) {
+    // Threshold: a door of pale light in the far wall.
+    R(c, r.x0 + 28, G.floors[r.f].y + 5, 4, 13, UMBRA[5]);
+    R(c, r.x0 + 29, G.floors[r.f].y + 6, 2, 12, UMBRA[7]);
+  }
+  for (const [type, art] of Object.entries(TWIN_ART)) for (const r of every(type)) art(c, r.x0, G.floors[r.f].y);
   // The rifts on the deepest floor.
   for (const rf of MAP.rifts) {
-    const fy = feet(DEEP_FLOOR);
+    const fy = feet(G.deep);
     let rx = rf.x;
     for (let yy = fy + 1; yy > fy - 14; yy--) {
       D(c, rx, yy, '#3e1030');
@@ -222,24 +239,26 @@ function tainLayer(keep, rnd) {
 }
 
 function nightKeepLayer(L) {
-  const cv = mk(W, VEIL);
+  const y0 = roofY();
+  const cv = mk(W, VEIL - y0);
   const c = ctxOf(cv);
   c.drawImage(L.keep, 0, 0);
   c.globalCompositeOperation = 'source-atop';
-  A(c, 0.62, () => R(c, 0, 0, W, VEIL, '#0b0d26'));
+  A(c, 0.62, () => R(c, 0, 0, W, VEIL - y0, '#0b0d26'));
   c.globalCompositeOperation = 'source-over';
-  for (const [x, y] of [[50, 11], [60, 11]]) R(c, x, y, 2, 3, P.yellow);
-  const h = span('hearth');
-  clip(c, h.x0, top('hearth'), h.x1 - h.x0, ROOM_H, () => glow(c, h.x0 + 38, feet(VEIL_FLOOR) - 4, 16, P.amber, 0.5));
+  c.translate(0, -y0);
+  for (const [x, y] of [[50, 11], [60, 11]]) R(c, x, y0 + y, 2, 3, P.yellow);
+  for (const h of every('hearth')) clip(c, h.x0, G.floors[h.f].y, h.x1 - h.x0, ROOM_H, () => glow(c, h.x0 + 38, feet(h.f) - 4, 16, P.amber, 0.5));
   return cv;
 }
 
+// Built once per layout: a new room means new layers.
 let cache = null;
 function layers() {
-  if (cache) return cache;
+  if (cache && cache.key === G.key) return cache;
   const rnd = rngOf(20260926);
   const keep = keepLayer(rnd);
-  cache = { keep, tain: tainLayer(keep, rnd) };
+  cache = { key: G.key, y0: roofY(), keep, tain: tainLayer(keep, rnd) };
   cache.nightKeep = nightKeepLayer(cache);
   return cache;
 }
@@ -339,21 +358,31 @@ function person(c, p, i, home, y, t, dim = 0) {
 // Everything alive in the keep by day, in world coordinates: fires, the living at work, the dead in the
 // crypt, the Church's inspector, and a raid coming over the hills.
 function dayActors(c, s, t, dusk = 0) {
-  const h = span('hearth');
-  const hy = feet(VEIL_FLOOR);
-  glow(c, h.x0 + 38, hy - 3, 6, P.orange, 0.25);
-  flame(c, h.x0 + 38, hy - 1, t, 0);
-  flame(c, h.x0 + 36, hy - 1, t + 0.4, 1);
-  const g = span('glazier');
-  flame(c, g.x0 + 7, feet(g.f) - 2, t, 2);
-  const byRoom = {};
-  for (const p of s.living) (byRoom[p.job || 'hearth'] ||= []).push(p);
-  for (const [id, ps] of Object.entries(byRoom)) {
-    const { f, x0, x1 } = span(id);
+  for (const h of every('hearth')) {
+    const hy = feet(h.f);
+    glow(c, h.x0 + 38, hy - 3, 6, P.orange, 0.25);
+    flame(c, h.x0 + 38, hy - 1, t, 0);
+    flame(c, h.x0 + 36, hy - 1, t + 0.4, 1);
+  }
+  for (const g of every('glazier')) flame(c, g.x0 + 7, feet(g.f) - 2, t, 2);
+  // Workers of a type fill its rooms in turn, as many as a room holds; the idle wait by the first hearth.
+  const byType = {};
+  for (const p of s.living) (byType[p.job || 'hearth'] ||= []).push(p);
+  const cap = s.tuning.roomCap || 99;
+  const byRoom = new Map();
+  for (const [type, ps] of Object.entries(byType)) {
+    const rooms = every(type).length ? every(type) : every('hearth');
+    ps.forEach((p, i) => {
+      const r = rooms[Math.min(rooms.length - 1, Math.floor(i / cap))];
+      if (!byRoom.has(r)) byRoom.set(r, []);
+      byRoom.get(r).push(p);
+    });
+  }
+  for (const [r, ps] of byRoom) {
     const n = ps.length;
     ps.forEach((p, i) => {
-      const home = x0 + 6 + ((i + 0.5) * (x1 - x0 - 14)) / n;
-      person(c, p, i, home, feet(f), t, Math.min(1, dusk * 1.6));
+      const home = r.x0 + 6 + ((i + 0.5) * (r.x1 - r.x0 - 14)) / n;
+      person(c, p, i, home, feet(r.f), t, Math.min(1, dusk * 1.6));
     });
   }
   const cr = span('crypt');
@@ -384,10 +413,10 @@ function dayActors(c, s, t, dusk = 0) {
     // War banners over the turrets: the one warning you can see from anywhere.
     for (const x of [4, 108]) {
       const wave = MF(t * 4 + x) % 2;
-      R(c, x, -8, 1, 11, P.brown);
-      R(c, x + 1, -8, 5, 2, P.red);
-      R(c, x + 1, -6, 4 + wave, 2, P.red);
-      D(c, x + 5 + wave, -6, P.orange);
+      R(c, x, roofY() - 8, 1, 11, P.brown);
+      R(c, x + 1, roofY() - 8, 5, 2, P.red);
+      R(c, x + 1, roofY() - 6, 4 + wave, 2, P.red);
+      D(c, x + 5 + wave, roofY() - 6, P.orange);
     }
     for (let i = 0; i < Math.min(10, r.count); i++) {
       const x = Math.round(W + 4 + (1 - k) * 36 + i * 6);
@@ -399,7 +428,7 @@ function dayActors(c, s, t, dusk = 0) {
   if (r && r.state === 'breached' && dusk < 1) {
     for (let i = 0; i < 5; i++) {
       const x = 10 + i * 22 + Math.sin(t + i) * 2;
-      const y = 16 - ((t * 3 + i * 5) % 18);
+      const y = roofY() + 16 - ((t * 3 + i * 5) % 18);
       A(c, 0.5 * (1 - dusk), () => ellipse(c, x, y, 2, 1, P.slate));
     }
   }
@@ -503,15 +532,14 @@ function sigil(c, x, y, hold) {
   D(c, x, y + 2, col);
 }
 
-const work = typeof document !== 'undefined' ? mk(W, VEIL) : null;
 
 // Light as the renderer sees it: exactly the simulation's lit spans on each floor, with a short dithered
 // falloff outside them, and the Hollow swallowing what's around it.
 function lightFor(s, hollow, ambient) {
-  const L = lightMap(s.tuning, s.night?.candles || []);
+  const L = lightMap(G, s.tuning, s.night?.candles || []);
   return (x, y) => {
     let f = -1;
-    for (let i = 0; i < FLOORS.length; i++) if (y >= FLOORS[i].y && y < FLOORS[i].y + ROOM_H) f = i;
+    for (let i = 0; i < G.n; i++) if (y >= G.floors[i].y && y < G.floors[i].y + ROOM_H) f = i;
     if (f < 0) return ambient * 0.8;
     let d = Infinity;
     for (const [a, b] of L.merged[f]) d = Math.min(d, x < a ? a - x : x > b ? x - b : 0);
@@ -525,14 +553,16 @@ function lightFor(s, hollow, ambient) {
 // ghost ({ f, x, tool }) for the candle or ward preview, still (no animation).
 function composeTain(s, t, opts = {}) {
   const L = layers();
+  const y0 = L.y0;
+  const work = buf('tain', W, VEIL - y0);
   const c = ctxOf(work);
   const n = s.night;
   const alpha = opts.alpha ?? 1;
   c.setTransform(1, 0, 0, 1, 0, 0);
-  c.clearRect(0, 0, W, VEIL);
+  c.clearRect(0, 0, W, VEIL - y0);
   c.drawImage(L.tain, 0, 0);
-  const ch = span('chapel');
-  ring(c, ch.x0 + 29, top('chapel') + 8, 4 + (MF(t * 3) % 3), UMBRA[5], (dx, dy) => dy < 0);
+  c.setTransform(1, 0, 0, 1, 0, -y0);
+  for (const ch of every('chapel')) ring(c, ch.x0 + 29, G.floors[ch.f].y + 8, 4 + (MF(t * 3) % 3), UMBRA[5], (dx, dy) => dy < 0);
   const candles = n?.candles || [];
   const flames = candles.map((k) => ({ k, y: candleStick(c, k) }));
   if (opts.ghost?.tool === 'candle') R(c, Math.round(opts.ghost.x), feet(opts.ghost.f) - 3, 1, 3, UMBRA[7]);
@@ -547,23 +577,23 @@ function composeTain(s, t, opts = {}) {
     else hollowSprite(c, x, y, t);
   }
   const hollow = foes.find((f) => f.u.type === 'hollow');
-  const img = c.getImageData(0, 0, W, VEIL);
-  applyLight(img.data, W, VEIL, lightFor(s, hollow && !hollow.u.climb ? { f: hollow.u.f, x: hollow.x } : null, opts.ambient ?? 0.2));
+  const img = c.getImageData(0, 0, W, VEIL - y0);
+  applyLight(img.data, W, VEIL - y0, lightFor(s, hollow && !hollow.u.climb ? { f: hollow.u.f, x: hollow.x } : null, opts.ambient ?? 0.2), y0);
   c.putImageData(img, 0, 0);
 
   // What gives off its own light goes on after the lighting.
-  const h = span('hearth');
-  flame(c, h.x0 + 38, feet(VEIL_FLOOR) - 1, t, 3, [P.cyan, '#9fe6ff', P.blue]);
-  flame(c, h.x0 + 36, feet(VEIL_FLOOR) - 1, t + 0.3, 5, [P.cyan, '#9fe6ff', P.blue]);
-  const wk = span('chandlery');
-  for (let i = 0; i < 3; i++) flame(c, wk.x0 + 3 + i * 4, top('chandlery') + 9 + Math.round(Math.sin(t * 2 + i)), t, i, [P.cyan, '#9fe6ff', P.blue]);
+  for (const h of every('hearth')) {
+    flame(c, h.x0 + 38, feet(h.f) - 1, t, 3, [P.cyan, '#9fe6ff', P.blue]);
+    flame(c, h.x0 + 36, feet(h.f) - 1, t + 0.3, 5, [P.cyan, '#9fe6ff', P.blue]);
+  }
+  for (const wk of every('chandlery')) for (let i = 0; i < 3; i++) flame(c, wk.x0 + 3 + i * 4, G.floors[wk.f].y + 9 + Math.round(Math.sin(t * 2 + i)), t, i, [P.cyan, '#9fe6ff', P.blue]);
   for (const rf of MAP.rifts) {
     const pulse = 0.25 + 0.2 * Math.sin(t * 2 + rf.x);
-    glow(c, rf.x, feet(DEEP_FLOOR) - 2, 5, P.hot, pulse);
+    glow(c, rf.x, feet(G.deep) - 2, 5, P.hot, pulse);
   }
   // The mirrors under the Veil, where the Unlit are headed: always bright enough to find.
   for (const m of MAP.mirrors) {
-    const my = FLOORS[VEIL_FLOOR].y + 4;
+    const my = G.floors[G.veil].y + 4;
     glow(c, m.x, my + 3, 5, '#f0b0ff', 0.2 + 0.08 * Math.sin(t * 1.5 + m.x));
     R(c, m.x - 2, my, 5, 7, P.mauve);
     R(c, m.x - 1, my + 1, 3, 5, UMBRA[7]);
@@ -574,13 +604,13 @@ function composeTain(s, t, opts = {}) {
     flame(c, Math.round(k.x), y, t, i);
   });
   for (const w of n?.wards || []) {
-    const st = MAP.stairs.find((x) => x.id === w);
+    const st = G.stairs.find((x) => x.id === w);
     if (st) {
       sigil(c, st.x, feet(st.f) - 6, n.wardHold?.[w]);
       sigil(c, st.x, feet(st.f + 1) - 6, n.wardHold?.[w]);
     } else {
       const rf = MAP.rifts.find((x) => x.id === w);
-      if (rf) sigil(c, rf.x, feet(DEEP_FLOOR) - 6);
+      if (rf) sigil(c, rf.x, feet(G.deep) - 6);
     }
   }
   if (opts.ghost?.tool === 'ward' && opts.ghost.target) {
@@ -628,10 +658,11 @@ function composeTain(s, t, opts = {}) {
     const x = rf.x + (i % 2 ? 5 : -5) + Math.round(Math.sin(t * 1.3 + i) * 2);
     if (MF(t * 5 + i) % 4) {
       const o = { silhouette: '#cfe0ff', wisp: true, pose: 'stand', face: i % 2 ? -1 : 1 };
-      A(c, 0.35, () => figure(c, x, feet(DEEP_FLOOR), o, t));
-      for (const e of eyesAt(x, feet(DEEP_FLOOR), o)) D(c, e.x, e.y, P.silver);
+      A(c, 0.35, () => figure(c, x, feet(G.deep), o, t));
+      for (const e of eyesAt(x, feet(G.deep), o)) D(c, e.x, e.y, P.silver);
     }
   });
+  c.setTransform(1, 0, 0, 1, 0, 0);
   return work;
 }
 
@@ -683,8 +714,8 @@ function dayScene(c, w, h, s, v) {
         ridge(u, cx, w, RIDGES.near, '#1a2430');
       });
     }
-    u.drawImage(L.keep, 0, 0);
-    if (dk > 0) A(u, dk, () => u.drawImage(L.nightKeep, 0, 0));
+    u.drawImage(L.keep, 0, L.y0);
+    if (dk > 0) A(u, dk, () => u.drawImage(L.nightKeep, 0, L.y0));
     if (sunset > 0 && dk < 0.6) A(u, 0.25 * sunset * (1 - dk / 0.6), () => R(u, cx, yTop, w, upH, P.orange));
     dayActors(u, s, t, dk);
     // Souls of the dead crossing: down through the Veil to wake, or up and away to rest.
@@ -725,13 +756,13 @@ function nightScene(c, w, h, s, v) {
     c.setTransform(1, 0, 0, 1, -cx, -cy);
     bands(c, cx, w, cy, VEIL, NIGHT_SKY);
     stars(c, cx, w, cy, VEIL - 30, t);
-    if (cy < -18) {
-      ellipse(c, 22, -30, 3, 3, P.bone);
-      ellipse(c, 23, -31, 2, 2, P.void);
+    if (cy < L.y0 - 18) {
+      ellipse(c, 22, L.y0 - 30, 3, 3, P.bone);
+      ellipse(c, 23, L.y0 - 31, 2, 2, P.void);
     }
     ridge(c, cx, w, RIDGES.far, '#141c2a');
     ridge(c, cx, w, RIDGES.near, '#1a2430');
-    c.drawImage(L.nightKeep, 0, 0);
+    c.drawImage(L.nightKeep, 0, L.y0);
     c.setTransform(1, 0, 0, 1, 0, 0);
   }
   const below = cy + h - VEIL;
@@ -747,7 +778,7 @@ function nightScene(c, w, h, s, v) {
     stars(g, cx, w, ky0, Math.min(ky0 + rows, VEIL - 30), t, '#2a1d45');
     ridge(g, cx, w, RIDGES.far, '#211836');
     ridge(g, cx, w, RIDGES.near, '#2a1f44');
-    g.drawImage(composeTain(s, t, v), 0, 0);
+    g.drawImage(composeTain(s, t, v), 0, L.y0);
     c.setTransform(1, 0, 0, -1, 0, h);
     c.drawImage(un, 0, 0);
     c.setTransform(1, 0, 0, 1, 0, 0);
@@ -763,6 +794,7 @@ function nightScene(c, w, h, s, v) {
 // pixel. v: { night, flip, cam: { x, y }, t, sunset, and composeTain's options }. With flip, the whole
 // picture is turned over, so the Tain reads upright above the Veil.
 export function drawScene(out, s, v) {
+  G = geo(s);
   const target = v.flip ? buf('flip', out.width, out.height) : out;
   const c = ctxOf(target);
   c.setTransform(1, 0, 0, 1, 0, 0);

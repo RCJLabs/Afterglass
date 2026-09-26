@@ -2,13 +2,13 @@
 // bar at the bottom, and everything else opens in a panel over the castle. Like the greyboxes it changes
 // the game only through act(), so every session replays from its seed and action log.
 
-import { TICKS_PER_SEC, DAY_ROOMS, WORK_ROOMS, TWINS, KINDS, MIRRORS, CAUSES, MAP, DEEP_FLOOR, BOND_OTHER, TUNING } from './slice/data.js';
+import { TICKS_PER_SEC, DAY_ROOMS, WORK_ROOMS, TWINS, KINDS, MIRRORS, CAUSES, MAP, BOND_OTHER, TUNING } from './slice/data.js';
 import {
   newSeason, step, act, retune, playerTuning, ritePreview, crossingPreview, capacity, canWork, defense, roomPower, bear, priests, funeralCap, eatRate,
   dayTicks, nightTicks, isNewMoon, choicesFor, byId, isTwinnedLiving, isTwinnedShade, lastSeason, SAVE_VERSION, fmt, mirrorCap,
   postRoom,
 } from './slice/sim.js';
-import { FLOORS, feet, floorAtY, roomAt, roomSpan, lightMap, isLit, unitAt } from './slice/geo.js';
+import { geo, feet, floorAtY, roomAt, typeAt, typeOf, roomSpan, lightMap, isLit, unitAt, DEEP_FLOOR } from './slice/geo.js';
 import { drawScene } from './slice/draw.js';
 import { epitaph, ordinal, RESTING, LOST } from './slice/book.js';
 
@@ -52,6 +52,9 @@ function loadGame() {
 const saveGame = () => store.set(SAVE_KEY, { ...s, alerts: [] });
 
 let s = loadGame() || newSeason();
+// This keep's geometry (it grows as rooms are built), and the top row of its roof.
+const K = () => geo(s);
+const roofTop = () => K().top - 24;
 const ui = {
   paused: true, rev: 0, tool: 'candle', selected: null, person: null, hover: null, toasts: [], toastRev: 0, confirmNew: false,
   copied: '', showExport: false, rush: false, flash: 0, scale: 3, sheet: null, cross: null,
@@ -76,7 +79,11 @@ const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 const listOf = (xs) => (xs.length < 2 ? xs.join('') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`);
 const floor1 = (x) => String(Math.floor(x + 1e-9));
 const PH = { day: 'is-day', dusk: 'is-dusk', night: 'is-night', dawn: 'is-rite', end: 'is-rite', over: 'is-fallen' };
-const roomName = (id, night) => (night ? TWINS[id].name : DAY_ROOMS[id].name);
+// A room's name by day or by night, given its id (or its type).
+const roomName = (id, night) => {
+  const type = typeOf(K(), id) || id;
+  return night ? TWINS[type].name : DAY_ROOMS[type].name;
+};
 const nightNow = () => s.phase === 'dusk' || s.phase === 'night' || s.phase === 'dawn' || s.phase === 'over';
 
 function hhmm(h) {
@@ -106,11 +113,11 @@ const kindTag = (k) => `<span class="kind k-${k}">${KINDS[k].name}</span>`;
 
 function shadeStatus(d, L) {
   if (!canWork(d)) return d.kind === 'wraith' ? 'hunts in the Tain at night' : `Restless, ${s.tuning.restlessNights - d.restless} ${s.tuning.restlessNights - d.restless === 1 ? 'night' : 'nights'} from Wraith`;
-  const room = roomAt(d.f, d.x) || postRoom(d);
-  if (s.phase !== 'night') return `posted in the ${roomName(postRoom(d), true)}`;
+  const room = typeAt(K(), d.f, d.x) || postRoom(s, d);
+  if (s.phase !== 'night') return `posted in the ${roomName(postRoom(s, d), true)}`;
   if (d.grabbedBy) return 'caught!';
   if (d.climb) return 'on the stairs';
-  if (d.path.length) return `walking to the ${roomName(postRoom(d), true)}`;
+  if (d.path.length) return `walking to the ${roomName(postRoom(s, d), true)}`;
   if (s.night?.hush) return 'hushed';
   if (!isLit(L, d.f, d.x)) return `in the dark, ${roomName(room, true)}`;
   if (s.night.foes.some((c) => c.f === d.f && Math.abs(c.x - d.x) <= s.tuning.reach + 0.5)) return 'fighting';
@@ -315,10 +322,10 @@ function duskCrypt() {
 }
 
 function wardName(id) {
-  const st = MAP.stairs.find((x) => x.id === id);
-  if (st) return `the ${TWINS[roomAt(st.f, st.x)].name} stair`;
+  const st = K().stairs.find((x) => x.id === id);
+  if (st) return `the ${TWINS[typeAt(K(), st.f, st.x)].name} stair`;
   const rf = MAP.rifts.find((x) => x.id === id);
-  return rf ? `the rift in the ${TWINS[roomAt(DEEP_FLOOR, rf.x)].name}` : id;
+  return rf ? `the rift in the ${TWINS[typeAt(K(), DEEP_FLOOR, rf.x)].name}` : id;
 }
 
 function tidesText() {
@@ -330,7 +337,7 @@ function tidesText() {
 function duskPlace() {
   const T = s.tuning;
   const n = s.night;
-  const L = lightMap(T, n.candles);
+  const L = lightMap(K(), T, n.candles);
   const ds = s.shades.filter(canWork);
   const dark = ds.filter((d) => !isLit(L, d.post.f, d.post.x));
   const creepers = n.spawns.filter((x) => x.type === 'creeper').length;
@@ -367,9 +374,9 @@ function nightPanel() {
       <li><span>Through the Veil</span><b class="num">${n.stats.crossed}</b></li>
       <li><span>Essence sung, glass silvered</span><b class="num"><span data-live="t-ess">${fmt(n.stats.essence)}</span>, <span data-live="t-glass">${fmt(n.stats.glass)}</span></b></li>
     </ul>
-    ${h ? `<p class="note bad">The Hollow is in the ${esc(roomName(roomAt(h.f, h.x) || 'chapel', true))}${h.mode === 'batter' ? ', battering a ward' : ''}. It eats light and drains shades near it. Only shades fighting it drive it back.</p>` : ''}
-    ${n.foes.filter((f) => f.type === 'maw').map((m) => `<p class="note bad">A Maw is ${m.gnawing ? 'tearing down' : 'heading for'} the candle in the ${esc(roomName(roomAt(m.f, m.x) || 'chapel', true))}. One strong fighter in the light can stop it; a second makes sure. Relight if it falls.</p>`).join('')}
-    ${caught.map((d) => `<p class="note bad">${esc(d.name)} is caught in the ${esc(roomName(roomAt(d.f, d.x) || 'crypt', true))}. Drop a candle on the spot or send a fighter.</p>`).join('')}
+    ${h ? `<p class="note bad">The Hollow is in the ${esc(roomName(roomAt(K(), h.f, h.x) || 'chapel', true))}${h.mode === 'batter' ? ', battering a ward' : ''}. It eats light and drains shades near it. Only shades fighting it drive it back.</p>` : ''}
+    ${n.foes.filter((f) => f.type === 'maw').map((m) => `<p class="note bad">A Maw is ${m.gnawing ? 'tearing down' : 'heading for'} the candle in the ${esc(roomName(roomAt(K(), m.f, m.x) || 'chapel', true))}. One strong fighter in the light can stop it; a second makes sure. Relight if it falls.</p>`).join('')}
+    ${caught.map((d) => `<p class="note bad">${esc(d.name)} is caught in the ${esc(roomName(roomAt(K(), d.f, d.x) || 'crypt', true))}. Drop a candle on the spot or send a fighter.</p>`).join('')}
     ${n.hush ? '<p class="note">Hushed: no work, no fighting, and the Unlit pass the shades by.</p>' : ''}`;
 }
 
@@ -527,7 +534,7 @@ function livingRows() {
 }
 
 function shadeRows() {
-  const L = lightMap(s.tuning, s.night?.candles || []);
+  const L = lightMap(K(), s.tuning, s.night?.candles || []);
   return s.shades
     .map((d) => {
       const pick = canWork(d) && (s.phase === 'dusk' || s.phase === 'night');
@@ -680,7 +687,7 @@ function layout() {
   gameEl.style.setProperty('--hud-h', `${hudH}px`);
   gameEl.style.setProperty('--bar-h', `${barH}px`);
   const freeH = Math.max(160, vh - hudH - barH);
-  ui.fit = Math.max(1, Math.min(6, Math.floor((vw - 8) / (W + 4)), Math.floor(freeH / (VEIL + 4))));
+  ui.fit = Math.max(1, Math.min(6, Math.floor((vw - 8) / (W + 4)), Math.floor(freeH / (VEIL - roofTop() + 4))));
   ui.scale = Math.max(1, Math.min(MAX_ZOOM, ui.fit + (prefs.zoomStep || 0)));
   view.cw = Math.ceil(vw / ui.scale) + 1;
   view.ch = Math.ceil(vh / ui.scale) + 1;
@@ -714,14 +721,15 @@ function autoTarget() {
   const fr = freeRect();
   const fx = W / 2;
   // A little above the Tain's middle at night, so more of the keep shows than of the empty Deep.
-  const fy = nightView() ? VEIL + VEIL / 2 - 6 : VEIL / 2 - 4;
+  const h = VEIL - roofTop();
+  const fy = nightView() ? VEIL + h / 2 - 6 : VEIL - h / 2 - 4;
   const sx = (fr.left + fr.right) / 2 / ui.scale;
   const sy = (fr.top + fr.bottom) / 2 / ui.scale;
   return { x: fx - sx, y: flipped() ? fy - view.ch + sy : fy - sy };
 }
 // Keeps a dragged camera's centre over the castle (and the Tain at night), so it can't get lost.
 function clampPan(a) {
-  const [y0, y1] = nightView() ? [VEIL / 2, 2 * VEIL + 30] : [-40, VEIL + 20];
+  const [y0, y1] = nightView() ? [VEIL / 2, 2 * VEIL - roofTop() + 30] : [roofTop() - 40, VEIL + 20];
   const cx = a.x + view.panX + view.cw / 2;
   const cy = a.y + view.panY + view.ch / 2;
   if (cx < -30) view.panX += -30 - cx;
@@ -835,9 +843,9 @@ function stageAt(clientX, clientY) {
     if (wy >= VEIL) return null;
     ky = wy;
   }
-  const f = floorAtY(ky);
+  const f = floorAtY(K(), ky);
   if (f < 0) return null;
-  return { f, x: Math.max(MAP.LEFT, Math.min(MAP.RIGHT - 1, wx)), y: ky, room: roomAt(f, wx) };
+  return { f, x: Math.max(MAP.LEFT, Math.min(MAP.RIGHT - 1, wx)), y: ky, room: typeAt(K(), f, wx), id: roomAt(K(), f, wx) };
 }
 
 let drawnLabels = '';
@@ -850,13 +858,14 @@ function placeLabels() {
   if (!prefs.labels) return;
   const box = canvas.getBoundingClientRect();
   const out = [];
-  for (let f = 0; f < FLOORS.length; f++) {
-    for (const [id, a, b] of FLOORS[f].rooms) {
+  const G = K();
+  for (let f = 0; f < G.n; f++) {
+    for (const [, a, b, type] of G.floors[f].rooms) {
       // Each tag sits on the ceiling side of its room, so it never covers anyone's feet.
-      const ceiling = night ? keepToWorldY(FLOORS[f].y) : FLOORS[f].y;
+      const ceiling = night ? keepToWorldY(G.floors[f].y) : G.floors[f].y;
       const p = worldToScreen((a + b) / 2, ceiling);
       const up = night && !flipped();
-      out.push(`<span class="${up ? 'up' : ''}" style="left:${box.left + p.x}px;top:${box.top + p.y}px;max-width:${(b - a) * ui.scale - 6}px">${esc(night ? TWINS[id].name : DAY_ROOMS[id].name)}</span>`);
+      out.push(`<span class="${up ? 'up' : ''}" style="left:${box.left + p.x}px;top:${box.top + p.y}px;max-width:${(b - a) * ui.scale - 6}px">${esc(night ? TWINS[type].name : DAY_ROOMS[type].name)}</span>`);
     }
   }
   labelsEl.innerHTML = out.join('');
@@ -866,14 +875,14 @@ function shadeNear(at) {
   let best = null;
   for (const d of s.shades.filter(canWork)) {
     if (d.f !== at.f && !d.climb) continue;
-    const dist = Math.abs(unitAt(d, 1).x - at.x);
+    const dist = Math.abs(unitAt(K(), d, 1).x - at.x);
     if (dist <= 3.5 && (!best || dist < best.dist)) best = { d, dist };
   }
   return best?.d || null;
 }
 function wardNear(at) {
   let best = null;
-  for (const st of MAP.stairs) {
+  for (const st of K().stairs) {
     if (at.f !== st.f && at.f !== st.f + 1) continue;
     const dist = Math.abs(st.x - at.x);
     if (dist <= 6 && (!best || dist < best.dist)) best = { id: st.id, f: at.f, x: st.x, dist };
@@ -977,7 +986,7 @@ function draw(alpha, now) {
 window.__season = {
   spot(f, x) {
     const box = canvas.getBoundingClientRect();
-    const p = worldToScreen(x + 0.5, keepToWorldY(feet(f) - 5) + (nightView() ? -0.5 : 0.5));
+    const p = worldToScreen(x + 0.5, keepToWorldY(feet(K(), f) - 5) + (nightView() ? -0.5 : 0.5));
     return { x: box.left + p.x, y: box.top + p.y };
   },
   get crossing() { return !!ui.cross; },
@@ -1053,7 +1062,7 @@ const LIVE = {
   mem: (id) => String(Math.max(0, Math.ceil(byId(s.shades, id)?.memory ?? 0))),
   status: (id) => {
     const d = byId(s.shades, id);
-    return d ? shadeStatus(d, lightMap(s.tuning, s.night?.candles || [])) : '';
+    return d ? shadeStatus(d, lightMap(K(), s.tuning, s.night?.candles || [])) : '';
   },
 };
 const BARS = {
@@ -1140,8 +1149,8 @@ function closeSheet() {
 // button (a pulsing outline) or at spots on the Tain (pulsing rings), and some pause the clock to be read.
 const seen = (id) => !!prefs.guideSeen?.[id];
 const first = () => s.season === 1;
-const LINE_SPOTS = MAP.stairs.filter((st) => st.f === 2).map((st) => ({ f: st.f, x: st.x }));
-const litAt = (f, x) => !!s.night && isLit(lightMap(s.tuning, s.night.candles), f, x);
+const lineSpots = () => K().stairs.filter((st) => st.f === K().veil - 1).map((st) => ({ f: st.f, x: st.x }));
+const litAt = (f, x) => !!s.night && isLit(lightMap(K(), s.tuning, s.night.candles), f, x);
 const GUIDE = [
   {
     id: 'welcome', target: '#btn-play',
@@ -1169,14 +1178,14 @@ const GUIDE = [
   {
     id: 'tain',
     when: () => first() && s.phase === 'dusk' && s.dusk.step === 'place' && nightView(),
-    marks: () => [...MAP.rifts.map((r) => ({ f: 0, x: r.x })), ...MAP.mirrors.map((m) => ({ f: 3, x: m.x }))],
+    marks: () => [...MAP.rifts.map((r) => ({ f: DEEP_FLOOR, x: r.x })), ...MAP.mirrors.map((m) => ({ f: K().veil, x: m.x }))],
     text: "This is the Tain, the keep's reflection. The Unlit climb from the red rifts in the Deep up to the two mirrors under the Veil. They can't cross candlelight.",
   },
   {
     id: 'line', target: '#tool-candle',
     when: () => first() && seen('tain') && s.phase === 'dusk' && s.dusk.step === 'place' && nightView(),
-    marks: () => LINE_SPOTS.filter((p) => !litAt(p.f, p.x)),
-    done: () => LINE_SPOTS.every((p) => litAt(p.f, p.x)),
+    marks: () => lineSpots().filter((p) => !litAt(p.f, p.x)),
+    done: () => lineSpots().every((p) => litAt(p.f, p.x)),
     text: 'Light the feet of the two stairs up to the Veil (marked), with a shade at each. Creepers stopped there gnaw at the edge of the light, and a shade standing in it cuts them down.',
   },
   {
@@ -1317,8 +1326,8 @@ function duskAmount(now) {
 function soulSpots(now) {
   const c = ui.cross;
   if (c?.stage !== 'souls') return [];
-  const cr = roomSpan('crypt');
-  const slab = FLOORS[cr.f].y + 11;
+  const cr = roomSpan(K(), 'crypt');
+  const slab = K().floors[cr.f].y + 11;
   const out = [];
   c.souls.forEach((sl, i) => {
     const t = now - c.t0 - i * CROSS.gap;
