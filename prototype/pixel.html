@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Afterglass Pixel Pass</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Alegreya+SC:wght@500;700&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Spline+Sans+Mono:wght@400;600&display=swap">
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="pixel.css">
+</head>
+<body>
+<header class="hud" id="hud"></header>
+<main class="wrap" id="app">
+  <div class="px-layout">
+    <section class="px-card" aria-label="The keep in pixels">
+      <div class="px-stage" id="stage-wrap">
+        <canvas id="stage" aria-label="Pixel view of the keep and its reflection, the Tain"></canvas>
+        <div class="px-labels" id="labels" aria-hidden="true"></div>
+      </div>
+      <p class="px-caption" id="caption" aria-live="polite"></p>
+      <div class="px-answers" id="answers"></div>
+    </section>
+    <section class="px-side" id="side"></section>
+  </div>
+  <noscript><p>This page needs JavaScript.</p></noscript>
+</main>
+<div class="toasts" id="toasts" role="status" aria-live="polite"></div>
+<script type="module" src="src/pixel-ui.js"></script>
+</body>
+</html>

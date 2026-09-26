@@ -1,11 +1,12 @@
-# Afterglass greyboxes
+# Afterglass prototypes
 
-Playable slices of [Afterglass](../docs/brainstorm/round-3/README.md) in plain shapes and text. Each tests one question from the plan, and each records the answer as you play.
+Playable slices of [Afterglass](../docs/brainstorm/round-3/README.md). Each tests one question from the plan and records the answer as you play. The first two are greyboxes in plain shapes and text; the pixel pass is the first art.
 
 | Page | Plan | Question |
 |---|---|---|
 | [`index.html`](index.html) | Weeks 1–2: two rosters and the Rite | Does a death feel like a loss and a hire at once? |
 | [`night.html`](night.html) | Weeks 3–4: the night on its own | Is the night fun without the day? |
+| [`pixel.html`](pixel.html) | Weeks 5–6: the pixel pass | Can players read the Tain on a phone? |
 
 Both are live on GitHub Pages at https://rcjlabs.github.io/Base-Manager/ (every push to `main` runs the tests and deploys).
 
@@ -13,9 +14,9 @@ Both are live on GitHub Pages at https://rcjlabs.github.io/Base-Manager/ (every 
 
 ```sh
 cd prototype
-npm test                        # 31 tests: rules, replay, save and load, soak runs (Node 20+, no dependencies)
+npm test                        # 39 tests: rules, replay, save and load, soak runs, the pixel quiz (Node 20+, no dependencies)
 npm run serve                   # then open http://localhost:8080 or /night.html (any static server works)
-npm run bundle                  # dist/afterglass-greybox.html and dist/afterglass-night.html, single files that open from disk
+npm run bundle                  # dist/afterglass-greybox.html, -night.html and -pixel.html: single files that open from disk
 npm run balance -- 20 40        # weeks 1-2 autopilot report: 40 seeds x 20 days per policy
 npm run balance:night -- 8 30   # weeks 3-4 autopilot report: 30 seeds x 8 nights per plan
 ```
@@ -30,10 +31,34 @@ The pages load ES modules, so they need a web server; GitHub Pages works as is. 
 | `src/sim.js`, `src/night.js` | Each game as one JSON state. `step()` / `stepNight()` is one fixed tick (10 a second); `act()` / `actNight()` is one player action. No DOM, no clock, no `Math.random` |
 | `src/ui.js`, `src/night-ui.js` | Render the state and change it only through the act functions |
 | `src/autopilot.js`, `src/night-autopilot.js` | Crude players for tests and balance runs |
-| `test/` | 16 weeks 1–2 tests and 15 night tests, including soak runs |
+| `src/px/` | The pixel pass: `kit.js` (palette and drawing primitives from the round-three mockups), `lut.js` (the palette lookup and dithered light), `scene.js` (geometry, cameras, the quiz), `draw.js` (the art) |
+| `src/pixel-ui.js` | The pixel page: day, crossing, night and the readability test |
+| `test/` | 16 weeks 1–2 tests, 15 night tests and 8 pixel tests, including soak runs |
 | `tools/` | Balance reports and the single-file bundler |
 
 Everything is seeded and every action is logged, so `replay()` and `replayNight()` rebuild any session exactly, including one from a playtester's export.
+
+## Weeks 5–6: the pixel pass
+
+The first art, and a way to measure the plan's question: **can players read the Tain on a phone?** It is not connected to the greybox simulations yet; it draws a small keep and generated night scenes.
+
+**Problems and risks it has already shown.** From building it and looking at it, not from anyone else playing it.
+
+1. **The phone fits the Tain at 3× only if it gets the whole width.** The pixel keep is 112 pixels wide, so 3× is 336 CSS pixels. A 390-pixel phone fits that only without page padding; with ordinary margins it drops to 2×, and at 2× the sprites are 8 by 16 CSS pixels. The page now gives the stage full width on phones. The real game will need a camera that pans across a wider keep at the same 3×.
+2. **The first candlelight was too dim to read the rooms.** Light that fades straight from the flame leaves one bright pixel and a dark room. It now holds full brightness near the flame (`LIGHT.gain`) and reaches 20 pixels. Whether that is still too dark on a real phone is what the test is for.
+3. **Shades are pure silhouettes.** They show against lit walls; in the dark, only their eyes do. That is the round-three design, and it makes eye colour and shape carry a lot.
+4. **Red and green eyes are a colour-blindness risk.** Creepers have red eyes and Stranger shades green ones. For players with red-green colour blindness, only shape separates them: Creepers are low and wide, shades tall. Worth changing before the art goes further.
+
+**What's in it**
+
+- **Four room pairs:** Chapel and Choir of Echoes, Granary and Hollow Granary, Hearth and Cold Hearth, Crypt and Waking Room. They cover the crossing (the Crypt), the night's one job (the Choir), resting (the Cold Hearth) and a weak spot (the empty Hollow Granary).
+- **The palette lookup.** The Tain is the day art recoloured, never redrawn. Each colour's brightness picks a step on an 8-step violet ramp, and warm lights take the brightest step. Each twin adds one detail: echo rings, emptied stores, a cold blue fire, a glowing slab.
+- **Dithered candlelight:** a 4×4 Bayer pattern and four light bands, in the palette.
+- **The dusk crossing,** about 10 seconds: sunset, lights out, Ada's soul through the Veil into the Waking Room, the camera sliding down, candles and shades coming up.
+- **Two night cameras.** Reflection is the Tain as the world has it, under the Veil and upside down. Flipped is the same picture turned over to read upright; with that camera, the crossing ends by turning.
+- **The readability test:** 12 timed tap questions at phone scale, each type once per camera in a random order. The types are find a room, the shade in the dark, the caught shade, the room with no candle, the Creeper, and counting the shades in the Choir. Every generated question has exactly one right answer; the tests check this over 300 seeds per type. Results show accuracy and median time per camera, ask which camera felt easier, and copy as JSON with the screen size and scale.
+
+**Read with care:** one run is 12 taps, and the first run includes learning the rooms. Compare several people, or later runs.
 
 ## Weeks 3–4: the night on its own
 
@@ -124,5 +149,5 @@ From `npm run balance -- 20 40`, 40 seeds x 20 days per autopilot policy. The au
 ## Not done
 
 - No art, sound, save slots or offline service worker. Each greybox saves at dawn, to this browser only.
-- The two greyboxes are separate: the weeks 1–2 night is still abstract, and the night greybox has no day.
-- Checked with the tests, the soak runs and scripted click-throughs in Chromium at desktop and phone widths. Not tested on a real phone, in Safari, or with a screen reader; the night stage is pointer-only.
+- The prototypes are separate: the weeks 1–2 night is still abstract, the night greybox has no day, and the pixel pass draws scenes rather than running either simulation.
+- Checked with the tests, the soak runs and scripted click-throughs in Chromium at desktop and phone widths. Not tested on a real phone, in Safari, or with a screen reader; the night stage and the pixel test are pointer-only.

@@ -1,0 +1,63 @@
+/* The pixel pass page. The stage is always the Tain's own palette; the page around it follows the theme. */
+
+.px-layout { display: grid; gap: 20px; grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 980px) {
+  .px-layout { grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); align-items: start; }
+}
+.px-card {
+  border: 1px solid var(--line);
+  background: var(--panel);
+  border-radius: 6px;
+  padding: 12px;
+  display: grid;
+  gap: 10px;
+  justify-items: center;
+  min-width: 0;
+}
+.px-stage { position: relative; width: 100%; display: grid; justify-items: center; }
+#stage {
+  display: block;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  background: #0e0b18;
+  border-radius: 2px;
+  touch-action: manipulation;
+}
+.px-stage.is-test #stage { cursor: crosshair; }
+.px-labels { position: absolute; inset: 0; pointer-events: none; }
+.px-labels span {
+  position: absolute;
+  transform: translate(-50%, 0);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  padding: 2px 4px;
+  border-radius: 2px;
+  background: rgb(14 11 24 / 0.72);
+  color: #e9e2ff;
+  white-space: nowrap;
+}
+.px-caption { min-height: 2.9em; text-align: center; max-width: 46ch; color: var(--ink-2); }
+.px-caption b { color: var(--ink); }
+.px-answers { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; min-height: 36px; }
+.px-side { display: grid; gap: 14px; align-content: start; min-width: 0; }
+.px-side .card h2 { margin: 0; font: 700 20px/1.2 var(--font-display); }
+.px-side p { max-width: 62ch; }
+.pairs { width: 100%; border-collapse: collapse; font-size: 14px; }
+.pairs th, .pairs td { text-align: left; padding: 5px 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.pairs th { font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-3); }
+.swatches { display: grid; grid-template-columns: repeat(16, minmax(0, 1fr)); gap: 2px; }
+.swatches span { aspect-ratio: 1; border-radius: 1px; max-width: 100%; }
+.keyrow { display: flex; flex-wrap: wrap; gap: 14px; }
+.keyrow figure { margin: 0; display: grid; gap: 4px; justify-items: center; font-size: 13px; color: var(--ink-2); }
+.keyrow canvas { width: 48px; height: 48px; image-rendering: pixelated; border-radius: 2px; }
+.stages { margin: 0; padding-left: 20px; display: grid; gap: 4px; }
+.stages li.now { font-weight: 700; color: var(--ink); }
+.progress { font-family: var(--font-num); font-size: 13px; color: var(--ink-3); }
+.verdict { font-weight: 700; }
+.verdict.right { color: var(--good); }
+.verdict.wrong { color: var(--bad); }
+/* On a phone the Tain gets the full width, so it can draw at 3x like the game would. */
+@media (max-width: 440px) {
+  .px-card { padding: 10px 0; border-inline: 0; border-radius: 0; margin-inline: -8px; }
+}
