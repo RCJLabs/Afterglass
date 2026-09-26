@@ -4,7 +4,7 @@
 
 import { TICKS_PER_SEC, DAY_ROOMS, WORK_ROOMS, TWINS, KINDS, MIRRORS, CAUSES, MAP, DEEP_FLOOR, BOND_OTHER, TUNING } from './slice/data.js';
 import {
-  newSeason, step, act, ritePreview, crossingPreview, capacity, canWork, defense, roomPower, bear, priests, funeralCap, eatRate,
+  newSeason, step, act, retune, playerTuning, ritePreview, crossingPreview, capacity, canWork, defense, roomPower, bear, priests, funeralCap, eatRate,
   dayTicks, nightTicks, isNewMoon, choicesFor, byId, isTwinnedLiving, isTwinnedShade, lastSeason, SAVE_VERSION, fmt, mirrorCap,
   postRoom,
 } from './slice/sim.js';
@@ -38,12 +38,15 @@ const store = {
 const prefs = { speed: 1, mode: 'reflection', labels: true, tab: 'log', autoPause: true, introDone: false, guide: false, guideSeen: {}, ...(store.get(PREF_KEY) || {}) };
 const savePrefs = () => store.set(PREF_KEY, prefs);
 
+let retuned = 0;
 function loadGame() {
   const g = store.get(SAVE_KEY);
   if (!g || g.v !== SAVE_VERSION || g.mode !== 'season' || !Array.isArray(g.shades)) return null;
   g.alerts = [];
   // A save from before a tuning number existed takes its default (that's how the Maws reach older saves).
   for (const t of [g.tuning, g.tuning0]) if (t) for (const [k, v] of Object.entries(TUNING)) if (!(k in t)) t[k] = v;
+  // Numbers the player never set in Settings follow this build's defaults.
+  retuned = retune(g, TUNING);
   return g;
 }
 const saveGame = () => store.set(SAVE_KEY, { ...s, alerts: [] });
@@ -630,7 +633,8 @@ const TUNE = [
   ['dreadLivingPer', 'Living per point of Dread borne'],
   ['fadePerNight', 'Memory every shade loses per night'],
   ['cracksMax', 'Veil cracks that lose the keep'],
-  ['hardness', 'How much harder each season is'],
+  ['hardness', 'How much harder each season is (raids, Creepers, the Hollow)'],
+  ['mawHardness', 'How much stronger a Maw is each season'],
 ];
 function settingsTab() {
   return `<div class="fields">${TUNE.map(([k, label]) => `<label for="tune-${k}">${esc(label)}<input type="number" id="tune-${k}" data-act="tune" data-key="${k}" value="${s.tuning[k]}" min="0" step="any"></label>`).join('')}</div>
@@ -1569,7 +1573,7 @@ function onAct(name, el) {
       ui.confirmNew = false;
       return bump();
     case 'new-yes':
-      s = newSeason(Date.now() >>> 0, s.tuning0);
+      s = newSeason(Date.now() >>> 0, playerTuning(s));
       seenPhase = s.phase;
       Object.assign(ui, { paused: true, confirmNew: false, selected: null, person: null, tool: 'candle', showExport: false, copied: '', rush: false });
       saveGame();
@@ -1742,4 +1746,5 @@ layout();
 if (!prefs.introDone) openSheet('intro');
 else if (s.phase === 'dawn' || s.phase === 'end' || s.phase === 'over' || (s.phase === 'dusk' && s.dusk.step === 'crypt')) openSheet('phase');
 if (s.day > 1 || s.season > 1 || s.phase !== 'day') toast(`Welcome back. Season ${s.season}: ${phaseLabel()}.`, 'rite');
+if (retuned) toast(`This version changed ${retuned} of the keep's numbers; yours from Settings are kept.`, 'rite');
 requestAnimationFrame(frame);

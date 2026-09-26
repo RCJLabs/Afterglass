@@ -3,13 +3,15 @@
 //   keeper   keeps every shade it can, funerals only for the dead that would wake wrong
 //   mourner  holds every funeral it can and covers shades whenever Dread climbs
 //   balanced keeps shades while Dread allows, and aims low before an inspection
+//   double   the balanced plan, but from the first Maw night it posts two fighters on each stair of the
+//            line and never sends anyone to meet a Maw: the static answer the Maws are meant to break
 //   idle     works the day but leaves the night alone: no candles, no posts (a baseline)
 
 import { step, act, newSeason, ritePreview, crossingPreview, capacity, canWork, defense, funeralCap, choicesFor } from './sim.js';
 import { DAY_ROOMS, MIRRORS, KINDS, MAP, VEIL_FLOOR } from './data.js';
 import { roomSpan, roomAt } from './geo.js';
 
-export const PLANS = ['balanced', 'keeper', 'mourner', 'idle'];
+export const PLANS = ['balanced', 'keeper', 'mourner', 'double', 'idle'];
 
 const doAct = (s, a) => act(s, a).ok;
 
@@ -109,15 +111,23 @@ function postings(s, ds) {
   return rooms;
 }
 
-function placeNight(s) {
+function placeNight(s, plan) {
+  const T = s.tuning;
   const ds = s.shades.filter(canWork).sort((a, b) => fighter(b) * b.memory - fighter(a) * a.memory);
   for (const st of LINE) {
     doAct(s, { type: 'candle', f: st.f, x: st.x });
     const d = ds.shift();
     if (d) doAct(s, { type: 'move', id: d.id, f: st.f, x: st.x });
   }
+  // The doubled line: a second fighter beside each stair's candle on every Maw night, taken from the rooms.
+  if (plan === 'double' && s.day >= T.mawFrom && s.day < T.seasonDays) {
+    for (const st of LINE) {
+      const d = ds.shift();
+      if (d) doAct(s, { type: 'move', id: d.id, f: st.f, x: st.x + 2 });
+    }
+  }
   // The new moon: no work tonight. Everyone off the line waits by the Veil for the Hollow.
-  if (s.day >= s.tuning.seasonDays) {
+  if (s.day >= T.seasonDays) {
     const { f, x0 } = roomSpan('hearth');
     ds.forEach((d, i) => doAct(s, { type: 'move', id: d.id, f, x: x0 + 14 + (i % 4) * 5 }));
     if (ds.length) doAct(s, { type: 'candle', f, x: x0 + 24 });
@@ -133,7 +143,7 @@ function placeNight(s) {
 
 /* ---------------------------------------------------------------- night */
 
-function tendNight(s) {
+function tendNight(s, plan) {
   const n = s.night;
   const T = s.tuning;
   // Relight the line first, then any post whose candle is going out.
@@ -147,7 +157,7 @@ function tendNight(s) {
   // Free the caught.
   for (const d of s.shades) if (d.grabbedBy && s.res.candles > 0) doAct(s, { type: 'candle', f: d.f, x: d.x });
   // A Maw going for a candle: send the best free fighter to stand with whoever holds it.
-  for (const m of n.foes.filter((f) => f.type === 'maw' && f.gnaw)) {
+  for (const m of n.foes.filter((f) => plan !== 'double' && f.type === 'maw' && f.gnaw)) {
     const k = n.candles.find((c) => c.id === m.gnaw);
     if (!k) continue;
     const near = s.shades.filter((d) => canWork(d) && d.f === k.f && Math.abs(d.x - k.x) <= 8);
@@ -211,21 +221,22 @@ function rite(s, plan) {
 /* ---------------------------------------------------------------- the loop */
 
 export function autoStep(s, plan = 'balanced') {
+  const way = plan === 'double' ? 'balanced' : plan; // how the dead are treated
   if (s.phase === 'day') {
     if (s.t % 50 === 0 || (s.raid?.warned && s.raid.state === 'coming' && !s.raid.ward)) dayMoves(s);
     step(s);
   } else if (s.phase === 'dusk') {
     if (s.dusk.step === 'crypt') {
-      funerals(s, plan);
+      funerals(s, way);
       doAct(s, { type: 'wake' });
     }
-    if (plan !== 'idle') placeNight(s);
+    if (plan !== 'idle') placeNight(s, plan);
     doAct(s, { type: 'startNight' });
   } else if (s.phase === 'night') {
-    if (plan !== 'idle' && s.t % 10 === 0) tendNight(s);
+    if (plan !== 'idle' && s.t % 10 === 0) tendNight(s, plan);
     step(s);
   } else if (s.phase === 'dawn') {
-    rite(s, plan);
+    rite(s, way);
   }
 }
 

@@ -28,7 +28,7 @@ export const dayTicks = (s) => Math.round(s.tuning.daySecs * TICKS_PER_SEC);
 export const nightTicks = (s) => Math.round(s.tuning.nightSecs * TICKS_PER_SEC);
 export const perf = (d) => 0.4 + (0.6 * Math.max(0, d.memory)) / 100;
 export const isNewMoon = (s) => s.day >= s.tuning.seasonDays;
-const hard = (s) => Math.pow(s.tuning.hardness, s.season - 1);
+const hard = (s, k = 'hardness') => Math.pow(s.tuning[k], s.season - 1);
 
 /* ---------------------------------------------------------------- setup */
 
@@ -608,7 +608,7 @@ function startNight(s) {
 
 export function addFoe(s, type, f, x, extra = {}) {
   const T = s.tuning;
-  const hp = type === 'hollow' ? T.hollowHp * hard(s) : type === 'maw' ? T.mawHp * hard(s) : type === 'wraith' ? T.wraithHp : T.creeperHp;
+  const hp = type === 'hollow' ? T.hollowHp * hard(s) : type === 'maw' ? T.mawHp * hard(s, 'mawHardness') : type === 'wraith' ? T.wraithHp : T.creeperHp;
   const foe = {
     id: 'c' + s.nextId++, type, f, x, ox: x, of: f, hp, max: hp, path: [], climb: 0, climbTotal: 0, temper: extra.temper || 'climb',
     mode: 'climb', prey: null, gnaw: null, gnawing: false, grab: null, replan: 0, shade: extra.shade || null, batter: null, smashing: false,
@@ -1287,8 +1287,11 @@ function nextSeason(s) {
   s.season++;
   s.day = 0;
   s.inspection = null;
+  // Nothing the player does mends the Veil, so cracks don't follow the keep into a new season.
+  const mended = s.cracks > 0;
+  s.cracks = 0;
   toRite(s, cracks);
-  say(s, `Season ${s.season} begins with the dawn. The Host will come harder, and so will the Unlit.`, 'rite', true);
+  say(s, `Season ${s.season} begins with the dawn.${mended ? ' The Veil has knit whole again.' : ''} The Host will come harder, and so will the Unlit.`, 'rite', true);
 }
 
 /* ---------------------------------------------------------------- player actions */
@@ -1487,6 +1490,22 @@ export function act(s, a) {
   s.actions.push({ a, at });
   s.rev++;
   return { ok: true };
+}
+
+// The numbers the player set with the tune action: the last value given for each. The build's own tunes
+// (below) are left out.
+export const playerTuning = (s) => Object.fromEntries(s.actions.filter(({ a }) => a.type === 'tune' && !a.build).map(({ a }) => [a.key, Number(a.value)]));
+
+// Moves every number the player never set to the given defaults (a newer build's), so an older save plays
+// the current tuning. Each change is a tune action marked as the build's, so the save still replays.
+// Returns how many numbers changed.
+export function retune(s, defaults) {
+  const mine = playerTuning(s);
+  let n = 0;
+  for (const [k, v] of Object.entries(defaults)) {
+    if (typeof v === 'number' && s.tuning[k] !== v && !(k in mine) && act(s, { type: 'tune', key: k, value: v, build: true }).ok) n++;
+  }
+  return n;
 }
 
 export function replay(seed, tuning, actions) {

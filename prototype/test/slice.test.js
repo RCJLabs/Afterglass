@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   newSeason, step, act, replay, ritePreview, crossingPreview, capacity, canWork, defense, bear, dayTicks, nightTicks, addCreeper,
-  lastSeason, kill, byId, addFoe,
+  lastSeason, kill, byId, addFoe, retune, playerTuning,
 } from '../src/slice/sim.js';
 import { runSeasonAuto, autoStep, PLANS } from '../src/slice/autopilot.js';
 import { epitaph } from '../src/slice/book.js';
@@ -354,13 +354,37 @@ test('after the new moon the season ends, takes the answer, and a second season 
   assert.ok(e.summary.raids.length === 3);
   ok(s, { type: 'answer', answer: 'again', note: 'wanted to try the Hollow again' });
   assert.equal(lastSeason(s).answer, 'again');
+  s.cracks = 3; // however the new moon left it
   ok(s, { type: 'nextSeason' });
   assert.equal(s.phase, 'dawn');
   assert.equal(s.season, 2);
+  assert.equal(s.cracks, 0, 'the Veil starts a new season whole');
   ok(s, { type: 'beginDay' });
   assert.equal(s.day, 1);
   while (s.day < 2) autoStep(s);
   assert.ok(s.raid.strength >= (TUNING.raidDays[2] - TUNING.raidSpread) * TUNING.hardness - 1e-9);
+});
+
+test('an older save takes the current defaults, keeps the player\'s own settings, and still replays', () => {
+  // As an older build would have started it, before these numbers changed.
+  const s = newSeason(9, { hardness: 1.35, creepersPerNight: 2.5 });
+  ok(s, { type: 'tune', key: 'daySecs', value: 30 });
+  ok(s, { type: 'tune', key: 'hardness', value: 1.5 });
+  while (s.day < 2) autoStep(s);
+  assert.equal(retune(s, TUNING), 1, 'only creepersPerNight: the player set hardness');
+  assert.equal(s.tuning.creepersPerNight, TUNING.creepersPerNight);
+  assert.equal(s.tuning.hardness, 1.5);
+  assert.equal(s.tuning.daySecs, 30);
+  assert.equal(retune(s, TUNING), 0, 'a second load changes nothing');
+  while (s.day < 3) autoStep(s);
+  const r = replay(s.seed, s.tuning0, s.actions);
+  for (const k of ['season', 'day', 'phase', 't', 'rng']) assert.equal(r[k], s[k], k);
+  assert.deepEqual(r.res, s.res);
+  assert.deepEqual(r.tuning, s.tuning);
+  assert.deepEqual(playerTuning(s), { daySecs: 30, hardness: 1.5 });
+  const fresh = newSeason(1, playerTuning(s));
+  assert.equal(fresh.tuning.creepersPerNight, TUNING.creepersPerNight, 'a new keep starts from the current defaults');
+  assert.equal(fresh.tuning.daySecs, 30, 'with the player\'s own settings');
 });
 
 test('soak: every plan runs whole seasons without breaking the rules', () => {

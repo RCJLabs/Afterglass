@@ -120,8 +120,12 @@ export const TUNING = {
   rememberCost: 1,
   rememberGain: 15,
 
-  // A second season is harder: raid strength and Creeper counts multiply by this per season.
-  hardness: 1.35,
+  // A second season is harder: raid strength, Creeper counts and the Hollow's strength multiply by this per
+  // season, and a Maw's strength by mawHardness. At 1.35 the autopilot finished about a third of its second
+  // seasons; at 1.2 it finishes about two thirds. Maws stay as they were: a stronger Maw hurts a player who
+  // answers it more than one who stacks the line, which is backwards.
+  hardness: 1.2,
+  mawHardness: 1,
 };
 
 // Day rooms. out is what a worker makes each day at full strength.

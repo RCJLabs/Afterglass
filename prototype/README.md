@@ -15,12 +15,12 @@ All four are live on GitHub Pages at https://rcjlabs.github.io/Base-Manager/ (ev
 
 ```sh
 cd prototype
-npm test                        # 64 tests: rules, replay, save and load, soak runs, the pixel quiz, the app's file list (Node 20+, no dependencies)
+npm test                        # 65 tests: rules, replay, save and load, soak runs, the pixel quiz, the app's file list (Node 20+, no dependencies)
 npm run serve                   # then open http://localhost:8080, /night.html, /pixel.html or /season.html (any static server works)
 npm run bundle                  # dist/afterglass-greybox.html, -night, -pixel and -season.html: single files that open from disk
 npm run balance -- 20 40        # weeks 1-2 autopilot report: 40 seeds x 20 days per policy
 npm run balance:night -- 8 30   # weeks 3-4 autopilot report: 30 seeds x 8 nights per plan
-npm run balance:season -- 100 1 # weeks 7-10 autopilot report: 100 seeds x 1 season per plan (try 40 2 for season 2)
+npm run balance:season -- 100 1 # weeks 7-10 autopilot report: 100 seeds x 1 season per plan (try 200 2 for season 2)
 npm run icons                   # redraws the season's app icons into icons/ (they're committed; only needed when the art changes)
 ```
 
@@ -39,7 +39,7 @@ The pages load ES modules, so they need a web server; GitHub Pages works as is. 
 | `src/slice/` | The season slice: `data.js` (content and tuning), `geo.js` (the keep's geometry, light, routes and cameras), `sim.js` (the whole season as one state), `autopilot.js`, `draw.js` (the art, built on `src/px/`), `book.js` (the Book of the Dead's pages) |
 | `src/slice-ui.js` | The season page |
 | `sw.js`, `season.webmanifest`, `icons/` | The installable season: the service worker that keeps it playable offline, the manifest, and the icons `tools/icons.mjs` draws |
-| `test/` | 16 weeks 1–2 tests, 15 night tests, 8 pixel tests, 23 season tests and 2 for the installable app, including soak runs |
+| `test/` | 16 weeks 1–2 tests, 15 night tests, 8 pixel tests, 24 season tests and 2 for the installable app, including soak runs |
 | `tools/` | Balance reports, the single-file bundler and the icon drawer |
 
 Everything is seeded and every action is logged, so `replay()` (in `src/sim.js` and `src/slice/sim.js`) and `replayNight()` rebuild any session exactly, including one from a playtester's export.
@@ -56,11 +56,18 @@ The vertical slice: seven days in one keep, ending on the night of the new moon,
    - has 20–42 memory drained;
    - sees 0–0.2 crossings.
 
-   So the line now costs something and needs a response, but it holds until night 6. Nights 1 and 2 have no Maws and are as static as before. **Untested:** posting two fighters on each stair from night 3. That may be the new static answer, paid for with the rooms' work.
+   So the line now costs something and needs a response, but it holds until night 6. Nights 1 and 2 have no Maws and are as static as before.
+
+   **A doubled line beats the Maws outright.** The `double` plan posts two fighters on each stair on every Maw night and never moves them. It finishes 99 first seasons in 100, against 90 for the balanced plan. On nights 3–6 it has next to no shades caught, crossings or shades lost, and loses 0.1 shades at night across a whole season, against 2.1. It pays with the night's work: about 0.1–0.7 essence a night instead of about 4, and no glass or wick. Within a season that cost barely shows. The two early season-2 losses I traced both started from a first season that ended with 3 living, too few to make candles. So the Maws punish a thin static line and lose to a thick one. The fix is a design change, not a number: the Maw has to threaten a crowd, or the rooms' work has to matter more.
 2. **These Maws aren't round three's.** The design doc's Maws break twin rooms, which then haunt the day room above. They arrive from the second season, and wards and grave-steel counter them. Mine go for the candle holding the line and drain the shades beside them. They arrive on night 3 of the first season, and a ward on a stair holds them. I changed them to answer problem 1. The doc's room-breaking Maw is still unbuilt.
-3. **The Maws made the season harder, and season 2 much harder.** The balanced autopilot finishes 90 seasons in 100, down from 96. It loses 5 on night 6, 4 on night 7 and 1 on night 4. It finishes 13 of the 37 second seasons it reaches (35%, down from 53%); the keeper plan finishes 7 of 38. Season 2 is ×1.35 harder in raids, Creeper counts and the Hollow. That multiplier was a guess at "harder but fair", and it now looks too hard. The Maws' numbers are in Settings.
+3. **Season 2 was too hard with the Maws; it's now eased, and the mourner pays for it most.** With the Maws in, the balanced autopilot finishes 90 first seasons in 100, down from 96. It loses 5 on night 6, 4 on night 7 and 1 on night 4. At ×1.35 it finished 35% of its second seasons, and the keeper plan 18%. Three changes, over 200 seeds:
+   - raids, Creeper counts and the Hollow are now ×1.2 a season (`hardness`);
+   - Maws have their own multiplier (`mawHardness`), set to 1, so they don't grow. A stronger Maw hurts a player who answers it more than one who stacks the line (problem 1), which is backwards;
+   - the Veil starts each season whole. Before, 41 of 90 finished first seasons handed season 2 one to three open cracks, and nothing the player does mends them.
+
+   Season 2 now finishes 68% for the balanced plan, 61% for the keeper and 46% for the mourner, each ±7. The mourner holds only 34% of day-6 raids and loses nearly half its failed seasons on night 7. The target, harder than season 1 but not a coin flip, is my guess at "harder but fair", nothing more. Both multipliers and the Maws' numbers are in Settings.
 4. **The Hollow usually gets through.** On the new moon it reaches the Veil and takes someone in 69 of the 90 finished seasons. Shades drive it back in 16, and it withdraws at dawn in 5. Whether that's too soft or too hard for people is for the playtest.
-5. **Dread rarely forces a choice in the first season.** A season kills about 4 of your people. The balanced plan is blessed at every inspection by covering shades before day 5. A plan that never covers anyone is censured in only 6 seasons of 100, and warned in 15. It bites in season 2, where that plan is censured 22 times in 38 seasons. In season 1, keep or cover is still mostly a Dread valve.
+5. **Dread rarely forces a choice in the first season.** A season kills about 4 of your people. The balanced plan is blessed at every inspection by covering shades before day 5. A plan that never covers anyone is censured in only 6 seasons of 100, and warned in 15. It bites in season 2, where that plan is censured 104 times in 183 second seasons. In season 1, keep or cover is still mostly a Dread valve.
 6. **Shades are hard to find in the dark.** They're 4 by 8 pixel silhouettes (12 by 24 CSS pixels at 3×) with a faint glow, and the Unlit show only their eyes. Creeper red against Stranger green is still a colour-blindness risk; a gnawing Creeper's eyes turn orange.
 7. **On a phone, the panels cover most of the castle.** Dusk and dawn open a sheet over about two-thirds of the screen. Close it to look, or play on a wider screen, where the panel is a drawer beside the castle.
 8. **The guide, the crossing and the Book are untested with people.**
@@ -114,8 +121,8 @@ The vertical slice: seven days in one keep, ending on the night of the new moon,
   - is held by a ward on a stair for 20 seconds, then breaks it;
   - can only be driven back by shades fighting it (+3 remembrance);
   - if it reaches the Veil, cracks it and takes one of the living, leaving no body to wake.
-- **The end.** A season summary, the question, and **Begin season 2**.
-- **Records.** The Book of the Dead has a page for everyone who has died in this keep, grouped by season. A page tells who they were, how they died and what they woke as, the nights they served and where, what they cut down, and how it ended. Records also holds the log, each day's numbers, the playtest export and Settings.
+- **The end.** A season summary, the question, and **Begin season 2**. The keep carries its living, shades, stores, mirrors and Dread into the next season, and the Veil starts whole. Raids, Creepers and the Hollow are ×1.2 stronger each season; Maws stay as they were.
+- **Records.** The Book of the Dead has a page for everyone who has died in this keep, grouped by season. A page tells who they were, how they died and what they woke as, the nights they served and where, what they cut down, and how it ended. Records also holds the log, each day's numbers, the playtest export and Settings. Numbers you haven't set in Settings follow the current version: a save from an older one takes the new defaults when it loads, and says so. Starting a new keep keeps only the numbers you set.
 - **The guide.** The intro offers to begin with a guide or without. With it, a card above the bar explains each thing the first time it happens, and pulses the button or the spots on the Tain it means. Settings turns it off, or on again from the start.
 - **Installing.** In Chrome, Edge and Samsung Internet, an Install button appears in the intro and in Settings; on an iPhone or iPad, use Share, then Add to Home Screen. Installed, it runs full screen from the home screen and plays offline after its first load: `sw.js` keeps a copy of every file it needs, and of the fonts. Only the season installs.
 
@@ -125,27 +132,27 @@ The vertical slice: seven days in one keep, ending on the night of the new moon,
 2. **The Church's timing and verdicts** are mine; the doc set only "the Church's first inspection".
 3. **The last keeper's dead.** The season opens with two shades already in the glass: Garrick, a Loyal guard and Osk's father, and Hesper, Serene and named. Without them, night 1 was lost every time, because nobody held the light.
 4. **Tides.** Most Creepers come in waves, with one more wave every third night, instead of evenly through the night.
-5. **Veil cracks heal one a dawn**, and each crack costs 1 Dread. Five open at once lose the keep.
+5. **Veil cracks heal one a dawn**, and each crack costs 1 Dread. Five open at once lose the keep, and a new season starts with none.
 6. **The cycle is compressed:** a season is 21 minutes at 1× plus the paused phases, against the doc's much longer days.
 7. **The Maws** go against the doc (problem 2).
 8. **The Book of the Dead, the guide and installing** come from the round-four brainstorm, not the design doc. The crossing follows the pixel pass's, cut from about 10 seconds to about 5 and made skippable.
 
-**What the numbers say so far.** From `npm run balance:season -- 100 1`. Every plan but Idle holds the stairs to the Veil, relights candles and sends help against a Maw. The plans differ in how they treat the dead.
+**What the numbers say so far.** From `npm run balance:season -- 100 1`. Every plan but Idle holds the stairs to the Veil and relights candles. All but Double send help against a Maw. The first three differ in how they treat the dead; Double treats them like Balanced.
 
-| | Balanced | Keeper (never covers) | Mourner (every funeral, covers to keep Dread at 1) | Idle (no candles, no posts) |
-|---|---|---|---|---|
-| Seasons finished | 90% | 91% | 91% | 0% |
-| Lost on night 4 / 5 / 6 / 7 | 1 / 0 / 5 / 4 | 1 / 1 / 3 / 4 | 0 / 0 / 0 / 9 | all on night 1 |
-| Your deaths per season | 3.8 | 3.8 | 4.6 | – |
-| Raids held | 72% | 71% | 61% | – |
-| Church: blessed / warned / censured | 99 / 0 / 0 | 80 / 15 / 6 | 100 / 0 / 0 | – |
-| Shades lost at night per season | 2.1 | 2.5 | 1.4 | – |
-| The Hollow, in finished seasons: reached the Veil / driven back / withdrew | 69 / 16 / 5 | 73 / 14 / 4 | 85 / 6 / 0 | – |
+| | Balanced | Keeper (never covers) | Mourner (every funeral, covers to keep Dread at 1) | Double (two fighters per stair on Maw nights, never moves them) | Idle (no candles, no posts) |
+|---|---|---|---|---|---|
+| Seasons finished | 90% | 91% | 91% | 99% | 0% |
+| Lost on night 4 / 5 / 6 / 7 | 1 / 0 / 5 / 4 | 1 / 1 / 3 / 4 | 0 / 0 / 0 / 9 | 0 / 0 / 0 / 1 | all on night 1 |
+| Your deaths per season | 3.8 | 3.8 | 4.6 | 4.3 | – |
+| Raids held | 72% | 71% | 61% | 69% | – |
+| Church: blessed / warned / censured | 99 / 0 / 0 | 80 / 15 / 6 | 100 / 0 / 0 | 100 / 0 / 0 | – |
+| Shades lost at night per season | 2.1 | 2.5 | 1.4 | 0.1 | – |
+| The Hollow, in finished seasons: reached the Veil / driven back / withdrew | 69 / 16 / 5 | 73 / 14 / 4 | 85 / 6 / 0 | 78 / 21 / 0 | – |
 
 - **Per night** (balanced): nights 1 and 2 see no crossings and no shades caught, and nights 3–5 are as in problem 1. Night 6, after the strongest raid, is the hardest: it averages 2.2 shades caught, 1.5 lost and 1.2 crossings. Night 7 averages 1.2 crossings, the Hollow's included.
 - **Keeping against mourning is now mixed.** The mourner loses no season before night 7 but loses 9 there. It also holds fewer raids (61% against 72%) and loses more of its living (4.6 against 3.8). The keeping plans lose on night 6 instead. I haven't isolated why. My guess, untested: with fewer shades at night the mourner has fewer for the Maws and night 6's crowd to catch, but also fewer to fight the Hollow and to add the Watch's defense by day.
 - **Raids held fell from 80% to 72%** when the Maws came in, though Maws only come at night. A likely link is the Watch: a shade pulled off its post to fight a Maw, or lost, adds less to the next day's defense. That isn't isolated either.
-- **Season 2** (`-- 40 2`): the balanced plan finishes 13 of the 37 second seasons it reaches (35%), the keeper 7 of 38 (18%) and the mourner 14 of 35 (40%).
+- **Season 2** (`-- 200 2`): the balanced plan finishes 126 of the 184 second seasons it reaches (68%), the keeper 111 of 183 (61%), the mourner 85 of 183 (46%) and Double 146 of 197 (74%). Most failed second seasons are lost on nights 6 and 7.
 
 ## Weeks 5–6: the pixel pass
 
