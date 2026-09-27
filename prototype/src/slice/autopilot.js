@@ -316,13 +316,17 @@ function visitorAnswer(s, v, plan) {
     case 'mason': return spare(4) && nextBuild(s) && s.res.stone < T.roomStone ? 'hire' : 'no';
     case 'mirrors': return spare(8) && capacity(s).free <= 1 ? 'buy' : 'no';
     case 'pilgrims': return spare(0) || (r?.state === 'coming' && defense(s) < r.strength) ? 'take' : 'no';
-    case 'refugees': return spare(3) ? 'take' : 'no';
+    case 'refugees': return spare(9) ? 'take' : 'no'; // 6 to feed them now, and three more mouths
     case 'graverobber': return plan === 'mourner' ? 'go' : 'hang'; // the mourner has funerals enough to give
-    case 'knight': return fighters > 2 ? 'free' : 'keep';
+    case 'knight': {
+      // A fighter is worth more to the line than a harder raid costs: free only one near the end of its memory.
+      const d = s.shades.find((x) => x.id === v.shade);
+      return d && (d.memory < 35 || fighters > 4) ? 'free' : 'keep';
+    }
     case 'plague': return spare(2) && jobCap(s, 'infirmary') > 0 ? 'take' : 'no';
     case 'wedding': return spare(4) ? 'feast' : 'no';
     case 'bard': return spare(2) ? 'sing' : 'no';
-    case 'deserter': return spare(1) ? 'take' : 'no';
+    case 'deserter': return spare(1) && (!s.raid || s.raid.state !== 'coming' || defense(s) + 3 >= 1.2 * s.raid.strength) ? 'take' : 'no';
     case 'almoner': return s.dread >= 2 && spare(5) ? 'give' : 'no';
     case 'witch': return s.dread >= 3 ? 'church' : s.res.candles < candleTarget(s) && s.res.glass >= 3 + MIRRORS.hand.glass ? 'charm' : 'no';
     case 'physician': return s.res.glass >= 4 && (s.living.filter((p) => p.sick > 0).length >= 2 || !jobCount(s, 'infirmary')) ? 'pay' : 'no';

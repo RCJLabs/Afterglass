@@ -643,7 +643,7 @@ export const VISITORS = {
   refugees: {
     name: 'A burnt-out family',
     text: 'A man, his mother and his small daughter, from a village the Host burned.',
-    answers: [{ id: 'take', text: 'Take them in', does: 'three more of the living: a man who works, an old woman, and a child who eats and doesn\'t work' }, { id: 'no', text: 'Send them on', dread: 1 }],
+    answers: [{ id: 'take', text: 'Take them in', cost: { food: 6 }, does: 'they come in starving: three more of the living, a man who works, an old woman, and a child who eats and doesn\'t work' }, { id: 'no', text: 'Send them on', dread: 1 }],
   },
   graverobber: {
     name: 'A grave-robber',
@@ -653,7 +653,7 @@ export const VISITORS = {
   knight: {
     name: 'A knight at the gate',
     text: 'A knight asking after his brother, who fell raiding your walls and serves in your glass now.',
-    answers: [{ id: 'free', text: 'Release his brother', gain: { glass: 5, remembrance: 1 }, does: 'the Stranger goes free' }, { id: 'keep', text: 'Keep him', does: 'the knight rides to join the Host: its next raid comes ×1.15 harder', edge: 1.15 }],
+    answers: [{ id: 'free', text: 'Release his brother', gain: { glass: 6, remembrance: 1 }, does: 'the Stranger goes free' }, { id: 'keep', text: 'Keep him', does: 'the knight rides to join the Host: its next raid comes ×1.25 harder', edge: 1.25 }],
   },
   plague: {
     name: 'The plague cart',
@@ -672,8 +672,8 @@ export const VISITORS = {
   },
   deserter: {
     name: 'A deserter from the Host',
-    text: 'A deserter from the Ashen Host, who knows how it means to come at you.',
-    answers: [{ id: 'take', text: 'Take him in', does: "one more of the living, Brave; the Host's next raid comes ×0.85 as hard", edge: 0.85 }, { id: 'no', text: 'Turn him away' }],
+    text: 'A deserter from the Ashen Host, asking you to hide him from it.',
+    answers: [{ id: 'take', text: 'Take him in', does: 'one more of the living, Brave; the Host will come for him: its next raid comes ×1.2 harder', edge: 1.2 }, { id: 'no', text: 'Turn him away' }],
   },
   almoner: {
     name: "The Church's almoner",

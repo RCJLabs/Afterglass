@@ -713,7 +713,7 @@ function answerVisitor(s, v, id, late = false) {
   } else if (key === 'deserter:take') {
     const p = joins(s, 'adult', 'brave', r);
     const today = edgeRaid(s, A.edge);
-    what = `${p.name} stays, and tells you how the Host means to come: ${today ? "today's raid" : 'its next raid'} comes ×${fmt(A.edge)} as hard.`;
+    what = `${p.name} stays. The Host will come for him: ${today ? "today's raid" : 'its next raid'} comes ×${fmt(A.edge)} harder.`;
   } else if (key === 'witch:charm') {
     s.charm = true;
     what = 'Tonight the candles will burn a quarter slower.';

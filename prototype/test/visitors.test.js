@@ -90,7 +90,7 @@ test("left waiting, a visitor takes the last answer at their hour; nobody's aske
   assert.deepEqual([b.v.done, b.v.late], ['no', true]);
 });
 
-test('taken in, they join the living; the pilgrims stand the gate, the deserter weakens the raid', () => {
+test('taken in, they join the living; the pilgrims stand the gate, the Host comes for the deserter', () => {
   const raid = { raidDays: { 1: 8, 2: 0, 4: 0, 6: 0 } };
   const { s, v } = atGate('pilgrims', raid);
   const n = s.living.length;
