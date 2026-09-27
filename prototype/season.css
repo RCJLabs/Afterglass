@@ -407,3 +407,68 @@ label.btn { display: inline-flex; align-items: center; }
 .omen-pick { display: grid; gap: 6px; margin-top: 6px; }
 .omen-btn { text-align: left; white-space: normal; line-height: 1.35; }
 .omen-btn[aria-pressed="true"] { outline: 2px solid #f2c14e; }
+
+/* The playtest kit (round six): the tester's note and questions, and the card that points to them. */
+.card.test { border-color: var(--rite); background: var(--rite-tint); display: grid; gap: 8px; }
+.card.test h2 { margin: 0; }
+.card.test p { margin: 0; }
+.card.test label { display: block; margin-top: 4px; color: var(--ink); font-size: 14px; }
+.card.test textarea { background: var(--box); font-size: 14px; }
+.card.test textarea#test-text { font-family: var(--font-num); font-size: 12px; }
+.test-menu { border-color: var(--rite); margin-bottom: 10px; }
+.test-menu p { margin: 0 0 6px; }
+
+/* The replay viewer (round six's playtest kit): the timeline, the controls under it, and the session. */
+.pill.watching { background: #6fb6ff; color: #0e0b18; font-weight: 700; }
+.wbar { width: 100%; display: grid; gap: 6px; }
+.wline {
+  position: relative;
+  height: 28px;
+  background: var(--box-2, #1a1622);
+  border: 1px solid var(--line, #3a3446);
+  border-radius: 4px;
+  cursor: pointer;
+  overflow: hidden;
+  touch-action: none;
+}
+.wline:focus-visible { outline: 2px solid #6fb6ff; outline-offset: 2px; }
+.wsegs, .wmarks { position: absolute; inset: 0; pointer-events: none; }
+.wseg { position: absolute; top: 0; bottom: 0; }
+.ws-day { background: rgb(242 193 78 / 0.16); }
+.ws-night { background: rgb(92 70 160 / 0.42); }
+.ws-dusk, .ws-dawn, .ws-end, .ws-over { background: rgb(255 255 255 / 0.07); }
+.wfill { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: rgb(255 255 255 / 0.07); border-right: 2px solid #fff; pointer-events: none; }
+/* The game's moments in the upper half, the tester's in the lower: told apart by place as well as colour. */
+.wm { position: absolute; width: 3px; margin-left: -1px; border-radius: 1px; }
+.wm.wl-game { top: 2px; height: 11px; }
+.wm.wl-you { bottom: 2px; height: 11px; }
+.wm-death, .wm-fell { background: #ff5a5f; width: 4px; }
+.wm-crack { background: #ff8a8a; }
+.wm-caught { background: #f0a040; }
+.wm-bad { background: rgb(240 160 64 / 0.35); width: 2px; }
+.wm-good { background: rgb(140 220 140 / 0.3); width: 2px; }
+.wm-pause { background: #6fb6ff; }
+.wm-idle, .wm-away { background: #b98cff; width: 4px; }
+.wm-refused { background: #ffd0d8; }
+.wm-panel, .wm-lesson, .wm-skip { background: rgb(111 182 255 / 0.45); width: 2px; }
+.wrow { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px; }
+.wctl { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.watch .wans { display: grid; gap: 4px; margin: 0; }
+.watch .wans dt { color: var(--ink-2); font-size: 13px; }
+.watch .wans dd { margin: 0 0 6px; }
+.wlist { margin: 0; padding-left: 1.2rem; display: grid; gap: 4px; font-size: 13px; }
+.wlist .linkish { font-family: var(--font-num); font-size: 12px; }
+.wk { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 6px; vertical-align: 1px; }
+.wk-death, .wk-fell { background: #ff5a5f; }
+.wk-crack { background: #ff8a8a; }
+.wk-caught { background: #f0a040; }
+.wk-pause { background: #6fb6ff; }
+.wk-idle, .wk-away { background: #b98cff; }
+.wk-refused { background: #ffd0d8; }
+.wk-panel, .wk-lesson, .wk-skip { background: rgb(111 182 255 / 0.45); }
+.watch-load { margin-top: 12px; }
+.wpaste summary { cursor: pointer; margin: 6px 0; }
+@media (max-width: 560px) {
+  .wctl { width: 100%; }
+  .wbar .gmenu { width: 100%; }
+}

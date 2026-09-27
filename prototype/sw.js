@@ -33,6 +33,7 @@ const CORE = [
   'src/slice/daily.js',
   'src/slice/tutorial.js',
   'src/slice/howto.js',
+  'src/slice/watch.js',
   'icons/icon-192.png',
   'icons/icon-512.png',
   'icons/icon-maskable-512.png',

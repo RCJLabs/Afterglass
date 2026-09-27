@@ -22,6 +22,7 @@ import { drawCard, cardFonts } from './slice/card.js';
 import { epitaph, ordinal, RESTING, LOST } from './slice/book.js';
 import { SLOTS, slotKey, openIndex, loadSlot, saveSlot, useSlot, deleteSlot, keepFromFile, summary, mergeIndex, isIndexKey } from './slice/saves.js';
 import { createSound, SOUNDS } from './slice/sound.js';
+import { readExport, indexOf, advance, seek, cloneCursor } from './slice/watch.js';
 
 const PREF_KEY = 'afterglass-season/prefs/v1';
 const SYS_REDUCED = !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
@@ -117,7 +118,12 @@ window.addEventListener('storage', (e) => {
   if (isIndexKey(e.key) && mergeIndex(store, saves)) bump();
 });
 let saveWarned = false;
+// Whether the player has done anything since the keep was last saved: the page saves on being hidden only
+// then (or while the clock runs), so a page left alone never writes over a keep another tab has saved.
+let dirty = false;
 function saveGame() {
+  if (ui.watch) return; // the session being watched is never saved
+  dirty = false;
   if (saveSlot(store, saves, saves.current, s, Date.now()) || saveWarned) return;
   saveWarned = true;
   toast("The keep couldn't be saved: this browser's storage is full or blocked. Export it from Menu, then Saves.", 'bad');
@@ -265,10 +271,10 @@ function hudHTML() {
   const res = (id, long, short, v) => `<div><dt><span class="long">${long}</span><span class="short">${short}</span></dt><dd><b data-live="${id}">${v}</b></dd></div>`;
   return `<div class="ghud-row">
     <div class="clock ${PH[s.phase]}"><span class="pill">${phaseLabel()}</span><span class="time" data-live="clock">${clockText()}</span><span class="bar" aria-hidden="true"><i data-bar="clock"></i></span></div>
-    <div class="gctl">
+    <div class="gctl">${ui.watch ? `<span class="pill watching">Watching</span><button class="btn sm" id="w-exit-hud" data-act="w-exit">Exit</button>` : `
       <button class="btn sm" id="btn-play" data-act="play"${running() ? '' : ' disabled'}>${go ? 'Pause' : 'Play'}</button>
       <div class="seg" role="group" aria-label="Speed">${[1, 2, 4].map((v) => `<button class="btn sm" id="speed-${v}" data-act="speed" data-v="${v}" aria-pressed="${prefs.speed === v}">${v}×</button>`).join('')}</div>
-      ${s.phase === 'night' ? `<button class="btn sm" id="btn-skip" data-act="skip" aria-pressed="${!!ui.skip}" title="Skip ahead to the next mark on the tide clock, unless something happens first (N)"${ui.skip || nextMark(s) ? '' : ' disabled'}>${ui.skip ? 'Skipping…' : 'Skip'}</button>` : ''}
+      ${s.phase === 'night' ? `<button class="btn sm" id="btn-skip" data-act="skip" aria-pressed="${!!ui.skip}" title="Skip ahead to the next mark on the tide clock, unless something happens first (N)"${ui.skip || nextMark(s) ? '' : ' disabled'}>${ui.skip ? 'Skipping…' : 'Skip'}</button>` : ''}`}
     </div>
   </div>
   ${tideClock()}
@@ -309,6 +315,7 @@ const SHEET_NAME = () =>
   ({ day: 'Day', dusk: s.dusk?.step === 'crypt' ? 'Crossing' : 'Dusk', night: 'Night', dawn: 'Rite', end: 'Season', over: 'Lost' })[s.phase];
 
 function barHTML() {
+  if (ui.watch) return watchBarHTML();
   const place = s.phase === 'night' || (s.phase === 'dusk' && s.dusk.step === 'place');
   const tool = (id, label) => `<button class="btn sm" id="tool-${id}" data-act="tool" data-tool="${id}" aria-pressed="${ui.tool === id}">${label}</button>`;
   const flip = `<button class="btn sm" id="btn-flip" data-act="flip" aria-pressed="${prefs.mode === 'flipped'}" title="Turn the Tain upright (V)">Flip</button>`;
@@ -343,6 +350,7 @@ function barHTML() {
 
 function hintText() {
   const T = s.tuning;
+  if (ui.watch) return ui.watch.caption;
   if (ui.guide) return '';
   if (ui.cross) return ui.cross.stage === 'sunset' ? 'Dusk falls on the keep. Tap to skip.' : '';
   if (ui.sheet && !wide()) return '';
@@ -1400,10 +1408,10 @@ function exportJSON() {
 }
 function playtestTab() {
   const answered = s.seasons.filter((e) => e.answer);
-  return `<p>The question for weeks 7–10: <b>would you play a second season?</b> It's asked when a season ends or the keep falls. ${answered.length ? `Answers so far: ${answered.map((e) => `season ${e.season}, ${e.answer === 'again' ? 'yes' : 'no'}`).join('; ')}.` : 'No answer yet.'}</p>
+  return `${testCard()}<p>The question for weeks 7–10: <b>would you play a second season?</b> It's asked when a season ends or the keep falls. ${answered.length ? `Answers so far: ${answered.map((e) => `season ${e.season}, ${e.answer === 'again' ? 'yes' : 'no'}`).join('; ')}.` : 'No answer yet.'}</p>
     <div class="row"><button class="btn" id="btn-copy" data-act="copy">Copy playtest export</button><button class="btn" id="btn-show-export" data-act="show-export" aria-expanded="${ui.showExport}">${ui.showExport ? 'Hide export' : 'Show export'}</button><span class="hint">${esc(ui.copied)}</span></div>
     ${ui.showExport ? `<label for="export">Export (JSON)</label><textarea id="export" rows="8" readonly>${esc(exportJSON())}</textarea>` : ''}
-    <p class="hint">The export holds your answers and notes, every day's numbers, the ledger of the dead, the seed and every action, so a session replays exactly with <code>replay()</code> in <code>src/slice/sim.js</code>.</p>`;
+    <p class="hint">The export holds your answers and notes, every day's numbers, the ledger of the dead, the seed and every action, so a session replays exactly, and the trail: when you paused, opened a panel or sat idle. Menu, Saves, Watch a playtest plays one back.</p>`;
 }
 const TUNE = [
   ['daySecs', 'Day length, seconds at 1×'],
@@ -1582,7 +1590,7 @@ function startTutorial(n) {
 }
 // How to play: the tutorial, and every lesson as a short manual, in this keep's numbers.
 function howtoTab() {
-  return `<section class="howto">${tutorialHTML()}${howTo(s.tuning)
+  return `<section class="howto">${ui.watch ? '' : tutorialHTML()}${howTo(s.tuning)
     .map((sec) => `<div class="card" id="howto-${sec.id}"><h3>${esc(sec.title)}</h3>${sec.items.map((t) => `<p>${esc(t)}</p>`).join('')}</div>`)
     .join('')}</section>`;
 }
@@ -1592,6 +1600,9 @@ function startDaily(n) {
   return playKeep(n, newDaily(key), `Today's keep, ${dayText(key)}, in slot ${n}.`);
 }
 function savesTab() {
+  if (ui.watch) {
+    return `<section class="saves"><div class="card"><p><b>You're watching a session.</b> Your keeps are here again when you stop.</p><div class="row"><button class="btn sm primary" id="w-exit-saves" data-act="w-exit">Stop watching</button></div></div>${watchCard()}</section>`;
+  }
   const slots = Array.from({ length: SLOTS }, (_, i) => i + 1).map((n) => {
     const here = n === saves.current;
     const m = here ? summary(s, Date.now()) : saves.slots[n];
@@ -1616,13 +1627,14 @@ function savesTab() {
     ${presetPicker('saves')}
     <div class="kslots">${slots}</div>
     ${ui.slotMsg ? `<p class="note bad" role="alert">${esc(ui.slotMsg)}</p>` : ''}
+    ${watchCard()}
   </section>`;
 }
 const MENU_TABS = [['settings', 'Settings'], ['saves', 'Saves'], ['howto', 'How to play']];
 function menuHTML() {
   const tab = MENU_TABS.some(([k]) => k === ui.menuTab) ? ui.menuTab : 'settings';
   const body = { settings: settingsTab, saves: savesTab, howto: howtoTab }[tab]();
-  return `<div class="tabs" role="tablist" aria-label="Menu">${MENU_TABS.map(([k, l]) => `<button class="tab" role="tab" id="menu-tab-${k}" data-act="menu-tab" data-tab="${k}" aria-selected="${k === tab}" aria-controls="menupanel">${l}</button>`).join('')}</div>
+  return `${testCard()}<div class="tabs" role="tablist" aria-label="Menu">${MENU_TABS.map(([k, l]) => `<button class="tab" role="tab" id="menu-tab-${k}" data-act="menu-tab" data-tab="${k}" aria-selected="${k === tab}" aria-controls="menupanel">${l}</button>`).join('')}</div>
     <div class="tabpanel" role="tabpanel" id="menupanel" aria-labelledby="menu-tab-${tab}">${body}</div>`;
 }
 const TABS = [['book', 'Book of the Dead'], ['log', 'Log'], ['days', 'Days'], ['playtest', 'Playtest']];
@@ -1647,6 +1659,7 @@ const gameAt = () => ({ season: s.season, day: s.day, phase: s.phase, t: s.t });
 const sameAt = (a, b) => a.season === b.season && a.day === b.day && a.phase === b.phase && a.t === b.t;
 function trail(k, more = {}) {
   if (ui.watch) return;
+  if (k !== 'load' && more.by !== 'game') dirty = true;
   s.trail ||= [];
   s.trail.push({ k, at: gameAt(), w: Date.now(), ...more });
   if (s.trail.length > TRAIL_MAX) s.trail.splice(0, s.trail.length - TRAIL_MAX);
@@ -1660,10 +1673,16 @@ function onInput() {
   lastInput = { w: now, at: gameAt() };
 }
 for (const type of ['pointerdown', 'keydown', 'wheel']) document.addEventListener(type, onInput, { capture: true, passive: true });
+const hideSave = () => {
+  if (dirty || (running() && !ui.paused)) saveGame();
+};
+window.addEventListener('pagehide', hideSave);
 let awayFrom = null;
 document.addEventListener('visibilitychange', () => {
-  if (document.hidden) awayFrom = { at: gameAt(), w: Date.now() };
-  else if (awayFrom) {
+  if (document.hidden) {
+    awayFrom = { at: gameAt(), w: Date.now() };
+    hideSave(); // a tab closed, or an app switched away from, keeps everything to here
+  } else if (awayFrom) {
     const ms = Date.now() - awayFrom.w;
     if (ms >= 2000) trail('away', { at: awayFrom.at, w: awayFrom.w, ms });
     awayFrom = null;
@@ -1672,6 +1691,333 @@ document.addEventListener('visibilitychange', () => {
 });
 // Which tab a panel opened on, for the trail.
 const tabOf = (name) => (name === 'records' ? { tab: prefs.tab } : name === 'menu' ? { tab: ui.menuTab || 'settings' } : {});
+// The screen the game is played on, for the trail: its size and whether it's touched or pointed at.
+const deviceNow = () => ({ vw: window.innerWidth, vh: window.innerHeight, touch: !!window.matchMedia?.('(pointer: coarse)').matches });
+
+/* ---------------------------------------------------------------- the playtest kit: the tester link */
+
+// The tester link (season.html?test, or ?test=name to put a name on the file): the tutorial in a keep of
+// its own, with a note on what the test is. When the tutorial ends, or whenever the tester says they're
+// done, three questions, and one button to send the session back: shared as a file where the device can,
+// saved as one where it can't, or copied as text. There's no server: sessions come back by hand.
+const QUESTIONS = [
+  ['night', 'In a sentence or two: what are you trying to do at night?'],
+  ['stuck', 'Where were you confused, or stuck?'],
+];
+// A keep for the test: this one if nothing has been done in it yet, else the first empty slot.
+const freeSlot = () => (untouched() ? saves.current : Array.from({ length: SLOTS }, (_, i) => i + 1).find((n) => n !== saves.current && !saves.slots[n]));
+function startTest(label) {
+  prefs.introDone = true;
+  savePrefs();
+  if (s.test) {
+    ui.testNote = true;
+    return openSheet('test', 'game');
+  }
+  const n = freeSlot();
+  if (!n) {
+    ui.testAsk = { label };
+    return openSheet('test', 'game');
+  }
+  return beginTest(n, label);
+}
+function beginTest(n, label) {
+  retuned = 0;
+  ui.testAsk = null;
+  prefs.guide = true;
+  prefs.guideSeen = {};
+  savePrefs();
+  const g = newTutorial({});
+  g.test = { label: label || null, started: Date.now(), answers: {}, sent: null };
+  playKeep(n, g, '');
+  ui.toasts = []; // the note says it all
+  ui.toastRev++;
+  trail('start', { label: label || null, ...deviceNow() });
+  saveGame();
+  ui.testNote = true;
+  return openSheet('test', 'game');
+}
+function testHTML() {
+  const T = s.test;
+  if (ui.testAsk || !T) {
+    return `<div class="card test"><h2>Thank you for testing</h2>
+      <p>The test needs a keep of its own, and all ${SLOTS} here are in use. It can go in keep ${saves.current}, in place of the one being played, which is lost unless you export it first (Menu, then Saves).</p>
+      <div class="row"><button class="btn primary" id="test-here" data-act="test-here">Use keep ${saves.current}</button><button class="btn" id="test-cancel" data-act="sheet-close">Not now</button></div></div>`;
+  }
+  if (ui.testNote) {
+    return `<div class="card test"><h2>Thank you for testing</h2>
+      <p>This is Afterglass's tutorial: the first three days and nights of a keep, one thing at a time, about 20 minutes. Play it the way you'd play any game. There's nothing to get right, and you can stop whenever you like.</p>
+      <p>When the tutorial ends, or when you stop (Menu, then Done testing), there are three short questions and a button to send your session back.</p>
+      <p class="hint">What you send: your answers, what you did in the game, when you paused, opened a panel or sat idle, and your screen's size. Nothing leaves this device unless you send it.</p>
+      <div class="row"><button class="btn primary" id="test-begin" data-act="test-begin">${s.actions.length || s.day > 1 || s.phase !== 'day' || s.t > 0 ? 'Carry on' : 'Begin'}</button></div></div>`;
+  }
+  const A = T.answers || {};
+  const q = ([k, text]) => `<label for="test-${k}">${esc(text)}</label><textarea id="test-${k}" rows="3" data-test="${k}">${esc(A[k] || '')}</textarea>`;
+  return `<div class="card test"><h2>Your playtest</h2>
+    <p>${T.sent ? 'Sent: thank you. Play on if you like, and send it again at the end; the new one has everything.' : 'Thank you for playing. Three questions, then one button.'}</p>
+    ${QUESTIONS.map(q).join('')}
+    <p id="test-again-q"><b>Would you keep playing?</b></p>
+    <div class="row" role="group" aria-labelledby="test-again-q">
+      <button class="btn" id="test-yes" data-act="test-again" data-v="yes" aria-pressed="${A.again === 'yes'}">Yes</button>
+      <button class="btn" id="test-no" data-act="test-again" data-v="no" aria-pressed="${A.again === 'no'}">No</button>
+    </div>
+    <label for="test-why">What would make you, or stop you?</label><textarea id="test-why" rows="2" data-test="why">${esc(A.why || '')}</textarea>
+    <div class="row"><button class="btn primary" id="test-send" data-act="test-send">Send it back</button><button class="btn" id="test-copy" data-act="test-copy">Copy as text</button></div>
+    ${ui.testMsg ? `<p class="note" role="status">${esc(ui.testMsg)}</p>` : ''}
+    ${ui.testShow ? `<label for="test-text">Your session, as text</label><textarea id="test-text" rows="6" readonly>${esc(exportJSON())}</textarea>` : ''}
+    <p class="hint">Send it back shares your session as a file where this device can, and saves the file where it can't: then send that file to whoever asked you to test. Copy as text puts the same thing on the clipboard, to paste into a message.</p>
+    <div class="row"><button class="btn" id="test-on" data-act="sheet-close">Keep playing</button></div></div>`;
+}
+// Where a test keep's Menu and Playtest tab point: the questions.
+function testCard() {
+  const T = s.test;
+  if (!T) return '';
+  return `<div class="card test-menu"><p><b>You're testing.</b> ${T.sent ? 'Sent: thank you. It can be sent again after playing on.' : 'Done? Three questions, and your session goes back.'}</p>
+    <div class="row"><button class="btn sm primary" id="test-done" data-act="test-open">${T.sent ? 'Send it again' : 'Done testing'}</button></div></div>`;
+}
+const testFile = () => {
+  const d = new Date();
+  const p2 = (n) => String(n).padStart(2, '0');
+  const stamp = `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}-${p2(d.getHours())}${p2(d.getMinutes())}`;
+  const who = (s.test?.label || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 24);
+  return `afterglass-playtest-${who ? `${who}-` : ''}${stamp}.json`;
+};
+function testSent(msg, show = false) {
+  ui.testMsg = msg;
+  ui.testShow = show;
+  if (!show) {
+    s.test.sent = Date.now();
+    saveGame();
+  }
+  bump();
+}
+// One button: the device's share sheet with the file where it takes files, else the file saved. The share
+// has to start inside the tap, so nothing is awaited before it.
+async function sendTest() {
+  const name = testFile();
+  const file = new File([exportJSON()], name, { type: 'application/json' });
+  try {
+    if (navigator.canShare?.({ files: [file] })) {
+      await navigator.share({ files: [file], title: 'Afterglass playtest', text: 'My Afterglass playtest session.' });
+      return testSent('Sent: thank you!');
+    }
+  } catch (e) {
+    if (e?.name === 'AbortError') return undefined; // the share sheet was closed: nothing went
+  }
+  saveFile(file, name);
+  return testSent(`Saved as ${name}. Send that file to whoever asked you to test: thank you!`);
+}
+function copyTest() {
+  const blocked = () => testSent('Copying was blocked here. The session is below: select it all, copy it, and paste it into a message.', true);
+  try {
+    navigator.clipboard.writeText(exportJSON()).then(() => testSent('Copied. Paste it into a message to whoever asked you to test: thank you!'), blocked);
+  } catch {
+    blocked();
+  }
+}
+
+/* ---------------------------------------------------------------- the playtest kit: the replay viewer */
+
+// The replay viewer (round six's playtest kit): a playtest export played back in this page at 1× to 16×,
+// with the moments that mattered (deaths, cracks, catches, a fall) and the tester's own pauses, panels, idle
+// stretches and lessons marked on a timeline in the bar (src/slice/watch.js). The keep being played is saved
+// first and comes back after; while watching nothing is saved, and nothing in the session can be changed.
+const WATCH_SPEEDS = [1, 2, 4, 8, 16];
+const ACT_HOLD = 0.35; // seconds at 1× on each of the tester's actions while the clock runs
+const MARK_HOLD = 1.2; // and on a pause of theirs, an idle stretch or a time away
+const HOLDS = { pause: 1, idle: 1, away: 1 };
+// The marks Next and Back stop at, and the session's list shows: all but the lesser alerts.
+const STOPS_AT = { death: 1, crack: 1, caught: 1, fell: 1, pause: 1, idle: 1, away: 1, refused: 1, lesson: 1, panel: 1, skip: 1 };
+const LEAD = 20; // Next and Back land this many units (2 s at 1×) before a mark, to see it come
+// Where in the game a moment was, in words: "Night 2, 21:40", "Season 2, dawn, day 3".
+function whenText(at) {
+  if (!at) return '';
+  const g = { ...s, season: at.season, day: at.day, phase: at.phase };
+  const clock = at.phase === 'day' ? hhmm(6 + (12 * at.t) / dayTicks(g)) : at.phase === 'night' ? hhmm(18 + (12 * at.t) / nightTicks(g)) : '';
+  const where = at.phase === 'day' ? `Day ${at.day}` : at.phase === 'night' ? `Night ${at.day}` : at.phase === 'over' ? `Day ${at.day}, the fall` : `${upper(at.phase)}, day ${at.day}`;
+  return `${at.season > 1 ? `Season ${at.season}, ` : ''}${where}${clock ? `, ${clock}` : ''}`;
+}
+function watchText(text, name) {
+  const r = readExport(text);
+  if (r.error) {
+    ui.watchMsg = r.error;
+    return bump();
+  }
+  ui.watchMsg = 'Getting the session ready…';
+  bump();
+  // A frame for the message first: a whole year takes a second or two to play through once.
+  setTimeout(() => startWatch(r.x, name), 40);
+  return undefined;
+}
+function startWatch(x, name) {
+  let idx;
+  try {
+    idx = indexOf(x);
+  } catch (e) {
+    ui.watchMsg = `That session didn't replay: ${e.message}`;
+    return bump();
+  }
+  saveGame();
+  const c = cloneCursor(idx.snaps[0].c);
+  ui.watchMsg = '';
+  ui.watch = { x, idx, c, name, playing: false, speed: 1, acc: 0, hold: 0, mi: 0, caption: '', line: timelineHTML(idx) };
+  freshKeep(c.s);
+  ui.toasts = []; // what the keep in play was saying isn't the session's
+  ui.toastRev++;
+  showCoach(null);
+  openSheet('watch', 'game');
+  return bump();
+}
+function stopWatching() {
+  ui.watch = null;
+  freshKeep(loadGame(saves.current) || newSeason());
+  ui.toasts = [];
+  ui.toastRev++;
+  closeSheet();
+  toast(`Back to keep ${saves.current}. Season ${s.season}: ${phaseLabel()}.`, 'rite');
+  if (waiting()) openSheet('phase', 'game');
+  return bump();
+}
+function watchPlay() {
+  const w = ui.watch;
+  if (w.c.done && !w.playing) watchSeek(0);
+  w.playing = !w.playing;
+  if (w.playing && ui.sheet && !wide()) closeSheet();
+  return bump();
+}
+function watchSpeed(v) {
+  ui.watch.speed = v;
+  return bump();
+}
+// A mark's words, for the caption over the castle and the list.
+const markLine = (m) => `${whenText(m.at)}. ${m.lane === 'you' ? 'The tester: ' : ''}${m.text}`;
+function watchFrame(dt) {
+  const w = ui.watch;
+  if (!w.playing) return;
+  if (w.hold > 0) {
+    w.hold -= dt;
+    return;
+  }
+  w.acc += dt * w.speed * TICKS_PER_SEC;
+  const n = Math.floor(w.acc);
+  if (n < 1) return;
+  w.acc -= n;
+  const r = advance(w.c, w.x, n, true);
+  // What was passed on the way: the latest mark's words over the castle, and a moment on the tester's
+  // own waits and on each thing they did while the clock ran.
+  const M = w.idx.marks;
+  let said = null;
+  while (w.mi < M.length && M[w.mi].u <= w.c.u) {
+    const m = M[w.mi++];
+    if (STOPS_AT[m.kind]) said = m;
+    if (HOLDS[m.kind]) w.hold = Math.max(w.hold, MARK_HOLD / w.speed);
+  }
+  if (said) w.caption = markLine(said);
+  if (r.acts.length && running()) w.hold = Math.max(w.hold, ACT_HOLD / w.speed);
+  if (w.c.done) {
+    w.playing = false;
+    w.caption = w.idx.off ? offText(w.idx.off) : 'The end of the session.';
+  }
+  if (said || r.acts.length || w.c.done) bump();
+}
+function watchSeek(u) {
+  const w = ui.watch;
+  w.c = seek(w.idx, w.x, u);
+  freshKeep(w.c.s);
+  w.acc = 0;
+  w.hold = 0;
+  w.mi = w.idx.marks.findIndex((m) => m.u >= w.c.u);
+  if (w.mi < 0) w.mi = w.idx.marks.length;
+  return bump();
+}
+const stopsOf = (w) => w.idx.marks.filter((m) => STOPS_AT[m.kind]);
+function watchNext() {
+  const w = ui.watch;
+  const m = stopsOf(w).find((x) => x.u > w.c.u + LEAD);
+  if (!m) return toast('No more marks after this.');
+  watchSeek(m.u - LEAD);
+  w.caption = markLine(m);
+  return bump();
+}
+function watchPrev() {
+  const w = ui.watch;
+  const m = stopsOf(w).filter((x) => x.u < w.c.u - LEAD - 1).at(-1);
+  watchSeek(m ? m.u - LEAD : 0);
+  w.caption = m ? markLine(m) : 'The start of the session.';
+  return bump();
+}
+const offText = (off) => `${whenText(off.at)}: this build stops replaying the session here (${off.why}). Its rules have changed since the tester played.`;
+// The timeline: each phase as a band (day, night, and the waits between), the game's moments above and the
+// tester's below, and how far the replay has got.
+function timelineHTML(idx) {
+  const pc = (u) => ((100 * u) / Math.max(1, idx.total)).toFixed(3);
+  const segs = idx.segs.filter((g) => g.u1 > g.u0).map((g) => `<i class="wseg ws-${g.phase}" style="left:${pc(g.u0)}%;width:${pc(g.u1 - g.u0)}%"></i>`).join('');
+  const marks = idx.marks.map((m) => `<b class="wm wm-${m.kind} wl-${m.lane}" style="left:${pc(m.u)}%"></b>`).join('');
+  return `<span class="wsegs" aria-hidden="true">${segs}</span><span class="wmarks" aria-hidden="true">${marks}</span>`;
+}
+function watchBarHTML() {
+  const w = ui.watch;
+  const menu = [['watch', 'Session'], ['phase', SHEET_NAME()], ['people', 'People'], ['records', 'Records'], ['menu', 'Menu']]
+    .map(([k, label]) => `<button class="btn sm gm" id="open-${k}" data-act="sheet" data-sheet="${k}" aria-pressed="${ui.sheet === k}" aria-controls="sheet">${label}</button>`)
+    .join('');
+  return `<div class="wbar">
+    <div class="wline" id="wline" role="slider" tabindex="0" aria-label="The session: tap or drag to go there" aria-valuemin="0" aria-valuemax="${w.idx.total}" aria-valuenow="${w.c.u}" aria-valuetext="${esc(whenText(gameAt()))}">${w.line}<i class="wfill" data-bar="wfill"></i></div>
+    <div class="wrow">
+      <div class="wctl">
+        <button class="btn sm" id="w-prev" data-act="w-prev" aria-label="Back to the last mark" title="Back to the last mark ([)">◀</button>
+        <button class="btn sm primary" id="w-play" data-act="w-play">${w.playing ? 'Pause' : w.c.done ? 'Again' : 'Play'}</button>
+        <button class="btn sm" id="w-next" data-act="w-next" aria-label="On to the next mark" title="On to the next mark (])">▶</button>
+        <div class="seg" role="group" aria-label="Speed">${WATCH_SPEEDS.map((v) => `<button class="btn sm" id="w-speed-${v}" data-act="w-speed" data-v="${v}" aria-pressed="${w.speed === v}">${v}×</button>`).join('')}</div>
+      </div>
+      <div class="gmenu">${menu}</div>
+    </div>
+  </div>`;
+}
+// The session: who, where and when; their answers; whether this build still replays it; and every mark,
+// to go to.
+function watchHTML() {
+  const w = ui.watch;
+  if (!w) return '<p>No session is being watched.</p>';
+  const x = w.x;
+  const T = x.test;
+  const tr = x.trail || [];
+  const first = tr.find((e) => e.k === 'start') || tr.find((e) => e.k === 'load');
+  const span = tr.length ? Math.round((tr.at(-1).w - tr[0].w) / 60000) : null;
+  const who = T?.label || w.name || 'A playtest';
+  const when = first ? new Date(first.w).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : null;
+  const screen = first?.vw ? `, on a ${first.vw}×${first.vh} ${first.touch ? 'touch screen' : 'screen with a pointer'}` : '';
+  const facts = `${esc(who)}${when ? `, ${esc(when)}` : ''}${span != null ? `, over ${plural(span, 'minute')}` : ''}${esc(screen)}. ${x.tuning0?.tutorial ? 'The tutorial keep.' : ''}`;
+  const off = w.idx.off
+    ? `<p class="note bad">${esc(offText(w.idx.off))} What shows after that isn't what the tester saw.</p>`
+    : w.idx.differs
+      ? `<p class="note bad">From day ${w.idx.differs.day} this replay differs from the session (${esc(w.idx.differs.what)}: ${w.idx.differs.was} then, ${w.idx.differs.now} here): this build's rules have changed since the tester played.</p>`
+      : '';
+  const A = T?.answers || {};
+  const answers = T
+    ? `<div class="card"><h3>Their answers</h3><dl class="wans">${QUESTIONS.map(([k, q]) => `<dt>${esc(q)}</dt><dd>${esc(A[k] || '—')}</dd>`).join('')}<dt>Would you keep playing?</dt><dd>${A.again === 'yes' ? 'Yes' : A.again === 'no' ? 'No' : '—'}${A.why ? `. ${esc(A.why)}` : ''}</dd></dl>${T.sent ? '' : '<p class="hint">They never pressed Send: this came some other way.</p>'}</div>`
+    : '';
+  const asked = (x.seasons || []).filter((e) => e.answer || e.note);
+  const seasonQ = asked.length ? `<div class="card"><h3>The season's question</h3><ul>${asked.map((e) => `<li>Season ${e.season}: ${e.answer === 'again' ? 'would play another' : e.answer === 'stop' ? "would stop" : 'no answer'}${e.note ? `. ${esc(e.note)}` : ''}</li>`).join('')}</ul></div>` : '';
+  const stops = stopsOf(w);
+  // The list is the same all session long: made once.
+  w.list ??= stops.slice(0, 400).map((m) => `<li class="wl-${m.lane}"><button class="linkish" data-act="w-go" data-u="${m.u}">${esc(whenText(m.at))}</button> <span class="wk wk-${m.kind}"></span>${m.lane === 'you' ? 'The tester: ' : ''}${esc(m.text)}</li>`).join('');
+  const list = w.list;
+  return `<section class="watch">
+    <div class="card"><h2>Watching a session</h2><p>${facts}</p>${off}
+      <div class="row"><button class="btn sm primary" id="w-play-2" data-act="w-play">${w.playing ? 'Pause' : 'Play'}</button><button class="btn sm" id="w-exit" data-act="w-exit">Stop watching</button></div></div>
+    ${answers}${seasonQ}
+    <div class="card"><h3>What happened</h3><p class="hint">On the timeline, the game's moments are above (deaths, cracks and catches in red) and the tester's below (pauses in blue, idle stretches and time away in violet). Tap one here to go to it; ◀ and ▶ (or [ and ]) step between them.</p>
+      ${list ? `<ol class="wlist">${list}</ol>${stops.length > 400 ? `<p class="hint">And ${stops.length - 400} more.</p>` : ''}` : '<p>Nothing marked.</p>'}</div>
+  </section>`;
+}
+// In Saves: a tester's session to watch, from their file or as pasted text.
+function watchCard() {
+  return `<div class="card watch-load" id="watch-load"><h3>Watch a playtest</h3>
+    <p class="note">A tester's session, from the file they sent or the text they pasted, played back here at up to 16×, with what happened and when they paused, opened a panel or sat idle marked on a timeline. ${ui.watch ? '' : 'Your keep is saved first, and comes back when you stop watching.'}</p>
+    <div class="row"><input type="file" id="watch-file" class="visually-hidden" data-act="w-file" accept=".json,application/json,text/plain"><label class="btn sm primary" for="watch-file">Load a session</label></div>
+    <details class="wpaste" data-keep="wpaste"${ui.open.wpaste ? ' open' : ''}><summary>Or paste it</summary><label for="watch-text">The session, as text</label><textarea id="watch-text" rows="4"></textarea><div class="row"><button class="btn sm" id="watch-paste" data-act="w-paste">Watch it</button></div></details>
+    ${ui.watchMsg ? `<p class="note${ui.watchMsg.startsWith('Getting') ? '' : ' bad'}" role="status">${esc(ui.watchMsg)}</p>` : ''}
+  </div>`;
+}
 
 /* ---------------------------------------------------------------- the stage and its camera */
 
@@ -1921,6 +2267,7 @@ function wardNear(at) {
 }
 
 function onStage(e) {
+  if (ui.watch) return;
   if (skipCrossing()) return;
   const at = stageAt(e.clientX, e.clientY);
   if (!at) return;
@@ -2119,6 +2466,10 @@ window.__season = {
   get sound() { return { state: sound.state, bed: sound.bed, heard: [...heard] }; },
   // For scripted checks: the keep as it stands (read only), the line's spots, and the middle of a room.
   get keep() { return s; },
+  get watch() {
+    const w = ui.watch;
+    return w && { u: w.c.u, total: w.idx.total, playing: w.playing, speed: w.speed, done: w.c.done, marks: w.idx.marks.length, caption: w.caption, off: w.idx.off, differs: w.idx.differs };
+  },
   get line() { return lineSpots(); },
   room(type) {
     const r = roomSpan(K(), type);
@@ -2256,6 +2607,8 @@ const SHEETS = {
   people: ['People', rosterHTML],
   records: ['Records', () => `<section class="records">${recordsHTML()}</section>`],
   menu: ['Menu', () => `<section class="menu">${menuHTML()}</section>`],
+  test: ['Playtest', testHTML],
+  watch: ['Session', watchHTML],
 };
 function sheetHTML() {
   if (!ui.sheet) return '';
@@ -2292,6 +2645,7 @@ const LIVE = {
   },
 };
 const BARS = {
+  wfill: () => (ui.watch ? ui.watch.c.u / Math.max(1, ui.watch.idx.total) : 0),
   heat: (id) => s.fires?.find((f) => f.room === id)?.heat ?? 0,
   gate: () => Math.max(0, s.raid?.gate ?? 0),
   clock: () => (s.phase === 'day' ? s.t / dayTicks(s) : s.phase === 'night' ? s.t / nightTicks(s) : s.phase === 'dusk' ? 0 : 1),
@@ -2793,7 +3147,7 @@ function tutMark(id) {
 let coachId = null;
 const coachEl = document.getElementById('coach');
 function guideStep() {
-  if (ui.sheet === 'intro') return null;
+  if (ui.sheet === 'intro' || ui.sheet === 'test') return null; // one thing at a time: the note, then the lesson
   if (tutOn()) return tutStep();
   if (!prefs.guide) return null;
   return GUIDE.find((g) => !seen(g.id) && g.when()) || null;
@@ -2808,6 +3162,14 @@ function markSeen(id) {
   bump();
 }
 function showCoach(step) {
+  if (ui.watch) {
+    // A session's lessons are the tester's, marked on the timeline; the watcher's own are left as they were.
+    coachId = null;
+    coachEl.hidden = true;
+    coachEl.innerHTML = '';
+    coachRoom();
+    return;
+  }
   const id = step?.id || null;
   if (id === coachId) return;
   // A card the player has moved past (the moment it was about is over) counts as read.
@@ -2819,6 +3181,12 @@ function showCoach(step) {
   }
   coachId = id;
   if (step) trail('lesson', { id, text: String(typeof step.text === 'function' ? step.text() : step.text).slice(0, 100) });
+  if (id === 't-done' && s.test && !s.test.asked) {
+    s.test.asked = true;
+    saveGame();
+    ui.testNote = false;
+    openSheet('test', 'game');
+  }
   bump();
   coachEl.hidden = !step;
   const tut = isTut(id);
@@ -2847,6 +3215,7 @@ function coachRoom() {
 }
 window.addEventListener('resize', coachRoom);
 function tickGuide() {
+  if (ui.watch) return null;
   let step = guideStep();
   if (step?.done?.()) {
     markSeen(step.id);
@@ -2953,6 +3322,12 @@ function soulSpots(now) {
 }
 
 function onPhase() {
+  if (ui.watch) {
+    // A session's phases come and go by themselves: no panel opens, no crossing plays.
+    ui.selected = null;
+    ui.kb = null;
+    return;
+  }
   if (!running()) ui.paused = true;
   if (s.phase === 'dusk') {
     ui.tool = 'candle';
@@ -3000,7 +3375,8 @@ let seenPhaseWas = s.phase;
 function frame(now) {
   const dt = lastNow ? Math.min(0.25, (now - lastNow) / 1000) : 0;
   lastNow = now;
-  if (!ui.paused && running()) {
+  if (ui.watch) watchFrame(dt);
+  else if (!ui.paused && running()) {
     acc += dt * (ui.skip ? SKIP_SPEED : prefs.speed * (ui.rush ? 10 : 1)) * TICKS_PER_SEC;
     let n = Math.floor(acc);
     acc -= n;
@@ -3019,7 +3395,7 @@ function frame(now) {
     }
   }
   takeAlerts(false);
-  for (const c of s.cues.splice(0)) sfx(c.name, c.x);
+  for (const c of s.cues.splice(0)) if (!ui.watch || ui.watch.speed <= 4) sfx(c.name, c.x); // past 4× it's noise
   if (sound.mood(moodNow()) === 'beat') buzz(SOUNDS.heartbeat.haptic);
   if (ui.cross && crossingDone(now)) {
     if (ui.cross.stage === 'sunset') afterSunset();
@@ -3059,6 +3435,7 @@ function game(a) {
     return false;
   }
   const r = act(s, a);
+  dirty = true;
   if (!r.ok) {
     trail('refused', { type: a.type, error: r.error });
     toast(r.error, 'bad');
@@ -3103,9 +3480,7 @@ function copyExport() {
 }
 // The keeps in the slots. Whatever is being played is saved before another is put in play.
 const waiting = () => s.phase === 'dawn' || s.phase === 'end' || s.phase === 'over' || (s.phase === 'dusk' && s.dusk.step === 'crypt');
-function playKeep(n, g, lead) {
-  if (n !== saves.current) saveGame();
-  useSlot(store, saves, n);
+function freshKeep(g) {
   s = listen(g);
   seenPhase = s.phase;
   seenPhaseWas = s.phase;
@@ -3114,6 +3489,16 @@ function playKeep(n, g, lead) {
   view.panX = 0;
   view.panY = 0;
   view.snap = true;
+}
+function playKeep(n, g, lead) {
+  if (ui.watch) {
+    // Never let the session being watched stand in for a keep: the one in play comes back first.
+    ui.watch = null;
+    freshKeep(loadGame(saves.current) || newSeason());
+  }
+  if (n !== saves.current) saveGame();
+  useSlot(store, saves, n);
+  freshKeep(g);
   saveWarned = false;
   saveGame();
   closeSheet();
@@ -3175,18 +3560,23 @@ function confirmSlot(n) {
   toast(`Keep ${n} is deleted.`);
   return bump();
 }
-// A keep as a file: the save itself, which Load a file (here or on another device) takes back exactly.
-function exportSlot(n) {
-  const g = n === saves.current ? { ...s, alerts: [], cues: undefined } : store.get(slotKey(n));
-  if (!g) return undefined;
+// A file from the page: the browser's download of it.
+function saveFile(blob, name) {
   const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob([JSON.stringify(g)], { type: 'application/json' }));
-  a.download = `afterglass-keep-${n}-season-${g.season}-day-${g.day}.json`;
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
   document.body.append(a);
   a.click();
   a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 60000);
-  toast(`Keep ${n} is saved as ${a.download}.`);
+}
+// A keep as a file: the save itself, which Load a file (here or on another device) takes back exactly.
+function exportSlot(n) {
+  const g = n === saves.current ? { ...s, alerts: [], cues: undefined } : store.get(slotKey(n));
+  if (!g) return undefined;
+  const name = `afterglass-keep-${n}-season-${g.season}-day-${g.day}.json`;
+  saveFile(new Blob([JSON.stringify(g)], { type: 'application/json' }), name);
+  toast(`Keep ${n} is saved as ${name}.`);
   return undefined;
 }
 function importSlot(n, el) {
@@ -3481,6 +3871,10 @@ function onAct(name, el) {
       saveGame();
       showCoach(null);
       toast('The tutorial is over, and the keep plays on. Every lesson is in the Menu, under How to play.', 'rite');
+      if (s.test) {
+        ui.testNote = false;
+        openSheet('test');
+      }
       return bump();
     case 'guide-ok':
       markSeen(el.dataset.id);
@@ -3514,6 +3908,43 @@ function onAct(name, el) {
       return bump();
     case 'new-yes': return newKeep(saves.current);
     case 'copy': return copyExport();
+    case 'test-begin':
+      ui.testNote = false;
+      return closeSheet();
+    case 'test-open':
+      ui.testNote = false;
+      ui.testMsg = '';
+      ui.testShow = false;
+      return openSheet('test');
+    case 'test-here': return beginTest(saves.current, ui.testAsk?.label);
+    case 'test-again':
+      s.test.answers = { ...(s.test.answers || {}), again: s.test.answers?.again === el.dataset.v ? null : el.dataset.v };
+      saveGame();
+      return bump();
+    case 'test-send':
+      sendTest();
+      return undefined;
+    case 'test-copy': return copyTest();
+    case 'w-play': return watchPlay();
+    case 'w-speed': return watchSpeed(Number(el.dataset.v));
+    case 'w-exit': return stopWatching();
+    case 'w-prev': return watchPrev();
+    case 'w-next': return watchNext();
+    case 'w-go':
+      watchSeek(Number(el.dataset.u) - LEAD);
+      if (!wide()) closeSheet();
+      return bump();
+    case 'w-file': {
+      const file = el.files?.[0];
+      el.value = '';
+      if (!file) return undefined;
+      file.text().then((text) => watchText(text, file.name), () => {
+        ui.watchMsg = "That file couldn't be read.";
+        bump();
+      });
+      return undefined;
+    }
+    case 'w-paste': return watchText(document.getElementById('watch-text')?.value || '', null);
     case 'show-export':
       ui.showExport = !ui.showExport;
       return bump();
@@ -3555,7 +3986,14 @@ document.addEventListener('input', (e) => {
     sound.set({ fx: prefs.sfx, amb: prefs.amb });
     return;
   }
-  if (!e.target.matches('[data-note]')) return;
+  if (e.target.matches('[data-test]')) {
+    if (!s.test || ui.watch) return;
+    s.test.answers = { ...(s.test.answers || {}), [e.target.dataset.test]: e.target.value };
+    clearTimeout(noteTimer);
+    noteTimer = setTimeout(saveGame, 400);
+    return;
+  }
+  if (!e.target.matches('[data-note]') || ui.watch) return;
   const value = e.target.value;
   clearTimeout(noteTimer);
   noteTimer = setTimeout(() => {
@@ -3583,6 +4021,13 @@ document.addEventListener('keydown', (e) => {
   }
   // Typing in a field is left alone; a focused button keeps space and enter for itself.
   if (e.altKey || e.ctrlKey || e.metaKey || e.target.closest('input, select, textarea')) return;
+  if (ui.watch && (k === '[' || k === ']')) {
+    e.preventDefault();
+    if (k === ']') watchNext();
+    else watchPrev();
+    return;
+  }
+  if (ui.watch && k === '8') return void watchSpeed(8);
   // While the cursor is out, Enter is the cursor's, even with the focus left on a button the mouse clicked
   // (Play, say). A button reached with Tab keeps it, and so does the panel.
   const clicked = e.target.closest('button, a') && !e.target.closest('#sheet') && !keyFocused(e.target);
@@ -3635,6 +4080,26 @@ document.addEventListener('keydown', (e) => {
     if (ui.sheet === name) closeSheet();
     else openSheet(name);
   }
+});
+// The viewer's timeline: a tap or a drag along it goes there.
+// The bar is drawn again as the replay runs, so the line is found afresh each time.
+let lineDrag = false;
+function lineTo(e) {
+  const line = document.getElementById('wline');
+  if (!line || !ui.watch) return;
+  const r = line.getBoundingClientRect();
+  watchSeek(Math.round(Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)) * ui.watch.idx.total));
+}
+document.addEventListener('pointerdown', (e) => {
+  if (!ui.watch || !e.target.closest('#wline')) return;
+  lineDrag = true;
+  lineTo(e);
+});
+document.addEventListener('pointermove', (e) => {
+  if (lineDrag && e.buttons) lineTo(e);
+});
+document.addEventListener('pointerup', () => {
+  lineDrag = false;
 });
 // One finger or the mouse: a tap acts on release, a drag pans. Two fingers pinch to zoom. The wheel zooms
 // toward the pointer. Zoom moves in whole-pixel steps so the art stays sharp.
@@ -3721,8 +4186,20 @@ if ('ResizeObserver' in window) {
 
 render(1, performance.now());
 layout();
-if (!prefs.introDone) openSheet('intro', 'game');
+trail('load', deviceNow());
+// The tester link, taken off the address once read, so a reload just plays on.
+const params = new URLSearchParams(location.search);
+if (params.has('test') || params.has('watch')) history.replaceState(null, '', location.pathname + location.hash);
+if (params.has('test')) startTest(params.get('test'));
+else if (params.has('watch')) {
+  // The viewer's link (season.html?watch): Saves, where a session is loaded to watch.
+  prefs.introDone = true;
+  savePrefs();
+  ui.menuTab = 'saves';
+  openSheet('menu', 'game');
+  requestAnimationFrame(() => document.getElementById('watch-load')?.scrollIntoView({ block: 'start' }));
+} else if (!prefs.introDone) openSheet('intro', 'game');
 else if (waiting()) openSheet('phase', 'game');
-if (s.day > 1 || s.season > 1 || s.phase !== 'day') toast(`Welcome back. Season ${s.season}: ${phaseLabel()}.`, 'rite');
+if (!params.has('test') && !params.has('watch') && (s.day > 1 || s.season > 1 || s.phase !== 'day')) toast(`Welcome back. Season ${s.season}: ${phaseLabel()}.`, 'rite');
 if (retuned) toast(`This version changed ${retuned} of the keep's numbers; yours from Settings are kept.`, 'rite');
 requestAnimationFrame(frame);

@@ -198,8 +198,9 @@ function trailMarks(x, segs, total) {
     if (u == null) continue;
     const m = { u, at: e.at, lane: 'you', w: e.w };
     if (e.k === 'pause' && e.by === 'you') {
-      const back = T.slice(i + 1).find((f) => f.k === 'play' || f.k === 'pause');
-      const ms = back && back.k === 'play' ? back.w - e.w : null;
+      // Until the clock ran again: Play, Skip or Hurry (a pause or a phase first means it isn't known).
+      const back = T.slice(i + 1).find((f) => ['play', 'skip', 'rush', 'pause', 'phase'].includes(f.k));
+      const ms = back && ['play', 'skip', 'rush'].includes(back.k) ? back.w - e.w : null;
       out.push({ ...m, kind: 'pause', ms, text: `Paused${ms ? ` for ${secs(ms)} s` : ''}.` });
     } else if (e.k === 'panel') out.push({ ...m, kind: 'panel', text: `Opened ${PANELS[e.name] || e.name}${e.tab ? `, ${e.tab}` : ''}.` });
     else if (e.k === 'idle') out.push({ ...m, kind: 'idle', ms: e.ms, text: `Sat idle for ${secs(e.ms)} s.` });
