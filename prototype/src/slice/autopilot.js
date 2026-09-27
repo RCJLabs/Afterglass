@@ -9,13 +9,15 @@
 // All but double and idle react at night: a second fighter to each stair of the line for each tide, a ward
 // on the line for the biggest tides when the essence is there, and a fighter to meet a Maw.
 
-import { step, act, newSeason, ritePreview, crossingPreview, capacity, canWork, defense, funeralCap, choicesFor, jobCap, jobCount, eatRate, wardCost, livingTrait, shadeTrait, peopleIn, crowded, tradeOf, inGreatGlass, handsAt, seasonIndex, tributeOf, besieged, sallyOdds, embargoed, inquisition } from './sim.js';
+import { step, act, newSeason, ritePreview, crossingPreview, capacity, canWork, defense, funeralCap, choicesFor, jobCap, jobCount, eatRate, wardCost, livingTrait, shadeTrait, peopleIn, crowded, tradeOf, inGreatGlass, handsAt, seasonIndex, tributeOf, besieged, sallyOdds, embargoed, inquisition, crusadeDaysLeft } from './sim.js';
 import { DAY_ROOMS, MIRRORS, KINDS, MAP, TICKS_PER_SEC } from './data.js';
 import { geo, roomSpan, roomAt, roomsOf, lineSpots } from './geo.js';
 
 export const PLANS = ['balanced', 'keeper', 'mourner', 'double', 'idle'];
 
 const doAct = (s, a) => act(s, a).ok;
+// AP_NOHIDE=1 never hides a mirror from a crusade (to measure whether hiding pays).
+const NOHIDE = !!globalThis.process?.env?.AP_NOHIDE;
 // Traits, as a player reads them. AP_BLIND=1 plays as if nobody had one (to measure what they're worth).
 const BLIND = !!globalThis.process?.env?.AP_BLIND;
 // AP_BELOW=1 also works the rooms below the line on the Choir's side of the keep, leaving the other side dark
@@ -220,6 +222,18 @@ function dayMoves(s) {
   const r = s.raid;
   if (r && (r.state === 'coming' || r.state === 'assault') && r.warned && !r.ward && defense(s) < r.strength) doAct(s, { type: 'wardGate' });
   const { free } = capacity(s);
+  // The crusade: on the last day to hide, if a full gate (every hand the Barracks hold, the ward, the bell for
+  // the rest, and the pitch it can spare) still falls short, hide the fullest mirror, and only that one: the
+  // rest hold the line the night before.
+  if (!NOHIDE && crusadeDaysLeft(s) === 1 && !s.mirrors.some((m) => m.hidden)) {
+    const T = s.tuning;
+    const able = s.living.filter((p) => !(p.sick > 0) && p.age !== 'child').length;
+    const guards = Math.min(able, jobCap(s, 'barracks'));
+    const pitch = Math.max(0, Math.floor((s.res.candles - PITCH_KEEP) / T.raidPitchCost)) * T.raidPitch;
+    const best = guards * DAY_ROOMS.barracks.rate + (s.res.essence >= T.wardGateCost ? T.wardGateDefense : 0) + (able - guards) * T.raidBellDefense + pitch;
+    const open = s.mirrors.filter((m) => !m.hidden).map((m) => ({ m, n: s.shades.filter((d) => d.mirror === m.id).length })).sort((a, b) => b.n - a.n);
+    if (best < s.church.strength && open[0]?.n) doAct(s, { type: 'hide', id: open[0].m.id, on: true });
+  }
   // The Church's embargo: pay it off when the dead need mirrors and the remembrance is there.
   if (embargoed(s) && !inquisition(s) && (free <= 1 || s.bodies.length) && s.res.remembrance >= s.tuning.donation + 2) doAct(s, { type: 'donate' });
   // AP_STEP saves its glass for a great glass unless the dead are waiting for room now.

@@ -67,6 +67,10 @@ const dayNo = (s) => (s.season - 1) * s.tuning.seasonDays + s.day;
 export const churchDaysLeft = (s, what = 'embargo') => Math.max(0, (s.church?.[what] || 0) - dayNo(s));
 export const embargoed = (s) => !!s.tuning.church && !!s.church?.embargo && dayNo(s) <= s.church.embargo;
 export const inquisition = (s) => !!s.tuning.church && !!s.church?.inquisition && dayNo(s) <= s.church.inquisition;
+// The day's number a crusade comes on, if one is proclaimed (0 if not); and whether today is that day.
+export const crusadeDay = (s) => (s.tuning.church && s.tuning.crusade && s.church?.crusade) || 0;
+export const crusadeDue = (s) => crusadeDay(s) > 0 && dayNo(s) === crusadeDay(s);
+export const crusadeDaysLeft = (s) => Math.max(0, crusadeDay(s) - dayNo(s));
 // How many of the Drowned come up on a rainy night: as many in a later season as in the first.
 export const drownedCount = (s) => s.tuning.drownedBase + Math.floor(s.day / s.tuning.drownedEvery);
 // Whether they come on a rainy night (tonight's, or tomorrow's): not on the new moon, which belongs to the
@@ -231,14 +235,15 @@ export function capacity(s) {
   let cap = 0;
   let used = 0;
   for (const m of s.mirrors) {
-    cap += mirrorCap(m);
+    cap += m.hidden ? mirrorUse(s, m) : mirrorCap(m); // nobody new is bound into a hidden mirror
     used += mirrorUse(s, m);
   }
   return { cap, used, free: cap - used };
 }
-const freeMirror = (s) => s.mirrors.find((m) => mirrorUse(s, m) < mirrorCap(m)) || null;
-// A shade down in the Deep (from dusk to dawn) is out of the Tain for the night.
-export const canWork = (d) => !!d.mirror && WORKING.includes(d.kind) && !d.deep;
+const freeMirror = (s) => s.mirrors.find((m) => !m.hidden && mirrorUse(s, m) < mirrorCap(m)) || null;
+// A shade down in the Deep (from dusk to dawn) is out of the Tain for the night, and one in a mirror hidden
+// from a crusade is out of everything until it's brought out.
+export const canWork = (d) => !!d.mirror && WORKING.includes(d.kind) && !d.deep && !d.hidden;
 // The type of room a shade is posted in (its twin's type), or null.
 export const postRoom = (s, d) => (d.post ? typeAt(geo(s), d.post.f, d.post.x) : null);
 export const griefMult = (s, p) => (p.grief ? p.grief.mult : 1);
@@ -459,6 +464,14 @@ function rollDay(s) {
     s.raid = newRaid(s, s.siege.strength, Math.round(0.05 * D), Math.round(T.raidHitAt * D));
     s.raid.camp = true;
   }
+  // The crusade's day: it comes at the gate in the raid's place, at the strength it was proclaimed with, seen
+  // from the first light.
+  if (crusadeDue(s)) {
+    s.events = s.events.filter((e) => e.type !== 'raidWarn' && e.type !== 'raidHit');
+    const C = s.church;
+    s.raid = { strength: C.strength, count: Math.max(2, Math.round(C.strength / 2)), ward: 0, state: 'coming', warned: false, warnAt: Math.round(0.05 * D), hitAt: Math.round(T.raidHitAt * D), crusade: true };
+    s.events.push({ at: s.raid.warnAt, type: 'raidWarn' }, { at: s.raid.hitAt, type: 'raidHit' });
+  }
   // A broken mirror's bad luck: sickness more likely, from the same one throw of the dice.
   const luck = s.badLuck > 0 ? T.badLuck : 1;
   if (s.badLuck > 0) s.badLuck--;
@@ -555,7 +568,8 @@ function fire(s, e) {
     const r = s.raid;
     if (!r || r.state !== 'coming') return;
     r.warned = true;
-    if (r.camp) say(s, `The camp outside stirs: ${r.count} of the Ashen Host will come at the gate, strength ${fmt(r.strength)}. Your defense is ${fmt(defense(s))}.`, 'bad', true);
+    if (r.crusade) say(s, `The crusade is on the road: ${r.count} knights of the Lantern, strength ${fmt(r.strength)}, at the gate a little after noon. Your defense is ${fmt(defense(s))}. They take no tribute; if they break in, they will smash every mirror they can find.`, 'bad', true);
+    else if (r.camp) say(s, `The camp outside stirs: ${r.count} of the Ashen Host will come at the gate, strength ${fmt(r.strength)}. Your defense is ${fmt(defense(s))}.`, 'bad', true);
     else say(s, `Raiders on the road: ${r.count} of the Ashen Host, strength ${fmt(r.strength)}. Your defense is ${fmt(defense(s))}.`, 'bad', true);
     cue(s, 'horn');
   } else if (e.type === 'raidHit') {
@@ -591,6 +605,8 @@ function resolveRaid(s) {
   if (!held) {
     const civ = s.living.filter((p) => p.job !== 'barracks' && p.age !== 'child'); // children shelter inside
     if (civ.length && !r.safe) fallen.push({ p: pick(s, civ), how: 'was cut down in the yard' });
+  }
+  if (!held && !r.crusade) {
     const food = Math.floor(s.res.food * T.raidLoot * 0.5); // the Granary keeps half the food out of their hands
     const kept = roomsOf(geo(s), 'cellar').length ? 0.5 : 1; // a Cellar keeps half the candles and glass out of their hands
     const glass = Math.floor(s.res.glass * T.raidLoot * kept);
@@ -601,17 +617,20 @@ function resolveRaid(s) {
     loot = ` They carried off ${food} food, ${glass} glass and ${candles} candles.`;
   }
   r.state = held ? 'held' : 'breached';
-  s.today.raid = { strength: r.strength, defense: r1(def), held };
+  s.today.raid = { strength: r.strength, defense: r1(def), held, ...(r.crusade ? { crusade: true } : {}) };
   cue(s, held ? 'held' : 'breached');
+  const who = r.crusade ? 'crusaders' : 'raiders';
   say(
     s,
-    held ? `The gate held against ${r.count} raiders (defense ${fmt(def)} against strength ${fmt(r.strength)}).` : `The raiders broke through (defense ${fmt(def)} against strength ${fmt(r.strength)}).${loot}`,
+    held ? `The gate held against ${r.count} ${who} (defense ${fmt(def)} against strength ${fmt(r.strength)}).` : `The ${who} broke through (defense ${fmt(def)} against strength ${fmt(r.strength)}).${loot}`,
     held ? 'good' : 'bad',
     true,
   );
   for (const f of fallen) kill(s, f.p, 'duty', f.how);
   for (let i = 0; i < raiders; i++) raiderBody(s);
-  if (raiders) say(s, held ? 'One raider fell inside the gatehouse. The body lies in the crypt.' : `${raiders} raider${raiders === 1 ? ' was' : 's were'} cut down inside the walls. The bodies lie in the crypt.`);
+  const one = who.slice(0, -1);
+  if (raiders) say(s, held ? `One ${one} fell inside the gatehouse. The body lies in the crypt.` : `${raiders} ${one}${raiders === 1 ? ' was' : 's were'} cut down inside the walls. The bodies lie in the crypt.`);
+  if (r.crusade) crusadeOver(s, held);
 }
 
 // Raids you fight: the Host at the gate. Each second it's stronger than the defense, the gate gives by its
@@ -626,7 +645,8 @@ function startAssault(s) {
   r.left = Math.round(s.tuning.raidAssaultSecs * TICKS_PER_SEC);
   r.warned = true;
   const def = defense(s);
-  say(s, `The Host is at the gate: ${r.count} raiders, strength ${fmt(r.strength)}, against your defense of ${fmt(def)}. ${def + EPS >= r.strength ? 'The gate should hold.' : 'The gate is giving.'} Pitch, stone and the bell can turn it.`, 'bad', true);
+  const who = r.crusade ? `The crusade is at the gate: ${r.count} knights of the Lantern` : `The Host is at the gate: ${r.count} raiders`;
+  say(s, `${who}, strength ${fmt(r.strength)}, against your defense of ${fmt(def)}. ${def + EPS >= r.strength ? 'The gate should hold.' : 'The gate is giving.'} Pitch, stone and the bell can turn it.`, 'bad', true);
   cue(s, 'ram');
 }
 function assaultTick(s) {
@@ -657,6 +677,8 @@ function endAssault(s, held) {
   if (!held) {
     const civ = s.living.filter((p) => p.job !== 'barracks' && !p.walls && p.age !== 'child'); // children shelter inside
     if (civ.length && !r.safe) fallen.push({ p: pick(s, civ), how: 'was cut down in the yard' });
+  }
+  if (!held && !r.crusade) {
     const barred = r.barred ? 0.5 : 1;
     const food = Math.floor(s.res.food * T.raidLoot * 0.5 * barred);
     const kept = (roomsOf(geo(s), 'cellar').length ? 0.5 : 1) * barred;
@@ -670,12 +692,47 @@ function endAssault(s, held) {
   }
   r.state = held ? 'held' : 'breached';
   for (const p of s.living) if (p.walls) delete p.walls;
-  s.today.raid = { strength: r.strength, defense: r1(def), held };
+  s.today.raid = { strength: r.strength, defense: r1(def), held, ...(r.crusade ? { crusade: true } : {}) };
   cue(s, held ? 'held' : 'breached');
-  say(s, held ? `The Host fell back from the gate${r.pitched ? `, burned by ${r.pitched} ${r.pitched === 1 ? 'pour' : 'pours'} of pitch` : ''}.` : `The gate gave way, and the Host broke in.${loot}`, held ? 'good' : 'bad', true);
+  const host = r.crusade ? 'the crusade' : 'the Host';
+  say(s, held ? `${cap(host)} fell back from the gate${r.pitched ? `, burned by ${r.pitched} ${r.pitched === 1 ? 'pour' : 'pours'} of pitch` : ''}.` : `The gate gave way, and ${host} broke in.${loot}`, held ? 'good' : 'bad', true);
   for (const f of fallen) kill(s, f.p, 'duty', f.how);
   for (let i = 0; i < raiders; i++) raiderBody(s);
-  if (raiders) say(s, held ? 'One raider fell inside the gatehouse. The body lies in the crypt.' : `${raiders} raider${raiders === 1 ? ' was' : 's were'} cut down inside the walls. The bodies lie in the crypt.`);
+  const who = r.crusade ? 'crusader' : 'raider';
+  if (raiders) say(s, held ? `One ${who} fell inside the gatehouse. The body lies in the crypt.` : `${raiders} ${who}${raiders === 1 ? ' was' : 's were'} cut down inside the walls. The bodies lie in the crypt.`);
+  if (r.crusade) crusadeOver(s, held);
+}
+
+// The crusade's end. Held at the gate, the Church gives up. Broken in, the crusaders smash every mirror they
+// can find, and the shades in them go free; the Church, satisfied, leaves a purged keep. Either way the
+// embargo and the Inquisition are over, and hidden mirrors come back out.
+function crusadeOver(s, held) {
+  const smashed = held ? [] : s.mirrors.filter((m) => !m.hidden);
+  const freed = [];
+  for (const m of smashed) {
+    for (const d of s.shades.filter((x) => x.mirror === m.id)) {
+      s.shades.splice(s.shades.indexOf(d), 1);
+      endLedger(s, d.id, 'purged');
+      restFor(s, d.id, true);
+      freed.push(d.name);
+    }
+    s.mirrors.splice(s.mirrors.indexOf(m), 1);
+  }
+  const hidden = s.mirrors.filter((m) => m.hidden);
+  for (const m of hidden) showMirror(s, m);
+  const was = s.dread;
+  if (!held) s.dread = 0;
+  s.church = null;
+  s.today.crusade = { held, smashed: smashed.length, freed: freed.length };
+  const back = hidden.length ? ` The ${listNames(hidden.map((m) => m.name))} ${hidden.length === 1 ? 'comes' : 'come'} out of hiding.` : '';
+  if (held) say(s, `The crusade breaks on your walls and turns for home. The Lantern Church lifts its embargo and calls its inquisitor away.${back}`, 'good', true);
+  else say(s, `The crusaders smash ${smashed.length ? listNames(smashed.map((m) => `the ${m.name}`)) : 'nothing: every mirror was hidden'}${freed.length ? `, and ${listNames(freed)} ${freed.length === 1 ? 'goes' : 'go'} free` : ''}. Satisfied, the Lantern Church leaves the keep purged and lifts its embargo. Dread ${was} → 0.${back}`, 'bad', true);
+  cue(s, held ? 'blessed' : 'shatter');
+}
+// A mirror hidden from a crusade, brought back out, with its shades.
+function showMirror(s, m) {
+  delete m.hidden;
+  for (const d of s.shades) if (d.mirror === m.id) delete d.hidden;
 }
 
 // The Lantern Church judges the keep by its Dread at noon.
@@ -690,8 +747,10 @@ function inspect(s) {
     s.res.candles += 3;
     gain(s, 'remembrance', 2);
     text = 'The Lantern Church inspector finds a keep at peace with its dead, and blesses it: 3 candles and 2 remembrance.';
-    if (s.church) text += inquisition(s) ? ' The inquisitor leaves, and the embargo is lifted.' : ' The embargo is lifted.';
+    if (crusadeDay(s)) text += ' The crusade is called off, the inquisitor leaves, and the embargo is lifted.';
+    else if (s.church) text += inquisition(s) ? ' The inquisitor leaves, and the embargo is lifted.' : ' The embargo is lifted.';
     s.church = null;
+    for (const m of s.mirrors) if (m.hidden) showMirror(s, m);
   } else if (d <= 3) {
     verdict = 'warned';
     let tithe;
@@ -712,7 +771,7 @@ function inspect(s) {
     text = `The Lantern Church inspector warns you and takes a tithe of ${tithe}. Dread ${d} → ${s.dread}.`;
   } else {
     verdict = 'censured';
-    const groups = s.mirrors.map((m) => ({ m, ds: s.shades.filter((x) => x.mirror === m.id) })).sort((a, b) => b.ds.length - a.ds.length || MIRRORS[b.m.type].cap - MIRRORS[a.m.type].cap);
+    const groups = s.mirrors.filter((m) => !m.hidden).map((m) => ({ m, ds: s.shades.filter((x) => x.mirror === m.id) })).sort((a, b) => b.ds.length - a.ds.length || MIRRORS[b.m.type].cap - MIRRORS[a.m.type].cap);
     const g = groups[0];
     if (g) {
       for (const x of g.ds) {
@@ -741,6 +800,15 @@ function inspect(s) {
 function escalate(s) {
   const T = s.tuning;
   if (!T.church) return '';
+  if (crusadeDay(s)) return ' The crusade is still coming.';
+  if (T.crusade && inquisition(s)) {
+    const day = dayNo(s) + T.crusadeDays;
+    // As strong as a raid of that base this season, but not emboldened: that's the Host's, not the Church's.
+    const strength = r1(Math.max(2, T.crusadeBase * hard(s) * (T.raidFight ? T.raidFightStrength : 1) + (rand(s) * 2 - 1) * T.raidSpread));
+    s.church = { embargo: Math.max(s.church.embargo, day), inquisition: day - 1, crusade: day, strength };
+    const when = T.crusadeDays === 1 ? 'tomorrow' : `in ${T.crusadeDays} days`;
+    return ` Censured under the Inquisition, the keep is given up to a crusade: ${Math.max(2, Math.round(strength / 2))} knights of the Lantern will come to the gate a little after noon ${when}, strength ${fmt(strength)}, and smash every mirror they can find if they break in. Until then the inquisitor inspects each noon, and a blessing calls the crusade off.`;
+  }
   if (embargoed(s)) {
     const again = inquisition(s);
     const until = dayNo(s) + T.inquisitionDays;
@@ -2132,6 +2200,7 @@ export function ritePreview(s) {
   P.inspector = P.dread.to >= T.dreadMax;
   // The Inquisition inspects tomorrow at noon if it still stands then.
   P.inquisition = !!T.church && !!s.church?.inquisition && dayNo(s) + 1 <= s.church.inquisition;
+  P.crusade = crusadeDay(s) > 0 && crusadeDay(s) === dayNo(s) + 1;
   P.remCost = R.vigils * T.vigilCost;
   // Requests granted: a name or a remembering costs remembrance, as bought.
   P.granted = [];
@@ -2196,11 +2265,13 @@ function beginDay(s) {
   s.t = 0;
   siegeDawn(s, yesterday);
   churchDawn(s);
-  if (s.dread >= T.dreadMax && (!s.inspection || s.inspection.done)) {
+  // A mirror is hidden only from a crusade: with none coming (the Church turned off, say), it comes back out.
+  if (!crusadeDay(s)) for (const m of s.mirrors) if (m.hidden) showMirror(s, m);
+  if (s.dread >= T.dreadMax && (!s.inspection || s.inspection.done) && !crusadeDue(s)) {
     s.inspection = { day: s.day, reason: 'dread', done: false };
     say(s, 'Dread has reached its height. The Lantern Church sends an inspector; it arrives at noon.', 'bad', true);
     cue(s, 'warn');
-  } else if (s.day === T.firstInspection - 1 && (!s.inspection || s.inspection.done)) {
+  } else if (s.day === T.firstInspection - 1 && (!s.inspection || s.inspection.done) && !crusadeDay(s)) {
     s.inspection = { day: T.firstInspection, reason: 'season', done: false };
     say(s, 'Word comes from the Lantern Church: an inspector will visit tomorrow at noon and judge how the keep keeps its dead.', 'rite', true);
   }
@@ -2225,6 +2296,19 @@ function beginDay(s) {
 function churchDawn(s) {
   const C = s.church;
   if (!C) return;
+  if (crusadeDay(s)) {
+    if (crusadeDue(s)) {
+      if (s.inspection && !s.inspection.done) s.inspection = null; // the Church comes with swords today, not a ledger
+      say(s, `The crusade comes today: ${Math.max(2, Math.round(C.strength / 2))} knights of the Lantern, strength ${fmt(C.strength)}, at the gate a little after noon.`, 'bad', true);
+      cue(s, 'warn');
+    } else if (!s.inspection || s.inspection.done) {
+      s.inspection = { day: s.day, reason: 'inquisition', done: false };
+      const n = crusadeDaysLeft(s);
+      say(s, `The inquisitor will inspect the keep again at noon. The crusade comes ${n === 1 ? 'tomorrow' : `in ${n} days`}; a blessing calls it off.`, 'bad', true);
+      cue(s, 'warn');
+    }
+    return;
+  }
   const gone = !!C.inquisition && !inquisition(s);
   if (gone) C.inquisition = 0;
   if (!embargoed(s)) {
@@ -2560,6 +2644,30 @@ const ACTIONS = {
     say(s, `The masons swap ${named(a)} and ${named(b)}.${twin}`, 'good', true);
     cue(s, 'build');
   },
+  // Before the day a crusade comes, a mirror can be hidden from it: its shades sit out every day and night
+  // until the crusade is over, and neither the crusaders nor the inquisitor can find it. It can be brought out
+  // again at any time by day.
+  hide(s, { id, on }) {
+    const m = byId(s.mirrors, id);
+    if (!m) return 'No such mirror.';
+    if (s.phase !== 'day') return 'Mirrors are hidden, and brought out, by day.';
+    if (!on) {
+      if (!m.hidden) return `The ${m.name} isn't hidden.`;
+      showMirror(s, m);
+      say(s, `The ${m.name} is brought out of hiding.`);
+      cue(s, 'mirror');
+      return undefined;
+    }
+    if (!crusadeDay(s)) return 'Mirrors are hidden from a crusade, and none is coming.';
+    if (dayNo(s) >= crusadeDay(s)) return 'Too late: the crusaders are already on the road.';
+    if (m.hidden) return `The ${m.name} is already hidden.`;
+    m.hidden = true;
+    const ds = s.shades.filter((d) => d.mirror === m.id);
+    for (const d of ds) d.hidden = true;
+    say(s, `The ${m.name} is hidden away${ds.length ? ` with ${listNames(ds.map((d) => d.name))}, who sit${ds.length === 1 ? 's' : ''} out every day and night until the crusade is over` : ''}.`);
+    cue(s, 'post');
+    return undefined;
+  },
   // A donation to the Lantern Church lifts its embargo, but the inquisitor takes no gifts.
   donate(s) {
     const T = s.tuning;
@@ -2649,6 +2757,7 @@ const ACTIONS = {
   payOff(s) {
     const r = s.raid;
     if (!s.tuning.raidFight || s.phase !== 'day' || !r || r.state !== 'coming' || !r.warned) return 'There is no raid on the road to pay off.';
+    if (r.crusade) return 'The crusade takes no tribute.';
     const { food, candles } = tributeOf(s);
     if (s.res.food + EPS < food || s.res.candles + EPS < candles) return `They want ${food} food and ${candles} candles to turn back.`;
     s.res.food -= food;
@@ -2664,6 +2773,7 @@ const ACTIONS = {
   barStores(s) {
     const r = s.raid;
     if (!s.tuning.raidFight || s.phase !== 'day' || !r || !r.warned || !(r.state === 'coming' || r.state === 'assault')) return 'There is no raid to bar the stores against.';
+    if (r.crusade) return 'The crusaders want the mirrors, not the stores.';
     if (r.barred) return 'The stores are already barred.';
     r.barred = true;
     say(s, `The stores ${r.state === 'assault' ? 'are' : 'will be'} barred: nobody works the Hearth, the Chandlery or the Glazier while the Host is at the gate, and raiders who break in will carry off half as much.`);
@@ -3040,6 +3150,7 @@ export function upgrade(g) {
   for (const t of [g.tuning, g.tuning0]) if (t && !('generations' in t)) t.generations = 0;
   for (const t of [g.tuning, g.tuning0]) if (t && !('yearHardness' in t)) t.yearHardness = 0;
   for (const t of [g.tuning, g.tuning0]) if (t && !('church' in t)) t.church = 0;
+  for (const t of [g.tuning, g.tuning0]) if (t && !('crusade' in t)) t.crusade = 0;
   for (const p of g.living || []) p.trait ??= traitFor(g, p.name);
   for (const b of g.bodies || []) if (b.was === undefined) b.was = b.from === 'raider' ? null : traitFor(g, b.name);
   for (const d of g.shades || []) {

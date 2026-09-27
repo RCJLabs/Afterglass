@@ -8,7 +8,7 @@ import {
   dayTicks, nightTicks, isNewMoon, choicesFor, byId, isTwinnedLiving, isTwinnedShade, lastSeason, SAVE_VERSION, fmt, mirrorCap, bareHalls, tainPlace,
   postRoom, wardCost, shadeTrait, peopleIn, beds, tradeOf, inGreatGlass, handsAt, whispers, stepsThrough, perf,
   seasonIndex, seasonName, yearOf, dayLength, isLongNight, tributeOf, besieged, sallyOdds, plagueSeason, atGate, gateGuard,
-  weatherOf, forecastOf, raining, foggy, drownedDue, keepDefaults, embargoed, inquisition, churchDaysLeft,
+  weatherOf, forecastOf, raining, foggy, drownedDue, keepDefaults, embargoed, inquisition, churchDaysLeft, crusadeDay, crusadeDaysLeft,
 } from './slice/sim.js';
 import { geo, feet, floorAtY, roomAt, typeAt, typeOf, roomSpan, roomsOf, lightMap, isLit, unitAt, DEEP_FLOOR, lineSpots as lineOf, guardLit, MAX_FLOORS } from './slice/geo.js';
 import { drawScene, drawMoment } from './slice/draw.js';
@@ -210,6 +210,7 @@ const kindTag = (k) => `<span class="kind k-${k}">${KINDS[k].name}</span>`;
 
 function shadeStatus(d, L) {
   if (d.deep) return `down in the Deep, ${DEPTH_NAMES[d.deep].toLowerCase()}, until dawn`;
+  if (d.hidden) return 'hidden away with its mirror until the crusade is over';
   if (!canWork(d)) return d.kind === 'wraith' ? 'hunts in the Tain at night' : `Restless, ${s.tuning.restlessNights - d.restless} ${s.tuning.restlessNights - d.restless === 1 ? 'night' : 'nights'} from Wraith`;
   const room = typeAt(K(), d.f, d.x) || postRoom(s, d);
   if (s.phase !== 'night') return `posted in the ${roomName(postRoom(s, d), true)}`;
@@ -362,6 +363,11 @@ function raidCard() {
   const T = s.tuning;
   const def = defense(s);
   if (r.state === 'paid') return `<div class="card"><h3>The raid</h3><p>You paid the Host ${r.paid.food} food and ${r.paid.candles} candles, and they turned back. The season's next raid comes ×${mult(T.raidEmbolden)} harder.</p></div>`;
+  if (r.crusade && (r.state === 'held' || r.state === 'breached')) {
+    const C = s.today.crusade;
+    const after = r.state === 'held' ? 'It turned for home, and the Lantern Church gave up: the embargo and the Inquisition are over.' : `They smashed ${C?.smashed ? plural(C.smashed, 'mirror') : 'no mirror: every one was hidden'}${C?.freed ? `, and ${plural(C.freed, 'shade')} went free` : ''}, and left the keep purged.`;
+    return `<div class="card ${r.state === 'held' ? 'ok' : 'warn'}"><h3>The crusade</h3><p>${r.state === 'held' ? 'The gate held' : 'The crusaders broke in'}: strength ${fmt(r.strength)} against defense ${fmt(s.today.raid?.defense ?? def)}. ${after}</p></div>`;
+  }
   if (r.state === 'held') return `<div class="card ok"><h3>The raid</h3><p>The gate held: strength ${fmt(r.strength)} against defense ${fmt(s.today.raid?.defense ?? def)}.</p></div>`;
   if (r.state === 'breached') {
     const k = r.loot;
@@ -376,11 +382,12 @@ function raidCard() {
   const short = def + 1e-9 < r.strength;
   const t = tributeOf(s);
   const canPay = s.res.food + 1e-9 >= t.food && s.res.candles + 1e-9 >= t.candles;
-  const fight = !T.raidFight ? '' : `<div class="row"><button class="btn sm" id="btn-payoff" data-act="payoff"${canPay ? '' : ' disabled'}>Pay them off: ${t.food} food, ${t.candles} candles</button>
+  const fight = r.crusade ? `<p class="note">The crusade takes no tribute and wants none of the stores: it's the mirrors it's after. At the gate you'll have pitch (${T.raidPitchCost} candles for −${fmt(T.raidPitch)}), stone to shore it up, and the bell.</p>`
+    : !T.raidFight ? '' : `<div class="row"><button class="btn sm" id="btn-payoff" data-act="payoff"${canPay ? '' : ' disabled'}>Pay them off: ${t.food} food, ${t.candles} candles</button>
       <button class="btn sm" id="btn-bar" data-act="bar-stores"${r.barred ? ' disabled' : ''}>${r.barred ? 'Stores barred' : 'Bar the stores'}</button></div>
     <p class="note">Paid, they turn back, but the season's next raid comes ×${mult(T.raidEmbolden)} harder. Barred, the Hearth, the Chandlery and the Glazier stop while the Host is at the gate, and a breach carries off half as much. At the gate you'll have pitch (${T.raidPitchCost} candles for −${fmt(T.raidPitch)}), stone to shore it up, and the bell.</p>`;
-  return `<div class="card ${short ? 'warn' : 'ok'}"><h3>${r.camp ? 'The camp comes at the gate' : 'Raiders on the road'}</h3>
-    <p>${r.count} raiders, strength <b class="num">${fmt(r.strength)}</b>, at the gate about ${hhmm(6 + (12 * r.hitAt) / dayTicks(s))}. Your defense: <b class="num" data-live="defense">${fmt(def)}</b>. ${short ? 'Not enough. Move people to the Barracks or ward the gate.' : 'Enough, if nothing changes.'}</p>
+  return `<div class="card ${short ? 'warn' : 'ok'}"><h3>${r.crusade ? 'The crusade on the road' : r.camp ? 'The camp comes at the gate' : 'Raiders on the road'}</h3>
+    <p>${r.count} ${r.crusade ? 'knights of the Lantern' : 'raiders'}, strength <b class="num">${fmt(r.strength)}</b>, at the gate about ${hhmm(6 + (12 * r.hitAt) / dayTicks(s))}. Your defense: <b class="num" data-live="defense">${fmt(def)}</b>. ${short ? 'Not enough. Move people to the Barracks or ward the gate.' : 'Enough, if nothing changes.'}</p>
     <div class="row"><button class="btn sm" id="btn-wardgate" data-act="wardgate"${r.ward || s.res.essence + 1e-9 < s.tuning.wardGateCost ? ' disabled' : ''}>${r.ward ? `Gate warded, +${r.ward}` : `Ward the gate: +${s.tuning.wardGateDefense} for ${s.tuning.wardGateCost} essence`}</button></div>${fight}</div>`;
 }
 const share = (x) => (x === 0.5 ? 'half' : `${mult(x)} times`);
@@ -416,19 +423,19 @@ function assaultText() {
   if (r?.state !== 'assault') return '';
   const def = defense(s);
   const giving = r.host > def + 1e-9;
-  return `The Host ${fmt(r.host)} against your defense ${fmt(def)}. The gate is ${Math.round(100 * Math.max(0, r.gate))}% whole and ${giving ? 'giving' : 'holding'}; they give up in ${Math.ceil(r.left / TICKS_PER_SEC)} s.`;
+  return `${r.crusade ? 'The crusade' : 'The Host'} ${fmt(r.host)} against your defense ${fmt(def)}. The gate is ${Math.round(100 * Math.max(0, r.gate))}% whole and ${giving ? 'giving' : 'holding'}; they give up in ${Math.ceil(r.left / TICKS_PER_SEC)} s.`;
 }
 function assaultCard(r) {
   const T = s.tuning;
   const hands = s.living.filter((p) => p.job !== 'barracks' && !p.fighting && !p.walls && !(p.sick > 0)).length;
-  return `<div class="card warn raid"><h3>The Host is at the gate</h3>
+  return `<div class="card warn raid"><h3>${r.crusade ? 'The crusade is at the gate' : 'The Host is at the gate'}</h3>
     <div class="gatebar"><span data-bar="gate"></span></div>
     <p data-live="assault">${esc(assaultText())}</p>
     <div class="row"><button class="btn sm primary" id="btn-pitch" data-act="pitch"${s.res.candles + 1e-9 < T.raidPitchCost ? ' disabled' : ''}>Pour pitch: −${fmt(T.raidPitch)} for ${T.raidPitchCost} candles</button>
       <button class="btn sm" id="btn-shore" data-act="shore"${(s.res.stone || 0) + 1e-9 < T.raidShoreCost || r.gate >= 1 - 1e-9 ? ' disabled' : ''}>Shore up the gate: ${T.raidShoreCost} stone</button>
       <button class="btn sm" id="btn-raidbell" data-act="raid-bell"${r.bell || !hands ? ' disabled' : ''}>${r.bell ? 'The bell has rung' : `Ring the bell: everyone to the walls (${hands})`}</button>
       ${r.ward ? '' : `<button class="btn sm" id="btn-wardgate" data-act="wardgate"${s.res.essence + 1e-9 < T.wardGateCost ? ' disabled' : ''}>Ward the gate: +${T.wardGateDefense} for ${T.wardGateCost} essence</button>`}</div>
-    <p class="note">Each second the Host is stronger than your defense, the gate gives. If it still stands when their time is up, they fall back. Candles poured are candles you won't have tonight; the bell stops all work, and whoever is on the walls can fall.</p></div>`;
+    <p class="note">Each second ${r.crusade ? 'the crusade' : 'the Host'} is stronger than your defense, the gate gives. If it still stands when their time is up, they fall back. Candles poured are candles you won't have tonight; the bell stops all work, and whoever is on the walls can fall.</p></div>`;
 }
 
 function inspectionCard() {
@@ -442,7 +449,7 @@ function inspectionCard() {
   }
   const done = s.inspections.filter((x) => x.season === s.season && x.day === s.day).pop();
   if (done) return `<div class="card ${done.verdict === 'blessed' ? 'ok' : 'warn'}"><h3>The Lantern Church</h3><p>The inspector's verdict: <b>${done.verdict}</b> (Dread ${done.dread}).</p></div>`;
-  if (s.phase === 'day' && s.day < T.firstInspection) return `<p class="note">The Lantern Church inspects on day ${T.firstInspection}. ${verdicts}</p>`;
+  if (s.phase === 'day' && s.day < T.firstInspection && !crusadeDay(s)) return `<p class="note">The Lantern Church inspects on day ${T.firstInspection}. ${verdicts}</p>`;
   return '';
 }
 
@@ -450,6 +457,25 @@ function inspectionCard() {
 function churchCard() {
   const T = s.tuning;
   const more = (n) => (n === 0 ? 'through today' : `today and ${plural(n, 'more day')}`);
+  if (crusadeDay(s)) {
+    const C = s.church;
+    const n = crusadeDaysLeft(s);
+    const when = n === 0 ? 'today, a little after noon' : n === 1 ? 'tomorrow, a little after noon' : `a little after noon in ${n} days`;
+    const day = s.phase === 'day';
+    const rows = s.mirrors
+      .map((m) => {
+        const ds = s.shades.filter((d) => d.mirror === m.id);
+        const btn = m.hidden
+          ? `<button class="btn sm" id="hide-${m.id}-0" data-act="hide" data-id="${m.id}">Bring it out</button>`
+          : `<button class="btn sm" id="hide-${m.id}-1" data-act="hide" data-id="${m.id}" data-on="1"${n > 0 ? '' : ' disabled'}>Hide it</button>`;
+        return `<li><span>The ${esc(m.name)}: ${ds.length ? esc(listOf(ds.map((d) => d.name))) : 'empty'}${m.hidden ? ', hidden' : ''}</span>${day ? btn : ''}</li>`;
+      })
+      .join('');
+    return `<div class="card warn church"><h3>The crusade</h3><p>The Lantern Church has proclaimed a crusade against the keep: ${Math.max(2, Math.round(C.strength / 2))} knights of the Lantern, strength <b class="num">${fmt(C.strength)}</b>, at the gate ${when}. It takes no tribute. Held at the gate, it turns for home and the Church gives up. Broken in, the crusaders smash every mirror they can find, and the shades in them go free.</p>
+      ${n > 0 ? '<p>Until then the inquisitor inspects each noon, and the embargo stands. A blessing, at Dread 0 or 1, calls the crusade off.</p>' : ''}
+      <p class="note">${n > 0 ? "A mirror hidden before the day it comes can't be found, by the crusaders or the inquisitor, but its shades sit out every day and night until the crusade is over." : 'Too late to hide anything now: the crusaders are on the road.'}</p>
+      ${rows ? `<ul class="facts hides">${rows}</ul>` : ''}</div>`;
+  }
   if (inquisition(s)) {
     return `<div class="card warn church"><h3>The Inquisition</h3><p>An inquisitor inspects the keep every day at noon, ${more(churchDaysLeft(s, 'inquisition'))}, and the silver embargo stands with it: the Glazier makes no glass, and no mirror can be built. A blessing, at Dread 0 or 1, sends the inquisitor away at once. A censure takes another mirror and starts its days over.</p></div>`;
   }
@@ -496,7 +522,7 @@ function mirrorsHTML({ upgrades = true } = {}) {
     .map((m) => {
       const ds = s.shades.filter((d) => d.mirror === m.id);
       const slots = Array.from({ length: mirrorCap(m) }, (_, i) => (ds[i] ? `<span class="slot full">${esc(ds[i].name)}</span>` : '<span class="slot">empty</span>')).join('');
-      return `<div class="mirror"><span class="mname">${esc(m.name)}</span><div class="slots">${slots}</div>${upgrades ? upgradeHTML(m) : ''}${ds.length ? breakHTML(m) : ''}</div>`;
+      return `<div class="mirror"><span class="mname">${esc(m.name)}${m.hidden ? ' <small class="muted">hidden</small>' : ''}</span><div class="slots">${slots}</div>${upgrades ? upgradeHTML(m) : ''}${ds.length ? breakHTML(m) : ''}</div>`;
     })
     .join('')}</div>${upgrades && s.tuning.deep ? `<p class="note">Quicksilver: ${floor1(s.res.quicksilver || 0)}. Shades bring it back from the Deep, sent down at dusk; it upgrades a mirror where it hangs, its shades and all.</p>` : ''}`;
 }
@@ -991,6 +1017,7 @@ function dawnPanel() {
     <div class="rite-list">${s.shades.map(riteRow).join('') || '<p class="empty">The glass is empty.</p>'}</div>
     <div class="preview">
       <p>Dread <b class="big">${D.from} → ${D.to}</b> <small class="muted">(${parts})</small></p>
+      ${P.crusade ? '<p class="note bad">The crusade comes to the gate a little after noon, fought as a raid. Broken in, it smashes every mirror it can find.</p>' : ''}
       ${P.inquisition ? '<p class="note bad">The inquisitor inspects again at noon. A Dread of 4 or 5 is censured, and another mirror taken; 0 or 1 sends the inquisitor away.</p>' : P.inspector ? '<p class="note bad">At 5 the Lantern Church sends an inspector today. At noon a Dread of 4 or 5 is censured.</p>' : warn ? '<p class="note">The Lantern Church inspects soon. A Dread of 0 or 1 at noon is blessed.</p>' : ''}
       <div class="vigil"><span>Vigils at dawn, ${T.vigilCost} remembrance each:</span><button class="btn sm" id="vig-dn" data-act="vigils" data-n="${s.rite.vigils - 1}"${s.rite.vigils <= 0 ? ' disabled' : ''} aria-label="One fewer vigil">−</button><b>${s.rite.vigils}</b><button class="btn sm" id="vig-up" data-act="vigils" data-n="${s.rite.vigils + 1}" aria-label="One more vigil">+</button><small class="muted">remembrance ${floor1(s.res.remembrance)}</small></div>
       ${badLuckNote()}
@@ -1232,7 +1259,7 @@ function daysTab() {
     .reverse()
     .map((d) => {
       const n = d.night || {};
-      return `<tr><td class="num">${d.season}.${d.day}</td><td class="num">${d.deaths.length}</td><td>${d.raid ? (d.raid.held ? 'held' : 'breached') : '—'}</td><td>${d.inspection ? d.inspection.verdict : '—'}</td>
+      return `<tr><td class="num">${d.season}.${d.day}</td><td class="num">${d.deaths.length}</td><td>${d.raid ? `${d.raid.crusade ? 'crusade ' : ''}${d.raid.held ? 'held' : 'breached'}` : '—'}</td><td>${d.inspection ? d.inspection.verdict : '—'}</td>
         <td class="num">${n.spawned ?? '—'}</td><td class="num">${n.crossed ?? '—'}</td><td class="num">${n.grabbed ?? '—'}</td><td>${n.lost?.length ? esc(n.lost.join(', ')) : '—'}</td><td>${n.hollow || '—'}</td><td class="num">${d.dread ?? '—'}</td></tr>`;
     })
     .join('');
@@ -1342,6 +1369,9 @@ const TUNE = [
   ['embargoDays', "Days the Church's silver embargo lasts"],
   ['inquisitionDays', 'Days the Inquisition inspects the keep every noon, unless a blessing sends it away sooner'],
   ['donation', 'Remembrance a donation to lift the embargo takes'],
+  ['crusade', 'The crusade: censured under the Inquisition, the keep faces a crusade at the gate (1 on, 0 off)'],
+  ['crusadeDays', 'Days from the crusade being proclaimed to its coming'],
+  ['crusadeBase', "The crusade's strength, as a raid's base (harder each season)"],
 ];
 const KEYS = [
   ['Space', 'play or pause'], ['1, 2, 4', 'speed'], ['C, M, W, H', 'candle, move, ward, hush (at night)'], ['V', 'turn the Tain upright'],
@@ -2330,6 +2360,11 @@ const GUIDE = [
     text: () => `The censure brought the Church's silver embargo: for ${s.tuning.embargoDays} days the Glazier makes no glass and no mirror can be built. A blessing lifts it, or a donation of ${s.tuning.donation} remembrance in the Day panel. Censured again while it stands, the keep is given to the Inquisition, which inspects every day.`,
   },
   {
+    id: 'crusade', target: '#open-phase', pause: true,
+    when: () => s.phase === 'day' && crusadeDaysLeft(s) > 0,
+    text: () => `The Lantern Church has proclaimed a crusade: it comes to the gate ${crusadeDaysLeft(s) === 1 ? 'tomorrow' : `in ${crusadeDaysLeft(s)} days`}, and if it breaks in it smashes every mirror it can find. A blessing before then calls it off, so bring Dread down. The Day panel can hide mirrors from it, at the cost of their shades until it's over.`,
+  },
+  {
     id: 'maw', target: '#tool-move', pause: true,
     when: () => first() && s.phase === 'night' && s.night.foes.some((f) => f.type === 'maw'),
     text: 'A Maw. It goes for whatever is worth most for the least fight: the candle holding the stairs, or a room where people work. It counts every fighter on its way, so a thick line only sends it elsewhere. Watch where it heads, and send a fighter there with a candle. A room it stands in for 12 seconds breaks, and costs Dread at dawn.',
@@ -3124,6 +3159,7 @@ function onAct(name, el) {
     case 'request': return game({ type: 'request', id: el.dataset.id, grant: !!el.dataset.grant });
     case 'sally': return game({ type: 'sally' });
     case 'donate': return game({ type: 'donate' });
+    case 'hide': return game({ type: 'hide', id: el.dataset.id, on: !!el.dataset.on });
     case 'vigil': return game({ type: 'vigil' });
     case 'build': return game({ type: 'build', mirror: el.dataset.mirror });
     case 'descend': return game({ type: 'descend', id: el.dataset.id, depth: Number(el.dataset.depth) });

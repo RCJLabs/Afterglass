@@ -348,6 +348,16 @@ export const TUNING = {
   embargoDays: 5,
   inquisitionDays: 3,
   donation: 6,
+  // The crusade, round three's last step. Censured while the Inquisition stands, the keep is given up to a
+  // crusade that comes to the gate at noon crusadeDays later, at strength crusadeBase (a raid's base, so harder
+  // each season), and is fought as a raid, though it takes no tribute and wants none of the stores. The
+  // inquisitor inspects each noon until then, and a blessing calls it off. Held at the gate, the Church gives
+  // up: the embargo and the Inquisition end. Broken in, the crusaders smash every mirror they can find and the
+  // shades in them go free. A mirror hidden before the day it comes can't be found, but its shades sit out
+  // every day and night until the crusade is over. crusade 0 is the Inquisition starting its days over.
+  crusade: 1,
+  crusadeDays: 2,
+  crusadeBase: 13,
 };
 
 export const SEASONS = ['spring', 'summer', 'autumn', 'winter'];
@@ -363,8 +373,8 @@ export const PRESETS = {
   standard: { name: 'Standard', text: 'The rules as they ship, and as the README measures them.', tuning: {} },
   hard: {
     name: 'Hard',
-    text: 'Four cracks break the Veil. More Creepers, stronger raids, fewer candles to start, and each season harder by more.',
-    tuning: { cracksMax: 4, creepersPerNight: 2.6, raidFightStrength: 1.15, startCandles: 6, hardness: 1.3, yearHardness: 1.45 },
+    text: 'Four cracks break the Veil. More Creepers, stronger raids and fewer candles to start: harder from the first night, and growing from there as Standard does.',
+    tuning: { cracksMax: 4, creepersPerNight: 2.6, raidFightStrength: 1.15, startCandles: 6, hardness: 1.2, yearHardness: 1.3 },
   },
 };
 

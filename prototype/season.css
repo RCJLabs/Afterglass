@@ -386,3 +386,6 @@ label.btn { display: inline-flex; align-items: center; }
 /* The gate while the Host is at it. */
 .raid .gatebar { height: 10px; border-radius: 5px; background: var(--bad-tint); overflow: hidden; margin: 4px 0 8px; box-shadow: inset 0 0 0 1px var(--line); }
 .raid .gatebar span { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #8a6a4a, #c9a27a); }
+
+/* The crusade: each mirror, who's in it, and hiding it. */
+.facts.hides li { align-items: center; }

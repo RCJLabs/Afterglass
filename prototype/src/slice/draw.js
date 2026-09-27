@@ -590,23 +590,25 @@ function dayActors(c, s, t, dusk = 0) {
       pose: walking ? 'walk' : 'stand', face: Math.cos(t * 0.4) >= 0 ? 1 : -1, ph: 9,
     }, t);
   }
-  // A raid on the way: war banners on the turrets, and the Host's torches coming over the eastern hills.
+  // A raid on the way: war banners on the turrets, and the Host's torches coming over the eastern hills. A
+  // crusade comes in the Lantern Church's white and gold, carrying lanterns.
   const r = s.raid;
+  const look = r?.crusade ? CRUSADE : HOST;
   if (r && r.warned && r.state === 'coming') {
     const k = Math.max(0, Math.min(1, (s.t - r.warnAt) / Math.max(1, r.hitAt - r.warnAt)));
     // War banners over the turrets: the one warning you can see from anywhere.
     for (const x of [4, 108]) {
       const wave = MF(t * 4 + x) % 2;
       R(c, x, roofY() - 8, 1, 11, P.brown);
-      R(c, x + 1, roofY() - 8, 5, 2, P.red);
-      R(c, x + 1, roofY() - 6, 4 + wave, 2, P.red);
-      D(c, x + 5 + wave, roofY() - 6, P.orange);
+      R(c, x + 1, roofY() - 8, 5, 2, look.flag);
+      R(c, x + 1, roofY() - 6, 4 + wave, 2, look.flag);
+      D(c, x + 5 + wave, roofY() - 6, look.edge);
     }
     for (let i = 0; i < Math.min(10, r.count); i++) {
       const x = Math.round(W + 4 + (1 - k) * 36 + i * 6);
       const y = ridgeTop(x, RIDGES.near) - 1;
-      human(c, x - 1, y + 1, { body: P.crimson, helm: P.slate, h: 6, walk: 3, ph: i }, t);
-      D(c, x + 3, y - 6, (MF(t * 6) + i) % 2 ? P.orange : P.yellow);
+      human(c, x - 1, y + 1, { body: look.body, helm: look.helm, h: 6, walk: 3, ph: i }, t);
+      D(c, x + 3, y - 6, (MF(t * 6) + i) % 2 ? look.fire[0] : look.fire[1]);
     }
   }
   if (r && r.state === 'assault') assaultArt(c, s, r, t);
@@ -635,17 +637,21 @@ function campArt(c, t) {
   R(c, W + 16, fy - 12, 4, 2, P.red);
 }
 
+// The Host's colours, and a crusade's: banner, its edge, tabard, helm, and the flames they carry.
+const HOST = { flag: P.red, edge: P.orange, body: P.crimson, helm: P.slate, fire: [P.orange, P.yellow] };
+const CRUSADE = { flag: P.white, edge: P.amber, body: P.bone, helm: P.amber, fire: [P.yellow, P.white] };
 // The Host at the gate: raiders massed on the east shore under their banners, a ram swung at the wall, cracks
 // as the gate gives, and burning pitch poured on them from the battlements.
 const CRACKS = [[0, 3], [1, 4], [0, 5], [1, 6], [2, 6], [0, 8], [1, 9], [2, 10], [1, 11], [0, 12]];
 function assaultArt(c, s, r, t) {
   const gx = MAP.RIGHT - 1;
   const base = MAP.VEIL - 2;
+  const look = r.crusade ? CRUSADE : HOST;
   for (const x of [4, 108]) {
     const wave = MF(t * 4 + x) % 2;
     R(c, x, roofY() - 8, 1, 11, P.brown);
-    R(c, x + 1, roofY() - 8, 5, 2, P.red);
-    R(c, x + 1, roofY() - 6, 4 + wave, 2, P.red);
+    R(c, x + 1, roofY() - 8, 5, 2, look.flag);
+    R(c, x + 1, roofY() - 6, 4 + wave, 2, look.flag);
   }
   // A mob pressed against the east wall, close enough to show even on a phone.
   const n = Math.min(9, r.count);
@@ -653,8 +659,8 @@ function assaultArt(c, s, r, t) {
   for (let i = 0; i < n; i++) {
     const x = Math.round(MAP.RIGHT + 4 + i * 3 + Math.sin(t * 3 + i) * 1);
     const y = ground(x);
-    human(c, x - 1, y + 1, { body: P.crimson, helm: P.slate, h: 6, walk: 2, ph: i }, t);
-    if (i % 2) D(c, x + 3, y - 6, (MF(t * 6) + i) % 2 ? P.orange : P.yellow);
+    human(c, x - 1, y + 1, { body: look.body, helm: look.helm, h: 6, walk: 2, ph: i }, t);
+    if (i % 2) D(c, x + 3, y - 6, (MF(t * 6) + i) % 2 ? look.fire[0] : look.fire[1]);
   }
   // The ram: back, then into the wall.
   const swing = (t * 1.2) % 1 < 0.75 ? 3 : 0;

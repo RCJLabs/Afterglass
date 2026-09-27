@@ -51,6 +51,7 @@ export function epitaph(e, { traits = false } = {}) {
   const end = {
     covered: `Released when their mirror was covered${at}.`,
     freed: `Freed when their mirror was broken${at}.`,
+    purged: `Freed when the Lantern Church's crusaders smashed their mirror${at}.`,
     sealed: `Went free when the Veil was sealed${at}.`,
     released: `Released from the edge of the Deep${at}.`,
     faded: `Faded to nothing in the glass${at}.`,
@@ -67,5 +68,5 @@ export function epitaph(e, { traits = false } = {}) {
   }
   return out.join(' ');
 }
-export const RESTING = ['funeral', 'covered', 'released', 'freed', 'sealed'];
+export const RESTING = ['funeral', 'covered', 'released', 'freed', 'sealed', 'purged'];
 export const LOST = ['faded', 'drained', 'drowned', 'deep', 'banished', 'taken'];
