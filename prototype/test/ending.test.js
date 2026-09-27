@@ -5,17 +5,20 @@ import { runSeasonAuto } from '../src/slice/autopilot.js';
 import { recapOf } from '../src/slice/recap.js';
 import { epitaph } from '../src/slice/book.js';
 
-// A keep the autopilot brings through a whole year (seed 4 does), at the year's end.
-const yearDone = (() => {
-  const s = runSeasonAuto(4, { seasons: 4 });
-  return () => JSON.parse(JSON.stringify(s));
+// A keep the autopilot brings through a whole year, at the year's end: the first seed that does, from 4.
+const [yearSeed, yearDone] = (() => {
+  for (let seed = 4; seed < 40; seed++) {
+    const s = runSeasonAuto(seed, { seasons: 4 });
+    if (yearsEnd(s)) return [seed, () => JSON.parse(JSON.stringify(s))];
+  }
+  throw new Error('no seed from 4 to 39 came through a whole year');
 })();
 
 test("the year's end comes after the Long Night only; the endings wait for it", () => {
   const s = yearDone();
   assert.ok(yearsEnd(s));
   assert.equal(seasonIndex(s), 3);
-  const spring = runSeasonAuto(4, { seasons: 1 });
+  const spring = runSeasonAuto(yearSeed, { seasons: 1 });
   assert.equal(spring.phase, 'end');
   assert.ok(!yearsEnd(spring));
   assert.match(act(spring, { type: 'sealVeil' }).error, /only when a year ends/);

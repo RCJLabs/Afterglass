@@ -8,9 +8,10 @@ const ok = (s, a) => {
   const r = act(s, a);
   assert.ok(r.ok, `${a.type}: ${r.error}`);
 };
-// A keep played by the autopilot to the start of the given season and day.
+// A keep played by the autopilot to the start of the given season and day (without omens, whose nights would
+// change which keeps get that far).
 function reach(seed, season, day, tuning = {}) {
-  const s = newSeason(seed, tuning);
+  const s = newSeason(seed, { omens: 0, ...tuning });
   for (let i = 0; i < 2e6 && !(s.season === season && s.day === day && s.phase === 'day') && s.phase !== 'over'; i++) {
     if (s.phase === 'end') ok(s, { type: 'nextSeason' });
     else autoStep(s);

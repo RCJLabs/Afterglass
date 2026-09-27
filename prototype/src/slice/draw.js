@@ -1052,9 +1052,18 @@ function composeTain(s, t, opts = {}) {
   }
   for (const g of every('forge')) flame(c, g.x0 + 8, feet(g.f) - 3, t, 6, [P.cyan, '#9fe6ff', P.blue]);
   for (const wk of every('chandlery')) for (let i = 0; i < 3; i++) flame(c, wk.x0 + 3 + i * 4, G.floors[wk.f].y + 9 + Math.round(Math.sin(t * 2 + i)), t, i, [P.cyan, '#9fe6ff', P.blue]);
+  // Omens (round six): a sealed rift is slabbed over and dark; under a blood moon the rifts burn brighter.
+  const omen = n?.omen || null;
   for (const rf of MAP.rifts) {
+    const y = feet(G.deep);
+    if (omen?.id === 'sealed' && omen.rift !== rf.id) {
+      R(c, rf.x - 4, y - 3, 9, 3, '#4a4458');
+      R(c, rf.x - 4, y - 3, 9, 1, '#6c6680');
+      D(c, rf.x, y - 2, '#9a93b0');
+      continue;
+    }
     const pulse = 0.25 + 0.2 * Math.sin(t * 2 + rf.x);
-    glow(c, rf.x, feet(G.deep) - 2, 5, P.hot, pulse);
+    glow(c, rf.x, y - 2, omen?.id === 'blood' ? 7 : 5, P.hot, omen?.id === 'blood' ? pulse + 0.15 : pulse);
   }
   if (skyOf(s) === 'rain' && n) moatWater(c, s, t);
   // A shade gone down into the Deep: a thread of silver glinting at the mouth of a rift until dawn.

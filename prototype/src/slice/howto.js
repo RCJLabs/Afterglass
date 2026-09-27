@@ -1,8 +1,8 @@
 // How to play: every lesson of the tutorial and the guide, as a short manual the Menu keeps. Its numbers come
 // from the keep's own rules, so it stays true when they're changed in Settings. Pure.
 
-import { DAY_ROOMS, TWINS, KINDS, MIRRORS, TRAITS, SHADE_TRAITS } from './data.js';
-import { actText } from './sim.js';
+import { DAY_ROOMS, TWINS, KINDS, MIRRORS, TRAITS, SHADE_TRAITS, OMENS } from './data.js';
+import { actText, omenText } from './sim.js';
 
 const n1 = (x) => (Math.abs(x - Math.round(x)) < 0.05 ? String(Math.round(x)) : x.toFixed(1));
 const times = (x) => (x === 2 ? 'twice' : `${n1(x)} times`);
@@ -117,6 +117,8 @@ export function howTo(T) {
         'A Wraith is one of your own dead gone wrong. It hunts inside the Tain every night until it is banished.',
         ...(T.lanterns ? [`A shade can carry a lantern, for a candle from the store: its own light for ${n1(T.lanternWax)} seconds, wherever it goes, so the Unlit can't catch it while it burns. Asked again, it sets the lantern down where it stands, as a candle. Pick the shade and press Lantern on the bar, or T.`] : []),
         ...(T.errands ? [`From night ${T.errandFrom}, one or two things turn up in the dark rooms below the line each night, and the black mirror shows them at dusk: an echo, a memory come loose (+${n1(T.echoMemory)} memory to the shade that reaches it), or a relic (${n1(T.relicGlass)} glass). From night ${T.sleepFrom}, some nights one of the living sleepwalks into the Tain at some hour and makes for the Deep. A shade that reaches them walks them back to bed, and light wakes them: a candle where they are, or in their way. The Unlit that catch them in the dark hold them; light them or reach them within ${n1(T.sleepHold)} seconds, or they die in their sleep and wake Pale, as they do if they reach a rift.`] : []),
+        ...(T.omens ? [`From night ${T.omenFrom}, about ${pct(T.omenChance)} of nights (never the new moon) have an omen, shown at dusk, and it changes the night's shape. On some dusks the black mirror shows two, and you choose one before the night begins (unchosen, the first comes). ${Object.keys(OMENS).map((id) => `${OMENS[id].name}: ${id === 'sealed' ? 'one rift is sealed, and every Creeper and Maw comes up the other' : omenText(T, { id })}.`).join(' ')}`] : []),
+        'The tide clock under the top bar marks the night: each tide (red), each Maw (orange, taller), the Hollow (violet, taller), each of the Drowned (blue), a sleepwalker\'s hour (pale) and dawn (gold). Skip, or N, runs the clock fast to just before the next mark, and stops the moment anything calls out.',
         ...(T.acts ? [`Each shade has one act a night, paid in its memory, and memory is its strength (half the price for the named). A Loyal one Stands: ${actText(T, 'stand')} (${T.actCost.stand} memory). A Serene one Kindles: it ${actText(T, 'kindle')} (${T.actCost.kindle}). A Pale one Passes unseen: ${actText(T, 'pass')} (${T.actCost.pass}). A Stranger Lures: ${actText(T, 'lure')} (${T.actCost.lure}). Pick the shade, and its act is on the bar, or press A.`] : []),
         'With a keyboard, from dusk to dawn: the arrows move a cursor over the Tain, and Enter does there what a tap would with the tool in hand (C for candles, M to move, W to ward). [ and ] pick the shades in turn. Shift and the arrows pan; Esc puts the cursor away.',
       ],

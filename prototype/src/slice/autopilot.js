@@ -28,6 +28,9 @@ const ACTSONLY = globalThis.process?.env?.AP_ACTSONLY?.split(',') || null;
 const NOERRANDS = !!globalThis.process?.env?.AP_NOERRANDS;
 const LANTERNS = !!globalThis.process?.env?.AP_LANTERNS;
 const NOFREESLEEPER = !!globalThis.process?.env?.AP_NOFREESLEEPER; // no candle to wake a sleepwalker
+// AP_OMENPICK=first takes the first of two omens, =worst the one that costs most (to measure what choosing is
+// worth).
+const OMENPICK = globalThis.process?.env?.AP_OMENPICK || null;
 // Traits, as a player reads them. AP_BLIND=1 plays as if nobody had one (to measure what they're worth).
 const BLIND = !!globalThis.process?.env?.AP_BLIND;
 // AP_BELOW=1 also works the rooms below the line on the Choir's side of the keep, leaving the other side dark
@@ -496,6 +499,21 @@ function errandMoves(s, plan) {
   }
 }
 
+// Of two omens, the one that costs this plan least, by what each cost it on every night over the whole year
+// (problem 35): cheapest first. Double, which never moves anyone, feels the gnawing of still air and a second
+// Maw more.
+const OMEN_COST = {
+  double: ['sealed', 'thin', 'restless', 'blood', 'still', 'hunt'],
+  other: ['thin', 'still', 'restless', 'blood', 'sealed', 'hunt'],
+};
+function pickOmen(s, plan) {
+  const [a, b] = s.night.omens;
+  if (OMENPICK === 'first') return 0;
+  const order = OMEN_COST[plan === 'double' ? 'double' : 'other'];
+  const worse = order.indexOf(a.id) > order.indexOf(b.id) ? 0 : 1;
+  return OMENPICK === 'worst' ? worse : 1 - worse;
+}
+
 function tendNight(s, plan) {
   const n = s.night;
   const T = s.tuning;
@@ -663,6 +681,7 @@ export function autoStep(s, plan = 'balanced') {
       funerals(s, way);
       doAct(s, { type: 'wake' });
     }
+    if (plan !== 'idle' && s.night?.omens) doAct(s, { type: 'omen', i: pickOmen(s, plan) });
     if (plan !== 'idle') placeNight(s, plan);
     doAct(s, { type: 'startNight' });
   } else if (s.phase === 'night') {

@@ -389,3 +389,21 @@ label.btn { display: inline-flex; align-items: center; }
 
 /* The crusade: each mirror, who's in it, and hiding it. */
 .facts.hides li { align-items: center; }
+
+/* The tide clock (round six): the night from dusk to dawn, a mark for each tide, Maw, the Hollow, each of the
+   Drowned and a sleepwalker's hour. Marks differ in height as well as colour: tides full, Maws and the Hollow
+   taller, the rest short. */
+.tclock { position: relative; height: 8px; margin: 3px 0 1px; background: var(--box-2, #1a1622); border: 1px solid var(--line, #3a3446); border-radius: 3px; }
+.tclock .tfill { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: rgb(255 255 255 / 0.14); border-radius: 2px; }
+.tclock .mk { position: absolute; top: 0; bottom: 0; width: 3px; margin-left: -1px; border-radius: 1px; }
+.tclock .mk-tide { background: #e0524f; }
+.tclock .mk-maw { background: #f0a040; top: -3px; bottom: -3px; }
+.tclock .mk-hollow { background: #b98cff; top: -3px; bottom: -3px; width: 4px; }
+.tclock .mk-drowned { background: #6fb6ff; top: 3px; }
+.tclock .mk-sleeper { background: #e8e2d0; top: 3px; }
+.tclock .mk-dawn { background: #f2c14e; margin-left: -3px; }
+/* Tonight's omen at dusk, and the two to choose between. */
+.omen .k { font-weight: 700; }
+.omen-pick { display: grid; gap: 6px; margin-top: 6px; }
+.omen-btn { text-align: left; white-space: normal; line-height: 1.35; }
+.omen-btn[aria-pressed="true"] { outline: 2px solid #f2c14e; }

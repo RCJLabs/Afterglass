@@ -392,6 +392,20 @@ export const TUNING = {
   sleepChance: 0.2,
   sleepSpeed: 1.2,
   sleepHold: 8,
+  // Omens (round six): from night omenFrom, on omenChance of nights (not the tutorial's, the new moon's or the
+  // Long Night's), the black mirror shows an omen at dusk that changes the night's shape; on omenChoice of
+  // them it shows two, and the keeper picks one (unpicked, the first comes). What each does is omenText in
+  // sim.js; the numbers are these. omens 0 is none.
+  omens: 1,
+  omenFrom: 2,
+  omenChance: 0.5,
+  omenChoice: 0.4,
+  huntEssence: 3, // the Hunt: essence for each Maw cut down
+  bloodMore: 0.33, // a blood moon: this many more Creepers, as a share of the night's
+  bloodEssence: 1, // ... and essence for each one cut down
+  stillBurn: 0.75, // still air: candles burn at this rate
+  stillGnaw: 2, // ... and the Unlit gnaw them this many times as hard
+  thinChoir: 2, // a thin Veil: the Choir sings this many times as loud; the first tide seeps
 };
 
 export const SEASONS = ['spring', 'summer', 'autumn', 'winter'];
@@ -563,6 +577,16 @@ export const ACTS = {
   kindle: { kind: 'serene', name: 'Kindle' },
   pass: { kind: 'pale', name: 'Pass unseen' },
   lure: { kind: 'stranger', name: 'Lure' },
+};
+
+// The omens (TUNING.omens), by name; what each does is omenText in sim.js.
+export const OMENS = {
+  sealed: { name: 'A sealed rift' },
+  thin: { name: 'A thin Veil' },
+  hunt: { name: 'The Hunt' },
+  still: { name: 'Still air' },
+  blood: { name: 'A blood moon' },
+  restless: { name: 'A restless Deep' },
 };
 
 export const CAUSES = {

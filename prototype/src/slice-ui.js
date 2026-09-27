@@ -2,14 +2,14 @@
 // bar at the bottom, and everything else opens in a panel over the castle. Like the greyboxes it changes
 // the game only through act(), so every session replays from its seed and action log.
 
-import { TICKS_PER_SEC, DAY_ROOMS, WORK_ROOMS, TWINS, KINDS, MIRRORS, CAUSES, MAP, BOND_OTHER, TUNING, BUILDABLE, TRAITS, SHADE_TRAITS, SEASONS, TUTORIAL, REQUESTS, PRESETS, ACTS } from './slice/data.js';
+import { TICKS_PER_SEC, DAY_ROOMS, WORK_ROOMS, TWINS, KINDS, MIRRORS, CAUSES, MAP, BOND_OTHER, TUNING, BUILDABLE, TRAITS, SHADE_TRAITS, SEASONS, TUTORIAL, REQUESTS, PRESETS, ACTS, OMENS } from './slice/data.js';
 import {
   newSeason, step, act, retune, playerTuning, jobCap, jobCount, nextSlot, ritePreview, crossingPreview, capacity, canWork, defense, roomPower, bear, priests, funeralCap, eatRate,
   dayTicks, nightTicks, isNewMoon, choicesFor, byId, isTwinnedLiving, isTwinnedShade, lastSeason, SAVE_VERSION, fmt, mirrorCap, bareHalls, tainPlace,
   postRoom, wardCost, shadeTrait, peopleIn, beds, tradeOf, inGreatGlass, handsAt, whispers, stepsThrough, perf,
   seasonIndex, seasonName, yearOf, dayLength, isLongNight, tributeOf, besieged, sallyOdds, plagueSeason, atGate, gateGuard,
   weatherOf, forecastOf, raining, foggy, drownedDue, keepDefaults, embargoed, inquisition, churchDaysLeft, crusadeDay, crusadeDaysLeft,
-  actOf, actCost, canAct, acting, actText,
+  actOf, actCost, canAct, acting, actText, omenText, nextMark, SKIP_LEAD,
 } from './slice/sim.js';
 import { geo, feet, floorAtY, roomAt, typeAt, typeOf, roomSpan, roomsOf, lightMap, isLit, unitAt, DEEP_FLOOR, lineSpots as lineOf, guardLit, MAX_FLOORS } from './slice/geo.js';
 import { drawScene, drawMoment } from './slice/draw.js';
@@ -129,7 +129,7 @@ const K = () => geo(s);
 const roofTop = () => K().top - 24;
 const ui = {
   paused: true, rev: 0, tool: 'candle', selected: null, person: null, hover: null, toasts: [], toastRev: 0, confirmNew: false,
-  copied: '', showExport: false, rush: false, flash: 0, scale: 3, sheet: null, cross: null, open: {}, kb: null,
+  copied: '', showExport: false, rush: false, skip: null, flash: 0, scale: 3, sheet: null, cross: null, open: {}, kb: null,
 };
 const bump = () => {
   ui.rev++;
@@ -235,6 +235,29 @@ function shadeStatus(d, L) {
 
 /* ---------------------------------------------------------------- the HUD */
 
+// The tide clock (round six): the night from dusk to dawn, a mark for each tide, Maw, the Hollow, each of the
+// Drowned and a sleepwalker's hour, and the night so far filling it.
+const markTime = (m) => hhmm(18 + (12 * m.at) / nightTicks(s));
+function markText(m) {
+  const at = markTime(m);
+  return {
+    tide: () => `a tide of ${m.count} at ${at}`,
+    maw: () => `a Maw at ${at}`,
+    hollow: () => `the Hollow at ${at}`,
+    drowned: () => `one of the Drowned at ${at}`,
+    sleeper: () => `a sleepwalker at ${at}`,
+    dawn: () => 'dawn',
+  }[m.kind]();
+}
+function tideClock() {
+  const marks = s.phase === 'night' && s.night?.marks;
+  if (!marks) return '';
+  const N = nightTicks(s);
+  return `<div class="tclock" role="img" aria-label="Tonight: ${esc(listOf(marks.filter((m) => m.kind !== 'dawn').map(markText)))}, then dawn">
+    <i class="tfill" data-bar="clock"></i>${marks.map((m) => `<b class="mk mk-${m.kind}" style="left:${((100 * m.at) / N).toFixed(2)}%" title="${esc(upper(markText(m)))}"></b>`).join('')}
+  </div>`;
+}
+
 function hudHTML() {
   const T = s.tuning;
   const cap = capacity(s);
@@ -245,8 +268,10 @@ function hudHTML() {
     <div class="gctl">
       <button class="btn sm" id="btn-play" data-act="play"${running() ? '' : ' disabled'}>${go ? 'Pause' : 'Play'}</button>
       <div class="seg" role="group" aria-label="Speed">${[1, 2, 4].map((v) => `<button class="btn sm" id="speed-${v}" data-act="speed" data-v="${v}" aria-pressed="${prefs.speed === v}">${v}×</button>`).join('')}</div>
+      ${s.phase === 'night' ? `<button class="btn sm" id="btn-skip" data-act="skip" aria-pressed="${!!ui.skip}" title="Skip ahead to the next mark on the tide clock, unless something happens first (N)"${ui.skip || nextMark(s) ? '' : ' disabled'}>${ui.skip ? 'Skipping…' : 'Skip'}</button>` : ''}
     </div>
   </div>
+  ${tideClock()}
   <dl class="gres">
     ${res('food', 'Food', 'Food', floor1(s.res.food))}
     ${res('candles', 'Candles', 'Cand', floor1(s.res.candles))}
@@ -673,6 +698,16 @@ function tidesText() {
   return n.tides.map((t) => hhmm(18 + (12 * t) / N)).join(', ');
 }
 
+// Tonight's omen at dusk (round six): one, or two to choose between.
+function omenCard() {
+  const n = s.night;
+  if (!n?.omen && !n?.omens) return '';
+  const line = (o) => `<b>${esc(OMENS[o.id].name)}</b>: ${esc(omenText(s.tuning, o))}.`;
+  if (!n.omens) return `<div class="card omen"><p><span class="k">Tonight's omen.</span> ${line(n.omen)}</p></div>`;
+  return `<div class="card omen"><p><span class="k">The black mirror shows two omens.</span> Choose one before the night begins; until then you can change your mind, and if you don't choose, the first comes.</p>
+    <div class="omen-pick">${n.omens.map((o, i) => `<button class="btn omen-btn" id="omen-${i}" data-act="omen" data-i="${i}" aria-pressed="${n.omen?.id === o.id}">${line(o)}</button>`).join('')}</div></div>`;
+}
+
 function duskPlace() {
   const T = s.tuning;
   const n = s.night;
@@ -691,6 +726,7 @@ function duskPlace() {
     </ul>
     ${dark.length ? `<p class="note">${esc(listOf(dark.map((d) => d.name)))} ${dark.length === 1 ? 'stands' : 'stand'} in the dark, where Creepers catch and drain shades. A shade works only in light.</p>` : ''}
     ${wraiths.length ? `<p class="note bad">${esc(listOf(wraiths.map((d) => d.name)))} will rise as ${wraiths.length === 1 ? 'a Wraith' : 'Wraiths'} in the Waking Room. Cut ${wraiths.length === 1 ? 'it' : 'them'} down to banish for good.</p>` : ''}
+    ${omenCard()}
     ${drownedDusk()}
     ${moonNote()}
     ${deepCard()}
@@ -923,11 +959,19 @@ function nightPanel() {
       const by = n.foes.find((f) => f.id === d.grabbedBy);
       return `<p class="note bad">${esc(d.name)} is ${by?.type === 'drowned' ? 'being dragged to the moat by the Drowned' : 'caught'} in the ${esc(roomName(roomAt(K(), d.f, d.x) || 'crypt', true))}. Drop a candle on the spot or send a fighter${m ? `, or break the ${esc(m.name)} to free ${esc(d.name)} at once` : ''}.</p>${m ? breakHTML(m) : ''}`;
     }).join('')}
+    ${n.omen ? `<p class="note">Tonight's omen: ${esc(OMENS[n.omen.id].name)}: ${esc(omenText(s.tuning, n.omen))}.${n.stats.omenEssence ? ` It has paid ${fmt(n.stats.omenEssence)} essence so far.` : ''}</p>` : ''}
+    ${nextNote()}
     ${weeperNote()}
     ${drownedNote()}
     ${errandNote()}
     ${s.shades.some((d) => d.deep) ? `<p class="note">In the Deep until dawn: ${esc(listOf(s.shades.filter((d) => d.deep).map((d) => `${d.name} (${DEPTH_NAMES[d.deep].toLowerCase()})`)))}.</p>` : ''}
     ${n.hush ? '<p class="note">Hushed: no work, no fighting, and the Unlit pass the shades by.</p>' : ''}`;
+}
+// The next mark on the tide clock, and how to skip to it.
+function nextNote() {
+  const m = nextMark(s);
+  if (!m) return '';
+  return `<p class="note">Next on the clock: ${esc(markText(m))}.${m.kind === 'dawn' ? '' : ' Skip (N) runs to just before it, and stops if anything happens first.'}</p>`;
 }
 function drownedNote() {
   const d = s.night.foes.filter((f) => f.type === 'drowned');
@@ -962,6 +1006,7 @@ function nightReport() {
     ${r.broken?.length ? `<p class="note bad">The Maws broke the ${esc(listOf(r.broken.map((id) => roomName(id, true))))}. The living saw the dead walk there: Dread for each.</p>` : ''}
     <ul class="fadelist">${rows}</ul>
     ${r.nightmares ? `<p class="note bad">The Weepers gave ${plural(r.nightmares, 'nightmare')}.</p>` : ''}
+    ${r.omen ? `<p class="note">The omen was ${esc(OMENS[r.omen].name.replace(/^A /, 'a ').replace(/^The /, 'the '))}${r.omenEssence ? `: it paid ${fmt(r.omenEssence)} essence` : ''}.</p>` : ''}
     ${errandsAtDawn(r)}
     ${(r.deep || []).map((x) => `<p class="note${x.caught ? ' bad' : ''}">${esc(x.name)} ${x.caught ? `was caught in the Deep: −${fmt(x.lost)} memory, and nothing to show for it.` : `came back up from the Deep with ${x.silver} quicksilver.`}</p>`).join('')}
     ${r.lost.length ? `<p class="note bad">Lost: ${esc(listOf(r.lost))}.</p>` : ''}</div>`;
@@ -1429,12 +1474,17 @@ const TUNE = [
   ['relicGlass', 'Glass a relic brings'],
   ['sleepChance', 'Chance a night brings a sleepwalker, from night 3 (not the new moon)'],
   ['sleepHold', 'Seconds the Unlit hold a sleepwalker before they die'],
+  ['omens', 'Omens: a night of a different shape, shown at dusk (1 on, 0 off)'],
+  ['omenChance', 'Chance a night has an omen, from night 2 (not the new moon)'],
+  ['omenChoice', 'Chance an omen night offers two to choose between'],
+  ['huntEssence', 'Essence for each Maw cut down under the Hunt'],
+  ['bloodEssence', 'Essence for each Creeper cut down under a blood moon'],
 ];
 const KEYS = [
   ['Space', 'play or pause'], ['1, 2, 4', 'speed'], ['C, M, W, H', 'candle, move, ward, hush (at night)'], ['V', 'turn the Tain upright'],
   ['+ and −, 0', 'zoom, and fit the castle again'], ['Arrows', 'pan by day; from dusk, move the cursor on the Tain (Shift and the arrows pan)'],
   ['Enter', 'at the cursor: set a candle, pick or send a shade, or ward, by the tool'], ['[ and ]', 'pick the previous or next shade'],
-  ['A', "the picked shade's act, at night"], ['T', "the picked shade's lantern: light it, or set it down"],
+  ['A', "the picked shade's act, at night"], ['T', "the picked shade's lantern: light it, or set it down"], ['N', 'at night, skip to the next mark on the tide clock'],
   ['K, P, R, B', 'this phase, People, Records, Build'], ['L', 'room names'],
   ['S', 'sound on or off'], ['Esc', 'the Menu, or close a panel'],
 ];
@@ -2423,6 +2473,11 @@ const GUIDE = [
     text: () => `Something has turned up in the dark tonight: the black mirror in the Dusk panel says what and where. A shade that reaches it takes it${s.tuning.lanterns ? ', and a lantern (pick the shade, then T) lets it carry its own light there' : ''}. The Unlit hunt the dark, so choose who goes, and when. A sleepwalker is saved by a shade that reaches them, or by light.`,
   },
   {
+    id: 'omens', target: '#open-phase',
+    when: () => s.phase === 'dusk' && s.dusk?.step === 'place' && !!(s.night?.omen || s.night?.omens),
+    text: () => `Tonight has an omen: the Dusk panel says what it changes.${s.night?.omens ? ' The black mirror shows two tonight, so choose the one you would rather face before you begin.' : ''} At night the tide clock under the top bar marks what's coming, and Skip (N) runs to just before the next mark.`,
+  },
+  {
     id: 'acts', target: '#tool-move', pause: true,
     when: () => first() && s.phase === 'night' && s.day >= 2 && !!s.tuning.acts && s.shades.some((d) => canAct(s, d)),
     text: 'Each shade has one act a night, paid in its memory. A Loyal one Stands: its light can\'t be gnawed for a while, and it strikes twice as hard. A Serene one Kindles its candle, free. A Pale one Passes unseen, out of any grip. A Stranger Lures the Unlit to it. Pick a shade, and its act is on the bar (A).',
@@ -2760,6 +2815,7 @@ const STOPS = /has caught|The Hollow rises|Raiders on the road|The camp outside 
 const OPENS = /Raiders on the road|The camp outside stirs|has made camp|The Host is at the gate|The gate gave way|inspector|fallen sick|larder is empty|arrives at the gate|^Fire in the/;
 function takeAlerts(fromClock) {
   let stop = false;
+  if (ui.skip && s.alerts.length) endSkip(); // something happened: back to the clock's own pace
   for (const a of s.alerts.splice(0)) {
     toast(a.text, a.tone, OPENS.test(a.text) ? 'phase' : null);
     if (/slipped through the Veil|tore through the Veil/.test(a.text)) ui.flash = performance.now() + 600;
@@ -2862,6 +2918,23 @@ function moodNow() {
   return { bed, hollow: h ? h.f / Math.max(1, K().veil) : null, danger: Math.min(1, n.foes.length / 12 + (0.5 * s.cracks) / s.tuning.cracksMax) };
 }
 
+// Skip (round six): at SKIP_SPEED times the 1× clock to SKIP_LEAD before the next mark on the tide clock,
+// ending at once if anything calls out on the way.
+const SKIP_SPEED = 20;
+function skipAhead() {
+  if (ui.skip) return endSkip();
+  const m = nextMark(s);
+  if (!m) return toast('Nothing more on the clock before dawn.', 'bad');
+  ui.skip = { to: m.at - SKIP_LEAD, kind: m.kind };
+  ui.paused = false;
+  ui.rush = false;
+  bump();
+}
+function endSkip() {
+  ui.skip = null;
+  bump();
+}
+
 let lastNow = 0;
 let acc = 0;
 let seenPhase = s.phase;
@@ -2870,12 +2943,17 @@ function frame(now) {
   const dt = lastNow ? Math.min(0.25, (now - lastNow) / 1000) : 0;
   lastNow = now;
   if (!ui.paused && running()) {
-    acc += dt * prefs.speed * (ui.rush ? 10 : 1) * TICKS_PER_SEC;
+    acc += dt * (ui.skip ? SKIP_SPEED : prefs.speed * (ui.rush ? 10 : 1)) * TICKS_PER_SEC;
     let n = Math.floor(acc);
     acc -= n;
     while (n-- > 0 && running()) {
       const ph = s.phase;
       step(s);
+      if (ui.skip && s.t >= ui.skip.to) {
+        endSkip();
+        acc = 0;
+        break;
+      }
       if (takeAlerts(true) || s.phase !== ph) {
         acc = 0;
         break;
@@ -2897,6 +2975,7 @@ function frame(now) {
     seenPhase = s.phase;
     acc = 0;
     ui.rush = false;
+    ui.skip = null;
     onPhase();
     saveGame();
     bump();
@@ -2929,11 +3008,15 @@ function togglePlay() {
   if (!running()) return;
   ui.paused = !ui.paused;
   ui.resume = false; // played or paused by hand: closing the Menu leaves it so
-  if (ui.paused) ui.rush = false;
+  if (ui.paused) {
+    ui.rush = false;
+    ui.skip = null;
+  }
   bump();
 }
 function setSpeed(v) {
   prefs.speed = v;
+  ui.skip = null;
   savePrefs();
   bump();
 }
@@ -2959,7 +3042,7 @@ function playKeep(n, g, lead) {
   seenPhase = s.phase;
   seenPhaseWas = s.phase;
   acc = 0;
-  Object.assign(ui, { paused: true, resume: false, confirmNew: false, selected: null, person: null, hover: null, tool: 'candle', showExport: false, copied: '', rush: false, cross: null });
+  Object.assign(ui, { paused: true, resume: false, confirmNew: false, selected: null, person: null, hover: null, tool: 'candle', showExport: false, copied: '', rush: false, skip: null, cross: null });
   view.panX = 0;
   view.panY = 0;
   view.snap = true;
@@ -3229,6 +3312,8 @@ function onAct(name, el) {
     case 'donate': return game({ type: 'donate' });
     case 'shade-act': return game({ type: 'shadeAct', id: el.dataset.id });
     case 'lantern': return game({ type: 'lantern', id: el.dataset.id });
+    case 'omen': return game({ type: 'omen', i: Number(el.dataset.i) });
+    case 'skip': return skipAhead();
     case 'hide': return game({ type: 'hide', id: el.dataset.id, on: !!el.dataset.on });
     case 'vigil': return game({ type: 'vigil' });
     case 'build': return game({ type: 'build', mirror: el.dataset.mirror });
@@ -3460,7 +3545,7 @@ document.addEventListener('keydown', (e) => {
   } else if (k === 't' && placing() && s.tuning.lanterns) {
     if (ui.selected) game({ type: 'lantern', id: ui.selected });
     else toast('Pick a shade first: its lantern is on the bar.', 'bad');
-  }
+  } else if (k === 'n' && s.phase === 'night') skipAhead();
   else if (k === 'v') onAct('flip', { dataset: {} });
   else if (k === 'l') onAct('labels', { dataset: {} });
   else if (k === 's') onAct('sound', { dataset: {} });

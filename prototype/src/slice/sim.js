@@ -9,7 +9,7 @@
 import {
   TICKS_PER_SEC, TUNING, DAY_ROOMS, WORK_ROOMS, TWINS, MAP, KINDS, WORKING, CAUSES, GUIDE_UP,
   MIRRORS, START_MIRRORS, MIRROR_PLACES, CAST, BONDS, START_SHADES, BOND_OTHER, NAMES, RAIDER_NAMES, BUILDABLE, TRAITS, TRAIT_KEYS, SHADE_TRAITS, SEASONS,
-  TUTORIAL, REQUESTS, ACTS,
+  TUTORIAL, REQUESTS, ACTS, OMENS,
 } from './data.js';
 import {
   geo, FULL_KEEP, startKeep, lineSpots, MAX_FLOORS, roomsOf, roomAt, roomSpan, typeOf, typeAt, lightMap, isLit, spanAt, darkBetween, darkRooms, darkGaps, route, firstLight, fleePath, touching,
@@ -1172,13 +1172,108 @@ function newNight(s) {
     for (let i = 0; i < drownedCount(s); i++) spawns.push({ at: Math.round((0.08 + 0.8 * rand(s)) * N), type: 'drowned', seep: false, snuff: false, rift: end });
   }
   spawns.sort((a, b) => a.at - b.at);
-  return {
+  const night = {
     ...(T.errands && !tut ? { errands: rollErrands(s, N) } : {}),
     candles: [], foes: [], spawns, tides: tides.map((x) => Math.round(x * N)).sort((a, b) => a - b), wards: [], wardHold: {}, hush: false, steel: !!s.steel,
     broken: [], // twin rooms (ids) a Maw has broken tonight
     stats: { spawned: 0, killed: 0, crossed: 0, cracks: 0, grabbed: 0, drained: 0, essence: 0, glass: 0, wick: 0, guidance: 0, candles: 0, wards: 0, lost: [], hollow: null, taken: null, wraiths: 0, maws: 0, smashed: 0, broken: [], drowned: 0, under: 0, pulled: 0, deep: [] },
   };
+  // Tonight's omen, or two to choose between: the night as rolled is kept, so a choice can be changed at dusk.
+  const offered = T.omens && !tut && !long && !isNewMoon(s) && s.day >= T.omenFrom ? rollOmens(s, N, night) : [];
+  if (offered.length === 1) applyOmen(s, night, offered[0]);
+  else if (offered.length === 2) Object.assign(night, { omens: offered, base: { spawns: spawns.map((x) => ({ ...x })), tides: [...night.tides] } });
+  return night;
 }
+
+// Omens (round six) come from their own stream, from the seed and the night, like errands, so a seed brings
+// the same raids, sickness and Unlit whether omens are on or off. Everything an omen adds is rolled here, so
+// choosing between two needs nothing new from the stream.
+function rollOmens(s, N, n) {
+  const T = s.tuning;
+  let h = (2166136261 ^ s.seed) >>> 0;
+  for (const v of [s.season, s.day, 0x0e1]) h = Math.imul(h ^ v, 16777619);
+  const r = { rng: h >>> 0 };
+  if (!chance(r, T.omenChance)) return [];
+  const can = Object.keys(OMENS).filter((id) => (T.omenOnly ? id === T.omenOnly : true) && (id !== 'hunt' || s.day >= T.mawFrom));
+  if (!can.length) return [];
+  const ids = [pick(r, can)];
+  if (!T.omenOnly && can.length > 1 && chance(r, T.omenChoice)) ids.push(pick(r, can.filter((x) => x !== ids[0])));
+  const tides = n.tides.map((x) => x / N);
+  const creepers = n.spawns.filter((sp) => sp.type === 'creeper').length;
+  return ids.map((id) => {
+    const o = { id };
+    if (id === 'sealed') o.rift = pick(r, MAP.rifts).id; // the one left open
+    if (id === 'hunt') o.adds = [{ at: Math.round(clamp(Math.max(...tides) - 0.03, 0.02, 0.9) * N), type: 'maw', seep: false, snuff: false, rift: pick(r, MAP.rifts).id }];
+    if (id === 'blood') {
+      o.adds = Array.from({ length: Math.round(T.bloodMore * creepers) }, (_, i) => {
+        const at = chance(r, T.stragglers) ? 0.05 + 0.85 * rand(r) : tides[i % tides.length] + (rand(r) - 0.5) * T.tideSpread;
+        return { at: Math.round(clamp(at, 0.02, 0.92) * N), type: 'creeper', seep: s.day >= T.seepFrom && chance(r, T.seepShare), snuff: chance(r, T.snuffShare), rift: pick(r, MAP.rifts).id };
+      });
+    }
+    return o;
+  });
+}
+// An omen on the night as rolled: where the Unlit come up, which seep, more of them, or the tides split.
+function applyOmen(s, n, o) {
+  const T = s.tuning;
+  const N = nightTicks(s);
+  const w = (T.tideSpread * N) / 2 + 1;
+  if (n.base) {
+    n.spawns = n.base.spawns.map((x) => ({ ...x }));
+    n.tides = [...n.base.tides];
+  }
+  if (o.id === 'sealed') for (const sp of n.spawns) if (sp.type === 'creeper' || sp.type === 'maw') sp.rift = o.rift;
+  if (o.id === 'thin') for (const sp of n.spawns) if (sp.type === 'creeper' && Math.abs(sp.at - n.tides[0]) <= w) sp.seep = true;
+  if (o.adds) n.spawns.push(...o.adds.map((x) => ({ ...x })));
+  if (o.id === 'restless') {
+    // Every other Creeper of each tide comes halfway to the next one, or to the night's end.
+    const ends = [...n.tides.slice(1), Math.round(0.92 * N)];
+    const halves = n.tides.map((at, i) => Math.round((at + ends[i]) / 2));
+    n.tides.forEach((at, i) => n.spawns.filter((sp) => sp.type === 'creeper' && Math.abs(sp.at - at) <= w).forEach((sp, k) => k % 2 && (sp.at = Math.min(Math.round(0.92 * N), sp.at + halves[i] - at))));
+    n.tides = [...n.tides, ...halves].sort((a, b) => a - b);
+  }
+  n.spawns.sort((a, b) => a.at - b.at);
+  n.omen = o;
+}
+// What an omen does, in words, by this keep's numbers.
+export function omenText(T, o) {
+  const times = (x) => (x === 2 ? 'twice' : `${x} times`);
+  const side = (id) => (MAP.rifts.find((r) => r.id === id).x < MAP.W / 2 ? 'left' : 'right');
+  return {
+    sealed: () => `the ${side(o.rift) === 'left' ? 'right' : 'left'} rift is sealed: every Creeper and Maw comes up the ${side(o.rift)} one`,
+    thin: () => `the first tide seeps up in rooms with no candle, and the Choir sings ${times(T.thinChoir)} as loud`,
+    hunt: () => `one more Maw rises with the last tide, and each Maw cut down gives ${fmt(T.huntEssence)} essence`,
+    still: () => `candles burn ${T.stillBurn === 0.5 ? 'half' : T.stillBurn === 0.75 ? 'three quarters' : `${fmt(T.stillBurn)} times`} as fast, and the Unlit gnaw them ${times(T.stillGnaw)} as hard`,
+    blood: () => `${T.bloodMore === 0.5 ? 'half again as many' : Math.abs(T.bloodMore - 1 / 3) < 0.01 ? 'a third again as many' : `${Math.round(100 * T.bloodMore)}% more`} Creepers come, and each one cut down gives ${fmt(T.bloodEssence)} essence`,
+    restless: () => 'the tides come twice as often, each half as big',
+  }[o.id]();
+}
+// The night's marks, from its spawns as they stand when it begins: each tide from its first Creeper, with
+// how many come in it; each Maw, the Hollow and each of the Drowned; a sleepwalker's hour; and dawn.
+export function nightMarks(s) {
+  const n = s.night;
+  const T = s.tuning;
+  const N = nightTicks(s);
+  const w = (T.tideSpread * N) / 2 + 1;
+  const tides = n.tides.map((at) => ({ at, kind: 'tide', count: 0, from: at }));
+  const marks = [];
+  for (const sp of n.spawns) {
+    if (sp.type === 'creeper') {
+      const m = tides.find((x) => Math.abs(x.at - sp.at) <= w);
+      if (m) {
+        m.count++;
+        m.from = Math.min(m.from, sp.at);
+      }
+    } else if (sp.type === 'maw' || sp.type === 'hollow' || sp.type === 'drowned') marks.push({ at: sp.at, kind: sp.type });
+  }
+  for (const m of tides) if (m.count) marks.push({ at: m.from, kind: 'tide', count: m.count });
+  for (const e of n.errands || []) if (e.kind === 'sleeper') marks.push({ at: e.at, kind: 'sleeper' });
+  marks.push({ at: N, kind: 'dawn' });
+  return marks.sort((a, b) => a.at - b.at);
+}
+// The next mark worth skipping to: SKIP_LEAD before it, so there's time to see it come.
+export const SKIP_LEAD = 2 * TICKS_PER_SEC;
+export const nextMark = (s) => (s.phase === 'night' && s.night?.marks?.find((m) => m.at - SKIP_LEAD > s.t)) || null;
 
 // Errands (round six): what turns up in the dark rooms below the line tonight, from night errandFrom, and a
 // sleepwalker from night sleepFrom on some nights. Rolled with the night at dusk, so the black mirror shows
@@ -1228,9 +1323,14 @@ function startNight(s) {
     addFoe(s, 'wraith', f, x0 + 10 + i * 9, { shade: w.id, temper: 'snuff' });
     s.night.stats.wraiths++;
   }
+  const n = s.night;
+  if (n.omens && !n.omen) applyOmen(s, n, n.omens[0]);
+  delete n.base;
   const drowned = s.night.spawns.filter((x) => x.type === 'drowned').length;
   const under = drowned && s.night.wards.includes('moat');
   say(s, `Night ${s.day}${isLongNight(s) ? `: the Long Night. It lasts ${s.tuning.longNight === 2 ? 'twice' : `${fmt(s.tuning.longNight)} times`} as long as a winter night, and the Hollow, a Maw and more of the Unlit will come. At its end the year ends` : isNewMoon(s) ? ': the new moon. The Hollow will rise' : ''}. ${s.night.spawns.filter((x) => x.type === 'creeper').length} Creepers will come before dawn${drowned && !under ? `, and ${drowned === 1 ? 'one of the Drowned' : `${drowned} of the Drowned`} out of the moat` : ''}.`, 'night', isNewMoon(s));
+  if (n.omen) say(s, `The omen: ${OMENS[n.omen.id].name}. ${cap(omenText(s.tuning, n.omen))}.`, 'night');
+  n.marks = nightMarks(s);
   if (isLongNight(s)) cue(s, 'long-night');
   cue(s, 'night');
   if (s.night.stats.wraiths) say(s, `${listNames(s.shades.filter((d) => d.kind === 'wraith').map((d) => d.name))} ${s.night.stats.wraiths === 1 ? 'rises' : 'rise'} as a Wraith in the Waking Room.`, 'bad', true);
@@ -1291,7 +1391,8 @@ function nightTick(s) {
   L.stood = stood(s, L);
   spawnFoes(s, L);
   biggestTide(s);
-  for (const c of n.candles) c.wax -= DT;
+  const burn = n.omen?.id === 'still' ? T.stillBurn * DT : DT;
+  for (const c of n.candles) c.wax -= burn;
   for (const h of n.foes) {
     if (h.type !== 'hollow' || h.hp <= 0 || h.climb) continue;
     for (const c of n.candles) if (c.f === h.f && Math.abs(c.x - h.x) <= T.hollowReach && !L.stood.has(c.id)) c.wax -= T.hollowEat * DT;
@@ -1538,8 +1639,9 @@ function shadeTick(s, L, d) {
   if (T.lineGuard && job !== 'watch' && guardLit(geo(s), L, d.f, d.x)) return;
   const w = K.work * p * (isTwinnedShade(s, d) ? T.twinMult : 1) * (S?.work ?? 1) * DT;
   if (job === 'essence') {
-    gain(s, 'essence', T.essencePerSec * w * (S?.essence ?? 1));
-    n.stats.essence += T.essencePerSec * w * (S?.essence ?? 1);
+    const sung = T.essencePerSec * w * (S?.essence ?? 1) * (n.omen?.id === 'thin' ? T.thinChoir : 1);
+    gain(s, 'essence', sung);
+    n.stats.essence += sung;
     d.sang++;
   } else if (job === 'glass') {
     gain(s, 'glass', T.glassPerSec * w);
@@ -1617,7 +1719,7 @@ function foeTick(s, L, c) {
   if (c.mode === 'gnaw' && !c.path.length) {
     const k = byId(n.candles, c.gnaw);
     if (k && touching(geo(s), L, c, k.id)) {
-      if (!L.stood?.has(k.id)) k.wax -= T.gnawRate * (c.type === 'wraith' ? 2 : 1) * DT;
+      if (!L.stood?.has(k.id)) k.wax -= T.gnawRate * (c.type === 'wraith' ? 2 : 1) * (n.omen?.id === 'still' ? T.stillGnaw : 1) * DT;
       c.gnawing = true;
     } else c.replan = 0;
   }
@@ -1754,7 +1856,7 @@ function drownedTick(s, L, c) {
   if (c.mode === 'gnaw' && !c.path.length) {
     const k = byId(n.candles, c.gnaw);
     if (k && touching(geo(s), L, c, k.id)) {
-      k.wax -= T.gnawRate * T.drownedGnaw * DT;
+      k.wax -= T.gnawRate * T.drownedGnaw * (n.omen?.id === 'still' ? T.stillGnaw : 1) * DT;
       c.gnawing = true;
     } else c.replan = 0;
   }
@@ -2108,6 +2210,13 @@ function takeLiving(s, p) {
 function foeDown(s, f) {
   const n = s.night;
   n.stats.killed++;
+  // The Hunt pays for each Maw, a blood moon for each Creeper.
+  const bounty = n.omen?.id === 'hunt' && f.type === 'maw' ? s.tuning.huntEssence : n.omen?.id === 'blood' && f.type === 'creeper' ? s.tuning.bloodEssence : 0;
+  if (bounty) {
+    gain(s, 'essence', bounty);
+    n.stats.omenEssence = (n.stats.omenEssence || 0) + bounty;
+    if (f.type === 'maw') say(s, `A Maw is cut down, and the Hunt pays ${fmt(bounty)} essence.`, 'good');
+  }
   if (f.type === 'creeper' || f.type === 'maw' || f.type === 'weeper' || f.type === 'drowned') cue(s, f.type === 'maw' ? 'maw-down' : 'foe-down', f.f, f.x);
   const hero = f.lastHit && ledgerOf(s, f.lastHit);
   if (hero) hero.kills = (hero.kills || 0) + 1;
@@ -2269,7 +2378,7 @@ function endNight(s) {
     say(s, `Nightmares: ${bad}, in the ${where}. ${listNames(dreamers)} ${bad === 1 ? 'works' : 'work'} at ${Math.round(100 * T.nightmareMult)}% today.`, 'bad', true);
   }
   n.stats.nightmares = bad;
-  s.today.night = { ...n.stats, broken: [...n.broken], fading, withdrew, wick, guidance: g, watch: s.watchBonus, ...(n.errands ? { errands: n.errands.map(({ kind, name, by, done }) => ({ kind, name, by, done })) } : {}) };
+  s.today.night = { ...n.stats, broken: [...n.broken], fading, withdrew, wick, guidance: g, watch: s.watchBonus, ...(n.errands ? { errands: n.errands.map(({ kind, name, by, done }) => ({ kind, name, by, done })) } : {}), ...(n.omen ? { omen: n.omen.id } : {}) };
   const cracks = n.stats.cracks;
   review(s);
   s.night = null;
@@ -2802,6 +2911,18 @@ const ACTIONS = {
     const twin = moved.type === 'empty' ? '' : ` By night the ${TWINS[moved.type].name} is ${tainPlace(H, H.rooms[moved.id].f, true)}.`;
     say(s, `The masons swap ${named(a)} and ${named(b)}.${twin}`, 'good', true);
     cue(s, 'build');
+  },
+  // Choosing between tonight's two omens (round six), at dusk; until the night begins it can be changed.
+  omen(s, { i }) {
+    const n = s.night;
+    if (s.phase !== 'dusk' || !n?.omens) return 'There are no omens to choose between.';
+    const o = n.omens[i];
+    if (!o) return 'No such omen.';
+    if (n.omen === o) return undefined;
+    applyOmen(s, n, o);
+    say(s, `Tonight's omen, chosen: ${OMENS[o.id].name}.`, 'night');
+    cue(s, 'post');
+    return undefined;
   },
   // A lantern (round six): a candle from the store, carried by a shade; asked again, set down where it stands.
   lantern(s, { id }) {
@@ -3394,6 +3515,7 @@ export function upgrade(g) {
   for (const t of [g.tuning, g.tuning0]) if (t && !('acts' in t)) t.acts = 0;
   for (const t of [g.tuning, g.tuning0]) if (t && !('lanterns' in t)) t.lanterns = 0;
   for (const t of [g.tuning, g.tuning0]) if (t && !('errands' in t)) t.errands = 0;
+  for (const t of [g.tuning, g.tuning0]) if (t && !('omens' in t)) t.omens = 0;
   for (const p of g.living || []) p.trait ??= traitFor(g, p.name);
   for (const b of g.bodies || []) if (b.was === undefined) b.was = b.from === 'raider' ? null : traitFor(g, b.name);
   for (const d of g.shades || []) {
