@@ -15,6 +15,7 @@ function whenText(season, day, sameSeason) {
 export function epitaph(e, { traits = false } = {}) {
   const out = [];
   if (e.from === 'raider') out.push('One of the Ashen Host, who came over the wall and never left.');
+  else if (e.from === 'visitor') out.push("A grave robber, who came to the gate for the keep's dead.");
   else {
     const desc = [e.age === 'young' || e.age === 'old' ? e.age : e.age === 'child' ? 'child' : '', e.age === 'child' ? '' : ROLE[e.job] || ''].filter(Boolean).join(' ');
     let who = e.from === 'before' ? `Of the last keeper's household${ROLE[e.job] ? `, ${article(ROLE[e.job]).toLowerCase()} ${ROLE[e.job]}` : ''}` : desc ? `${article(desc)} ${desc} of the keep` : 'One of the keep';
@@ -25,7 +26,7 @@ export function epitaph(e, { traits = false } = {}) {
     out.push(`${who}.`);
   }
   out.push(e.from === 'before' ? `${capital(e.how)} before you came.` : `${capital(e.how)} ${whenText(e.season, e.day)}.`);
-  const woke = { funeral: 'Was given a funeral and laid to rest.', overflow: 'Woke Restless, for no mirror had room.', restless: 'Woke Restless at the edge of the Deep.', wraith: 'Woke as a Wraith.', taken: 'There was no body to wake.' }[e.woke];
+  const woke = { funeral: 'Was given a funeral and laid to rest.', overflow: 'Woke Restless, for no mirror had room.', restless: 'Woke Restless at the edge of the Deep.', wraith: 'Woke as a Wraith.', taken: 'There was no body to wake.', stolen: 'A grave robber carried the body off before dusk, and it never woke.' }[e.woke];
   if (woke) out.push(woke);
   else if (e.woke && e.from !== 'before') out.push(`Woke ${KINDS[e.woke]?.name || e.woke} in the glass.`);
   else if (!e.woke) out.push('Lies in the crypt, waiting for dusk.');
@@ -61,6 +62,7 @@ export function epitaph(e, { traits = false } = {}) {
     banished: `Banished into the Deep${at}.`,
     taken: e.cause === 'hollow' ? '' : `Carried off with their mirror by the Lantern Church${at}.`,
     funeral: '',
+    stolen: '',
   }[e.end];
   if (end) out.push(end);
   else if (!e.end && e.woke && e.woke !== 'funeral' && e.woke !== 'taken') {
@@ -69,4 +71,4 @@ export function epitaph(e, { traits = false } = {}) {
   return out.join(' ');
 }
 export const RESTING = ['funeral', 'covered', 'released', 'freed', 'sealed', 'purged'];
-export const LOST = ['faded', 'drained', 'drowned', 'deep', 'banished', 'taken'];
+export const LOST = ['faded', 'drained', 'drowned', 'deep', 'banished', 'taken', 'stolen'];

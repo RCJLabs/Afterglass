@@ -306,6 +306,7 @@ export const TUNING = {
   // keep with them and without meets the same raids and Unlit until they change something. 0 rolls them from
   // the keep's own stream, as a keep made before did, so its export still replays.
   ownStreams: 1,
+  streamHash: 1, // those streams' seeds mixed in whole (sim.js, sideStream); 0 is the first hash, a keep made before
   rainChance: [0.3, 0.15, 0.3, 0.05],
   fogChance: [0.1, 0.05, 0.25, 0.3],
   rainYard: 0.75,
@@ -411,7 +412,17 @@ export const TUNING = {
   stillBurn: 0.75, // still air: candles burn at this rate
   stillGnaw: 2, // ... and the Unlit gnaw them this many times as hard
   thinChoir: 2, // a thin Veil: the Choir sings this many times as loud; the first tide seeps
+  // Visitors at the gate (round six): on visitorChance of days one comes (a second on visitorSecond of those),
+  // not on the tutorial's days, a siege's or a crusade's. Each waits visitorWait of the day for an answer;
+  // unanswered, the last answer is taken. Who can come, and what each answer does, are VISITORS below and
+  // sim.js. visitors 0 is none.
+  visitors: 1,
+  visitorChance: 0.5,
+  visitorSecond: 0.2,
+  visitorWait: 0.25,
+  charmBurn: 0.75, // the hedge-witch's charm: tonight's candles burn at this rate
 };
+
 
 export const SEASONS = ['spring', 'summer', 'autumn', 'winter'];
 
@@ -594,6 +605,117 @@ export const OMENS = {
   restless: { name: 'A restless Deep' },
 };
 
+// Visitors at the gate (round six), in the order they're drawn from. Each answer says what it costs and what
+// it brings: resources (cost, gain), Dread, and in words anything else it does. The last answer is the one
+// taken if the visitor is left waiting. The numbers are here; who can come when, and the answers' other
+// effects, are in sim.js (visitorCan, answerVisitor).
+export const VISITORS = {
+  peddler: {
+    name: 'A glass peddler',
+    text: 'A peddler with a barrow of glass offcuts, salvaged from a burnt chapel.',
+    answers: [{ id: 'buy', text: 'Buy his glass', cost: { food: 6 }, gain: { glass: 4 } }, { id: 'no', text: 'Send him on' }],
+  },
+  chandler: {
+    name: "A chandler's widow",
+    text: "A widow selling the last of what her husband made: good tallow candles.",
+    answers: [{ id: 'buy', text: 'Buy her candles', cost: { food: 6 }, gain: { candles: 4 } }, { id: 'no', text: 'Send her on' }],
+  },
+  grain: {
+    name: 'A grain barge',
+    text: 'A bargeman tied up in the moat with sacks of barley, and no taste for the road.',
+    answers: [{ id: 'buy', text: 'Buy his grain', cost: { glass: 4 }, gain: { food: 10 } }, { id: 'no', text: 'Send him on' }],
+  },
+  mason: {
+    name: 'A journeyman mason',
+    text: 'A mason walking the roads for work, with his own tools.',
+    answers: [{ id: 'hire', text: 'Hire him for the day', cost: { food: 4 }, gain: { stone: 8 } }, { id: 'no', text: 'Send him on' }],
+  },
+  mirrors: {
+    name: 'A mirror-seller',
+    text: 'A pedlar of mirrors, one wrapped in sacking: a hand mirror, silvered and whole.',
+    answers: [{ id: 'buy', text: 'Buy the hand mirror', cost: { food: 8 }, does: 'a hand mirror for the dead, room for one more' }, { id: 'no', text: 'Send him on' }],
+  },
+  pilgrims: {
+    name: 'Pilgrims before the raid',
+    text: "Two pilgrims running ahead of the Host, asking the keep's shelter.",
+    answers: [{ id: 'take', text: 'Take them in', does: 'two more of the living, for good: more hands, and more mouths; today they stand the gate with you (+2 defense)', help: 2 }, { id: 'no', text: 'Turn them away' }],
+  },
+  refugees: {
+    name: 'A burnt-out family',
+    text: 'A man, his mother and his small daughter, from a village the Host burned.',
+    answers: [{ id: 'take', text: 'Take them in', does: 'three more of the living: a man who works, an old woman, and a child who eats and doesn\'t work' }, { id: 'no', text: 'Send them on', dread: 1 }],
+  },
+  graverobber: {
+    name: 'A grave-robber',
+    text: 'Caught in the crypt with a sack, going through the day\'s dead.',
+    answers: [{ id: 'hang', text: 'Hang him', does: 'he dies inside the walls, and wakes at dusk as a Restless shade' }, { id: 'go', text: 'Let him go', does: 'he takes a body with him: it won\'t wake at dusk' }],
+  },
+  knight: {
+    name: 'A knight at the gate',
+    text: 'A knight asking after his brother, who fell raiding your walls and serves in your glass now.',
+    answers: [{ id: 'free', text: 'Release his brother', gain: { glass: 5, remembrance: 1 }, does: 'the Stranger goes free' }, { id: 'keep', text: 'Keep him', does: 'the knight rides to join the Host: its next raid comes ×1.15 harder', edge: 1.15 }],
+  },
+  plague: {
+    name: 'The plague cart',
+    text: 'Two carters, both feverish, and a cart of the dead from the valley.',
+    answers: [{ id: 'take', text: 'Take them in', does: 'two more of the living, both sick; a third of the time one of yours falls sick too', risk: 0.33 }, { id: 'no', text: 'Turn it away', dread: 1 }],
+  },
+  wedding: {
+    name: 'A wedding',
+    text: 'Two of the living ask to be wed.',
+    answers: [{ id: 'feast', text: 'Hold the feast', cost: { food: 4 }, does: 'they wed; everyone is at peace for the rest of the day' }, { id: 'no', text: 'Not now' }],
+  },
+  bard: {
+    name: 'A bard',
+    text: 'A bard who sings for his supper, and knows the old songs of the dead.',
+    answers: [{ id: 'sing', text: 'Let him sing', cost: { food: 2 }, gain: { remembrance: 1 }, does: 'whoever grieves is comforted, and at peace' }, { id: 'no', text: 'Send him away' }],
+  },
+  deserter: {
+    name: 'A deserter from the Host',
+    text: 'A deserter from the Ashen Host, who knows how it means to come at you.',
+    answers: [{ id: 'take', text: 'Take him in', does: "one more of the living, Brave; the Host's next raid comes ×0.85 as hard", edge: 0.85 }, { id: 'no', text: 'Turn him away' }],
+  },
+  almoner: {
+    name: "The Church's almoner",
+    text: 'The Lantern Church asks alms for its poor, and remembers who gives.',
+    answers: [{ id: 'give', text: 'Give alms', cost: { food: 5 }, dread: -1 }, { id: 'no', text: 'Refuse' }],
+  },
+  witch: {
+    name: 'A hedge-witch',
+    text: 'A hedge-witch selling charms against the dark.',
+    answers: [
+      { id: 'charm', text: 'Buy a charm', cost: { glass: 3 }, does: 'tonight the candles burn a quarter slower' },
+      { id: 'church', text: 'Hand her to the Church', dread: -1, does: 'she curses the keep: a Weeper comes tonight' },
+      { id: 'no', text: 'Send her away' },
+    ],
+  },
+  physician: {
+    name: 'A travelling physician',
+    text: 'A physician on his way to the valley, with his bag.',
+    answers: [{ id: 'pay', text: 'Pay him', cost: { glass: 4 }, does: 'he cures everyone sick' }, { id: 'no', text: 'Send him on' }],
+  },
+  priest: {
+    name: 'A wandering priest',
+    text: 'A priest on the road, who will say the rites for a meal.',
+    answers: [{ id: 'feed', text: 'Feed him', cost: { food: 2 }, does: 'one more funeral at dusk tonight' }, { id: 'no', text: 'Send him on' }],
+  },
+  reeve: {
+    name: "The lord's reeve",
+    text: "The lord's reeve, come for his tithe. Paid, the lord's riders stand with you when the Host next comes.",
+    answers: [{ id: 'pay', text: 'Pay the tithe', cost: { food: 6 }, does: 'at the next raid, +3 defense', help: 3 }, { id: 'no', text: 'Refuse' }],
+  },
+  necromancer: {
+    name: 'A necromancer',
+    text: 'A necromancer who can bind the Restless without essence, and asks nothing for it.',
+    answers: [{ id: 'bind', text: 'Let him bind it', dread: 1, does: 'the Restless shade is bound into a free mirror, Loyal' }, { id: 'no', text: 'Drive him off' }],
+  },
+  cooper: {
+    name: 'A cooper',
+    text: 'A cooper with water barrels, for a keep that burns.',
+    answers: [{ id: 'buy', text: 'Buy his barrels', cost: { glass: 3 }, does: 'until the season ends, fire comes half as often' }, { id: 'no', text: 'Send him on' }],
+  },
+};
+
 export const CAUSES = {
   duty: { name: 'Duty', kind: 'loyal', text: 'died on duty' },
   oldage: { name: 'Old age', kind: 'serene', text: 'died of old age' },
@@ -603,6 +725,7 @@ export const CAUSES = {
   raider: { name: 'Raider', kind: 'stranger', text: 'fell raiding the keep' },
   hollow: { name: 'The Hollow', kind: null, text: 'was taken by the Hollow' },
   sleep: { name: 'Sleepwalking', kind: 'pale', text: 'died sleepwalking in the Tain' },
+  hanged: { name: 'Hanged', kind: 'restless', text: 'was hanged at the gate' },
 };
 export const GUIDE_UP = { pale: 'serene', restless: 'pale' };
 

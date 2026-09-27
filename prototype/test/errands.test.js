@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { newSeason, step, act, replay, upgrade, addFoe, canWork } from '../src/slice/sim.js';
+import { newSeason, step, act, replay, upgrade, addFoe, canWork, nightTicks } from '../src/slice/sim.js';
 import { autoStep } from '../src/slice/autopilot.js';
 import { geo, lightMap, isLit } from '../src/slice/geo.js';
 import { howTo } from '../src/slice/howto.js';
@@ -158,8 +158,13 @@ test('held too long, or at the Deep, a sleepwalker dies in their sleep and wakes
   const b = a.s.bodies.find((x) => x.id === a.e.who);
   assert.deepEqual([b.cause, b.kind], ['sleep', 'pale']);
   assert.match(b.how, /caught by the Unlit, sleepwalking/);
-  // The Deep.
-  const c = toSleeper(3);
+  // The Deep: a sleepwalker out early enough in the night to walk that far before dawn.
+  let c = null;
+  for (let seed = 1; seed < 40 && !c; seed++) {
+    const x = toSleeper(seed);
+    if (x.s.t < nightTicks(x.s) * 0.5) c = x;
+  }
+  assert.ok(c, 'a sleepwalker out before midnight');
   for (const d of c.s.shades) d.mirror = null;
   for (let i = 0; i < 4000 && !c.e.done; i++) step(c.s);
   assert.equal(c.e.done, 'lost');

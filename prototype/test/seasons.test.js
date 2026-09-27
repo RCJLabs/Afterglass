@@ -83,8 +83,10 @@ test('a sally that wins breaks the camp and calls off its assault; one that lose
   assert.match(act(g, { type: 'sally' }).error, /no camp/);
   // Certain loss: the camp stays.
   const lost = reach(3, 3, 3, { sallyOdds: 1000, raidPursueRisk: 1 }, besieged);
-  if (!lost.living.some((p) => p.job === 'barracks')) ok(lost, { type: 'assign', id: lost.living[0].id, room: 'barracks' });
-  const guards = lost.living.filter((p) => p.job === 'barracks').map((p) => p.name);
+  // The sick stay in: only the well go out.
+  const well = (p) => p.job === 'barracks' && !(p.sick > 0);
+  if (!lost.living.some(well)) ok(lost, { type: 'assign', id: lost.living.find((p) => !(p.sick > 0)).id, room: 'barracks' });
+  const guards = lost.living.filter(well).map((p) => p.name);
   assert.equal(sallyOdds(lost), 0.1);
   let tries = 0;
   while (besieged(lost) && tries++ < 1) ok(lost, { type: 'sally' });
