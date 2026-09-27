@@ -307,6 +307,20 @@ export const TUNING = {
   drownedGnaw: 2,
   drownedBurn: 0.5,
   drownedDrag: 2,
+
+  // Down into the Deep (round five). At dusk a shade can go down past the rifts instead of taking a post, to
+  // one of three depths. It's gone for the night: it holds no light, fights nothing and works nothing. At
+  // dawn it comes back with deepSilver quicksilver for its depth, unless something down there caught it
+  // (deepCatch for its depth, half as often for a Lurker): then it comes back empty-handed and drained by
+  // deepDrain, or not at all. Not on the new moon: the Hollow is down there. Quicksilver upgrades a mirror
+  // where it hangs, its shades and all: a hand mirror into a pier glass, a pier glass into a great glass,
+  // for upgradeSilver quicksilver and upgradeGlass glass. deep 0 is the keep without it.
+  deep: 1,
+  deepSilver: [1, 3, 6],
+  deepCatch: [0.1, 0.25, 0.45],
+  deepDrain: 35,
+  upgradeSilver: { pier: 3, great: 6 },
+  upgradeGlass: { pier: 4, great: 8 },
 };
 
 export const SEASONS = ['spring', 'summer', 'autumn', 'winter'];
@@ -360,7 +374,7 @@ export const TRAITS = {
 export const TRAIT_KEYS = Object.keys(TRAITS);
 export const SHADE_TRAITS = {
   reckless: { name: 'Reckless', short: 'lunges further and fights ×2, but loses memory twice as fast', fight: 2, reach: 5, fade: 2, drain: 2 },
-  lurker: { name: 'Lurker', short: 'unseen by Creepers and Wraiths, so never caught; fights ×0.25', fight: 0.25, unseen: true },
+  lurker: { name: 'Lurker', short: 'unseen by Creepers and Wraiths, so never caught by them, and caught half as often in the Deep; fights ×0.25', fight: 0.25, unseen: true },
   bitter: { name: 'Bitter', short: 'costs 3 Dread to keep; while it stays, wards cost a fifth', dread: 3, wards: 0.2 },
   tireless: { name: 'Tireless', short: 'works ×1.6, but never rests and never works as a twin', work: 1.6, rests: false, twins: false },
   keening: { name: 'Keening', short: 'sings wherever it stands: calms two Restless shades a night, and Weepers on its floor fall quiet', calms: 2, hushes: true },
@@ -393,7 +407,7 @@ export const WORK_ROOMS = Object.keys(DAY_ROOMS).filter((k) => DAY_ROOMS[k].out)
 // Each room's twin in the Tain, and what a lit shade standing there does.
 export const TWINS = {
   chapel: { name: 'Choir of Echoes', job: 'essence', note: 'Singing makes essence and calms one Restless shade.' },
-  glazier: { name: 'Silvering', job: 'glass', note: 'Quicksilver: glass for mirrors.' },
+  glazier: { name: 'Silvering', job: 'glass', note: 'Silvers glass for mirrors.' },
   chandlery: { name: 'Wick Room', job: 'wick', note: 'Saves wax: candles for the next dusk.' },
   infirmary: { name: 'Threshold', job: 'guidance', note: "Readies guided deaths: tomorrow's sick wake one kind better." },
   barracks: { name: 'Watch of the Dead', job: 'watch', note: "Its strength adds to tomorrow's defense." },

@@ -45,6 +45,7 @@ function remembered(s, season) {
     if (e.end === 'faded') parts.push('faded');
     else if (e.end === 'drained') parts.push('drained');
     else if (e.end === 'drowned') parts.push('dragged under');
+    else if (e.end === 'deep') parts.push('lost in the Deep');
     else if (e.end === 'covered' || e.end === 'freed' || e.end === 'released') parts.push('at rest');
     return { name: e.name, line: parts.join(' · ') };
   });

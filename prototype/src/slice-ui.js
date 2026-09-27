@@ -209,6 +209,7 @@ const pips = (n, max, hot) => `<span class="pips${hot ? ' hot' : ''}" aria-hidde
 const kindTag = (k) => `<span class="kind k-${k}">${KINDS[k].name}</span>`;
 
 function shadeStatus(d, L) {
+  if (d.deep) return `down in the Deep, ${DEPTH_NAMES[d.deep].toLowerCase()}, until dawn`;
   if (!canWork(d)) return d.kind === 'wraith' ? 'hunts in the Tain at night' : `Restless, ${s.tuning.restlessNights - d.restless} ${s.tuning.restlessNights - d.restless === 1 ? 'night' : 'nights'} from Wraith`;
   const room = typeAt(K(), d.f, d.x) || postRoom(s, d);
   if (s.phase !== 'night') return `posted in the ${roomName(postRoom(s, d), true)}`;
@@ -248,6 +249,7 @@ function hudHTML() {
     ${res('stone', 'Stone', 'Stone', floor1(s.res.stone || 0))}
     ${res('essence', 'Essence', 'Ess', floor1(s.res.essence))}
     ${res('rem', 'Remembrance', 'Rem', floor1(s.res.remembrance))}
+    ${s.res.quicksilver ? res('qs', 'Quicksilver', 'QS', floor1(s.res.quicksilver)) : ''}
     <div><dt>Dread</dt><dd>${pips(s.dread, T.dreadMax, s.dread >= 4)}</dd></div>
     <div><dt>Veil</dt><dd>${pips(s.cracks, T.cracksMax, true)}</dd></div>
     <div><dt><span class="long">Living</span><span class="short">Liv</span></dt><dd><b>${s.living.length}</b></dd></div>
@@ -468,14 +470,24 @@ function buildRow() {
     .map(([k, M]) => `<button class="btn sm" id="build-${k}" data-act="build" data-mirror="${k}"${s.res.glass + 1e-9 < M.glass ? ' disabled' : ''}>${M.name}, room for ${M.cap}: ${M.glass} glass</button>`)
     .join('')}</div>`;
 }
-function mirrorsHTML() {
+function mirrorsHTML({ upgrades = true } = {}) {
   return `<div class="mirrors">${s.mirrors
     .map((m) => {
       const ds = s.shades.filter((d) => d.mirror === m.id);
       const slots = Array.from({ length: mirrorCap(m) }, (_, i) => (ds[i] ? `<span class="slot full">${esc(ds[i].name)}</span>` : '<span class="slot">empty</span>')).join('');
-      return `<div class="mirror"><span class="mname">${esc(m.name)}</span><div class="slots">${slots}</div>${ds.length ? breakHTML(m) : ''}</div>`;
+      return `<div class="mirror"><span class="mname">${esc(m.name)}</span><div class="slots">${slots}</div>${upgrades ? upgradeHTML(m) : ''}${ds.length ? breakHTML(m) : ''}</div>`;
     })
-    .join('')}</div>`;
+    .join('')}</div>${upgrades && s.tuning.deep ? `<p class="note">Quicksilver: ${floor1(s.res.quicksilver || 0)}. Shades bring it back from the Deep, sent down at dusk; it upgrades a mirror where it hangs, its shades and all.</p>` : ''}`;
+}
+// Quicksilver upgrades a hand mirror into a pier glass, and a pier glass into a great glass.
+function upgradeHTML(m) {
+  const T = s.tuning;
+  const next = { hand: 'pier', pier: 'great' }[m.type];
+  if (!T.deep || !next || s.phase === 'over') return '';
+  const qs = T.upgradeSilver[next];
+  const gl = T.upgradeGlass[next];
+  const can = (s.res.quicksilver || 0) + 1e-9 >= qs && s.res.glass + 1e-9 >= gl;
+  return `<button class="btn sm" id="upgrade-${m.id}" data-act="upgrade-mirror" data-id="${m.id}"${can ? '' : ' disabled'}>To a ${MIRRORS[next].name}: ${qs} quicksilver, ${gl} glass</button>`;
 }
 // Breaking a mirror, asked twice: what it frees, what it costs.
 function breakHTML(m) {
@@ -618,6 +630,7 @@ function duskPlace() {
     ${wraiths.length ? `<p class="note bad">${esc(listOf(wraiths.map((d) => d.name)))} will rise as ${wraiths.length === 1 ? 'a Wraith' : 'Wraiths'} in the Waking Room. Cut ${wraiths.length === 1 ? 'it' : 'them'} down to banish for good.</p>` : ''}
     ${drownedDusk()}
     ${moonNote()}
+    ${deepCard()}
     ${blackMirror()}
     <details class="card"><summary><b>How the Tain works</b></summary>
       <ul class="facts">
@@ -645,6 +658,26 @@ function drownedDusk() {
   if (warded) return `<p class="note">Rain. The moat's twin is warded: the ${plural(dr.length, 'Drowned', 'Drowned')} stay under tonight.</p>`;
   const one = K().n === 1;
   return `<p class="note bad">Rain. ${dr.length === 1 ? 'One of the Drowned comes' : `${dr.length} of the Drowned come`} up tonight out of the moat's twin at ${esc(moatEnd(end.x))}${one ? '' : ', behind the line'}, and ${dr.length === 1 ? 'makes' : 'make'} for the mirrors on that floor. Ward the moat (${fmt(wardCost(s))} essence), or light the mirror on their side and post a fighter by it. A shade they catch in the dark is dragged to the moat and pulled under.</p>`;
+}
+
+// Down into the Deep (round five): at dusk, send a shade down past the rifts for quicksilver instead of
+// posting it, or call one back.
+const DEPTH_NAMES = ['', 'Not far', 'Deep', 'Deepest'];
+const deepOdds = (p) => (p < 0.3 ? `1 in ${Math.round(1 / p)}` : `${Math.round(100 * p)}%`);
+function deepCard() {
+  const T = s.tuning;
+  if (!T.deep || s.dusk?.step !== 'place') return '';
+  const down = s.shades.filter((d) => d.deep);
+  const up = s.shades.filter(canWork);
+  if (isNewMoon(s)) return ''; // the Hollow is down there
+  const depths = [1, 2, 3].map((k) => `depth ${k} (${DEPTH_NAMES[k].toLowerCase()}), ${T.deepSilver[k - 1]} quicksilver, caught ${deepOdds(T.deepCatch[k - 1])}`).join('; ');
+  const rows = up.map((d) => `<li><span>${esc(d.name)} <small class="muted">${KINDS[d.kind].name}, memory ${fmt(d.memory)}${shadeTrait(s, d)?.unseen ? ', a Lurker: caught half as often' : ''}</small></span><span class="seg">${[1, 2, 3].map((k) => `<button class="btn sm" id="deep-${d.id}-${k}" data-act="descend" data-id="${d.id}" data-depth="${k}" title="Depth ${k}: ${DEPTH_NAMES[k].toLowerCase()}" aria-label="Send ${esc(d.name)} down to depth ${k}">${k}</button>`).join('')}</span></li>`).join('');
+  const gone = down.map((d) => `<li><span>${esc(d.name)} is down at depth ${d.deep}, ${DEPTH_NAMES[d.deep].toLowerCase()}</span><button class="btn sm" id="deep-${d.id}-0" data-act="descend" data-id="${d.id}" data-depth="0">Call back</button></li>`).join('');
+  return `<details class="card deep" data-keep="deep"${ui.open.deep ? ' open' : ''}><summary><b>Down into the Deep</b>${down.length ? ` <small class="muted">${down.length} down tonight</small>` : ''}</summary>
+      <p class="note">A shade can go down past the rifts tonight instead of taking a post. It's gone until dawn: no light, no fighting, no work. It comes back with quicksilver, which upgrades a mirror where it hangs, unless something down there catches it: then it comes back drained by ${fmt(T.deepDrain)} memory and empty-handed, or not at all. The deeper, the more, and the likelier it's caught: ${depths}.</p>
+      ${gone ? `<ul class="facts deep-down">${gone}</ul>` : ''}
+      ${rows ? `<ul class="facts deep-list">${rows}</ul>` : ''}
+    </details>`;
 }
 
 // The black mirror (threats.js): tonight as the candles, posts and wards stand, and tomorrow's raid. Worked
@@ -799,6 +832,7 @@ function nightPanel() {
     }).join('')}
     ${weeperNote()}
     ${drownedNote()}
+    ${s.shades.some((d) => d.deep) ? `<p class="note">In the Deep until dawn: ${esc(listOf(s.shades.filter((d) => d.deep).map((d) => `${d.name} (${DEPTH_NAMES[d.deep].toLowerCase()})`)))}.</p>` : ''}
     ${n.hush ? '<p class="note">Hushed: no work, no fighting, and the Unlit pass the shades by.</p>' : ''}`;
 }
 function drownedNote() {
@@ -834,6 +868,7 @@ function nightReport() {
     ${r.broken?.length ? `<p class="note bad">The Maws broke the ${esc(listOf(r.broken.map((id) => roomName(id, true))))}. The living saw the dead walk there: Dread for each.</p>` : ''}
     <ul class="fadelist">${rows}</ul>
     ${r.nightmares ? `<p class="note bad">The Weepers gave ${plural(r.nightmares, 'nightmare')}.</p>` : ''}
+    ${(r.deep || []).map((x) => `<p class="note${x.caught ? ' bad' : ''}">${esc(x.name)} ${x.caught ? `was caught in the Deep: −${fmt(x.lost)} memory, and nothing to show for it.` : `came back up from the Deep with ${x.silver} quicksilver.`}</p>`).join('')}
     ${r.lost.length ? `<p class="note bad">Lost: ${esc(listOf(r.lost))}.</p>` : ''}</div>`;
 }
 
@@ -937,7 +972,7 @@ function dawnPanel() {
       ${P.inspector ? '<p class="note bad">At 5 the Lantern Church sends an inspector today. At noon a Dread of 4 or 5 is censured.</p>' : warn ? '<p class="note">The Lantern Church inspects soon. A Dread of 0 or 1 at noon is blessed.</p>' : ''}
       <div class="vigil"><span>Vigils at dawn, ${T.vigilCost} remembrance each:</span><button class="btn sm" id="vig-dn" data-act="vigils" data-n="${s.rite.vigils - 1}"${s.rite.vigils <= 0 ? ' disabled' : ''} aria-label="One fewer vigil">−</button><b>${s.rite.vigils}</b><button class="btn sm" id="vig-up" data-act="vigils" data-n="${s.rite.vigils + 1}" aria-label="One more vigil">+</button><small class="muted">remembrance ${floor1(s.res.remembrance)}</small></div>
       ${badLuckNote()}
-      ${s.mirrors.some((m) => s.shades.some((d) => d.mirror === m.id)) ? `<details class="card" data-keep="breaking"${ui.open.breaking ?? P.inspector ? ' open' : ''}><summary><b>Break a mirror</b></summary><p class="note">In an emergency: everyone in it goes free at once and Dread falls ${fmt(T.breakDread)} for each, which covering can't do. The mirror is lost, and ${T.badLuckDays} days of bad luck follow.</p>${mirrorsHTML()}</details>` : ''}
+      ${s.mirrors.some((m) => s.shades.some((d) => d.mirror === m.id)) ? `<details class="card" data-keep="breaking"${ui.open.breaking ?? P.inspector ? ' open' : ''}><summary><b>Break a mirror</b></summary><p class="note">In an emergency: everyone in it goes free at once and Dread falls ${fmt(T.breakDread)} for each, which covering can't do. The mirror is lost, and ${T.badLuckDays} days of bad luck follow.</p>${mirrorsHTML({ upgrades: false })}</details>` : ''}
       ${P.errors.map((e) => `<p class="note bad">${esc(e)}</p>`).join('')}
       <div class="row"><button class="btn primary" id="btn-day" data-act="begin-day"${P.errors.length ? ' disabled' : ''}>Begin day ${s.day + 1}</button></div>
     </div>`;
@@ -1123,7 +1158,7 @@ function shadeRows() {
         <div class="who">
           <div><b>${esc(d.name)}</b>${kindTag(d.kind)}${d.named ? '<span class="tag peace">Named</span>' : ''}${isTwinnedShade(s, d) ? '<span class="tag twin">Twinned</span>' : ''}${whispers(s, d) ? `<span class="tag twin">Whispers to the ${DAY_ROOMS[tradeOf(s, d)].name}</span>` : stepsThrough(s, d) ? `<span class="tag twin">Works in the ${DAY_ROOMS[d.byDay.room].name} by day</span>` : atGate(s, d) ? '<span class="tag twin">Stands at the gate today</span>' : ''}</div>
           ${shadeTraitText(d)}
-          ${canWork(d) ? `<div><span class="memory${d.memory < 40 ? ' low' : ''}" aria-hidden="true"><i data-bar="mem" data-arg="${d.id}"></i></span><small><span data-live="mem" data-arg="${d.id}">${Math.ceil(d.memory)}</span> memory, <span data-live="status" data-arg="${d.id}">${esc(shadeStatus(d, L))}</span></small></div>` : `<small>${esc(shadeStatus(d, L))}</small>`}
+          ${canWork(d) || d.deep ? `<div><span class="memory${d.memory < 40 ? ' low' : ''}" aria-hidden="true"><i data-bar="mem" data-arg="${d.id}"></i></span><small><span data-live="mem" data-arg="${d.id}">${Math.ceil(d.memory)}</span> memory, <span data-live="status" data-arg="${d.id}">${esc(shadeStatus(d, L))}</span></small></div>` : `<small>${esc(shadeStatus(d, L))}</small>`}
         </div>
         <div class="acts">${pick ? `<button class="btn sm" id="sel-${d.id}" data-act="select" data-id="${d.id}" aria-pressed="${ui.selected === d.id}">Select</button>` : ''}${byDaySelect(d)}</div>
       </div>`;
@@ -1276,6 +1311,8 @@ const TUNE = [
   ['weather', 'Weather: rain slows the Yard and damps fire, and brings the Drowned; fog clouds the black mirror (1 on, 0 off)'],
   ['rainYard', 'Share of the Yard’s stone quarried in the rain'],
   ['drownedBase', 'The Drowned on a rainy night, before one more every few nights'],
+  ['deep', 'Down into the Deep: shades sent down at dusk bring back quicksilver to upgrade mirrors (1 on, 0 off)'],
+  ['deepDrain', 'Memory a shade caught in the Deep loses'],
 ];
 const KEYS = [
   ['Space', 'play or pause'], ['1, 2, 4', 'speed'], ['C, M, W, H', 'candle, move, ward, hush (at night)'], ['V', 'turn the Tain upright'],
@@ -2088,6 +2125,12 @@ const GUIDE = [
     },
     done: () => !!s.night?.wards.includes('moat') || s.phase === 'night',
     text: () => `Rain: tonight the Drowned come up out of the moat's twin at the marked end, behind the line, and make for the mirror beside it. Ward the moat (${fmt(wardCost(s))} essence: pick Ward, then tap that end), or light that mirror and post a fighter by it.`,
+  },
+  {
+    id: 'deep', target: '#open-phase',
+    when: () => first() && !!s.tuning.deep && s.phase === 'dusk' && s.dusk?.step === 'place' && s.day >= 3 && s.day < s.tuning.seasonDays && s.shades.filter(canWork).length >= 4,
+    done: () => ui.sheet === 'phase',
+    text: 'A shade you can spare tonight can go down past the rifts into the Deep instead of taking a post (the Dusk panel). At dawn it brings back quicksilver, which upgrades a mirror where it hangs, unless something down there catches it. The deeper, the more, and the likelier.',
   },
   {
     id: 'crypt', target: '#bar-wake',
@@ -2920,6 +2963,8 @@ function onAct(name, el) {
     case 'sally': return game({ type: 'sally' });
     case 'vigil': return game({ type: 'vigil' });
     case 'build': return game({ type: 'build', mirror: el.dataset.mirror });
+    case 'descend': return game({ type: 'descend', id: el.dataset.id, depth: Number(el.dataset.depth) });
+    case 'upgrade-mirror': return game({ type: 'upgradeMirror', id: el.dataset.id });
     case 'fight-fire': return game({ type: 'fightFire', room: el.dataset.room, bell: !!el.dataset.bell });
     case 'break-ask':
       ui.breakAsk = el.dataset.id;

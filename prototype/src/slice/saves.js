@@ -17,7 +17,7 @@ export function summary(s, now) {
     phase: s.phase,
     rooms: s.keep.floors.flat().filter((r) => r.type !== 'empty').length,
     living: s.living.length,
-    shades: s.shades.filter(canWork).length,
+    shades: s.shades.filter((d) => canWork(d) || d.deep).length, // one down in the Deep is still one of them
     lost: s.phase === 'over',
     sealed: !!s.sealed,
     daily: s.daily || null,

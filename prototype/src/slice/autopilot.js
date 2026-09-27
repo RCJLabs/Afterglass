@@ -78,6 +78,20 @@ const NOGATE = !!globalThis.process?.env?.AP_NOGATE;
 // beyond what the new moon will need, and otherwise lights each mirror and posts its best free fighter there.
 // AP_DROWN=ward only wards (whenever it can), guard only guards, none does neither (to measure each).
 const DROWN = globalThis.process?.env?.AP_DROWN || 'both';
+// Down into the Deep. AP_DEEP=1, 2 or 3 sends one shade down to that depth every night but the new moon, the
+// weakest fighter left once the line is held, if at least one other is left to post and a catch wouldn't
+// finish it; and upgrades a mirror with quicksilver, rather than building one, when the dead need room. By
+// default it never goes down (to measure whether going down pays).
+const DEEP = Number(globalThis.process?.env?.AP_DEEP || 0);
+// Upgrades a hand mirror (or else a pier glass) with quicksilver, if the stores run to it.
+function upgradeOne(s) {
+  const T = s.tuning;
+  for (const [from, to] of [['hand', 'pier'], ['pier', 'great']]) {
+    const m = s.mirrors.find((x) => x.type === from);
+    if (m && (s.res.quicksilver || 0) >= T.upgradeSilver[to] && s.res.glass >= T.upgradeGlass[to]) return doAct(s, { type: 'upgradeMirror', id: m.id });
+  }
+  return false;
+}
 function nextBuild(s) {
   const want = {};
   for (const type of BUILD_ORDER) {
@@ -207,7 +221,10 @@ function dayMoves(s) {
   const { free } = capacity(s);
   // AP_STEP saves its glass for a great glass unless the dead are waiting for room now.
   const saving = STEP && s.tuning.whispers && !s.bodies.length && s.res.glass < MIRRORS.great.glass;
-  if ((free <= 0 && !saving) || (free <= 1 && s.bodies.length)) {
+  const up = DEEP && s.tuning.deep && ((free <= 0 && !saving) || (free <= 1 && s.bodies.length)) && upgradeOne(s);
+  if (up) {
+    // A mirror upgraded with quicksilver made the room.
+  } else if ((free <= 0 && !saving) || (free <= 1 && s.bodies.length)) {
     const kind = STEP && s.tuning.whispers && s.res.glass >= MIRRORS.great.glass ? 'great' : s.res.glass >= MIRRORS.pier.glass ? 'pier' : s.res.glass >= MIRRORS.hand.glass ? 'hand' : null;
     if (kind) doAct(s, { type: 'build', mirror: kind });
   } else if (STEP && s.tuning.whispers && s.res.glass >= MIRRORS.great.glass && !s.mirrors.some((m) => m.type === 'great')) doAct(s, { type: 'build', mirror: 'great' });
@@ -317,6 +334,10 @@ function placeNight(s, plan) {
     }
   }
   const lit = meetDrowned(s, ds);
+  if (DEEP && s.tuning.deep && s.day < T.seasonDays && ds.length >= 2) {
+    const d = ds[ds.length - 1];
+    if (d.memory > s.tuning.deepDrain + 10 && doAct(s, { type: 'descend', id: d.id, depth: DEEP })) ds.pop();
+  }
   // The new moon: no work tonight. Everyone off the line waits by the Veil for the Hollow.
   if (s.day >= T.seasonDays) {
     const { f, x0 } = roomSpan(G, 'hearth');

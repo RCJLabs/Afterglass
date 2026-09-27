@@ -1002,7 +1002,7 @@ function composeTain(s, t, opts = {}) {
   const candles = n?.candles || [];
   const flames = candles.map((k) => ({ k, y: candleStick(c, k) }));
   if (opts.ghost?.tool === 'candle') R(c, Math.round(opts.ghost.x), feet(opts.ghost.f) - 3, 1, 3, UMBRA[7]);
-  const shades = s.shades.filter((d) => d.mirror && d.kind !== 'wraith' && d.kind !== 'restless');
+  const shades = s.shades.filter((d) => d.mirror && d.kind !== 'wraith' && d.kind !== 'restless' && !d.deep);
   const shadePos = shades.map((d) => ({ d, ...unitAt(d, alpha) }));
   for (const { d, x, y } of shadePos) shadeSprite(c, d, x, y, t);
   const foes = (n?.foes || []).map((u) => ({ u, ...unitAt(u, alpha) }));
@@ -1039,6 +1039,14 @@ function composeTain(s, t, opts = {}) {
     glow(c, rf.x, feet(G.deep) - 2, 5, P.hot, pulse);
   }
   if (skyOf(s) === 'rain' && n) moatWater(c, s, t);
+  // A shade gone down into the Deep: a thread of silver glinting at the mouth of a rift until dawn.
+  s.shades.filter((d) => d.deep).forEach((d, i) => {
+    const rf = MAP.rifts[i % MAP.rifts.length];
+    const y = feet(G.deep);
+    const k = t ? MF(t * 2 + i) % 4 : 0;
+    glow(c, rf.x + (i % 2 ? 2 : -2), y - 1, 3, '#dfefff', 0.3);
+    D(c, rf.x + (i % 2 ? 2 : -2), y - 1 - k, '#eef6ff');
+  });
   // The mirrors under the Veil, where the Unlit are headed: always bright enough to find.
   for (const m of MAP.mirrors) {
     const my = G.floors[G.veil].y + 4;

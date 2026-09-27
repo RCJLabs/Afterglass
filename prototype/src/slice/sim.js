@@ -207,7 +207,7 @@ function cue(s, name, f, x) {
   if (s.cues && s.cues.length < 64) s.cues.push(f === undefined ? { name } : { name, f, x });
 }
 function gain(s, res, n) {
-  s.res[res] += n;
+  s.res[res] = (s.res[res] || 0) + n; // quicksilver has no store until a shade first brings some back
   s.today.made[res] = (s.today.made[res] || 0) + n;
 }
 
@@ -225,7 +225,8 @@ export function capacity(s) {
   return { cap, used, free: cap - used };
 }
 const freeMirror = (s) => s.mirrors.find((m) => mirrorUse(s, m) < mirrorCap(m)) || null;
-export const canWork = (d) => !!d.mirror && WORKING.includes(d.kind);
+// A shade down in the Deep (from dusk to dawn) is out of the Tain for the night.
+export const canWork = (d) => !!d.mirror && WORKING.includes(d.kind) && !d.deep;
 // The type of room a shade is posted in (its twin's type), or null.
 export const postRoom = (s, d) => (d.post ? typeAt(geo(s), d.post.f, d.post.x) : null);
 export const griefMult = (s, p) => (p.grief ? p.grief.mult : 1);
@@ -1055,7 +1056,7 @@ function newNight(s) {
   return {
     candles: [], foes: [], spawns, tides: tides.map((x) => Math.round(x * N)).sort((a, b) => a - b), wards: [], wardHold: {}, hush: false, steel: !!s.steel,
     broken: [], // twin rooms (ids) a Maw has broken tonight
-    stats: { spawned: 0, killed: 0, crossed: 0, cracks: 0, grabbed: 0, drained: 0, essence: 0, glass: 0, wick: 0, guidance: 0, candles: 0, wards: 0, lost: [], hollow: null, taken: null, wraiths: 0, maws: 0, smashed: 0, broken: [], drowned: 0, under: 0, pulled: 0 },
+    stats: { spawned: 0, killed: 0, crossed: 0, cracks: 0, grabbed: 0, drained: 0, essence: 0, glass: 0, wick: 0, guidance: 0, candles: 0, wards: 0, lost: [], hollow: null, taken: null, wraiths: 0, maws: 0, smashed: 0, broken: [], drowned: 0, under: 0, pulled: 0, deep: [] },
   };
 }
 
@@ -1875,6 +1876,36 @@ function foeDown(s, f) {
   }
 }
 
+// Dawn: the shades sent down into the Deep come back, with quicksilver for their depth, or caught down there,
+// drained and empty-handed, or not at all.
+const DEPTHS = ['', 'not far down', 'deep', 'as deep as a shade can go'];
+function upFromTheDeep(s) {
+  const T = s.tuning;
+  for (const d of s.shades.filter((x) => x.deep)) {
+    const k = d.deep - 1;
+    const S = shadeTrait(s, d);
+    d.deep = 0;
+    if (chance(s, T.deepCatch[k] * (S?.unseen ? 0.5 : 1))) {
+      const lost = T.deepDrain * (S?.drain ?? 1);
+      d.memory = Math.round((d.memory - lost) * 100) / 100;
+      s.night.stats.deep.push({ name: d.name, depth: k + 1, caught: true, lost });
+      if (d.memory <= 0) {
+        s.night.stats.lost.push(d.name);
+        fadeAway(s, d, `${d.name} was caught in the Deep and never came back up.`, 'deep', false);
+        continue;
+      }
+      say(s, `${d.name} comes back up from the Deep empty-handed. Something caught it down there: −${fmt(lost)} memory.`, 'bad', true);
+      cue(s, 'caught');
+    } else {
+      const got = T.deepSilver[k];
+      gain(s, 'quicksilver', got);
+      s.night.stats.deep.push({ name: d.name, depth: k + 1, silver: got });
+      say(s, `${d.name} comes back up from the Deep with ${got} quicksilver.`, 'good');
+      cue(s, 'good');
+    }
+  }
+}
+
 function fadeAway(s, d, text, how = 'faded', tonight = true) {
   if (tonight && s.phase === 'night') keepMoment(s, 'lost', d, text, `lost:${d.id}`);
   s.shades = s.shades.filter((x) => x !== d);
@@ -1905,6 +1936,7 @@ function endNight(s) {
   if (wick) s.res.candles += wick;
   const g = Math.floor(n.stats.guidance + EPS);
   if (g) s.guidance = Math.min(T.guidanceMax, s.guidance + g);
+  upFromTheDeep(s);
   let watch = 0;
   let calm = 0;
   let steel = false;
@@ -2425,6 +2457,45 @@ const ACTIONS = {
     say(s, `The masons swap ${named(a)} and ${named(b)}.${twin}`, 'good', true);
     cue(s, 'build');
   },
+  // At dusk, a shade goes down into the Deep instead of taking a post (depth 1 to 3), or is called back (0).
+  descend(s, { id, depth }) {
+    const T = s.tuning;
+    if (!T.deep) return 'The way down is closed.';
+    if (s.phase !== 'dusk' || s.dusk?.step !== 'place') return 'Shades go down into the Deep at dusk.';
+    if (isNewMoon(s)) return 'Not on the new moon: the Hollow is down there.';
+    const d = byId(s.shades, id);
+    if (!d || !d.mirror || !WORKING.includes(d.kind)) return 'No such shade in the glass.';
+    if (![0, 1, 2, 3].includes(depth)) return 'No such depth.';
+    if (!depth) {
+      if (!d.deep) return `${d.name} is not down there.`;
+      d.deep = 0;
+      say(s, `${d.name} is called back from the edge of the Deep.`);
+      cue(s, 'post', d.post?.f, d.post?.x);
+      return undefined;
+    }
+    d.deep = depth;
+    say(s, `${d.name} goes down past the rifts into the Deep, ${DEPTHS[depth]}, to look for quicksilver. It will be back at dawn.`);
+    cue(s, 'post');
+  },
+  // Quicksilver upgrades a mirror where it hangs, with its shades: a hand mirror into a pier glass, a pier
+  // glass into a great glass.
+  upgradeMirror(s, { id }) {
+    const T = s.tuning;
+    const m = byId(s.mirrors, id);
+    if (!m) return 'No such mirror.';
+    const next = { hand: 'pier', pier: 'great' }[m.type];
+    if (!next) return `The ${m.name} is as great as a glass can be.`;
+    const qs = T.upgradeSilver[next];
+    const gl = T.upgradeGlass[next];
+    if ((s.res.quicksilver || 0) + EPS < qs || s.res.glass + EPS < gl) return `Upgrading the ${m.name} takes ${qs} quicksilver and ${gl} glass.`;
+    s.res.quicksilver -= qs;
+    s.res.glass = Math.max(0, s.res.glass - gl);
+    const was = m.name;
+    m.type = next;
+    m.name = `${was.split(' ')[0]} ${MIRRORS[next].name}`;
+    say(s, `The ${was} is silvered anew as the ${m.name}: room for ${MIRRORS[next].cap}.`, 'good');
+    cue(s, 'mirror');
+  },
   build(s, { mirror }) {
     const M = MIRRORS[mirror];
     if (!M) return 'No such mirror.';
@@ -2846,6 +2917,7 @@ export function upgrade(g) {
   for (const t of [g.tuning, g.tuning0]) if (t && !('requests' in t)) t.requests = 0;
   for (const t of [g.tuning, g.tuning0]) if (t && !('siege' in t)) t.siege = 0;
   for (const t of [g.tuning, g.tuning0]) if (t && !('weather' in t)) t.weather = 0;
+  for (const t of [g.tuning, g.tuning0]) if (t && !('deep' in t)) t.deep = 0;
   for (const p of g.living || []) p.trait ??= traitFor(g, p.name);
   for (const b of g.bodies || []) if (b.was === undefined) b.was = b.from === 'raider' ? null : traitFor(g, b.name);
   for (const d of g.shades || []) {
