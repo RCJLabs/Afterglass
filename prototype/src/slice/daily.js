@@ -1,10 +1,14 @@
-// Today's keep: everyone who plays on the same day gets the same keep, from a seed made of the date, on the
-// rules as they ship. The day turns at midnight UTC, so it's the same keep everywhere at once. Pure.
+// Today's keep: everyone who plays on the same date gets the same keep, from a seed made of the date, on the
+// rules as they ship. The date is the player's own, so the keep turns over at their midnight, and players in
+// different time zones reach each day's keep at different hours. Pure.
 
 import { newSeason } from './sim.js';
 
-// The day as YYYY-MM-DD, in UTC.
-export const dayKey = (now = Date.now()) => new Date(now).toISOString().slice(0, 10);
+// The day as YYYY-MM-DD, by the player's own clock and calendar.
+export function dayKey(now = Date.now()) {
+  const d = new Date(now);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
 
 // A seed from the day: 32-bit FNV-1a over the key.
 export function dailySeed(key) {

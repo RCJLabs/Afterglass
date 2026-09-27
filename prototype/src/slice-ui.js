@@ -1141,7 +1141,7 @@ function dailyHTML() {
   } else if (empty) acts = `<div class="row"><button class="btn sm primary" id="daily-go" data-act="daily" data-n="${empty}">Play it, in keep ${empty}</button></div>`;
   else acts = `<div class="row"><button class="btn sm" id="daily-go" data-act="daily-ask">Play it in keep ${saves.current}</button></div>`;
   return `<div class="card daily"><h3>Today's keep: ${esc(dayText(key))}</h3>
-    <p class="note">Everyone who plays today gets this same keep, on the rules as they ship: your own numbers from Settings are set aside, and can't be changed in it. Its recap card names the day, so you can compare how it went. A new one comes at midnight UTC.</p>${acts}</div>`;
+    <p class="note">Everyone who plays on this date, wherever they are, gets this same keep, on the rules as they ship: your own numbers from Settings are set aside, and can't be changed in it. Its recap card names the day, so you can compare how it went. A new one comes at your midnight.</p>${acts}</div>`;
 }
 function startDaily(n) {
   retuned = 0;

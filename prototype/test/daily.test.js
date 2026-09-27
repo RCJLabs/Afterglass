@@ -7,14 +7,26 @@ import { recapOf } from '../src/slice/recap.js';
 import { summary, keepFromFile } from '../src/slice/saves.js';
 import { TUNING } from '../src/slice/data.js';
 
-test('the day turns at midnight UTC, and each day has its own seed', () => {
-  assert.equal(dayKey(Date.UTC(2026, 8, 27, 23, 59, 59)), '2026-09-27');
-  assert.equal(dayKey(Date.UTC(2026, 8, 28, 0, 0, 0)), '2026-09-28');
+test("the day is the player's own date, turning at their midnight, and each day has its own seed", () => {
+  assert.equal(dayKey(new Date(2026, 8, 27, 23, 59, 59).getTime()), '2026-09-27');
+  assert.equal(dayKey(new Date(2026, 8, 28, 0, 0, 0).getTime()), '2026-09-28');
+  // One moment, two places: early evening on the 27th in California is already the 28th in Tokyo.
+  const tz = process.env.TZ;
+  try {
+    const at = Date.UTC(2026, 8, 28, 1, 0, 0);
+    process.env.TZ = 'America/Los_Angeles';
+    assert.equal(dayKey(at), '2026-09-27');
+    process.env.TZ = 'Asia/Tokyo';
+    assert.equal(dayKey(at), '2026-09-28');
+  } finally {
+    if (tz === undefined) delete process.env.TZ;
+    else process.env.TZ = tz;
+  }
   assert.equal(dayText('2026-09-27'), '27 September 2026');
   assert.equal(dailySeed('2026-09-27'), dailySeed('2026-09-27'));
   const seeds = new Set();
   for (let d = 0; d < 366; d++) {
-    const x = dailySeed(dayKey(Date.UTC(2026, 0, 1) + d * 864e5));
+    const x = dailySeed(dayKey(new Date(2026, 0, 1 + d, 12).getTime())); // noon, clear of any clock change
     assert.ok(Number.isInteger(x) && x > 0 && x < 2 ** 32);
     seeds.add(x);
   }
