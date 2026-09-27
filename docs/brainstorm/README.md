@@ -10,6 +10,8 @@ Open [`index.html`](index.html) in a browser for the full version: animated pixe
 
 **Round five:** five enhancements, five new features and three smaller ones, queued after round four's was built: [`round-5/`](round-5/README.md).
 
+**Round six:** three items for the nights and seven more, proposed after round five's queue was built: [`round-6/`](round-6/README.md).
+
 ## The problem with the pitch
 
 "Fallout Shelter–style side view, Elder Scrolls–style fantasy, build and defend a castle" already exists twice on Google Play:
