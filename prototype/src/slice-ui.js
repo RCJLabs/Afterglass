@@ -2,11 +2,12 @@
 // bar at the bottom, and everything else opens in a panel over the castle. Like the greyboxes it changes
 // the game only through act(), so every session replays from its seed and action log.
 
-import { TICKS_PER_SEC, DAY_ROOMS, WORK_ROOMS, TWINS, KINDS, MIRRORS, CAUSES, MAP, BOND_OTHER, TUNING, BUILDABLE, TRAITS, SHADE_TRAITS } from './slice/data.js';
+import { TICKS_PER_SEC, DAY_ROOMS, WORK_ROOMS, TWINS, KINDS, MIRRORS, CAUSES, MAP, BOND_OTHER, TUNING, BUILDABLE, TRAITS, SHADE_TRAITS, SEASONS } from './slice/data.js';
 import {
   newSeason, step, act, retune, playerTuning, jobCap, jobCount, nextSlot, ritePreview, crossingPreview, capacity, canWork, defense, roomPower, bear, priests, funeralCap, eatRate,
   dayTicks, nightTicks, isNewMoon, choicesFor, byId, isTwinnedLiving, isTwinnedShade, lastSeason, SAVE_VERSION, fmt, mirrorCap,
   postRoom, wardCost, shadeTrait, peopleIn, beds, tradeOf, inGreatGlass, handsAt, whispers, stepsThrough, perf,
+  seasonIndex, seasonName, yearOf, dayLength, isLongNight,
 } from './slice/sim.js';
 import { geo, feet, floorAtY, roomAt, typeAt, typeOf, roomSpan, roomsOf, lightMap, isLit, unitAt, DEEP_FLOOR, lineSpots as lineOf, guardLit } from './slice/geo.js';
 import { drawScene } from './slice/draw.js';
@@ -166,16 +167,36 @@ function clockText() {
   if (s.phase === 'night') return hhmm(18 + (12 * s.t) / nightTicks(s));
   return s.phase === 'dusk' ? '18:00' : '06:00';
 }
+// How much longer the Long Night is than a winter night, in words.
+const longTimes = () => (s.tuning.longNight === 2 ? 'twice' : `${fmt(s.tuning.longNight)} times`);
+// The season's name, capitalised, with the year on; else null.
+const seasonWord = () => (s.tuning.year ? seasonName(s)[0].toUpperCase() + seasonName(s).slice(1) : null);
 function phaseLabel() {
   const D = s.tuning.seasonDays;
+  const S = seasonWord();
   return {
-    day: `Day ${s.day} of ${D}`,
+    day: S ? `${S}, day ${s.day} of ${D}` : `Day ${s.day} of ${D}`,
     dusk: `Dusk, day ${s.day}`,
-    night: isNewMoon(s) ? 'New moon' : `Night ${s.day}`,
-    dawn: s.day === 0 ? `Season ${s.season}` : `Dawn, day ${s.day + 1}`,
-    end: `Season ${s.season} over`,
+    night: isLongNight(s) ? 'The Long Night' : isNewMoon(s) ? 'New moon' : `Night ${s.day}`,
+    dawn: s.day === 0 ? (S ? `${S}, year ${yearOf(s)}` : `Season ${s.season}`) : `Dawn, day ${s.day + 1}`,
+    end: S ? (seasonIndex(s) === 3 ? 'The year is over' : `${S} is over`) : `Season ${s.season} over`,
     over: 'Keep lost',
   }[s.phase];
+}
+// What the season does to the day and the night, next to spring's.
+function seasonNote() {
+  const T = s.tuning;
+  if (!T.year) return '';
+  const i = seasonIndex(s);
+  const d = T.seasonDay[i];
+  const n = T.seasonNight[i];
+  const text = [
+    `Spring, year ${yearOf(s)}. Summer's days will be longer and its nights shorter; winter's the other way, and it ends with the Long Night.`,
+    `Summer: the days are ×${d} as long, and so is a day's work; the nights ×${n}. What you put by now carries the keep through winter.`,
+    'Autumn: days and nights as in spring. Winter comes next.',
+    `Winter: the days are ×${d} as long, and so is a day's work; the nights ×${n}, longer than a candle burns. The seventh night is the Long Night, and it ends the year.`,
+  ][i];
+  return `<p class="note">${text}</p>`;
 }
 const pips = (n, max, hot) => `<span class="pips${hot ? ' hot' : ''}" aria-hidden="true">${Array.from({ length: max }, (_, i) => `<i class="${i < n ? 'on' : ''}"></i>`).join('')}</span>`;
 const kindTag = (k) => `<span class="kind k-${k}">${KINDS[k].name}</span>`;
@@ -412,10 +433,13 @@ function dayPanel() {
     const cap = jobCap(s, id);
     const k = s.shades.filter((d) => stepsThrough(s, d) && d.byDay.room === id).length;
     const w = s.shades.find((d) => whispers(s, d) && tradeOf(s, d) === id);
-    const out = id === 'infirmary' ? `heals ${fmt(pw[id] * R.rate)}/day` : R.out === 'defense' ? `defense ${fmt(pw[id] * R.rate)}` : `${fmt(pw[id] * R.rate)} ${R.out}/day`;
+    const len = dayLength(s);
+    const out = id === 'infirmary' ? `heals ${fmt(pw[id] * R.rate * len)}/day` : R.out === 'defense' ? `defense ${fmt(pw[id] * R.rate)}` : `${fmt(pw[id] * R.rate * len)} ${R.out}/day`;
     return `<li><span>${R.name} <small class="muted">${plural(n, R.role)}${k ? ` and ${plural(k, 'shade')},` : ''}${Number.isFinite(cap) ? ` of ${cap}` : ''}${w ? `, ${esc(w.name)} whispering` : ''}</small></span><span class="num">${out}</span></li>`;
   }).join('');
-  return `<header class="ph-head"><h2>Day ${s.day}</h2><p>${moon > 0 ? `The new moon is ${plural(moon, 'night')} off.` : 'Tonight is the new moon. The Hollow will rise.'} The living work; anyone who dies inside the walls wakes at dusk.</p></header>
+  const lunar = isLongNight(s) ? `Tonight is the Long Night: ${longTimes()} as long as a winter night, with the Hollow, a Maw and more of the Unlit. At dawn the year ends.` : moon > 0 ? `The ${T.year && seasonIndex(s) === 3 ? 'Long Night' : 'new moon'} is ${plural(moon, 'night')} off.` : 'Tonight is the new moon. The Hollow will rise.';
+  return `<header class="ph-head"><h2>${seasonWord() ? `${seasonWord()}, day ${s.day}` : `Day ${s.day}`}</h2><p>${lunar} The living work; anyone who dies inside the walls wakes at dusk.</p></header>
+    ${s.day === 1 ? seasonNote() : ''}
     ${fireCards()}
     ${raidCard()}
     ${inspectionCard()}
@@ -499,7 +523,8 @@ function duskPlace() {
   const creepers = n.spawns.filter((x) => x.type === 'creeper').length;
   const maws = n.spawns.filter((x) => x.type === 'maw').length;
   const wraiths = s.shades.filter((d) => d.kind === 'wraith');
-  return `<header class="ph-head"><h2>Dusk: set the night</h2><p>${plural(creepers, 'Creeper')} will climb out of the Deep tonight, most of them in tides around ${tidesText()}.${maws ? ` ${maws === 1 ? 'A Maw comes' : `${maws} Maws come`} with the last tide.` : ''}${isNewMoon(s) ? ' <b>Tonight is the new moon: the Hollow rises.</b>' : ''} Set candles and post the shades, then begin.</p></header>
+  return `<header class="ph-head"><h2>Dusk: set the night</h2><p>${plural(creepers, 'Creeper')} will climb out of the Deep tonight, most of them in tides around ${tidesText()}.${maws ? ` ${maws === 1 ? 'A Maw comes' : `${maws} Maws come`} with the last tide.` : ''}${isLongNight(s) ? ` <b>Tonight is the Long Night: ${longTimes()} as long as a winter night, with the Hollow and a Maw. At dawn the year ends.</b>` : isNewMoon(s) ? ' <b>Tonight is the new moon: the Hollow rises.</b>' : ''} Set candles and post the shades, then begin.</p></header>
+    ${nightTicks(s) > s.tuning.candleWax * TICKS_PER_SEC ? `<p class="note">Tonight lasts ${minsSecs(nightTicks(s) / TICKS_PER_SEC)} at 1×, and a candle burns ${minsSecs(s.tuning.candleWax)}. Keep candles back to relight before dawn.</p>` : ''}
     <ul class="facts">
       <li><span>Candles set tonight</span><b class="num">${n.candles.length}, ${floor1(s.res.candles)} left</b></li>
       <li><span>Shades posted in the dark</span><b class="num">${dark.length}</b></li>
@@ -611,11 +636,17 @@ function blackMirror() {
 
 // Two nights before the new moon, and the night before: wards on the stairs are what hold the Hollow, so the
 // essence spent on tonight's tides won't be there for it.
+const minsSecs = (x) => {
+  const m = Math.floor(x / 60);
+  const sec = Math.round(x - m * 60);
+  return m ? `${m} min${sec ? ` ${sec} s` : ''}` : `${sec} s`;
+};
 function moonNote() {
   const left = s.tuning.seasonDays - s.day;
   if (left < 1 || left > 2) return '';
   const stairs = K().stairs.length;
   const when = left === 1 ? 'Tomorrow night' : 'In two nights';
+  if (s.tuning.year && seasonIndex(s) === 3) return `<p class="note">${when} comes the Long Night, ${longTimes()} as long as a winter night, with the Hollow, a Maw and more of the Unlit. Put candles by for it.${stairs ? ` Wards on the stairs hold the Hollow back: warding all ${stairs} would take ${fmt(stairs * wardCost(s))} essence, and you have ${floor1(s.res.essence)}.` : ''}</p>`;
   if (!stairs) return `<p class="note">${when} comes the new moon, and the Hollow. This keep has no stairs yet, so only shades fighting it can stop it.</p>`;
   return `<p class="note">${when} comes the new moon. Wards on the stairs are what hold the Hollow back: warding all ${stairs} here would take ${fmt(stairs * wardCost(s))} essence, and you have ${floor1(s.res.essence)}. What you spend tonight won't be there then.</p>`;
 }
@@ -769,10 +800,13 @@ function questionHTML(e) {
 
 function endPanel() {
   const e = lastSeason(s);
-  return `<header class="ph-head"><h2>Season ${e.season} is over</h2><p>The new moon has passed. The keep stands.</p></header>
+  const T = s.tuning;
+  const yearEnd = T.year && seasonIndex(s) === 3;
+  const next = T.year ? `Begin ${SEASONS[e.season % SEASONS.length]}${yearEnd ? `, year ${yearOf(s) + 1}` : ''}` : `Begin season ${e.season + 1}`;
+  return `<header class="ph-head"><h2>${yearEnd ? `Year ${yearOf(s)} is over` : T.year ? `${seasonWord()} is over` : `Season ${e.season} is over`}</h2><p>${yearEnd ? 'The Long Night has passed. The keep has stood a whole year.' : 'The new moon has passed. The keep stands.'}</p></header>
     ${questionHTML(e)}
     <div class="card"><h3>The season</h3>${summaryHTML(e)}<div class="row"><button class="btn sm" id="end-book" data-act="book">Read the Book of the Dead</button></div></div>
-    <div class="row"><button class="btn primary" id="btn-next-season" data-act="next-season">Begin season ${e.season + 1}</button><span class="hint">Raids and the Unlit come ×${s.tuning.hardness} harder.</span></div>`;
+    <div class="row"><button class="btn primary" id="btn-next-season" data-act="next-season">${next}</button><span class="hint">Raids and the Unlit come ×${T.hardness} harder.</span></div>`;
 }
 
 function newKeepControls() {
@@ -981,6 +1015,9 @@ const TUNE = [
   ['fire', 'Fire by day in Hearths and Forges (1 on, 0 off)'],
   ['dreamwell', 'Beds and crowding, the Dreamwell and the Weepers (1 on, 0 off)'],
   ['whispers', 'Whispers and the great glass: the dead help by day (1 on, 0 off)'],
+  ['year', 'A year of four seasons, days and nights shifting, ending with the Long Night (1 on, 0 off)'],
+  ['longNight', 'The Long Night lasts this many winter nights'],
+  ['longNightCreepers', 'The Long Night brings this many times a night\'s Creepers'],
 ];
 const KEYS = [
   ['Space', 'play or pause'], ['1, 2, 4', 'speed'], ['C, M, W, H', 'candle, move, ward, hush (at night)'], ['V', 'turn the Tain upright'],

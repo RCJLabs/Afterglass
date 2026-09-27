@@ -210,7 +210,21 @@ export const TUNING = {
   whisperFade: 8,
   stepWork: 1,
   stepFade: 8,
+
+  // A year (round three): four seasons of seven days, from spring. Days lengthen into summer and shorten into
+  // winter, and nights the other way: each season multiplies daySecs by its seasonDay and nightSecs by its
+  // seasonNight, and what the living make in a day by its seasonDay too, so summer builds and winter lives
+  // on what's put by. Winter's seventh night is the Long Night, which ends the year: longNight times as long
+  // as a winter night, with the Hollow, a Maw and longNightCreepers times a night's Creepers. year 0 plays
+  // every season as spring.
+  year: 1,
+  seasonDay: [1, 1.3, 1, 0.7],
+  seasonNight: [1, 0.75, 1, 1.35],
+  longNight: 1.5,
+  longNightCreepers: 1,
 };
+
+export const SEASONS = ['spring', 'summer', 'autumn', 'winter'];
 
 // Traits, from round three: each of the living has one, which helps or hinders at a job, and death turns it
 // over into what the shade does at night. Some change what keeping the shade costs at the rite. Costs that

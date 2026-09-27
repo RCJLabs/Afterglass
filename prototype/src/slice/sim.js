@@ -8,7 +8,7 @@
 
 import {
   TICKS_PER_SEC, TUNING, DAY_ROOMS, WORK_ROOMS, TWINS, MAP, KINDS, WORKING, CAUSES, GUIDE_UP,
-  MIRRORS, START_MIRRORS, MIRROR_PLACES, CAST, BONDS, START_SHADES, BOND_OTHER, NAMES, RAIDER_NAMES, BUILDABLE, TRAITS, TRAIT_KEYS, SHADE_TRAITS,
+  MIRRORS, START_MIRRORS, MIRROR_PLACES, CAST, BONDS, START_SHADES, BOND_OTHER, NAMES, RAIDER_NAMES, BUILDABLE, TRAITS, TRAIT_KEYS, SHADE_TRAITS, SEASONS,
 } from './data.js';
 import {
   geo, FULL_KEEP, startKeep, lineSpots, MAX_FLOORS, roomsOf, roomAt, roomSpan, typeOf, typeAt, lightMap, isLit, spanAt, darkBetween, darkRooms, darkGaps, route, firstLight, fleePath, touching,
@@ -24,10 +24,18 @@ const r1 = (x) => Math.round(x * 10) / 10;
 export const fmt = (x) => (Math.abs(x - Math.round(x)) < 0.05 ? String(Math.round(x)) : x.toFixed(1));
 const listNames = (xs) => (xs.length < 2 ? xs.join('') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`);
 export const byId = (list, id) => list.find((x) => x.id === id);
-export const dayTicks = (s) => Math.round(s.tuning.daySecs * TICKS_PER_SEC);
-export const nightTicks = (s) => Math.round(s.tuning.nightSecs * TICKS_PER_SEC);
-export const perf = (d) => 0.4 + (0.6 * Math.max(0, d.memory)) / 100;
+// The year: which season (0 spring to 3 winter; always spring with year off), how long its days and
+// nights run, and the Long Night that ends it.
+export const seasonIndex = (s) => (s.tuning.year ? (s.season - 1) % SEASONS.length : 0);
+export const seasonName = (s) => SEASONS[seasonIndex(s)];
+export const yearOf = (s) => Math.floor((s.season - 1) / SEASONS.length) + 1;
+export const dayLength = (s) => (s.tuning.year ? s.tuning.seasonDay[seasonIndex(s)] : 1);
 export const isNewMoon = (s) => s.day >= s.tuning.seasonDays;
+export const isLongNight = (s) => !!s.tuning.year && seasonIndex(s) === 3 && isNewMoon(s);
+const nightLength = (s) => (s.tuning.year ? s.tuning.seasonNight[seasonIndex(s)] * (isLongNight(s) ? s.tuning.longNight : 1) : 1);
+export const dayTicks = (s) => Math.round(s.tuning.daySecs * dayLength(s) * TICKS_PER_SEC);
+export const nightTicks = (s) => Math.round(s.tuning.nightSecs * nightLength(s) * TICKS_PER_SEC);
+export const perf = (d) => 0.4 + (0.6 * Math.max(0, d.memory)) / 100;
 export const hard = (s, k = 'hardness') => Math.pow(s.tuning[k], s.season - 1);
 // Traits (data.js): what a living one's trait does by day, and a shade's by night, while traits are on.
 export const livingTrait = (s, p) => (s.tuning.traits && p.trait ? TRAITS[p.trait] : null);
@@ -288,11 +296,12 @@ function dayTick(s) {
   const D = dayTicks(s);
   s.t++;
   const pw = roomPower(s);
+  const len = dayLength(s); // a long summer day makes more, a short winter one less
   for (const r of WORK_ROOMS) {
     const R = DAY_ROOMS[r];
-    if (R.out in s.res) gain(s, R.out, (pw[r] * R.rate) / D);
+    if (R.out in s.res) gain(s, R.out, (pw[r] * R.rate * len) / D);
   }
-  heal(s, (pw.infirmary * DAY_ROOMS.infirmary.rate) / D);
+  heal(s, (pw.infirmary * DAY_ROOMS.infirmary.rate * len) / D);
   eat(s, D);
   if (s.fires?.length) burn(s);
   if (s.phase !== 'day') return;
@@ -780,9 +789,11 @@ function rise(s, b, x) {
 function newNight(s) {
   const T = s.tuning;
   const N = nightTicks(s);
-  const count = Math.round((T.creepersBase + T.creepersPerNight * Math.min(s.day, T.seasonDays - 1)) * (isNewMoon(s) ? T.newMoonCreepers : 1) * hard(s));
-  // The Unlit come in tides: a few stragglers, and the rest in waves that can swamp one candle.
-  const waves = 1 + Math.floor(s.day / T.tideEvery);
+  const long = isLongNight(s);
+  const count = Math.round((T.creepersBase + T.creepersPerNight * Math.min(s.day, T.seasonDays - 1)) * (long ? T.longNightCreepers : isNewMoon(s) ? T.newMoonCreepers : 1) * hard(s));
+  // The Unlit come in tides: a few stragglers, and the rest in waves that can swamp one candle. The Long
+  // Night has one tide more.
+  const waves = 1 + Math.floor(s.day / T.tideEvery) + (long ? 1 : 0);
   const tides = Array.from({ length: waves }, (_, w) => 0.12 + (0.7 * (w + 0.2 + 0.6 * rand(s))) / waves);
   const spawns = [];
   for (let i = 0; i < count; i++) {
@@ -794,8 +805,8 @@ function newNight(s) {
     });
   }
   // Maws rise just ahead of the last tide, to open a way for the Creepers behind them, from night mawFrom.
-  // The new moon belongs to the Hollow.
-  if (s.day >= T.mawFrom && !isNewMoon(s)) {
+  // The new moon belongs to the Hollow, except the Long Night, which has both.
+  if (s.day >= T.mawFrom && (!isNewMoon(s) || long)) {
     const maws = Math.round(T.mawsPerNight);
     const order = [...tides].sort((a, b) => b - a);
     for (let i = 0; i < maws; i++) spawns.push({ at: Math.round(clamp(order[i % order.length] - 0.03, 0.02, 0.9) * N), type: 'maw', seep: false, snuff: false, rift: pick(s, MAP.rifts).id });
@@ -827,7 +838,8 @@ function startNight(s) {
     addFoe(s, 'wraith', f, x0 + 10 + i * 9, { shade: w.id, temper: 'snuff' });
     s.night.stats.wraiths++;
   }
-  say(s, `Night ${s.day}${isNewMoon(s) ? ': the new moon. The Hollow will rise' : ''}. ${s.night.spawns.filter((x) => x.type === 'creeper').length} Creepers will come before dawn.`, 'night', isNewMoon(s));
+  say(s, `Night ${s.day}${isLongNight(s) ? `: the Long Night. It lasts ${s.tuning.longNight === 2 ? 'twice' : `${fmt(s.tuning.longNight)} times`} as long as a winter night, and the Hollow, a Maw and more of the Unlit will come. At its end the year ends` : isNewMoon(s) ? ': the new moon. The Hollow will rise' : ''}. ${s.night.spawns.filter((x) => x.type === 'creeper').length} Creepers will come before dawn.`, 'night', isNewMoon(s));
+  if (isLongNight(s)) cue(s, 'long-night');
   cue(s, 'night');
   if (s.night.stats.wraiths) say(s, `${listNames(s.shades.filter((d) => d.kind === 'wraith').map((d) => d.name))} ${s.night.stats.wraiths === 1 ? 'rises' : 'rise'} as a Wraith in the Waking Room.`, 'bad', true);
   if (s.night.stats.wraiths) cue(s, 'wraith');
@@ -1673,7 +1685,8 @@ function beginDay(s) {
   }
   if (s.day % T.newcomerEvery === 0 && s.living.length < T.maxLiving) newcomer(s);
   rollDay(s);
-  say(s, `Season ${s.season}, day ${s.day}${isNewMoon(s) ? ': tonight is the new moon' : ''}.`, 'day');
+  const when = s.tuning.year ? `${cap(seasonName(s))} of year ${yearOf(s)}` : `Season ${s.season}`;
+  say(s, `${when}, day ${s.day}${isLongNight(s) ? ': tonight is the Long Night' : isNewMoon(s) ? ': tonight is the new moon' : ''}.`, 'day');
   cue(s, 'day');
   const haunted = (s.haunted || []).map((id) => DAY_ROOMS[typeOf(geo(s), id)].name);
   const half = T.hauntWork < 1 ? ` Whoever works there manages ${Math.round(100 * T.hauntWork)}% until dusk.` : '';
@@ -1727,6 +1740,9 @@ function endSeason(s, cracks) {
   cue(s, 'end');
 }
 
+const cap = (w) => w[0].toUpperCase() + w.slice(1);
+const SEASON_TEXT = ['', 'the days are long and the nights short. Summer builds.', 'day and night are even again, and the year turns toward winter.', 'the days are short and the nights long. Winter lives on what was put by, and it ends with the Long Night.'];
+
 function nextSeason(s) {
   const { cracks } = lastSeason(s);
   s.days.push({ season: s.season, day: s.day, ...s.today, dread: s.dread, living: s.living.length, shades: s.shades.length });
@@ -1739,7 +1755,9 @@ function nextSeason(s) {
   s.cracks = 0;
   s.haunted = [];
   toRite(s, cracks);
-  say(s, `Season ${s.season} begins with the dawn.${mended ? ' The Veil has knit whole again.' : ''} The Host will come harder, and so will the Unlit.`, 'rite', true);
+  const T = s.tuning;
+  const turn = !T.year ? '' : seasonIndex(s) === 0 ? ` A new year begins: year ${yearOf(s)}.` : ` ${cap(seasonName(s))}: ${SEASON_TEXT[seasonIndex(s)]}`;
+  say(s, `Season ${s.season} begins with the dawn.${turn}${mended ? ' The Veil has knit whole again.' : ''} The Host will come harder, and so will the Unlit.`, 'rite', true);
   cue(s, 'dawn');
 }
 
@@ -2094,6 +2112,7 @@ export function upgrade(g) {
   for (const t of [g.tuning, g.tuning0]) if (t && !('fire' in t)) t.fire = 0;
   for (const t of [g.tuning, g.tuning0]) if (t && !('dreamwell' in t)) t.dreamwell = 0;
   for (const t of [g.tuning, g.tuning0]) if (t && !('whispers' in t)) t.whispers = 0;
+  for (const t of [g.tuning, g.tuning0]) if (t && !('year' in t)) t.year = 0;
   for (const p of g.living || []) p.trait ??= traitFor(g, p.name);
   for (const b of g.bodies || []) if (b.was === undefined) b.was = b.from === 'raider' ? null : traitFor(g, b.name);
   for (const d of g.shades || []) {

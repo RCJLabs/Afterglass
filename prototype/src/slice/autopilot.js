@@ -9,7 +9,7 @@
 // All but double and idle react at night: a second fighter to each stair of the line for each tide, a ward
 // on the line for the biggest tides when the essence is there, and a fighter to meet a Maw.
 
-import { step, act, newSeason, ritePreview, crossingPreview, capacity, canWork, defense, funeralCap, choicesFor, jobCap, jobCount, eatRate, wardCost, livingTrait, shadeTrait, peopleIn, crowded, tradeOf, inGreatGlass, handsAt } from './sim.js';
+import { step, act, newSeason, ritePreview, crossingPreview, capacity, canWork, defense, funeralCap, choicesFor, jobCap, jobCount, eatRate, wardCost, livingTrait, shadeTrait, peopleIn, crowded, tradeOf, inGreatGlass, handsAt, seasonIndex } from './sim.js';
 import { DAY_ROOMS, MIRRORS, KINDS, MAP } from './data.js';
 import { geo, roomSpan, roomAt, roomsOf, lineSpots } from './geo.js';
 
@@ -61,6 +61,11 @@ function nextBuild(s) {
   return null;
 }
 
+// Candles to keep in store: with the year on, more put by through summer and autumn for winter's long nights
+// and the Long Night.
+const CANDLES_BY = [8, 16, 26, 26];
+const candleTarget = (s) => (s.tuning.year ? CANDLES_BY[seasonIndex(s)] : 8);
+
 function wantedJobs(s) {
   const n = s.living.length;
   const r = s.raid;
@@ -70,7 +75,7 @@ function wantedJobs(s) {
     hearth: Math.max(1, Math.ceil(food / DAY_ROOMS.hearth.rate)),
     chapel: n >= 10 ? 2 : 1,
     infirmary: s.living.some((p) => p.sick > 0) ? 1 : 0,
-    chandlery: threat ? 0 : s.res.candles < 8 ? 2 : 1,
+    chandlery: threat ? 0 : s.res.candles < candleTarget(s) ? 2 : 1,
     glazier: threat || n < 6 ? 0 : 1,
     yard: !threat && nextBuild(s) && s.res.stone < s.tuning.roomStone ? 1 : 0,
   };

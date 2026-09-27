@@ -340,6 +340,9 @@ function layers() {
 
 // Skies as colour stops by world row (the keep's top is row 0, the lake is row VEIL), dithered at the seams.
 const DAY_SKY = [[-9999, '#2f63c4'], [-150, '#3b7dd8'], [-60, '#5a9be6'], [10, '#86bff0'], [64, '#bfe1f6']];
+// The year: the hills far and near in spring, summer, autumn and winter, and winter's paler sky.
+const LAND = [['#8fb4a4', '#6fa878'], ['#a2c48a', '#7cb35e'], ['#b8a47c', '#b97c46'], ['#cfd9e4', '#eef3f8']];
+const WINTER_SKY = [[-9999, '#8fa6c8'], [-60, '#b4c6dc'], [40, '#dbe5ef']];
 const SUNSET_SKY = [[-9999, P.indigo], [-120, P.grape], [-30, P.mauve], [30, P.pink], [70, P.amber]];
 const NIGHT_SKY = [[-9999, '#07060d'], [-120, P.void], [-30, P.night], [40, P.ink], [84, P.indigo]];
 // The Tain's own sky, by upright row: the deeper, the darker.
@@ -389,6 +392,18 @@ function stars(c, x0, w, y0, y1, t, col = P.white) {
       if (x < x0 || x >= x0 + w || sy < y0 || sy >= y1) continue;
       if (ph > 0.8 && MF(t * 1.5 + ph * 10) % 5 === 0) continue;
       D(c, x, sy, col);
+    }
+  }
+}
+// Winter's snow: flakes on a repeating tile, each falling at its own pace and swaying a little.
+const SNOW_TILE = 97;
+function snow(c, x0, w, y0, y1, t) {
+  const span = y1 - y0 + 40;
+  for (let k = Math.floor(x0 / SNOW_TILE) - 1; k * SNOW_TILE < x0 + w; k++) {
+    for (let i = 0; i < 14; i++) {
+      const x = Math.round(k * SNOW_TILE + ((i * 37) % SNOW_TILE) + Math.sin(t * 0.8 + i) * 2);
+      const y = Math.round(y0 - 20 + ((((t * (6 + (i % 3) * 2) + i * 53 + k * 29) % span) + span) % span));
+      if (x >= x0 && x < x0 + w && y >= y0 && y < y1) D(c, x, y, P.white);
     }
   }
 }
@@ -1008,9 +1023,11 @@ function dayScene(c, w, h, s, v) {
         stars(u, cx, w, yTop, VEIL - 30, t);
       });
     }
+    const season = s.tuning.year ? (s.season - 1) % LAND.length : 0;
+    if (season === 3) A(u, 0.45 * (1 - sunset), () => bands(u, cx, w, yTop, VEIL, WINTER_SKY));
     A(u, 1 - dk, () => clouds(u, cx, w, t));
-    ridge(u, cx, w, RIDGES.far, sunset > 0.5 ? '#7a6a8a' : '#8fb4a4');
-    ridge(u, cx, w, RIDGES.near, sunset > 0.5 ? '#5a4a6a' : '#6fa878');
+    ridge(u, cx, w, RIDGES.far, sunset > 0.5 ? '#7a6a8a' : LAND[season][0]);
+    ridge(u, cx, w, RIDGES.near, sunset > 0.5 ? '#5a4a6a' : LAND[season][1]);
     if (dk > 0) {
       A(u, dk, () => {
         ridge(u, cx, w, RIDGES.far, '#141c2a');
@@ -1021,6 +1038,7 @@ function dayScene(c, w, h, s, v) {
     if (dk > 0) A(u, dk, () => u.drawImage(L.nightKeep, 0, L.y0));
     if (sunset > 0 && dk < 0.6) A(u, 0.25 * sunset * (1 - dk / 0.6), () => R(u, cx, yTop, w, upH, P.orange));
     dayActors(u, s, t, dk);
+    if (season === 3) A(u, 0.9, () => snow(u, cx, w, yTop, VEIL, t));
     for (const id of s.haunted || []) if (G.rooms[id]) A(u, 1 - dk, () => haunt(u, G.rooms[id], G.floors[G.rooms[id].f].y, t));
     // Souls of the dead crossing: down through the Veil to wake, or up and away to rest.
     for (const sl of v.souls || []) {
