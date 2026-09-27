@@ -271,6 +271,11 @@ export const TUNING = {
   refusals: 2,
   gateFade: 8,
 
+  // An ending to the year (round five): after the Long Night, seal the Veil (every shade goes free, and the
+  // keep's story ends), keep the watch into a harder year, or take your own place in the glass: the keeper
+  // wakes as a shade, Loyal, named and Anchored, who weighs keeperDread times a shade at every rite.
+  keeperDread: 2,
+
   plague: 1,
   plagueCrowd: 2,
   siege: 1,

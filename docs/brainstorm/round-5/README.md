@@ -17,7 +17,7 @@ Round four's queue is built except the replay viewer, which is parked ([`round-4
 | 7 | Rain and the Drowned | New | M | Queued, 8th |
 | 8 | Down into the Deep, for quicksilver | New | M–L | Queued, 9th |
 | 9 | Generations: aging and children | New | L | Queued, 10th |
-| 10 | An ending to the year | New | M | Queued, 7th |
+| 10 | An ending to the year | New | M | Built: keep the watch, take your place in the glass as The Keeper, or seal the Veil and end the keep ([problem 26](../../../prototype/README.md)) |
 | 11 | Difficulty presets | Small | S | Queued, 11th |
 | 12 | The Lantern Church's embargo and inquisition | Small | S–M | Queued, 12th |
 | 13 | Keyboard play at night | Small | S–M | Queued, 13th |

@@ -19,6 +19,7 @@ export function summary(s, now) {
     living: s.living.length,
     shades: s.shades.filter(canWork).length,
     lost: s.phase === 'over',
+    sealed: !!s.sealed,
     daily: s.daily || null,
     tutorial: !!s.tuning?.tutorial,
     tutorialOver: !!(s.tut?.over || s.tut?.off),

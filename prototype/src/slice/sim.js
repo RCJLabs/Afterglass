@@ -44,6 +44,8 @@ export const tutorialDay = (s) => (s.tuning.tutorial && s.season === 1 ? TUTORIA
 export const tutorialNight = (s) => (s.tuning.tutorial && s.season === 1 ? TUTORIAL.nights[s.day] || null : null);
 export const veilKept = (s) => !!s.tuning.tutorial && s.season === 1 && s.day < TUTORIAL.safeUntil;
 // Each season its own trouble: summer's plague and autumn's siege, with the year on.
+// The year's end: after the Long Night, before the next season, unless the Veil was sealed.
+export const yearsEnd = (s) => s.phase === 'end' && !!s.tuning.year && seasonIndex(s) === 3 && !s.sealed;
 export const plagueSeason = (s) => !!s.tuning.plague && !!s.tuning.year && seasonIndex(s) === 1;
 export const besieged = (s) => !!s.siege && !s.siege.broken && s.day >= s.siege.from && s.day <= s.siege.until;
 export const sallyOdds = (s) => (s.siege ? clamp(defense(s) / (s.tuning.sallyOdds * s.siege.strength), 0.1, 0.9) : 0);
@@ -1887,7 +1889,7 @@ export function ritePreview(s) {
       P.rem += 1;
     } else {
       P.keep.push(d);
-      keepD += T.dreadPerKeep * (shadeTrait(s, d)?.dread ?? 1); // a Bitter shade costs double
+      keepD += T.dreadPerKeep * (d.keeper ? T.keeperDread : shadeTrait(s, d)?.dread ?? 1); // a Bitter shade costs more, and the keeper
     }
   }
   for (const d of [...P.cover, ...P.release]) for (const p of s.living) if (p.grief?.for === d.id) P.peace.push(p);
@@ -2556,7 +2558,41 @@ const ACTIONS = {
   },
   nextSeason(s) {
     if (s.phase !== 'end') return 'The season is not over.';
+    if (s.sealed) return "The Veil is sealed. This keep's story is over.";
     nextSeason(s);
+  },
+  // The year's end: seal the Veil, and the keep's story ends with every shade free.
+  sealVeil(s) {
+    if (!yearsEnd(s)) return 'The Veil can be sealed only when a year ends.';
+    const n = s.shades.length;
+    for (const d of [...s.shades]) {
+      endLedger(s, d.id, 'sealed');
+      restFor(s, d.id, true);
+    }
+    s.shades = [];
+    s.sealed = { season: s.season, year: yearOf(s), freed: n };
+    const e = lastSeason(s);
+    if (e) e.sealed = n;
+    say(s, `The Veil is sealed. ${n ? `${n === 1 ? 'The last shade goes' : n === 2 ? 'Both shades go' : `All ${n} shades go`} free, and` : 'The glass is empty, and'} the Book of the Dead is closed. The keep's story ends here.`, 'good', true);
+    cue(s, 'blessed');
+  },
+  // The year's end: the keeper takes their own place in the glass, and a new keeper inherits the keep.
+  takeGlass(s) {
+    if (!yearsEnd(s)) return 'That is for the end of a year.';
+    const T = s.tuning;
+    nextSeason(s);
+    const m = freeMirror(s) || addMirror(s, 'hand', nextPlace(s));
+    const d = newShade(s, { id: 'p' + s.nextId++, name: 'The Keeper', kind: 'loyal', cause: 'duty', from: 'keeper', day: 0, memory: 100, named: true, was: 'stubborn' });
+    d.mirror = m.id;
+    d.keeper = true;
+    s.shades.push(d);
+    s.rite.choice[d.id] = 'keep';
+    s.ledger.push({
+      id: d.id, name: d.name, from: 'keeper', season: s.season, day: 0, cause: 'duty', how: 'kept the keep a whole year, and took their place in the glass', kind: 'loyal', guided: false, job: null,
+      age: 'adult', bond: null, woke: 'loyal', end: null, endDay: null, nights: 0, kills: 0, posts: {}, named: true, memory: 100, was: 'stubborn',
+    });
+    say(s, `You take your own place in the ${m.name}, and a new keeper takes up the keep. The Keeper is Loyal, named and Anchored, and weighs ${T.keeperDread} shades' Dread at every rite.`, 'rite', true);
+    cue(s, 'wake');
   },
   tune(s, { key, value, build }) {
     // Today's keep is the same for everyone, so only a new version's own numbers change it.

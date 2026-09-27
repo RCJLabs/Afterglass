@@ -18,6 +18,7 @@ function outcome(s, e) {
   const yearEnd = !!s.tuning.year && (e.season - 1) % SEASONS.length === SEASONS.length - 1;
   if (e.lost === 'veil') return { stood: false, head: 'The keep fell', sub: `The Veil broke on night ${e.day}.` };
   if (e.lost) return { stood: false, head: 'The keep fell', sub: `No one living was left, on day ${e.day}.` };
+  if (e.sealed !== undefined) return { stood: true, head: 'The Veil is sealed', sub: e.sealed ? `After a whole year, ${plural(e.sealed, 'shade')} went free.` : 'After a whole year, the glass stood empty.' };
   return { stood: true, head: 'The keep stands', sub: yearEnd ? 'It came through the Long Night, and a whole year.' : 'It came through the new moon.' };
 }
 

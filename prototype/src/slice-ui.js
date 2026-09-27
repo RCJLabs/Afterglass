@@ -909,12 +909,34 @@ function endPanel() {
   const T = s.tuning;
   const yearEnd = T.year && seasonIndex(s) === 3;
   const next = T.year ? `Begin ${SEASONS[e.season % SEASONS.length]}${yearEnd ? `, year ${yearOf(s) + 1}` : ''}` : `Begin season ${e.season + 1}`;
-  return `<header class="ph-head"><h2>${yearEnd ? `Year ${yearOf(s)} is over` : T.year ? `${seasonWord()} is over` : `Season ${e.season} is over`}</h2><p>${yearEnd ? 'The Long Night has passed. The keep has stood a whole year.' : 'The new moon has passed. The keep stands.'}</p></header>
+  const head = s.sealed
+    ? `<header class="ph-head"><h2>The Veil is sealed</h2><p>After a whole year, ${s.sealed.freed ? `${plural(s.sealed.freed, 'shade')} went free` : 'the glass stood empty'}, and the Book of the Dead is closed. This keep's story is over.</p></header>`
+    : `<header class="ph-head"><h2>${yearEnd ? `Year ${yearOf(s)} is over` : T.year ? `${seasonWord()} is over` : `Season ${e.season} is over`}</h2><p>${yearEnd ? 'The Long Night has passed. The keep has stood a whole year.' : 'The new moon has passed. The keep stands.'}</p></header>`;
+  const go = s.sealed
+    ? newKeepControls()
+    : yearEnd ? endingsHTML(next)
+      : `<div class="row"><button class="btn primary" id="btn-next-season" data-act="next-season">${next}</button><span class="hint">Raids and the Unlit come ×${T.hardness} harder.</span></div>`;
+  return `${head}
     ${questionHTML(e)}
-    ${reviewHTML(isLongNight(s) ? 'The Long Night in moments' : 'The new moon in moments')}
+    ${s.sealed ? '' : reviewHTML(isLongNight(s) ? 'The Long Night in moments' : 'The new moon in moments')}
     <div class="card"><h3>The season</h3>${summaryHTML(e)}<div class="row"><button class="btn sm" id="end-book" data-act="book">Read the Book of the Dead</button></div></div>
     ${recapHTML(e)}
-    <div class="row"><button class="btn primary" id="btn-next-season" data-act="next-season">${next}</button><span class="hint">Raids and the Unlit come ×${T.hardness} harder.</span></div>`;
+    ${go}`;
+}
+// An ending to the year (round five): keep the watch, take your own place in the glass, or seal the Veil,
+// which ends the keep's story and is asked twice.
+function endingsHTML(next) {
+  const T = s.tuning;
+  const n = s.shades.length;
+  const seal = ui.sealAsk
+    ? `<p class="note bad">Seal the Veil? ${n ? `${n === 1 ? 'The last shade goes' : n === 2 ? 'Both shades go' : `All ${n} shades go`} free, ` : ''}the Book closes, and this keep can't be played on.</p><div class="row"><button class="btn sm primary" id="seal-yes" data-act="seal-yes">Seal it</button><button class="btn sm" id="seal-no" data-act="seal-no">Cancel</button></div>`
+    : '<button class="btn" id="end-seal" data-act="seal-ask">Seal the Veil</button>';
+  return `<div class="card ending"><h3>The year's end</h3><p>The Long Night is over. How does this keep's year end?</p>
+    <div class="endings">
+      <div><button class="btn primary" id="btn-next-season" data-act="next-season">Keep the watch</button><p class="note">${esc(next)}. Raids and the Unlit come ×${T.hardness} harder.</p></div>
+      <div><button class="btn" id="end-glass" data-act="take-glass">Take your place in the glass</button><p class="note">You wake as a shade, Loyal, named and Anchored: a strong fighter who fades slowly, but weighs ${T.keeperDread} shades' Dread at every rite. A new keeper takes up the keep, and the year goes on.</p></div>
+      <div>${seal}<p class="note">${ui.sealAsk ? '' : `Every shade goes free, and the Book closes. The keep's story ends here, with ${plural(n, 'shade')} set free.`}</p></div>
+    </div></div>`;
 }
 
 function newKeepControls() {
@@ -1232,6 +1254,7 @@ const agoText = (ms) => {
 };
 function whereText(m) {
   if (m.lost) return `fallen on day ${m.day}`;
+  if (m.sealed) return 'the Veil is sealed';
   if (m.phase === 'end') return 'the season is over';
   if (m.phase === 'night') return `night ${m.day}`;
   if (m.phase === 'dusk') return `dusk, day ${m.day}`;
@@ -2785,6 +2808,19 @@ function onAct(name, el) {
     case 'shore': return game({ type: 'shore' });
     case 'raid-bell': return game({ type: 'raidBell' });
     case 'pursue': return game({ type: 'pursue' });
+    case 'take-glass':
+      if (game({ type: 'takeGlass' })) saveGame();
+      return undefined;
+    case 'seal-ask':
+      ui.sealAsk = true;
+      return bump();
+    case 'seal-no':
+      ui.sealAsk = false;
+      return bump();
+    case 'seal-yes':
+      ui.sealAsk = false;
+      if (game({ type: 'sealVeil' })) saveGame();
+      return undefined;
     case 'request': return game({ type: 'request', id: el.dataset.id, grant: !!el.dataset.grant });
     case 'sally': return game({ type: 'sally' });
     case 'vigil': return game({ type: 'vigil' });
