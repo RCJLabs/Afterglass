@@ -6,7 +6,7 @@ import { TICKS_PER_SEC, DAY_ROOMS, WORK_ROOMS, TWINS, KINDS, MIRRORS, CAUSES, MA
 import {
   newSeason, step, act, retune, playerTuning, jobCap, jobCount, nextSlot, ritePreview, crossingPreview, capacity, canWork, defense, roomPower, bear, priests, funeralCap, eatRate,
   dayTicks, nightTicks, isNewMoon, choicesFor, byId, isTwinnedLiving, isTwinnedShade, lastSeason, SAVE_VERSION, fmt, mirrorCap,
-  postRoom, wardCost, shadeTrait, peopleIn, beds,
+  postRoom, wardCost, shadeTrait, peopleIn, beds, tradeOf, inGreatGlass, handsAt, whispers, stepsThrough, perf,
 } from './slice/sim.js';
 import { geo, feet, floorAtY, roomAt, typeAt, typeOf, roomSpan, roomsOf, lightMap, isLit, unitAt, DEEP_FLOOR, lineSpots as lineOf, guardLit } from './slice/geo.js';
 import { drawScene } from './slice/draw.js';
@@ -410,8 +410,10 @@ function dayPanel() {
     const R = DAY_ROOMS[id];
     const n = jobCount(s, id);
     const cap = jobCap(s, id);
+    const k = s.shades.filter((d) => stepsThrough(s, d) && d.byDay.room === id).length;
+    const w = s.shades.find((d) => whispers(s, d) && tradeOf(s, d) === id);
     const out = id === 'infirmary' ? `heals ${fmt(pw[id] * R.rate)}/day` : R.out === 'defense' ? `defense ${fmt(pw[id] * R.rate)}` : `${fmt(pw[id] * R.rate)} ${R.out}/day`;
-    return `<li><span>${R.name} <small class="muted">${plural(n, R.role)}${Number.isFinite(cap) ? ` of ${cap}` : ''}</small></span><span class="num">${out}</span></li>`;
+    return `<li><span>${R.name} <small class="muted">${plural(n, R.role)}${k ? ` and ${plural(k, 'shade')},` : ''}${Number.isFinite(cap) ? ` of ${cap}` : ''}${w ? `, ${esc(w.name)} whispering` : ''}</small></span><span class="num">${out}</span></li>`;
   }).join('');
   return `<header class="ph-head"><h2>Day ${s.day}</h2><p>${moon > 0 ? `The new moon is ${plural(moon, 'night')} off.` : 'Tonight is the new moon. The Hollow will rise.'} The living work; anyone who dies inside the walls wakes at dusk.</p></header>
     ${fireCards()}
@@ -423,7 +425,32 @@ function dayPanel() {
     ${s.hungry ? '<p class="note bad">The larder is empty. Everyone works hungry, and the weakest will starve. Put more cooks in the Hearth.</p>' : ''}
     ${s.haunted.length ? `<p class="note">Haunted today: the ${esc(listOf(s.haunted.map((id) => roomName(id))))}. A Maw broke ${s.haunted.length === 1 ? 'its twin' : 'their twins'} last night${T.hauntWork < 1 ? `, and whoever works there manages ${Math.round(100 * T.hauntWork)}% of their work` : ''}.</p>` : ''}
     <div class="card"><h3>Work today</h3><ul class="facts">${rows}</ul></div>
+    ${deadByDay()}
     <div class="card"><h3>The mirrors</h3><p class="note">Each shade needs a place in a mirror. With no room, the dead wake Restless. Breaking one, in an emergency, frees everyone in it at once and lowers Dread, at the price of the mirror and ${s.tuning.badLuckDays} days of bad luck.</p>${mirrorsHTML()}${buildRow()}</div>`;
+}
+
+// Whispers and the great glass: which of the dead help today, and what it will cost them at dusk.
+const mult = (x) => String(Math.round(x * 100) / 100);
+const dayCost = (d, base) => base * (d.named ? 0.5 : 1) * (shadeTrait(s, d)?.fade ?? 1);
+function deadByDay() {
+  const T = s.tuning;
+  if (!T.whispers) return '';
+  const can = s.shades.filter(canWork);
+  const busy = can.filter((d) => whispers(s, d) || stepsThrough(s, d));
+  const able = can.filter((d) => (DAY_ROOMS[tradeOf(s, d)]?.out && jobCap(s, tradeOf(s, d)) > 0) || inGreatGlass(s, d));
+  if (!busy.length && !able.length) return '';
+  const rows = busy
+    .map((d) => {
+      if (whispers(s, d)) {
+        const R = DAY_ROOMS[tradeOf(s, d)];
+        const n = jobCount(s, tradeOf(s, d));
+        return `<li><span><b>${esc(d.name)}</b> whispers to the ${R.name}: ${n ? `${plural(n, R.role)} ${n === 1 ? 'works' : 'work'} ×${mult(T.whisperMult)}` : "nobody works there, so it costs nothing today"}</span><span class="num">−${fmt(n ? dayCost(d, T.whisperFade) : 0)} memory</span></li>`;
+      }
+      return `<li><span><b>${esc(d.name)}</b> works in the ${DAY_ROOMS[d.byDay.room].name} in person, at ${Math.round(100 * perf(d) * T.stepWork)}%</span><span class="num">−${fmt(dayCost(d, T.stepFade))} memory</span></li>`;
+    })
+    .join('');
+  return `<div class="card"><h3>The dead by day</h3>${rows ? `<ul class="facts">${rows}</ul>` : ''}
+    <p class="note">A shade can whisper its old trade to whoever works it now (×${mult(T.whisperMult)}), for ${fmt(T.whisperFade)} memory at dusk. One in a great glass can step through instead and work a room in person, for ${fmt(T.stepFade)}. The named pay half, and a trait that changes fading changes this too. Memory is what keeps a shade in the glass. ${busy.length ? 'Change it in People.' : 'Set it in People.'}</p></div>`;
 }
 
 function duskCrypt() {
@@ -814,14 +841,36 @@ function shadeRows() {
       const pick = canWork(d) && (s.phase === 'dusk' || s.phase === 'night');
       return `<div class="srow${ui.selected === d.id ? ' is-selected' : ''}" id="srow-${d.id}">
         <div class="who">
-          <div><b>${esc(d.name)}</b>${kindTag(d.kind)}${d.named ? '<span class="tag peace">Named</span>' : ''}${isTwinnedShade(s, d) ? '<span class="tag twin">Twinned</span>' : ''}</div>
+          <div><b>${esc(d.name)}</b>${kindTag(d.kind)}${d.named ? '<span class="tag peace">Named</span>' : ''}${isTwinnedShade(s, d) ? '<span class="tag twin">Twinned</span>' : ''}${whispers(s, d) ? `<span class="tag twin">Whispers to the ${DAY_ROOMS[tradeOf(s, d)].name}</span>` : stepsThrough(s, d) ? `<span class="tag twin">Works in the ${DAY_ROOMS[d.byDay.room].name} by day</span>` : ''}</div>
           ${shadeTraitText(d)}
           ${canWork(d) ? `<div><span class="memory${d.memory < 40 ? ' low' : ''}" aria-hidden="true"><i data-bar="mem" data-arg="${d.id}"></i></span><small><span data-live="mem" data-arg="${d.id}">${Math.ceil(d.memory)}</span> memory, <span data-live="status" data-arg="${d.id}">${esc(shadeStatus(d, L))}</span></small></div>` : `<small>${esc(shadeStatus(d, L))}</small>`}
         </div>
-        <div class="acts">${pick ? `<button class="btn sm" id="sel-${d.id}" data-act="select" data-id="${d.id}" aria-pressed="${ui.selected === d.id}">Select</button>` : ''}</div>
+        <div class="acts">${pick ? `<button class="btn sm" id="sel-${d.id}" data-act="select" data-id="${d.id}" aria-pressed="${ui.selected === d.id}">Select</button>` : ''}${byDaySelect(d)}</div>
       </div>`;
     })
     .join('');
+}
+
+// What a shade does by day: rest, whisper its old trade, or (from a great glass) work a room in person.
+function byDaySelect(d) {
+  if (!s.tuning.whispers || !canWork(d) || !(s.phase === 'day' || s.phase === 'dawn')) return '';
+  const trade = tradeOf(s, d);
+  const R = DAY_ROOMS[trade];
+  const cur = d.byDay ? (d.byDay.how === 'whisper' ? 'whisper' : `step:${d.byDay.room}`) : '';
+  const opts = [`<option value=""${cur ? '' : ' selected'}>Rests by day</option>`];
+  if (R?.out && jobCap(s, trade) > 0) {
+    const taken = s.shades.find((x) => x !== d && whispers(s, x) && tradeOf(s, x) === trade);
+    opts.push(`<option value="whisper"${cur === 'whisper' ? ' selected' : ''}${taken ? ' disabled' : ''}>Whispers to the ${R.name}${taken ? ` (${esc(taken.name)} does)` : ''}</option>`);
+  }
+  if (inGreatGlass(s, d)) {
+    for (const id of WORK_ROOMS.filter((k) => jobCap(s, k) > 0)) {
+      const cap = jobCap(s, id);
+      const full = cur !== `step:${id}` && handsAt(s, id) >= cap;
+      opts.push(`<option value="step:${id}"${cur === `step:${id}` ? ' selected' : ''}${full ? ' disabled' : ''}>Works in the ${DAY_ROOMS[id].name}${Number.isFinite(cap) ? ` ${handsAt(s, id)}/${cap}` : ''}</option>`);
+    }
+  }
+  if (opts.length === 1) return '';
+  return `<select id="byday-${d.id}" data-act="by-day" data-id="${d.id}" aria-label="What ${esc(d.name)} does by day">${opts.join('')}</select>`;
 }
 
 function rosterHTML() {
@@ -931,6 +980,7 @@ const TUNE = [
   ['goAround', 'The Unlit take any dark way up and gnaw only a light that bars every way (1 on, 0 off)'],
   ['fire', 'Fire by day in Hearths and Forges (1 on, 0 off)'],
   ['dreamwell', 'Beds and crowding, the Dreamwell and the Weepers (1 on, 0 off)'],
+  ['whispers', 'Whispers and the great glass: the dead help by day (1 on, 0 off)'],
 ];
 const KEYS = [
   ['Space', 'play or pause'], ['1, 2, 4', 'speed'], ['C, M, W, H', 'candle, move, ward, hush (at night)'], ['V', 'turn the Tain upright'],
@@ -1648,6 +1698,12 @@ const GUIDE = [
     text: () => `Build raises a room on top of the keep for ${s.tuning.roomStone} stone; masons in the Yard quarry ${DAY_ROOMS.yard.rate} a day each. Raiders come on day 2, so a Barracks first, and a Chandlery before the candles run out. A room holds ${s.tuning.roomCap} workers. What you build on top by day is the Tain's deepest room by night, next to the rifts.`,
   },
   {
+    id: 'whispers', target: '#open-people',
+    when: () => first() && s.phase === 'day' && !!s.tuning.whispers && s.shades.some((d) => canWork(d) && jobCount(s, tradeOf(s, d)) > 0),
+    done: () => s.shades.some((d) => d.byDay),
+    text: () => `The dead can help by day. In People, a shade can whisper its old trade to whoever works it now: they work ×${mult(s.tuning.whisperMult)}, and the shade loses ${fmt(s.tuning.whisperFade)} memory at dusk. A shade in a great glass can step through and work a room in person instead.`,
+  },
+  {
     id: 'church', target: '#open-phase', pause: true,
     when: () => first() && s.phase === 'day' && s.inspection && !s.inspection.done,
     text: 'The Lantern Church inspects at noon. Dread 0 or 1 is blessed; 4 or 5 costs your fullest mirror and the shades in it. A vigil in the Day panel lowers Dread for 3 remembrance.',
@@ -2089,6 +2145,10 @@ function onAct(name, el) {
       if (ui.person) toStage();
       return bump();
     case 'assign': return game({ type: 'assign', id, room: el.value || null });
+    case 'by-day': {
+      const [how, room] = (el.value || '').split(':');
+      return game({ type: 'byDay', id, how: how || null, room: room || undefined });
+    }
     case 'raise': return game({ type: 'raise', room: el.dataset.room });
     case 'wardgate': return game({ type: 'wardGate' });
     case 'vigil': return game({ type: 'vigil' });

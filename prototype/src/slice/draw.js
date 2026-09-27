@@ -411,6 +411,14 @@ function clouds(c, x0, w, t) {
 // One of the living at work. Each keeps a station in their room and works it (guards stand to), and now
 // and then walks a few steps out and back; the idle wander more. All of it runs off the clock, so it holds
 // no state. The sick stay put.
+// A shade by day: its body pale against the daylight, with its eyes.
+function daylightShade(c, d, x, y, t, a, pose) {
+  const L = shadeLook(d);
+  const pale = '#9aa3c8';
+  const o = { ...L, silhouette: pale, far: '#7a82a6', helm: L.helm && pale, hood: L.hood && pale, pose, face: -1, ph: d.id.charCodeAt(1) || 0 };
+  A(c, a, () => figure(c, Math.round(x), y, o, t));
+}
+
 function person(c, p, i, home, y, t, dim = 0) {
   const look = livingLook(p);
   const cyc = (t * 0.1 + i * 0.37 + (p.name.length % 7) * 0.13) % 1;
@@ -484,9 +492,14 @@ function dayActors(c, s, t, dusk = 0) {
     }
   }
   masons.forEach((p, i) => person(c, { ...p, job: 'yard' }, i, [18, 90, 28, 100, 12, 82][i % 6], walk, t, Math.min(1, dusk * 1.6)));
-  // Workers of a type fill its rooms in turn, as many as a room holds; the idle wait by the first hearth.
+  // Workers of a type fill its rooms in turn, as many as a room holds; the idle wait by the first hearth. A
+  // shade stepped through a great glass works among them.
   const byType = {};
   for (const p of s.living) if (p.job !== 'yard') (byType[p.job || 'hearth'] ||= []).push(p);
+  const dead = s.tuning.whispers && !dusk ? s.shades.filter((d) => d.byDay && d.mirror) : [];
+  for (const d of dead) {
+    if (d.byDay.how === 'step' && s.mirrors.find((m) => m.id === d.mirror)?.type === 'great' && d.byDay.room !== 'yard') (byType[d.byDay.room] ||= []).push({ shade: d });
+  }
   const cap = s.tuning.roomCap || 99;
   const byRoom = new Map();
   for (const [type, ps] of Object.entries(byType)) {
@@ -501,8 +514,16 @@ function dayActors(c, s, t, dusk = 0) {
     const n = ps.length;
     ps.forEach((p, i) => {
       const home = r.x0 + 6 + ((i + 0.5) * (r.x1 - r.x0 - 14)) / n;
-      person(c, p, i, home, feet(r.f), t, Math.min(1, dusk * 1.6));
+      if (p.shade) daylightShade(c, p.shade, home, feet(r.f), t, 0.6, 'work');
+      else person(c, p, i, home, feet(r.f), t, Math.min(1, dusk * 1.6));
     });
+  }
+  // One whispering its old trade stands faint at the back of the first room of it, leaning to the workers.
+  for (const d of dead) {
+    if (d.byDay.how !== 'whisper') continue;
+    const trade = d.job || s.ledger.find((e) => e.id === d.id)?.job;
+    const r = trade && every(trade)[0];
+    if (r) daylightShade(c, d, r.x1 - 5, feet(r.f), t, 0.3 + 0.1 * Math.sin(t * 1.3), 'stand');
   }
   fireFighters(c, s, t);
   const cr = span('crypt');

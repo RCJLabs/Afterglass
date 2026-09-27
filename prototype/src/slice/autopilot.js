@@ -9,7 +9,7 @@
 // All but double and idle react at night: a second fighter to each stair of the line for each tide, a ward
 // on the line for the biggest tides when the essence is there, and a fighter to meet a Maw.
 
-import { step, act, newSeason, ritePreview, crossingPreview, capacity, canWork, defense, funeralCap, choicesFor, jobCap, jobCount, eatRate, wardCost, livingTrait, shadeTrait, peopleIn, crowded } from './sim.js';
+import { step, act, newSeason, ritePreview, crossingPreview, capacity, canWork, defense, funeralCap, choicesFor, jobCap, jobCount, eatRate, wardCost, livingTrait, shadeTrait, peopleIn, crowded, tradeOf, inGreatGlass, handsAt } from './sim.js';
 import { DAY_ROOMS, MIRRORS, KINDS, MAP } from './data.js';
 import { geo, roomSpan, roomAt, roomsOf, lineSpots } from './geo.js';
 
@@ -28,6 +28,12 @@ const BREAK = globalThis.process?.env?.AP_BREAK;
 // pays).
 const WEEPGUARD = !!globalThis.process?.env?.AP_WEEPGUARD;
 const DREAM = !!globalThis.process?.env?.AP_DREAM;
+// AP_WHISPER=1 has a shade whisper to every trade someone works; AP_STEP=1 builds a great glass when it
+// needs mirror room and sends its shades through to work by day (to measure whether either pays).
+const WHISPER = !!globalThis.process?.env?.AP_WHISPER;
+const STEP = !!globalThis.process?.env?.AP_STEP;
+// A shade spent below this much memory by day would be lost to the night soon after.
+const DAY_KEEP = 30;
 const LT = (s, p) => (BLIND ? null : livingTrait(s, p));
 const ST = (s, d) => (BLIND ? null : shadeTrait(s, d));
 // How well someone does a job, by their trait.
@@ -104,6 +110,32 @@ function staff(s) {
   }
 }
 
+// The dead by day: whisper each trade someone works, from the shade with the most memory to spare; send a
+// great glass's shades through to whichever room most needs hands. Stop anyone near the end of their memory.
+function deadByDay(s) {
+  const T = s.tuning;
+  for (const d of s.shades) if (d.byDay && d.memory - T.stepFade < DAY_KEEP) doAct(s, { type: 'byDay', id: d.id, how: null });
+  if (STEP) {
+    const r = s.raid;
+    const rooms = [r && r.state === 'coming' && defense(s) < r.strength ? 'barracks' : null, s.res.candles < 10 ? 'chandlery' : null, 'chapel', 'glazier', 'hearth'].filter(Boolean);
+    for (const d of s.shades.filter((x) => canWork(x) && inGreatGlass(s, x) && !x.byDay && x.memory - T.stepFade >= DAY_KEEP)) {
+      const room = rooms.find((k) => jobCap(s, k) > handsAt(s, k));
+      if (room) doAct(s, { type: 'byDay', id: d.id, how: 'step', room });
+    }
+  }
+  if (WHISPER) {
+    const done = new Set(s.shades.filter((d) => d.byDay?.how === 'whisper').map((d) => tradeOf(s, d)));
+    const free = s.shades.filter((d) => canWork(d) && !d.byDay && d.memory - T.whisperFade >= DAY_KEEP).sort((a, b) => b.memory - a.memory);
+    for (const d of free) {
+      const k = tradeOf(s, d);
+      if (k && !done.has(k) && jobCount(s, k) > 0 && jobCap(s, k) > 0) {
+        doAct(s, { type: 'byDay', id: d.id, how: 'whisper' });
+        done.add(k);
+      }
+    }
+  }
+}
+
 function dayMoves(s) {
   const b = nextBuild(s);
   if (b && s.res.stone >= s.tuning.roomStone) doAct(s, { type: 'raise', room: b });
@@ -111,10 +143,13 @@ function dayMoves(s) {
   const r = s.raid;
   if (r && r.state === 'coming' && r.warned && !r.ward && defense(s) < r.strength) doAct(s, { type: 'wardGate' });
   const { free } = capacity(s);
-  if (free <= 0 || (free <= 1 && s.bodies.length)) {
-    const kind = s.res.glass >= MIRRORS.pier.glass ? 'pier' : s.res.glass >= MIRRORS.hand.glass ? 'hand' : null;
+  // AP_STEP saves its glass for a great glass unless the dead are waiting for room now.
+  const saving = STEP && s.tuning.whispers && !s.bodies.length && s.res.glass < MIRRORS.great.glass;
+  if ((free <= 0 && !saving) || (free <= 1 && s.bodies.length)) {
+    const kind = STEP && s.tuning.whispers && s.res.glass >= MIRRORS.great.glass ? 'great' : s.res.glass >= MIRRORS.pier.glass ? 'pier' : s.res.glass >= MIRRORS.hand.glass ? 'hand' : null;
     if (kind) doAct(s, { type: 'build', mirror: kind });
-  }
+  } else if (STEP && s.tuning.whispers && s.res.glass >= MIRRORS.great.glass && !s.mirrors.some((m) => m.type === 'great')) doAct(s, { type: 'build', mirror: 'great' });
+  if (s.tuning.whispers && (WHISPER || STEP)) deadByDay(s);
   // A fire: send the Yard at once, and ring the bell if the fire is still gaining on them.
   for (const f of s.fires || []) {
     doAct(s, { type: 'fightFire', room: f.room });

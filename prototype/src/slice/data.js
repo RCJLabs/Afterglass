@@ -197,6 +197,19 @@ export const TUNING = {
   weeperSpeed: 5,
   nightmareSecs: 15,
   nightmareMult: 0.6,
+
+  // Whispers and the great glass (round three: a bound shade behind an uncovered mirror coaches whoever works
+  // that room, and a great glass's shades can step through by day and help in person). By day a shade can
+  // whisper its old trade to whoever works it now: they work whisperMult better. A shade in a great glass
+  // can instead step through and work a room in person, as one worker at its night strength (perf) times
+  // stepWork. Either tires it: at dusk it loses whisperFade or stepFade memory, on top of the night's
+  // fading (halved for the named, and as its trait fades), and a whisper costs nothing on a day nobody
+  // worked its trade.
+  whispers: 1,
+  whisperMult: 1.25,
+  whisperFade: 8,
+  stepWork: 1,
+  stepFade: 8,
 };
 
 // Traits, from round three: each of the living has one, which helps or hinders at a job, and death turns it

@@ -222,7 +222,9 @@ export function livingMult(s, p) {
 export function roomPower(s) {
   const out = Object.fromEntries(Object.keys(DAY_ROOMS).map((r) => [r, 0]));
   const by = {};
-  for (const p of s.living) if (p.job && !p.fighting) (by[p.job] ||= []).push(livingMult(s, p));
+  const coached = whisperedTrades(s);
+  for (const p of s.living) if (p.job && !p.fighting) (by[p.job] ||= []).push(livingMult(s, p) * (coached.has(p.job) ? s.tuning.whisperMult : 1));
+  for (const d of s.shades) if (stepsThrough(s, d)) (by[d.byDay.room] ||= []).push(perf(d) * s.tuning.stepWork);
   for (const [job, ms] of Object.entries(by)) {
     const free = workCap(s, job);
     const all = jobCap(s, job) - (DAY_ROOMS[job]?.outdoors ? 0 : roomsOf(geo(s), job).filter((r) => isAblaze(s, r.id)).length * s.tuning.roomCap);
@@ -252,6 +254,15 @@ export function workCap(s, type) {
 // A room burning today, or burned out yesterday: nobody works in it.
 export const isAblaze = (s, id) => !!(s.fires?.some((f) => f.room === id) || s.scorched?.includes(id));
 export const jobCount = (s, type) => s.living.filter((p) => p.job === type).length;
+// The dead by day. A shade whispers its old trade, or steps through a great glass to work a room in person.
+export const whispers = (s, d) => !!s.tuning.whispers && canWork(d) && d.byDay?.how === 'whisper';
+export const stepsThrough = (s, d) => !!s.tuning.whispers && canWork(d) && d.byDay?.how === 'step' && inGreatGlass(s, d);
+export const inGreatGlass = (s, d) => byId(s.mirrors, d.mirror)?.type === 'great';
+export const whisperedTrades = (s) => new Set(s.shades.filter((d) => whispers(s, d)).map((d) => tradeOf(s, d)));
+// A shade's trade: the job it had in life (the keep's first dead have theirs in the ledger).
+export const tradeOf = (s, d) => d.job || ledgerOf(s, d.id)?.job || null;
+// Everyone at a job today, the living and the dead who stepped through.
+export const handsAt = (s, type) => jobCount(s, type) + s.shades.filter((d) => stepsThrough(s, d) && d.byDay.room === type).length;
 // A ward's price tonight: half while a Bitter shade stays in the glass.
 export const wardCost = (s) => s.tuning.wardCost * (s.shades.some((d) => canWork(d) && shadeTrait(s, d)?.wards) ? SHADE_TRAITS.bitter.wards : 1);
 // Where the next room goes: the top floor's bare hall if it has one, else a new floor on top.
@@ -664,9 +675,37 @@ function endDay(s) {
       say(s, `${d.name} pockets ${k === 1 ? 'a candle' : `${k} candles`} from the store.`, 'bad');
     }
   }
+  if (s.tuning.whispers) dayTired(s);
   const n = s.bodies.length;
   say(s, n ? `Dusk. ${n} ${n === 1 ? 'body lies' : 'bodies lie'} in the crypt. Hold funerals or let them wake.` : 'Dusk. Set the candles and post the shades.', 'dusk', true);
   cue(s, 'dusk');
+}
+
+// At dusk, the dead who helped by day are the more tired for it: a whisper costs nothing on a day nobody
+// worked its trade. One spent to nothing fades before the night.
+function dayTired(s) {
+  const T = s.tuning;
+  const tired = [];
+  for (const d of [...s.shades]) {
+    if (!d.byDay) continue;
+    const step = stepsThrough(s, d);
+    if (!step && !whispers(s, d)) {
+      d.byDay = null; // it can't any more: out of the glass, turned, or no longer in a great glass
+      continue;
+    }
+    if (!step && !jobCount(s, tradeOf(s, d))) continue;
+    const loss = (step ? T.stepFade : T.whisperFade) * (d.named ? 0.5 : 1) * (shadeTrait(s, d)?.fade ?? 1);
+    d.memory = Math.round((d.memory - loss) * 100) / 100;
+    const e = ledgerOf(s, d.id);
+    if (e) {
+      const k = step ? 'stepped' : 'whispered';
+      e[k] = (e[k] || 0) + 1;
+      e.memory = Math.max(0, d.memory);
+    }
+    tired.push(`${d.name} −${fmt(loss)}`);
+    if (d.memory <= 0) fadeAway(s, d, `${d.name} spent the last of their memory helping the living by day, and has faded. Nothing is left in the glass.`, 'faded', false);
+  }
+  if (tired.length) say(s, `The dead who helped by day are the more tired for it. Memory: ${tired.join(', ')}.`);
 }
 
 export function crossingPreview(s) {
@@ -1396,13 +1435,13 @@ function foeDown(s, f) {
   }
 }
 
-function fadeAway(s, d, text, how = 'faded') {
+function fadeAway(s, d, text, how = 'faded', tonight = true) {
   s.shades = s.shades.filter((x) => x !== d);
   for (const c of s.night?.foes || []) {
     if (c.grab === d.id) c.grab = null;
     if (c.prey === d.id) c.prey = null;
   }
-  s.night?.stats.lost.push(d.name);
+  if (tonight) s.night?.stats.lost.push(d.name);
   const e = ledgerOf(s, d.id);
   if (e) e.memory = 0;
   endLedger(s, d.id, how);
@@ -1717,9 +1756,42 @@ const ACTIONS = {
       const cap = jobCap(s, room);
       const name = DAY_ROOMS[room].name;
       if (!cap) return `There is no ${name} yet. Build one first.`;
-      if (jobCount(s, room) >= cap) return `The ${name} is full: ${cap} work there. Build another ${name}.`;
+      if (handsAt(s, room) >= cap) return `The ${name} is full: ${cap} work there. Build another ${name}.`;
     }
     p.job = room;
+  },
+  // What a shade does by day: rests in the glass (how null), whispers its old trade to whoever works it, or
+  // steps through a great glass to work a room in person. It keeps to it day after day until changed.
+  byDay(s, { id, how, room }) {
+    if (!s.tuning.whispers) return 'The dead rest by day.';
+    if (s.phase !== 'day' && s.phase !== 'dawn') return 'The dead can help only by day.';
+    const d = byId(s.shades, id);
+    if (!d) return 'No shade by that name.';
+    if (!how) {
+      d.byDay = null;
+      return;
+    }
+    if (!canWork(d)) return `${d.name} can't help anyone from where they are.`;
+    if (how === 'whisper') {
+      const trade = tradeOf(s, d);
+      const R = trade && DAY_ROOMS[trade];
+      if (!R?.out) return `${d.name} had no trade in the keep to whisper.`;
+      if (!jobCap(s, trade)) return `There is no ${R.name} for ${d.name} to whisper to.`;
+      const other = s.shades.find((x) => x !== d && whispers(s, x) && tradeOf(s, x) === trade);
+      if (other) return `${other.name} already whispers to the ${R.name}.`;
+      d.byDay = { how };
+      say(s, `${d.name} will whisper to whoever works the ${R.name}, as they did in life.`);
+    } else if (how === 'step') {
+      if (!inGreatGlass(s, d)) return 'Only the shades of a great glass can step through by day.';
+      const R = DAY_ROOMS[room];
+      if (!R?.out) return 'No one works there.';
+      const cap = jobCap(s, room);
+      if (!cap) return `There is no ${R.name} yet. Build one first.`;
+      if (!(d.byDay?.how === 'step' && d.byDay.room === room) && handsAt(s, room) >= cap) return `The ${R.name} is full: ${cap} work there.`;
+      d.byDay = { how, room };
+      say(s, `${d.name} will step through the ${byId(s.mirrors, d.mirror).name} by day and work in the ${R.name}.`);
+    } else return 'The dead can whisper or step through.';
+    cue(s, 'whisper');
   },
   // Raise a room on top of the keep: into the top floor's bare hall, or as a new floor with a bare hall
   // beside it. By day, for roomStone stone.
@@ -2021,6 +2093,7 @@ export function upgrade(g) {
   for (const t of [g.tuning, g.tuning0]) if (t && !('goAround' in t)) t.goAround = 0;
   for (const t of [g.tuning, g.tuning0]) if (t && !('fire' in t)) t.fire = 0;
   for (const t of [g.tuning, g.tuning0]) if (t && !('dreamwell' in t)) t.dreamwell = 0;
+  for (const t of [g.tuning, g.tuning0]) if (t && !('whispers' in t)) t.whispers = 0;
   for (const p of g.living || []) p.trait ??= traitFor(g, p.name);
   for (const b of g.bodies || []) if (b.was === undefined) b.was = b.from === 'raider' ? null : traitFor(g, b.name);
   for (const d of g.shades || []) {

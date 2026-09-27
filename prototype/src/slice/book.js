@@ -39,6 +39,11 @@ export function epitaph(e, { traits = false } = {}) {
     if (e.kills) served += `, and cut down ${e.kills} of the Unlit`;
     out.push(`${served}.`);
   }
+  if (e.whispered || e.stepped) {
+    const d = (n) => `${n} ${n === 1 ? 'day' : 'days'}`;
+    const trade = e.job && DAY_ROOMS[e.job] ? ` to the ${DAY_ROOMS[e.job].name}` : '';
+    out.push(e.whispered && e.stepped ? `By day, whispered${trade} ${d(e.whispered)}, and stepped through the great glass to work ${d(e.stepped)}.` : e.whispered ? `By day, whispered${trade} ${d(e.whispered)}.` : `By day, stepped through the great glass to work ${d(e.stepped)}.`);
+  }
   if (e.named) out.push('Written in the ledger by name.');
   const at = e.endDay ? ` ${whenText(e.endSeason || e.season, e.endDay, e.season)}` : '';
   const end = {
