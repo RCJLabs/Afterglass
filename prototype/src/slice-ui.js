@@ -1384,13 +1384,15 @@ function exportJSON() {
       exported: new Date().toISOString(),
       seed: s.seed,
       daily: s.daily || null,
-      now: { season: s.season, day: s.day, phase: s.phase },
+      now: { season: s.season, day: s.day, phase: s.phase, t: s.t },
       seasons: s.seasons,
       days: s.days,
       ledger: s.ledger,
       tuning0: s.tuning0,
       tuning: s.tuning,
       actions: s.actions,
+      test: s.test || null,
+      trail: s.trail || [],
     },
     null,
     1,
@@ -1631,6 +1633,45 @@ function recordsHTML() {
     <div class="tabpanel" role="tabpanel" id="tabpanel" aria-labelledby="tab-${tab}">${body}</div>`;
 }
 
+
+/* ---------------------------------------------------------------- the playtest kit: the trail */
+
+// The trail (round six's playtest kit): what the player did on the page besides act, kept in the keep and
+// sent with its playtest export, so the replay viewer can mark it: pauses (whose, and why), speeds and
+// skips, panels and tabs opened, tools picked, lessons shown, actions the game refused, and stretches with
+// no input while the clock stood still, or away from the page. Each has where in the game it happened (as
+// an action's at) and when on the clock (w, ms). Nothing leaves the device but in an export the player makes.
+const TRAIL_MAX = 4000;
+const IDLE_MS = 20000;
+const gameAt = () => ({ season: s.season, day: s.day, phase: s.phase, t: s.t });
+const sameAt = (a, b) => a.season === b.season && a.day === b.day && a.phase === b.phase && a.t === b.t;
+function trail(k, more = {}) {
+  if (ui.watch) return;
+  s.trail ||= [];
+  s.trail.push({ k, at: gameAt(), w: Date.now(), ...more });
+  if (s.trail.length > TRAIL_MAX) s.trail.splice(0, s.trail.length - TRAIL_MAX);
+}
+// Idle: a stretch of IDLE_MS or more with no input and the game where it was at the start (paused, or a
+// panel waiting on a choice), kept when the next input comes. Watching the night go by isn't idle.
+let lastInput = { w: Date.now(), at: null };
+function onInput() {
+  const now = Date.now();
+  if (lastInput.at && now - lastInput.w >= IDLE_MS && sameAt(lastInput.at, gameAt())) trail('idle', { at: lastInput.at, w: lastInput.w, ms: now - lastInput.w });
+  lastInput = { w: now, at: gameAt() };
+}
+for (const type of ['pointerdown', 'keydown', 'wheel']) document.addEventListener(type, onInput, { capture: true, passive: true });
+let awayFrom = null;
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) awayFrom = { at: gameAt(), w: Date.now() };
+  else if (awayFrom) {
+    const ms = Date.now() - awayFrom.w;
+    if (ms >= 2000) trail('away', { at: awayFrom.at, w: awayFrom.w, ms });
+    awayFrom = null;
+    lastInput = { w: Date.now(), at: gameAt() };
+  }
+});
+// Which tab a panel opened on, for the trail.
+const tabOf = (name) => (name === 'records' ? { tab: prefs.tab } : name === 'menu' ? { tab: ui.menuTab || 'settings' } : {});
 
 /* ---------------------------------------------------------------- the stage and its camera */
 
@@ -2318,11 +2359,13 @@ function render(alpha, now) {
   draw(alpha, now);
 }
 
-function openSheet(name) {
+function openSheet(name, by = 'you') {
   if (name === 'menu' && running() && !ui.paused) {
     ui.paused = true;
     ui.resume = true;
+    trail('pause', { by: 'menu' });
   }
+  if (ui.sheet !== name) trail('panel', { name, ...tabOf(name), ...(by === 'you' ? {} : { by }) });
   ui.sheet = name;
   bump();
   requestAnimationFrame(() => document.getElementById('sheet-close')?.focus({ preventScroll: true }));
@@ -2336,8 +2379,12 @@ function closeSheet() {
   ui.tearAsk = null;
   if (ui.resume) {
     ui.resume = false;
-    if (running()) ui.paused = false;
+    if (running()) {
+      ui.paused = false;
+      trail('play', { by: 'menu' });
+    }
   }
+  if (was) trail('close', { name: was });
   if (was === 'intro') {
     prefs.introDone = true;
     savePrefs();
@@ -2771,6 +2818,7 @@ function showCoach(step) {
     } else if (!seen(was.id)) prefs.guideSeen = { ...(prefs.guideSeen || {}), [was.id]: true };
   }
   coachId = id;
+  if (step) trail('lesson', { id, text: String(typeof step.text === 'function' ? step.text() : step.text).slice(0, 100) });
   bump();
   coachEl.hidden = !step;
   const tut = isTut(id);
@@ -2788,6 +2836,7 @@ function showCoach(step) {
   coachRoom();
   if (step?.pause && running() && !ui.paused) {
     ui.paused = true;
+    trail('pause', { by: 'lesson', id });
     bump();
   }
 }
@@ -2826,14 +2875,15 @@ function takeAlerts(fromClock) {
   for (const a of s.alerts.splice(0)) {
     toast(a.text, a.tone, OPENS.test(a.text) ? 'phase' : null);
     if (/slipped through the Veil|tore through the Veil/.test(a.text)) ui.flash = performance.now() + 600;
-    if (fromClock && prefs.autoPause && STOPS.test(a.text)) stop = true;
+    if (fromClock && prefs.autoPause && STOPS.test(a.text)) stop = a.text;
   }
   if (stop) {
     ui.paused = true;
     ui.rush = false;
+    trail('pause', { by: 'alert', why: stop });
     bump();
   }
-  return stop;
+  return !!stop;
 }
 
 // Which panel a new phase opens: the ones with decisions in them.
@@ -2907,9 +2957,9 @@ function onPhase() {
   if (s.phase === 'dusk') {
     ui.tool = 'candle';
     if (!REDUCED_NOW() && seenPhaseWas === 'day') ui.cross = { stage: 'sunset', t0: performance.now() };
-    else if (s.dusk.step === 'crypt') openSheet('phase');
+    else if (s.dusk.step === 'crypt') openSheet('phase', 'game');
     if (s.dusk.step !== 'crypt' && ui.sheet === 'phase') closeSheet();
-  } else if (s.phase === 'dawn' || s.phase === 'end' || s.phase === 'over') openSheet('phase');
+  } else if (s.phase === 'dawn' || s.phase === 'end' || s.phase === 'over') openSheet('phase', 'game');
   else if (ui.sheet === 'phase') closeSheet();
   if (s.phase !== 'night' && s.phase !== 'dusk') ui.selected = null;
   if (!placing()) ui.kb = null;
@@ -2933,6 +2983,7 @@ function skipAhead() {
   const m = nextMark(s);
   if (!m) return toast('Nothing more on the clock before dawn.', 'bad');
   ui.skip = { to: m.at - SKIP_LEAD, kind: m.kind };
+  trail('skip', { to: m.kind });
   ui.paused = false;
   ui.rush = false;
   bump();
@@ -2983,6 +3034,7 @@ function frame(now) {
     acc = 0;
     ui.rush = false;
     ui.skip = null;
+    trail('phase');
     onPhase();
     saveGame();
     bump();
@@ -3002,8 +3054,13 @@ setInterval(() => {
 /* ---------------------------------------------------------------- input */
 
 function game(a) {
+  if (ui.watch) {
+    toast('Watching a session: nothing in it can be changed.', 'bad');
+    return false;
+  }
   const r = act(s, a);
   if (!r.ok) {
+    trail('refused', { type: a.type, error: r.error });
     toast(r.error, 'bad');
     sfx('nope');
   }
@@ -3012,8 +3069,10 @@ function game(a) {
   return r.ok;
 }
 function togglePlay() {
+  if (ui.watch) return watchPlay();
   if (!running()) return;
   ui.paused = !ui.paused;
+  trail(ui.paused ? 'pause' : 'play', { by: 'you' });
   ui.resume = false; // played or paused by hand: closing the Menu leaves it so
   if (ui.paused) {
     ui.rush = false;
@@ -3022,6 +3081,8 @@ function togglePlay() {
   bump();
 }
 function setSpeed(v) {
+  if (ui.watch) return watchSpeed(v);
+  trail('speed', { v });
   prefs.speed = v;
   ui.skip = null;
   savePrefs();
@@ -3056,7 +3117,7 @@ function playKeep(n, g, lead) {
   saveWarned = false;
   saveGame();
   closeSheet();
-  if (waiting()) openSheet('phase');
+  if (waiting()) openSheet('phase', 'game');
   toast(`${lead} Season ${s.season}: ${phaseLabel()}.`, 'rite');
   if (retuned) toast(`This version changed ${retuned} of the keep's numbers; yours from Settings are kept.`, 'rite');
   retuned = 0;
@@ -3167,10 +3228,12 @@ function onAct(name, el) {
     case 'speed': return setSpeed(Number(el.dataset.v));
     case 'rush':
       ui.rush = !ui.rush;
+      trail('rush', { on: ui.rush });
       if (ui.rush) ui.paused = false;
       return bump();
     case 'tool':
       ui.tool = el.dataset.tool;
+      trail('tool', { tool: ui.tool });
       return bump();
     case 'flip':
       prefs.mode = prefs.mode === 'flipped' ? 'reflection' : 'flipped';
@@ -3227,6 +3290,7 @@ function onAct(name, el) {
       return bump();
     case 'menu-tab':
       ui.menuTab = el.dataset.tab;
+      trail('panel', { name: 'menu', tab: ui.menuTab });
       ui.confirmSlot = null;
       ui.slotMsg = '';
       return bump();
@@ -3386,6 +3450,7 @@ function onAct(name, el) {
     case 'tab':
       prefs.tab = el.dataset.tab;
       savePrefs();
+      trail('panel', { name: 'records', tab: prefs.tab });
       return bump();
     case 'book':
       prefs.tab = 'book';
@@ -3543,6 +3608,7 @@ document.addEventListener('keydown', (e) => {
   } else if (k === '1' || k === '2' || k === '4') setSpeed(Number(k));
   else if (k === 'c' || k === 'm' || k === 'w') {
     ui.tool = { c: 'candle', m: 'move', w: 'ward' }[k];
+    trail('tool', { tool: ui.tool });
     showHint();
     bump();
   } else if (k === 'h' && s.phase === 'night') game({ type: 'hush', on: !s.night.hush });
@@ -3655,8 +3721,8 @@ if ('ResizeObserver' in window) {
 
 render(1, performance.now());
 layout();
-if (!prefs.introDone) openSheet('intro');
-else if (waiting()) openSheet('phase');
+if (!prefs.introDone) openSheet('intro', 'game');
+else if (waiting()) openSheet('phase', 'game');
 if (s.day > 1 || s.season > 1 || s.phase !== 'day') toast(`Welcome back. Season ${s.season}: ${phaseLabel()}.`, 'rite');
 if (retuned) toast(`This version changed ${retuned} of the keep's numbers; yours from Settings are kept.`, 'rite');
 requestAnimationFrame(frame);

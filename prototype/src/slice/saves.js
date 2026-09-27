@@ -44,6 +44,8 @@ export function openIndex(store, now) {
 
 export const isSave = (g) => !!g && g.v === SAVE_VERSION && g.mode === 'season' && Array.isArray(g.shades) && !!g.res;
 export const isExport = (x) => !!x && x.game === 'afterglass-season' && Array.isArray(x.actions) && Number.isFinite(x.seed) && !!x.tuning0;
+// The numbers an export's keep began with, brought up to this build as a save's are, so it replays.
+export const exportTuning0 = (x) => upgrade({ tuning: { ...x.tuning0 }, tuning0: { ...x.tuning0 }, res: {} }).tuning0;
 
 // A keep from a slot, brought up to this build, or null.
 export function loadSlot(store, n) {
@@ -92,10 +94,12 @@ export function keepFromFile(text) {
   }
   if (isSave(x)) return { s: upgrade(x) };
   if (isExport(x)) {
-    const t0 = upgrade({ tuning: { ...x.tuning0 }, tuning0: { ...x.tuning0 }, res: {} }).tuning0;
     try {
-      const g = replay(x.seed >>> 0, t0, x.actions);
+      const g = replay(x.seed >>> 0, exportTuning0(x), x.actions);
       if (typeof x.daily === 'string') g.daily = x.daily; // a day's keep stays that day's
+      // A playtest goes on as one: its trail and answers come with it.
+      if (Array.isArray(x.trail)) g.trail = x.trail;
+      if (x.test) g.test = x.test;
       return { s: g };
     } catch (e) {
       return { error: `That export didn't replay: ${e.message}` };
