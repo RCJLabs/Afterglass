@@ -15,7 +15,7 @@ All four are live on GitHub Pages at https://rcjlabs.github.io/Base-Manager/ (ev
 
 ```sh
 cd prototype
-npm test                        # 186 tests: rules, replay, building and rearranging, traits, the black mirror, breaking mirrors, fire, raids, the tutorial, the night review, plague and siege, the Weepers, whispers, the year, the recap card, today's keep, save and load, save slots, sound cues, soak runs, the pixel quiz, the people sprites, colour-blind eyes, the app's file list (Node 20+, no dependencies)
+npm test                        # 190 tests: rules, replay, building and rearranging, traits, the black mirror, breaking mirrors, fire, raids, the tutorial, the night review, plague and siege, the dead's requests, the Weepers, whispers, the year, the recap card, today's keep, save and load, save slots, sound cues, soak runs, the pixel quiz, the people sprites, colour-blind eyes, the app's file list (Node 20+, no dependencies)
 npm run serve                   # then open http://localhost:8080, /night.html, /pixel.html or /season.html (any static server works)
 npm run bundle                  # dist/afterglass-greybox.html, -night, -pixel and -season.html: single files that open from disk
 npm run balance -- 20 40        # weeks 1-2 autopilot report: 40 seeds x 20 days per policy
@@ -39,7 +39,7 @@ The pages load ES modules, so they need a web server; GitHub Pages works as is. 
 | `src/slice/` | The season slice: `data.js` (content, tuning and the traits), `geo.js` (the geometry of any keep the player builds: floors, stairs, light, routes and cameras), `sim.js` (the whole season as one state), `autopilot.js`, `draw.js` (the art, built on `src/px/`), `people.js` (the living and the dead as pixel figures), `book.js` (the Book of the Dead's pages), `saves.js` (the save slots, and loading a keep from a file), `sound.js` (every sound, made with Web Audio as it plays), `threats.js` (the black mirror: tonight's threats, read at dusk), `recap.js` (what a season's recap card says), `card.js` (the card as an image), `daily.js` (today's keep: a seed from the date), `tutorial.js` (the tutorial keep) and `howto.js` (How to play, in the keep's own numbers) |
 | `src/slice-ui.js` | The season page |
 | `sw.js`, `season.webmanifest`, `icons/` | The installable season: the service worker that keeps it playable offline, the manifest, and the icons `tools/icons.mjs` draws |
-| `test/` | 16 weeks 1–2 tests, 15 night tests, 8 pixel tests, 39 season tests, 13 for traits, 11 for the save slots, 6 for sound, 10 for the black mirror, 7 for breaking mirrors, 7 for fire, 5 for raids, 7 for the tutorial, 3 for the night review, 4 for rearranging the keep, 4 for the seasons' troubles, 6 for the Dreamwell and the Weepers, 6 for whispers and the great glass, 5 for the year, 4 for the recap card, 4 for today's keep, 3 for the people sprites, 1 for colour-blind eyes and 2 for the installable app, including soak runs |
+| `test/` | 16 weeks 1–2 tests, 15 night tests, 8 pixel tests, 39 season tests, 13 for traits, 11 for the save slots, 6 for sound, 10 for the black mirror, 7 for breaking mirrors, 7 for fire, 5 for raids, 7 for the tutorial, 3 for the night review, 4 for rearranging the keep, 4 for the seasons' troubles, 4 for the dead's requests, 6 for the Dreamwell and the Weepers, 6 for whispers and the great glass, 5 for the year, 4 for the recap card, 4 for today's keep, 3 for the people sprites, 1 for colour-blind eyes and 2 for the installable app, including soak runs |
 | `tools/` | Balance reports, the single-file bundler and the icon drawer |
 
 Everything is seeded and every action is logged, so `replay()` (in `src/sim.js` and `src/slice/sim.js`) and `replayNight()` rebuild any session exactly, including one from a playtester's export.
@@ -83,8 +83,8 @@ The vertical slice: seven days in one keep, ending on the night of the new moon,
    - read traits: the Brave to the gate and Cowards to the Yard, the Devout, Gentle and Greedy to the jobs they're best at, Wistful shades to rest and Hoarding ones to sing, and at dawn cover whichever shade is worth least per point of Dread. `AP_BLIND=1` plays as if nobody had a trait.
 
    Every plan stands guards only on raid days (the rest quarry) and builds in a fixed order. Without the tide reaction and the wards, the balanced plan finished 86% of first seasons on the two-room start.
-6. **Both seasons may be too easy.** With the autopilot playing sensibly, every plan finishes 95–99% of first seasons. The second season is now a summer, whose long days make it easier. On the two-room start the balanced plan finishes 96% of the second seasons it reaches (183 of 190), the keeper 94% (177 of 188), the mourner 96% (182 of 190) and Double 97% (188 of 193), each about ±4. Measured when the second season was another spring, fire by day took each plan down 5 to 14 second seasons (problem 13), and the Weepers moved them by −8 to +6, within noise (problem 14). A whole year is another matter: 21–52% of keeps come through it (problem 16). A first-timer will do worse than a script that knows the rules, but by how much is unknown. If people come near these numbers, the game needs to be harder. Raids, Creeper counts and the Hollow are ×1.2 a season (`hardness`); Maws stay as they were (`mawHardness` 1), since a stronger Maw hurts a player who answers it more than one who stacks the line. The target, harder than season 1 but not a coin flip, is my guess at "harder but fair", and every knob is in Settings.
-7. **The Hollow gets through about one new moon in twenty, one in four for the mourner.** It reaches the Veil in 3 of the balanced plan's 96 finished first seasons, is driven back in 20 and withdraws at dawn in 73. It was 25 before the autopilot kept essence for it (problem 1). The mourner, with fewer shades, lets it through in 24 of 97, and the doubled line in 6 of 99.
+6. **Both seasons may be too easy.** With the autopilot playing sensibly, every plan finishes 95–99% of first seasons. The second season is now a summer, whose long days make it easier. On the two-room start the balanced plan finishes 97% of the second seasons it reaches (187 of 192), the keeper 94% (179 of 190), the mourner 95% (182 of 191) and Double 97% (189 of 194), each about ±4. Measured when the second season was another spring, fire by day took each plan down 5 to 14 second seasons (problem 13), and the Weepers moved them by −8 to +6, within noise (problem 14). A whole year is another matter: 12–55% of keeps come through it (problem 16). A first-timer will do worse than a script that knows the rules, but by how much is unknown. If people come near these numbers, the game needs to be harder. Raids, Creeper counts and the Hollow are ×1.2 a season (`hardness`); Maws stay as they were (`mawHardness` 1), since a stronger Maw hurts a player who answers it more than one who stacks the line. The target, harder than season 1 but not a coin flip, is my guess at "harder but fair", and every knob is in Settings.
+7. **The Hollow gets through about one new moon in forty, one in three for the mourner.** It reaches the Veil in 2 of the balanced plan's 96 finished first seasons, is driven back in 22 and withdraws at dawn in 72. It was 25 before the autopilot kept essence for it (problem 1). The mourner, with fewer shades, lets it through in 34 of 97, and the doubled line in 7 of 99.
 8. **Traits don't yet make the rite a choice, as far as the autopilot can tell.** Keep or cover was a Dread valve: shades were interchangeable, and the living bore most of what you kept. Traits make each shade different, and `AP_BLIND=1` runs the autopilot as if nobody had a trait, so I could measure whether reading them pays. Balanced plan, 200 seeds, two seasons, second seasons finished:
    - **Reading traits:** 173 of 196. **Blind:** 172 of 192. Within noise, as it was before fire (182 of 198 against 185 of 195) and before the Unlit went around lights (178 of 193 against 175). At a harsher Dread (one borne per 4 living), 171 against 172.
    - **A claim I got wrong.** I first measured a lead of about 10 for reading traits under the harsher Dread, and made that Dread the default. The lead came from the autopilot's new-moon mistake (problem 1) and vanished once that was fixed. The harsher Dread made every plan finish a few points fewer second seasons and didn't clearly widen the gaps between them, so it's back to one per 3 (`dreadLivingPer`, in Settings).
@@ -148,15 +148,15 @@ The vertical slice: seven days in one keep, ending on the night of the new moon,
 
     | | Spring | Summer | Autumn | Winter | Whole years | With every season a spring (`year` 0) |
     |---|---|---|---|---|---|---|
-    | Balanced | 190 of 200 | 183 of 190 | 169 of 183 | 83 of 169 | 83 | 110 |
-    | Keeper | 188 of 200 | 177 of 188 | 154 of 177 | 42 of 154 | 42 | 87 |
-    | Mourner | 190 of 200 | 182 of 190 | 154 of 182 | 54 of 154 | 54 | 68 |
-    | Double | 193 of 200 | 188 of 193 | 174 of 188 | 103 of 174 | 103 | 118 |
+    | Balanced | 192 of 200 | 187 of 192 | 173 of 187 | 86 of 173 | 86 | 116 |
+    | Keeper | 190 of 200 | 179 of 190 | 166 of 179 | 61 of 166 | 61 | 89 |
+    | Mourner | 191 of 200 | 182 of 191 | 152 of 182 | 24 of 152 | 24 | 57 |
+    | Double | 194 of 200 | 189 of 194 | 176 of 189 | 110 of 176 | 110 | 135 |
 
-    Before raids were fought (problem 20), whole years were 72, 50, 46 and 89; before summer's plague and autumn's siege (problem 24), 83, 52, 52 and 116.
+    Before raids were fought (problem 20), whole years were 72, 50, 46 and 89; before summer's plague and autumn's siege (problem 24), 83, 52, 52 and 116; before the dead's requests (problem 25), 83, 42, 54 and 103.
 
-    - **Summer's long days put by, and autumn runs on it.** Both do better than a spring at the same hardness: with every season a spring, the balanced plan finished 165 of 190 second seasons and 129 of 165 third ones.
-    - **Winter takes 28–56% of the keeps that reach it before the Long Night.** The Long Night then takes a fifth to two-fifths of the rest: the balanced plan wins 83 of 119, the keeper 42 of 68, the mourner 54 of 86 and Double 103 of 125. With every season a spring, the seventh night of the fourth was won 97–100% of the time.
+    - **Summer's long days put by, and autumn runs on it.** Both do better than a spring at the same hardness: with every season a spring, the balanced plan finished 163 of 192 second seasons and 137 of 163 third ones.
+    - **Winter takes 27–65% of the keeps that reach it before the Long Night.** The Long Night then takes a seventh to more than half of the rest: the balanced plan wins 86 of 118, the keeper 61 of 91, the mourner 24 of 53 and Double 110 of 128. With every season a spring, the seventh night of the fourth was won 97–100% of the time.
     - **Round three's Long Night is a double-length night.** At double length the autopilot won 13 of 109. With its Creepers cut to 0.8 of a night's it was still 13, so the length does it, not the Creepers. A candle burns 2 minutes, the store was 5 to 15 at its dusk, and the Hollow has longer to break the wards. At 1.5 winter nights it won 72 of 109. (Both before raids were fought.)
     - **The autopilot puts candles by now,** aiming for 16 through summer and 26 through autumn and winter, against 8. It doesn't get there: winter's long nights spend them as fast as its short days make them.
     - **×1.2 a season was set for two seasons.** Winter comes at ×1.73. Before raids were fought, with ×1.1 a season, 71 of 174 winters were finished, against 72 of 161.
@@ -181,7 +181,7 @@ The vertical slice: seven days in one keep, ending on the night of the new moon,
     | Fought | 190 of 200 | 183 of 190 | 97% | 5.8 (2.2) |
     | Not fought (`AP_RAIDPASSIVE=1`) | 188 of 200 | 180 of 188 | 83% | 6.6 (3.2) |
 
-    - **Over a whole year, fighting is worth about 8 keeps in 200.** Fought, the balanced plan comes through 83 years; not fought, 75; before, 72. So a player who ignores the fight gets about the old game. It pays most in autumn and winter, whose raids are ×1.44 and ×1.73.
+    - **Over a whole year, fighting is worth about 8 keeps in 200** (measured before the seasons' troubles and the dead's requests). Fought, the balanced plan comes through 83 years; not fought, 75; before, 72. So a player who ignores the fight gets about the old game. It pays most in autumn and winter, whose raids are ×1.44 and ×1.73.
     - **The bell was a trap at first.** Everyone it brought to the walls rolled their own chance of falling, at 1.5 times a guard's, so ringing it multiplied the deaths as well as stopping the work. With a Host ×1.2 as strong, fighting finished 142 second seasons of 173, not fighting 163 of 184, and fighting without the bell 159 of 180. Now the Host's blows are shared: whoever is on the walls splits a fixed danger (`raidShare`, three guards' worth), and the bell's hands still fall more easily than guards. At ×1.2, fighting then finished 166 of 190 against 163 of 184.
     - **Barring the stores stops work only while the Host is at the gate.** At first it stopped it from the sighting, a third of a day's work, for half the loot.
     - **The Host is as strong as before.** Making it stronger (`raidFightStrength`) makes the fight matter more and the year much harder. Whole years for the balanced plan and the keeper were 83 and 52 at ×1.0, 58 and 35 at ×1.1, and 56 and 27 at ×1.2. I left it at ×1.0 because the first two seasons, the part you've played, measure as they did.
@@ -201,7 +201,7 @@ The vertical slice: seven days in one keep, ending on the night of the new moon,
     - **The panel says where each place stands by night in words**, not as tonight's ways: round five's plan wanted the black mirror's preview for each place, which means predicting the night once for every place.
     - **A floor left bare stays**, with its stairs, so tearing rooms down never lowers the keep.
     - **On a phone, a build message can cover the panel's Close** for the five seconds its toast shows.
-24. **Each season its own trouble: the siege matters, and the plague only to a keep without Quarters.** 200 seeds, the whole year, whole years come through (each about ±7):
+24. **Each season its own trouble: the siege matters, and the plague only to a keep without Quarters.** 200 seeds, the whole year, whole years come through (each about ±7), measured before the dead's requests:
 
     | | Balanced | Keeper | Mourner | Double |
     |---|---|---|---|---|
@@ -211,6 +211,18 @@ The vertical slice: seven days in one keep, ending on the night of the new moon,
     - **The siege.** Almost every autumn has one: 181 of the balanced plan's 183. The autopilot sallies out when the odds are 60% or better with two guards or more. It broke 175 camps and lost 107 guards doing it, about 0.6 a siege. Waiting sieges out instead (`AP_NOSALLY=1`) came through 71 whole years against 83.
     - **The plague** struck the balanced plan's keeps 4 times in 200 years, because the autopilot builds Quarters as soon as a keep is crowded. Never building them (`AP_NOQUARTERS=1`), it struck 129 times and took 272 people; summer's deaths from sickness went from 87 to 152, and whole years from 71 to 65 (the keeper's from 39 to 34). With both troubles on, Quarters are worth 18 whole years to the balanced plan, 83 against 65, where over two seasons they never paid (problem 14).
     - **A person will crowd the keep more than my autopilot does**, so the plague will likely bite harder in play than here.
+25. **The dead's requests make the rite a choice, and cost a keep that holds few shades.** 200 seeds, the whole year, whole years come through (each about ±7):
+
+    | | Balanced | Keeper | Mourner | Double |
+    |---|---|---|---|---|
+    | Requests off (`requests` 0) | 83 | 42 | 54 | 103 |
+    | On, answered by the autopilot's rules | 86 | 61 | 24 | 110 |
+
+    - **How they're answered matters.** The balanced plan came through 86 years answering by its rules, 78 granting everything, and 59 refusing everything, when 1,124 shades turned Restless. Its rules: the gate for a Loyal shade when a raid comes tomorrow, a name or a remembering when there's remembrance to spare, anything asked a second time, and a Serene shade let go only then.
+    - **The keeper gains most, 42 years to 61.** It never covers, so letting its Serene shades go when they ask keeps its Dread down: 492 censures against 550.
+    - **The mourner loses most, 54 to 24.** It covers to hold Dread at 1, so it keeps one or two shades, and a Serene one asking to go takes half of what it has. The Hollow reaches its Veil in 34 of 97 first new moons, against 24.
+    - **At first a Serene shade asked from its second night,** which made it a five-night shade: the mourner came through 14 years. It now asks only once its memory falls below 40, near the end of what it had anyway.
+    - **A shade that turns Restless can be bound back** for 3 essence, and then it asks no more. The autopilot never does this.
 
 **How a season plays**
 
@@ -282,6 +294,7 @@ The vertical slice: seven days in one keep, ending on the night of the new moon,
 
   The black mirror counts them at dusk and says whether their room has dark, and the Night panel says when one is weeping. Keeps from before them have neither Weepers nor beds (`dreamwell` in Settings, under Advanced).
 - **Dawn: the Rite** (paused). Keep or cover, release or bind, banish or leave, as in weeks 1–2. Fading happens, and names and remembrance can be bought, as in weeks 3–4. Each Veil crack from the night adds 1 Dread, and so does each room a Maw broke.
+  - **The dead ask for things.** From its second night a shade in the glass asks one thing at the rite: a Loyal one to stand the gate by day (tomorrow's defense rises by its night strength, and it pays 8 memory at dusk, more for the Reckless), a Stranger a name (3 remembrance), a Pale one to be remembered (1 remembrance, +15 memory), and a Serene one, once its memory falls below 40, to be let go (its mirror is covered). Grant or refuse under its row. Granted, it asks no more; refused, it asks again three nights later, and refused twice it turns Restless and leaves its mirror. Bound back into one, it settles and asks no more. Keeps from before this have no requests (`requests` in Settings).
   - **The night in moments.** Under the night's numbers, up to three stills of the Tain from the moments that most decided it, in the order they came, each with its hour and what happened, and a ring where it happened. By weight: the Veil breaking, the Hollow tearing through, a shade lost, the first crack, a room a Maw broke, the Hollow driven back, a Maw tearing down a candle, the first shade caught, a Maw cut down, the first seep, and the biggest tide. The season's end shows the new moon's, and a lost keep how its last night went. They're drawn as you view the Tain, reflected or upright.
 - **Breaking a mirror** (at any time, asked twice). Everyone in it goes free at once, as if covered: +1 remembrance each, and their bonded living at peace. Dread falls 1 for each, which covering can't do, so breaking one before noon can turn a censure into a warning. At night it frees a caught shade from the Creeper's grip, and a freed Wraith leaves the Tain. The mirror is lost, and the next 7 days are unlucky: sickness comes twice as often, carried into the next season if need be. The Day panel's mirrors have a Break button, the Rite opens a Break a mirror section by itself when the inspector is coming, and the Night panel offers it for a caught shade.
 - **Day 5: the Lantern Church.** It is announced the dawn before, and it comes again the same day whenever Dread reaches 5. The inspector judges Dread at noon:
@@ -380,6 +393,7 @@ The vertical slice: seven days in one keep, ending on the night of the new moon,
 19. **The tutorial's script is mine.** Round five's plan set its outline: three scripted days, events on cue, one objective at a time, and a Veil that can't break before night 4. Maud, the events, their hours, the numbers, the lessons' order and words, Dread stopping at 4, and the lessons to guard and relight the line are mine.
 20. **The night review's choice of moments is mine.** Round five's plan asked for the two or three moments that decided the night, as stills of the Tain. Which kinds count, their weights, keeping each kind once, and the season's end and a lost keep showing theirs are mine.
 21. **The seasons' troubles are mostly mine.** Round three has plague summers that "hit crowded keeps" and autumn sieges that "camp outside for days". The plague spreading by crowding, the siege's two days, the shut gate stopping the Yard and newcomers, the camp's assault, the sally and all the numbers are mine.
+22. **The dead's requests are mostly mine.** Round three's Court of Shades held "the dead's requests", and round five's plan named three: a Serene shade to be let go before it forgets, a Loyal one to guard the gate by day, a Stranger to be named. The Pale one's, the timing, the costs, two refusals turning a shade Restless, and binding settling it are mine.
 
 **What the numbers say so far.** From `npm run balance:season -- 100 1`, on the two-room start. Every plan but Idle builds in the same order (a Barracks, a Chapel, a Chandlery, a Glazier, an Infirmary, a second Barracks, a Quarters once the keep is crowded, a Forge, a Granary, a Cellar), stands guards only on raid days, holds the stairs to the Veil, relights candles, and posts nobody below the line's floor at night except in the Choir, and never has the dead help by day. All but Double and Idle pull a second fighter to each stair for each tide from that stair's own room, ward the line for the last tide of nights 5 and 6 when the essence is there, and send help against a Maw. The first three differ in how they treat the dead; Double treats them like Balanced.
 
@@ -387,15 +401,15 @@ The vertical slice: seven days in one keep, ending on the night of the new moon,
 |---|---|---|---|---|---|
 | Seasons finished | 96% | 95% | 97% | 99% | 0% |
 | Lost on night 6 / 7 (and earlier) | 2 / 2 | 3 / 1 (1) | 2 / 1 | 0 / 1 | all on night 1 |
-| Your deaths per season | 3.6 | 3.6 | 3.8 | 3.6 | – |
-| Raids held | 98% | 98% | 99% | 100% | – |
-| Church: blessed / warned / censured | 100 / 0 / 0 | 74 / 8 / 34 (116 visits) | 100 / 0 / 0 | 100 / 0 / 0 | – |
-| Shades lost at night per season | 0.9 | 1.0 | 0.9 | 0.9 | – |
-| The Hollow, in finished seasons: reached the Veil / driven back / withdrew | 3 / 20 / 73 | 6 / 12 / 77 | 24 / 16 / 57 | 6 / 20 / 73 | – |
+| Your deaths per season | 3.5 | 3.5 | 3.8 | 3.5 | – |
+| Raids held | 99% | 99% | 99% | 100% | – |
+| Church: blessed / warned / censured | 100 / 0 / 0 | 73 / 8 / 34 (115 visits) | 100 / 0 / 0 | 100 / 0 / 0 | – |
+| Shades lost at night per season | 1.1 | 1.2 | 1.1 | 1.2 | – |
+| The Hollow, in finished seasons: reached the Veil / driven back / withdrew | 2 / 22 / 72 | 3 / 14 / 78 | 34 / 16 / 47 | 7 / 17 / 75 | – |
 
 - **Raids with traits** (before raids were fought): when traits went in, 86% held for the balanced plan, against 90% without them (and 58% before the two-room start). Traits first cut it to 75%. No one trait did it: Wil (a Coward) and Nell (Gentle) guarded at half strength, Tam (Devout) at ×0.8 off the Chapel, Ada (Brave) fell twice as often, which thinned the gate for the next raid, and the Greedy ate double. The Gentle's and the Greedy's costs now fall elsewhere: the Gentle grieve harder, and the Greedy work ×0.8 away from the Glazier and the Chandlery. The Coward and the Brave keep theirs, since the gate is what they're about. Guards stand only on raid days, when every free hand goes to the Barracks.
-- **Season 2, a summer** (200 seeds, two seasons): the balanced plan finishes 183 of the 190 second seasons it reaches (96%), the keeper 177 of 188 (94%), the mourner 182 of 190 (96%) and Double 188 of 193 (97%).
-- **The original four-floor start** (`startFloors` 4 in Settings), same rules, 200 seeds and two seasons: every plan finishes 94–99% of first seasons. Of the second seasons (summers) they reach, the balanced plan finishes 191 of 194 (98%), the keeper 184 of 187 (98%), the mourner 185 of 191 (97%) and Double 190 of 197 (96%). Before raids were fought the doubled line finished only 179 of 199 here, and the Weepers cost it most (problem 14).
+- **Season 2, a summer** (200 seeds, two seasons): the balanced plan finishes 187 of the 192 second seasons it reaches (97%), the keeper 179 of 190 (94%), the mourner 182 of 191 (95%) and Double 189 of 194 (97%).
+- **The original four-floor start** (`startFloors` 4 in Settings), same rules, 200 seeds and two seasons: every plan finishes 96–99% of first seasons. Of the second seasons (summers) they reach, the balanced plan finishes 191 of 192 (99%), the keeper 189 of 191 (99%), the mourner 191 of 193 (99%) and Double 194 of 198 (98%). Before raids were fought the doubled line finished only 179 of 199 here, and the Weepers cost it most (problem 14).
 
 ## Weeks 5–6: the pixel pass
 

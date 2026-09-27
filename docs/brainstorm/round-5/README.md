@@ -12,7 +12,7 @@ Round four's queue is built except the replay viewer, which is parked ([`round-4
 | 2 | Raids you fight | Enhancement (raids) | M–L | Built: pay them off or bar the stores; at the gate, pitch, stone and the bell; after a breach, go after them. The Host is as strong as before ([problem 20](../../../prototype/README.md)) |
 | 3 | Build where you choose, and tear down | Enhancement (building) | M | Built: any bare hall or a new floor, tear down for half, move (swap) for 2. Rearranged keeps unmeasured; a tall keep measured worse ([problem 23](../../../prototype/README.md)) |
 | 4 | A night review at dawn | Enhancement (the night report) | M | Built: up to three stills of the night at the rite, and at the season's end or a keep's fall ([problem 22](../../../prototype/README.md)) |
-| 5 | The dead ask for things | Enhancement (the rite) | M | Queued, 6th |
+| 5 | The dead ask for things | Enhancement (the rite) | M | Built: a request from each shade after two nights; refused twice, it turns Restless. The rite is a choice now, but it costs the mourner ([problem 25](../../../prototype/README.md)) |
 | 6 | Each season its own trouble: plague summers, autumn sieges | New | M | Built: summer's plague takes more in a crowded keep; autumn's siege shuts the gate for two days, broken by a sally ([problem 24](../../../prototype/README.md)) |
 | 7 | Rain and the Drowned | New | M | Queued, 8th |
 | 8 | Down into the Deep, for quicksilver | New | M–L | Queued, 9th |

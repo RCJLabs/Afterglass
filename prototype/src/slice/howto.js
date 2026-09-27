@@ -104,6 +104,7 @@ export function howTo(T) {
         `Every shade fades ${T.fadePerNight} memory a night, half as much resting in the Cold Hearth; at 0 it's gone. Naming one (${T.nameCost} remembrance) halves its fading for good, and remembering (${T.rememberCost}) gives back ${T.rememberGain}. Loyal shades fight hardest, Serene ones work best, and memory weakens both.`,
         `A Restless shade does nothing and costs ${T.dreadPerRestless} Dread each dawn you leave it. Release it, for remembrance, or bind it into a free mirror for ${T.bindCost} essence, and it settles as what it would have been. After ${T.restlessNights} nights it turns Wraith, unless the Choir calms it. A Wraith left costs ${T.dreadPerWraith} a dawn; banishing it takes ${T.banishCost} essence.`,
         `A vigil lowers Dread by 1 for ${T.vigilCost} remembrance, at the rite or by day.`,
+        ...(T.requests ? [`The dead ask for things. From its ${T.askAfter === 2 ? 'second' : `${T.askAfter}th`} night a shade asks one thing at the rite: a Loyal one to stand the gate by day (at its night strength, for ${T.gateFade} memory at dusk), a Stranger a name, a Pale one to be remembered, and a Serene one, once its memory falls below ${T.askFade}, to be let go. Granted, it asks no more; refused, it asks again ${T.askEvery} nights later, and refused ${T.refusals === 2 ? 'twice' : `${T.refusals} times`} it turns Restless and leaves its mirror.`] : []),
       ],
     },
     {

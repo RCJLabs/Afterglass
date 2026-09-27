@@ -67,6 +67,13 @@ const TALL = !!globalThis.process?.env?.AP_TALL;
 // AP_NOSALLY=1 waits the siege out (to measure whether sallying pays).
 const SALLY_AT = 0.6;
 const NOSALLY = !!globalThis.process?.env?.AP_NOSALLY;
+// The dead's requests at the rite. The autopilot grants a Loyal shade the gate when a raid comes tomorrow, a
+// name or a remembering when it has the remembrance, and anything asked a second time (a second refusal turns
+// a shade Restless), except that it lets a Serene shade go only then. AP_GRANT=1 grants every request, and
+// AP_REFUSE=1 none (to measure whether answering them matters).
+const GRANT = !!globalThis.process?.env?.AP_GRANT;
+const REFUSE = !!globalThis.process?.env?.AP_REFUSE;
+const NOGATE = !!globalThis.process?.env?.AP_NOGATE;
 function nextBuild(s) {
   const want = {};
   for (const type of BUILD_ORDER) {
@@ -442,6 +449,22 @@ function rite(s, plan) {
     doAct(s, { type: 'rite', id: keep.shift().id, choice: 'cover' });
     P = ritePreview(s);
   }
+  // The dead's requests.
+  for (const [id, k] of Object.entries(s.rite.asks || {})) {
+    const d = s.shades.find((x) => x.id === id);
+    if (!d || !canWork(d) || s.rite.choice[id] === 'cover') continue;
+    const last = (d.refused || 0) >= T.refusals - 1;
+    const spare = s.res.remembrance + ritePreview(s).rem - ritePreview(s).remCost;
+    let yes;
+    if (REFUSE) yes = false;
+    else if (GRANT) yes = true;
+    else if (k === 'release') yes = last;
+    else if (k === 'gate') yes = last || (!NOGATE && (!!T.raidDays[s.day + 1] || besieged({ ...s, day: s.day + 1 })));
+    else if (k === 'name') yes = last || spare >= T.nameCost + 2;
+    else yes = last || spare >= T.rememberCost + 1;
+    doAct(s, { type: 'request', id, grant: yes });
+  }
+  P = ritePreview(s);
   let v = 0;
   while (P.dread.to > target && P.remCost + T.vigilCost <= s.res.remembrance + P.rem) {
     doAct(s, { type: 'vigils', n: ++v });
@@ -454,6 +477,7 @@ function rite(s, plan) {
   for (const d of [...stay].reverse()) if (!d.named && d.memory >= 60 && spare() >= T.nameCost + 2) doAct(s, { type: 'name', id: d.id });
   if (!doAct(s, { type: 'beginDay' })) {
     for (const d of s.shades) doAct(s, { type: 'rite', id: d.id, choice: choicesFor(d).includes('cover') ? 'keep' : 'release' });
+    for (const id of Object.keys(s.rite.asks || {})) if (s.rite.asks[id] !== 'release') doAct(s, { type: 'request', id, grant: false });
     doAct(s, { type: 'vigils', n: 0 });
     doAct(s, { type: 'beginDay' });
   }

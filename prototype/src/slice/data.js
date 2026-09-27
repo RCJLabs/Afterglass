@@ -259,6 +259,18 @@ export const TUNING = {
   // assaults the gate at siegeStrength times the day-2 raid. The guards can sally out to break the camp:
   // the chance is their defense over sallyOdds times the camp's strength (a tenth to nine in ten), and each
   // risks raidPursueRisk. plague 0 and siege 0 are the year as it was.
+  // The dead ask for things (round five; round three's Court of Shades). From its askAfter-th night a shade in
+  // the glass asks one thing at the rite (REQUESTS below), and again askEvery nights after a refusal; a Serene
+  // one asks to go only once its memory falls below askFade. Granted, it never asks again; refused `refusals`
+  // times, it turns Restless and leaves its mirror. A Loyal shade granted the gate guards it the next day at
+  // its night fight, for gateFade memory at dusk. requests 0 is the rite as it was.
+  requests: 1,
+  askAfter: 2,
+  askEvery: 3,
+  askFade: 40,
+  refusals: 2,
+  gateFade: 8,
+
   plague: 1,
   plagueCrowd: 2,
   siege: 1,
@@ -268,6 +280,14 @@ export const TUNING = {
 };
 
 export const SEASONS = ['spring', 'summer', 'autumn', 'winter'];
+
+// What each kind of shade asks at the rite (TUNING.requests): what granting does, and its words.
+export const REQUESTS = {
+  serene: { kind: 'release', ask: 'Let me go while I still remember.', grant: 'Cover its mirror today: it rests', fading: true },
+  loyal: { kind: 'gate', ask: 'Let me stand at the gate tomorrow.', grant: 'It guards the gate by day, for memory at dusk' },
+  stranger: { kind: 'name', ask: 'Give me a name to keep.', grant: 'Name it' },
+  pale: { kind: 'remember', ask: 'Remember me, before I fade.', grant: 'Remember it' },
+};
 
 // The tutorial keep (round five): an ordinary keep whose first three days and nights go by a script, so each
 // lesson comes in its order. By day the script's events stand in for the day's rolls: no sickness and no

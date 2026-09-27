@@ -2,12 +2,12 @@
 // bar at the bottom, and everything else opens in a panel over the castle. Like the greyboxes it changes
 // the game only through act(), so every session replays from its seed and action log.
 
-import { TICKS_PER_SEC, DAY_ROOMS, WORK_ROOMS, TWINS, KINDS, MIRRORS, CAUSES, MAP, BOND_OTHER, TUNING, BUILDABLE, TRAITS, SHADE_TRAITS, SEASONS, TUTORIAL } from './slice/data.js';
+import { TICKS_PER_SEC, DAY_ROOMS, WORK_ROOMS, TWINS, KINDS, MIRRORS, CAUSES, MAP, BOND_OTHER, TUNING, BUILDABLE, TRAITS, SHADE_TRAITS, SEASONS, TUTORIAL, REQUESTS } from './slice/data.js';
 import {
   newSeason, step, act, retune, playerTuning, jobCap, jobCount, nextSlot, ritePreview, crossingPreview, capacity, canWork, defense, roomPower, bear, priests, funeralCap, eatRate,
   dayTicks, nightTicks, isNewMoon, choicesFor, byId, isTwinnedLiving, isTwinnedShade, lastSeason, SAVE_VERSION, fmt, mirrorCap, bareHalls, tainPlace,
   postRoom, wardCost, shadeTrait, peopleIn, beds, tradeOf, inGreatGlass, handsAt, whispers, stepsThrough, perf,
-  seasonIndex, seasonName, yearOf, dayLength, isLongNight, tributeOf, besieged, sallyOdds, plagueSeason,
+  seasonIndex, seasonName, yearOf, dayLength, isLongNight, tributeOf, besieged, sallyOdds, plagueSeason, atGate, gateGuard,
 } from './slice/sim.js';
 import { geo, feet, floorAtY, roomAt, typeAt, typeOf, roomSpan, roomsOf, lightMap, isLit, unitAt, DEEP_FLOOR, lineSpots as lineOf, guardLit, MAX_FLOORS } from './slice/geo.js';
 import { drawScene, drawMoment } from './slice/draw.js';
@@ -496,6 +496,7 @@ function dayPanel() {
     ${s.daily && s.season === 1 && s.day === 1 ? `<p class="note">This is the keep of ${esc(dayText(s.daily))}: everyone who plays it gets this same keep, on the same rules.</p>` : ''}
     ${fireCards()}
     ${siegeCard()}
+    ${gateGuard(s) ? `<p class="note">${esc(listOf(s.shades.filter((d) => atGate(s, d)).map((d) => d.name)))} ${s.shades.filter((d) => atGate(s, d)).length === 1 ? 'stands' : 'stand'} at the gate today, as asked: +${fmt(gateGuard(s))} defense.</p>` : ''}
     ${raidCard()}
     ${inspectionCard()}
     ${sick.length ? `<p class="note bad">Sick: ${esc(listOf(sick.map((p) => p.name)))}. A healer in the Infirmary cures one a day; untreated, the sickness kills.</p>` : ''}
@@ -795,6 +796,28 @@ function reviewHTML(title) {
   return `<details class="card review" data-keep="review"${ui.open.review !== false ? ' open' : ''}><summary><b>${title}</b></summary><div class="moments">${figs}</div><p class="hint">A ring marks where it happened.</p></details>`;
 }
 
+// The dead ask for things: a shade's request at the rite, what granting costs, and how near a refusal
+// leaves it to turning Restless.
+function askHTML(d) {
+  const k = s.rite.asks?.[d.id];
+  if (!k) return '';
+  const T = s.tuning;
+  const R = REQUESTS[d.kind];
+  const granted = k === 'release' ? s.rite.choice[d.id] === 'cover' : !!s.rite.grant?.[d.id];
+  const fade = T.gateFade * (d.named ? 0.5 : 1) * (shadeTrait(s, d)?.fade ?? 1);
+  const cost = {
+    release: 'its mirror is covered and it rests, for +1 remembrance',
+    gate: `tomorrow it stands the gate by day, +${fmt(KINDS[d.kind].fight * perf(d) * DAY_ROOMS.barracks.rate)} defense, for ${fmt(fade)} memory at dusk, and it asks no more`,
+    name: `${T.nameCost} remembrance: it fades half as fast, and asks no more`,
+    remember: `${T.rememberCost} remembrance: +${T.rememberGain} memory, and it asks no more`,
+  }[k];
+  const left = T.refusals - (d.refused || 0);
+  const warn = left <= 1 ? 'Refused again, it turns Restless and leaves its mirror.' : `Refused ${T.refusals === 2 ? 'twice' : `${T.refusals} times`}, a shade turns Restless.`;
+  return `<div class="ask"><p><q>${esc(R.ask)}</q></p>
+    <div class="row"><button class="btn sm" id="ask-yes-${d.id}" data-act="request" data-id="${d.id}" data-grant="1" aria-pressed="${granted}">Grant</button><button class="btn sm" id="ask-no-${d.id}" data-act="request" data-id="${d.id}" data-grant="" aria-pressed="${!granted}">Refuse</button></div>
+    <small>Granted, ${esc(cost)}. <span class="${left <= 1 ? 'bad' : ''}">${esc(warn)}</span></small></div>`;
+}
+
 function riteRow(d) {
   const T = s.tuning;
   const c = s.rite.choice[d.id];
@@ -814,9 +837,9 @@ function riteRow(d) {
        <span>Naming halves fading for good.</span></div>`
     : '';
   const bonded = d.bond && byId(s.living, d.bond.with);
-  return `<div class="rite-row${c === 'cover' || c === 'release' || c === 'banish' ? ' is-cover' : ''}">
+  return `<div class="rite-row${c === 'cover' || c === 'release' || c === 'banish' ? ' is-cover' : ''}${s.rite.asks?.[d.id] ? ' is-asking' : ''}">
     <div class="who"><div><b>${esc(d.name)}</b>${kindTag(d.kind)}${bonded ? `<small>${esc(bonded.name)}'s ${esc(BOND_OTHER[d.bond.rel] || d.bond.rel)}</small>` : ''}</div>${shadeTraitText(d)}<small>${note}</small></div>
-    <div class="opts">${opts}</div>${acts}</div>`;
+    <div class="opts">${opts}</div>${acts}${askHTML(d)}</div>`;
 }
 
 function dawnPanel() {
@@ -1008,7 +1031,7 @@ function shadeRows() {
       const pick = canWork(d) && (s.phase === 'dusk' || s.phase === 'night');
       return `<div class="srow${ui.selected === d.id ? ' is-selected' : ''}" id="srow-${d.id}">
         <div class="who">
-          <div><b>${esc(d.name)}</b>${kindTag(d.kind)}${d.named ? '<span class="tag peace">Named</span>' : ''}${isTwinnedShade(s, d) ? '<span class="tag twin">Twinned</span>' : ''}${whispers(s, d) ? `<span class="tag twin">Whispers to the ${DAY_ROOMS[tradeOf(s, d)].name}</span>` : stepsThrough(s, d) ? `<span class="tag twin">Works in the ${DAY_ROOMS[d.byDay.room].name} by day</span>` : ''}</div>
+          <div><b>${esc(d.name)}</b>${kindTag(d.kind)}${d.named ? '<span class="tag peace">Named</span>' : ''}${isTwinnedShade(s, d) ? '<span class="tag twin">Twinned</span>' : ''}${whispers(s, d) ? `<span class="tag twin">Whispers to the ${DAY_ROOMS[tradeOf(s, d)].name}</span>` : stepsThrough(s, d) ? `<span class="tag twin">Works in the ${DAY_ROOMS[d.byDay.room].name} by day</span>` : atGate(s, d) ? '<span class="tag twin">Stands at the gate today</span>' : ''}</div>
           ${shadeTraitText(d)}
           ${canWork(d) ? `<div><span class="memory${d.memory < 40 ? ' low' : ''}" aria-hidden="true"><i data-bar="mem" data-arg="${d.id}"></i></span><small><span data-live="mem" data-arg="${d.id}">${Math.ceil(d.memory)}</span> memory, <span data-live="status" data-arg="${d.id}">${esc(shadeStatus(d, L))}</span></small></div>` : `<small>${esc(shadeStatus(d, L))}</small>`}
         </div>
@@ -1154,6 +1177,8 @@ const TUNE = [
   ['year', 'A year of four seasons, days and nights shifting, ending with the Long Night (1 on, 0 off)'],
   ['longNight', 'The Long Night lasts this many winter nights'],
   ['longNightCreepers', 'The Long Night brings this many times a night\'s Creepers'],
+  ['requests', 'The dead ask for things at the rite (1 on, 0 off)'],
+  ['refusals', 'Refused this many times, a shade turns Restless'],
   ['plague', "Summer's plague: sickness in a crowded keep takes one more for every few beyond the beds (1 on, 0 off)"],
   ['plagueCrowd', 'The plague takes one more for every this many living beyond the beds'],
   ['siege', "Autumn's siege: the Host camps outside after its day-2 raid (1 on, 0 off)"],
@@ -1981,6 +2006,11 @@ const GUIDE = [
     text: "Dawn: the Rite. Keep a shade and it works again tonight, but the keep's Dread rises. Cover its mirror to let it rest. Every shade fades a little each night; naming one halves that.",
   },
   {
+    id: 'request', target: '.rite-list .is-asking',
+    when: () => first() && s.phase === 'dawn' && Object.keys(s.rite?.asks || {}).length > 0,
+    text: () => requestText(),
+  },
+  {
     id: 'traits', target: '.rite-list',
     when: () => first() && seen('rite') && s.phase === 'dawn' && traitsOn() && s.shades.some((d) => SHADE_TRAITS[d.trait]),
     text: () => `Everyone has a trait, and death turns it over: the Brave wake Reckless, the Devout Bitter, the Greedy Hoarding. Each shade's line says what it does now. A Bitter one costs ${s.tuning.dreadPerKeep * SHADE_TRAITS.bitter.dread} Dread to keep, but makes wards cheap; read them before you choose.`,
@@ -2031,6 +2061,8 @@ const newcomer = () => s.today.arrivals.map((id) => byId(s.living, id)).find(Boo
 // A spot on the line is held when a shade stands in its light.
 const guarded = (p) => litAt(p.f, p.x) && s.shades.some((d) => canWork(d) && d.post?.f === p.f && Math.abs(d.post.x - p.x) <= 8 && litAt(d.post.f, d.post.x));
 const churchWord = () => s.log.some((l) => l.season === 1 && l.day === 3 && /^Word comes from the Lantern Church: its inspector/.test(l.text));
+// The guide's words for the dead's requests, which the tutorial uses too.
+const requestText = () => `The dead ask for things. A shade that has served ${s.tuning.askAfter} nights asks one thing at the rite: a Loyal one to stand the gate by day, a Stranger a name, a Pale one to be remembered, and a Serene one, as its memory fails, to be let go. Granted, it asks no more; refused ${s.tuning.refusals === 2 ? 'twice' : `${s.tuning.refusals} times`}, it turns Restless and leaves its mirror.`;
 const TUT = [
   // What's happening now.
   {
@@ -2207,6 +2239,11 @@ const TUT = [
     id: 't-hunters',
     when: () => onDay(2, 'dusk') && s.dusk.step === 'place' && tutHas('t-relight2'),
     text: () => `Tonight some of the Creepers hunt candles instead of the mirrors. A candle burns ${fmt(s.tuning.candleWax / 60)} minutes; relight what goes out. Essence, sung in the Choir under a Chapel, buys wards: one seals a rift or holds a stair for the night.`,
+  },
+  {
+    id: 't-ask', covers: ['request'], target: '.rite-list .is-asking',
+    when: () => (onDay(2, 'dawn') || onDay(3, 'dawn')) && Object.keys(s.rite?.asks || {}).length > 0,
+    text: () => requestText(),
   },
   {
     id: 't-release', target: '.rite-list',
@@ -2748,6 +2785,7 @@ function onAct(name, el) {
     case 'shore': return game({ type: 'shore' });
     case 'raid-bell': return game({ type: 'raidBell' });
     case 'pursue': return game({ type: 'pursue' });
+    case 'request': return game({ type: 'request', id: el.dataset.id, grant: !!el.dataset.grant });
     case 'sally': return game({ type: 'sally' });
     case 'vigil': return game({ type: 'vigil' });
     case 'build': return game({ type: 'build', mirror: el.dataset.mirror });

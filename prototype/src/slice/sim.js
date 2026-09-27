@@ -9,7 +9,7 @@
 import {
   TICKS_PER_SEC, TUNING, DAY_ROOMS, WORK_ROOMS, TWINS, MAP, KINDS, WORKING, CAUSES, GUIDE_UP,
   MIRRORS, START_MIRRORS, MIRROR_PLACES, CAST, BONDS, START_SHADES, BOND_OTHER, NAMES, RAIDER_NAMES, BUILDABLE, TRAITS, TRAIT_KEYS, SHADE_TRAITS, SEASONS,
-  TUTORIAL,
+  TUTORIAL, REQUESTS,
 } from './data.js';
 import {
   geo, FULL_KEEP, startKeep, lineSpots, MAX_FLOORS, roomsOf, roomAt, roomSpan, typeOf, typeAt, lightMap, isLit, spanAt, darkBetween, darkRooms, darkGaps, route, firstLight, fleePath, touching,
@@ -259,8 +259,11 @@ export function roomPower(s) {
 }
 export const defense = (s) => {
   const pw = roomPower(s);
-  return pw.barracks * DAY_ROOMS.barracks.rate + pw.forge * DAY_ROOMS.forge.rate + (s.raid?.ward || 0) + (s.watchBonus || 0) + onWalls(s).length * s.tuning.raidBellDefense;
+  return pw.barracks * DAY_ROOMS.barracks.rate + pw.forge * DAY_ROOMS.forge.rate + (s.raid?.ward || 0) + (s.watchBonus || 0) + onWalls(s).length * s.tuning.raidBellDefense + gateGuard(s);
 };
+// The dead at the gate: Loyal shades granted their request stand guard by day at their night strength.
+export const atGate = (s, d) => !!s.tuning.requests && canWork(d) && d.byDay?.how === 'gate';
+export const gateGuard = (s) => s.shades.filter((d) => atGate(s, d)).reduce((a, d) => a + KINDS[d.kind].fight * perf(d) * DAY_ROOMS.barracks.rate, 0);
 // A raid you fight: those the bell brought onto the walls, whether the stores are barred, and what the Host
 // wants to turn back.
 export const onWalls = (s) => s.living.filter((p) => p.walls);
@@ -844,9 +847,29 @@ function endDay(s) {
     }
   }
   if (s.tuning.whispers) dayTired(s);
+  gateTired(s);
   const n = s.bodies.length;
   say(s, n ? `Dusk. ${n} ${n === 1 ? 'body lies' : 'bodies lie'} in the crypt. Hold funerals or let them wake.` : 'Dusk. Set the candles and post the shades.', 'dusk', true);
   cue(s, 'dusk');
+}
+
+// At dusk a shade that stood the gate by day pays for it in memory, and goes back to the glass.
+function gateTired(s) {
+  const T = s.tuning;
+  for (const d of [...s.shades]) {
+    if (d.byDay?.how !== 'gate') continue;
+    d.byDay = null;
+    if (!canWork(d)) continue;
+    const loss = T.gateFade * (d.named ? 0.5 : 1) * (shadeTrait(s, d)?.fade ?? 1);
+    d.memory = Math.round((d.memory - loss) * 100) / 100;
+    const e = ledgerOf(s, d.id);
+    if (e) {
+      e.gated = (e.gated || 0) + 1;
+      e.memory = Math.max(0, d.memory);
+    }
+    say(s, `${d.name} stood the gate all day, and comes back to the glass the more faded: −${fmt(loss)} memory.`);
+    if (d.memory <= 0) fadeAway(s, d, `${d.name} spent the last of their memory at the gate, and has faded. Nothing is left in the glass.`, 'faded', false);
+  }
 }
 
 // At dusk, the dead who helped by day are the more tired for it: a whisper costs nothing on a day nobody
@@ -855,7 +878,7 @@ function dayTired(s) {
   const T = s.tuning;
   const tired = [];
   for (const d of [...s.shades]) {
-    if (!d.byDay) continue;
+    if (!d.byDay || d.byDay.how === 'gate') continue;
     const step = stepsThrough(s, d);
     if (!step && !whispers(s, d)) {
       d.byDay = null; // it can't any more: out of the glass, turned, or no longer in a great glass
@@ -1810,10 +1833,21 @@ export function choicesFor(d) {
   return ['keep', 'cover'];
 }
 
+// The dead ask for things: which shades ask at this rite, and what.
+export function asksNow(s, d) {
+  const T = s.tuning;
+  const R = REQUESTS[d.kind];
+  if (!T.requests || !canWork(d) || d.granted || !R) return null;
+  if (d.nights < T.askAfter || (d.askedAt !== undefined && d.nights - d.askedAt < T.askEvery)) return null;
+  if (R.fading && d.memory >= T.askFade) return null;
+  return R.kind;
+}
 function toRite(s, cracks) {
   s.phase = 'dawn';
   s.t = 0;
-  s.rite = { choice: Object.fromEntries(s.shades.map((d) => [d.id, defaultChoice(d)])), vigils: 0, cracks, broken: (s.haunted || []).length };
+  const asks = Object.fromEntries(s.shades.map((d) => [d.id, asksNow(s, d)]).filter(([, k]) => k));
+  for (const id of Object.keys(asks)) byId(s.shades, id).askedAt = byId(s.shades, id).nights;
+  s.rite = { choice: Object.fromEntries(s.shades.map((d) => [d.id, defaultChoice(d)])), vigils: 0, cracks, broken: (s.haunted || []).length, asks, grant: {} };
   say(s, 'Dawn. The Unlit withdraw and the shades go back into the glass. Decide who stays.', 'rite', true);
   cue(s, 'dawn');
 }
@@ -1868,7 +1902,16 @@ export function ritePreview(s) {
   P.dread = { from: s.dread, keep: keepD, restless: restD, wraith: wraithD, cracks: crackD, broken: brokenD, bear: bears, vigils: R.vigils, delta, to: clamp(s.dread + delta, 0, Math.max(top, s.dread)) };
   P.inspector = P.dread.to >= T.dreadMax;
   P.remCost = R.vigils * T.vigilCost;
-  if (P.remCost > s.res.remembrance + P.rem + EPS) P.errors.push('Not enough remembrance for that many vigils.');
+  // Requests granted: a name or a remembering costs remembrance, as bought.
+  P.granted = [];
+  for (const [id, k] of Object.entries(R.asks || {})) {
+    const d = byId(s.shades, id);
+    if (!d || !(R.grant?.[id] || (k === 'release' && P.cover.includes(d)))) continue;
+    P.granted.push(d);
+    if (k === 'name' && !d.named) P.remCost += T.nameCost;
+    if (k === 'remember') P.remCost += T.rememberCost;
+  }
+  if (P.remCost > s.res.remembrance + P.rem + EPS) P.errors.push(P.granted.some((d) => ['name', 'remember'].includes(R.asks?.[d.id])) ? 'Not enough remembrance for those vigils and requests.' : 'Not enough remembrance for that many vigils.');
   if (P.essence > s.res.essence + EPS) P.errors.push(`Not enough essence (${fmt(P.essence)} needed).`);
   P.tonight = P.keep.length + P.bind.length;
   return P;
@@ -1900,7 +1943,7 @@ function beginDay(s) {
   }
   for (const d of P.bind) {
     const m = freeMirror(s);
-    Object.assign(d, { mirror: m.id, kind: d.trueKind, trueKind: null, restless: 0, post: wakingSpot(s) });
+    Object.assign(d, { mirror: m.id, kind: d.trueKind, trueKind: null, restless: 0, post: wakingSpot(s), granted: true }); // bound anew, it asks no more
     const e = ledgerOf(s, d.id);
     if (e) e.bound = { season: s.season, day: s.day, kind: d.kind };
     say(s, `${d.name} is bound to the ${m.name} and settles as ${KINDS[d.kind].name}.`, 'wake');
@@ -1911,6 +1954,7 @@ function beginDay(s) {
   s.res.remembrance = Math.max(0, s.res.remembrance - P.remCost);
   if (P.dread.to !== s.dread) say(s, `Dread ${P.dread.from} → ${P.dread.to}.`, P.dread.to > s.dread ? 'bad' : 'good');
   s.dread = P.dread.to;
+  answerRequests(s, P);
   for (const d of s.shades) d.rites = (d.rites || 0) + 1;
   s.rite = null;
   s.days.push({ season: s.season, day: s.day, ...s.today, dread: s.dread, living: s.living.length, shades: s.shades.length });
@@ -1958,6 +2002,47 @@ function siegeDawn(s, yesterday) {
   s.siege = { from: s.day, until: s.day + T.siegeDays - 1, strength, broken: false };
   say(s, `The Ashen Host has made camp outside the walls. For ${T.siegeDays} days the gate is shut: nobody quarries in the Yard, and no one new can come. The guards can sally out to break the camp.`, 'bad', true);
   cue(s, 'horn');
+}
+
+// The rite's requests, answered: granted, a shade never asks again; refused `refusals` times, it turns Restless
+// and leaves its mirror.
+function answerRequests(s, P) {
+  const R = s.rite;
+  const T = s.tuning;
+  for (const [id, k] of Object.entries(R.asks || {})) {
+    const d = byId(s.shades, id);
+    if (!d) continue; // covered, released or banished at this rite
+    const e = ledgerOf(s, d.id);
+    if (P.granted.includes(d)) {
+      d.granted = true;
+      if (e) e.granted = k;
+      if (k === 'gate') {
+        d.byDay = { how: 'gate' };
+        say(s, `${d.name} will stand at the gate today.`, 'good');
+      } else if (k === 'name' && !d.named) {
+        d.named = true;
+        if (e) e.named = true;
+        say(s, `${d.name} is given a name to keep, and will fade half as fast.`, 'good');
+      } else if (k === 'remember') {
+        d.memory = Math.min(100, d.memory + T.rememberGain);
+        say(s, `${d.name} is remembered: +${T.rememberGain} memory.`, 'good');
+      }
+      continue;
+    }
+    d.refused = (d.refused || 0) + 1;
+    if (d.refused < T.refusals) {
+      say(s, `${d.name}'s request goes unanswered. ${T.refusals - d.refused === 1 ? 'Refused again, it will turn Restless.' : ''}`.trim(), 'bad');
+      continue;
+    }
+    d.trueKind = d.kind;
+    d.kind = 'restless';
+    d.mirror = null;
+    d.byDay = null;
+    d.restless = 0;
+    if (e) e.turned = 'restless';
+    say(s, `${d.name}, refused ${T.refusals === 2 ? 'twice' : `${T.refusals} times`}, turns Restless and leaves its mirror for the edge of the Deep.`, 'bad', true);
+    cue(s, 'restless');
+  }
 }
 
 function newcomer(s) {
@@ -2298,6 +2383,22 @@ const ACTIONS = {
     cue(s, won ? 'held' : 'breached');
     for (const p of fallen) kill(s, p, 'duty', 'died sallying out against the camp');
   },
+  // The rite: grant a shade's request, or not.
+  request(s, { id, grant }) {
+    if (s.phase !== 'dawn') return 'The dead ask at the rite.';
+    const k = s.rite.asks?.[id];
+    if (!k) return 'That shade asks nothing today.';
+    const d = byId(s.shades, id);
+    if (k === 'release') {
+      s.rite.choice[id] = grant ? 'cover' : 'keep';
+      if (!grant) delete s.rite.grant[id];
+      return undefined;
+    }
+    if (grant) s.rite.grant[id] = true;
+    else delete s.rite.grant[id];
+    if (d && k === 'gate' && grant && s.rite.choice[id] === 'cover') s.rite.choice[id] = 'keep';
+    return undefined;
+  },
   // A vigil by day lowers Dread straight away; at dawn, vigils count in the rite's reckoning.
   vigil(s) {
     if (s.phase !== 'day') return 'Vigils by day lower Dread at once. At dawn, set them in the rite.';
@@ -2540,6 +2641,7 @@ export function upgrade(g) {
   for (const t of [g.tuning, g.tuning0]) if (t && !('year' in t)) t.year = 0;
   for (const t of [g.tuning, g.tuning0]) if (t && !('raidFight' in t)) t.raidFight = 0;
   for (const t of [g.tuning, g.tuning0]) if (t && !('plague' in t)) t.plague = 0;
+  for (const t of [g.tuning, g.tuning0]) if (t && !('requests' in t)) t.requests = 0;
   for (const t of [g.tuning, g.tuning0]) if (t && !('siege' in t)) t.siege = 0;
   for (const p of g.living || []) p.trait ??= traitFor(g, p.name);
   for (const b of g.bodies || []) if (b.was === undefined) b.was = b.from === 'raider' ? null : traitFor(g, b.name);
