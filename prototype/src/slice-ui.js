@@ -6,7 +6,7 @@ import { TICKS_PER_SEC, DAY_ROOMS, WORK_ROOMS, TWINS, KINDS, MIRRORS, CAUSES, MA
 import {
   newSeason, step, act, retune, playerTuning, jobCap, jobCount, nextSlot, ritePreview, crossingPreview, capacity, canWork, defense, roomPower, bear, priests, funeralCap, eatRate,
   dayTicks, nightTicks, isNewMoon, choicesFor, byId, isTwinnedLiving, isTwinnedShade, lastSeason, SAVE_VERSION, fmt, mirrorCap,
-  postRoom, wardCost, shadeTrait, peopleIn,
+  postRoom, wardCost, shadeTrait, peopleIn, beds,
 } from './slice/sim.js';
 import { geo, feet, floorAtY, roomAt, typeAt, typeOf, roomSpan, roomsOf, lightMap, isLit, unitAt, DEEP_FLOOR, lineSpots as lineOf, guardLit } from './slice/geo.js';
 import { drawScene } from './slice/draw.js';
@@ -387,6 +387,18 @@ function breakHTML(m) {
   return `<div class="break-ask"><p class="note bad">Break the ${esc(m.name)}? ${esc(listOf(ds.map((d) => d.name)))} ${ds.length === 1 ? 'goes' : 'go'} free at once: +${ds.length} remembrance, Dread −${fmt(T.breakDread * ds.length)}. The mirror is lost, and ${T.badLuckDays} days of bad luck follow: sickness comes ${T.badLuck === 2 ? 'twice' : `${fmt(T.badLuck)} times`} as often.</p>
     <div class="row"><button class="btn sm primary" id="break-yes" data-act="break" data-id="${m.id}">Break it</button><button class="btn sm" id="break-no" data-act="break-no">Keep it</button></div></div>`;
 }
+// Where the living sleep: beds, the crowded, and last night's dreams and nightmares.
+function sleepNotes() {
+  const T = s.tuning;
+  if (!T.dreamwell) return '';
+  const b = beds(s);
+  const n = s.living.length;
+  const bad = s.living.filter((p) => p.nightmare);
+  return [
+    n > b ? `<p class="note bad">Beds for ${b}, and ${n} living: ${n - b} sleep crowded, and sickness comes ${fmt(T.crowdSick)} times as often. Each Quarters adds ${T.quartersBeds} beds.</p>` : '',
+    bad.length ? `<p class="note">After the Weepers, ${esc(listOf(bad.map((p) => p.name)))} woke from ${bad.length === 1 ? 'a nightmare and works' : 'nightmares and work'} at ${Math.round(100 * T.nightmareMult)}% today.</p>` : '',
+  ].join('');
+}
 const badLuckNote = () => (s.badLuck > 0 ? `<p class="note bad">A broken mirror's bad luck: ${plural(s.badLuck, 'more day')} when sickness comes ${s.tuning.badLuck === 2 ? 'twice' : `${fmt(s.tuning.badLuck)} times`} as often.</p>` : '');
 
 function dayPanel() {
@@ -407,6 +419,7 @@ function dayPanel() {
     ${inspectionCard()}
     ${sick.length ? `<p class="note bad">Sick: ${esc(listOf(sick.map((p) => p.name)))}. A healer in the Infirmary cures one a day; untreated, the sickness kills.</p>` : ''}
     ${badLuckNote()}
+    ${sleepNotes()}
     ${s.hungry ? '<p class="note bad">The larder is empty. Everyone works hungry, and the weakest will starve. Put more cooks in the Hearth.</p>' : ''}
     ${s.haunted.length ? `<p class="note">Haunted today: the ${esc(listOf(s.haunted.map((id) => roomName(id))))}. A Maw broke ${s.haunted.length === 1 ? 'its twin' : 'their twins'} last night${T.hauntWork < 1 ? `, and whoever works there manages ${Math.round(100 * T.hauntWork)}% of their work` : ''}.</p>` : ''}
     <div class="card"><h3>Work today</h3><ul class="facts">${rows}</ul></div>
@@ -477,6 +490,7 @@ function duskPlace() {
         ${T.lineGuard ? '<li><span>A shade in the light at the foot of a stair up to the Veil is guarding the line: it fights, and keeps the Watch if it stands in the Watch of the Dead, but does no other work. To work another room on that floor, light it with a candle of its own, away from the stair.</span></li>' : ''}
         <li><span>Each twin room has a night job for a lit shade at its post: the Choir sings essence, the Silvering makes glass, the Wick Room saves candles, the Threshold readies gentler deaths, the Watch adds to tomorrow's defense and the Cold Hearth halves fading.</span></li>
         <li><span>From night ${T.seepFrom}, some Unlit seep up in rooms with no candle at all.</span></li>
+        ${T.dreamwell ? `<li><span>The night after a death, Weepers come: one for each of the day's dead, for the dark of the sleepers' twin (the Dreamwell, or the Cold Hearth before there are Quarters). One that weeps there ${fmt(T.nightmareSecs)} seconds gives one of the living a nightmare. They can't enter light, a shade cuts them down, and a Keening shade on their floor sings them quiet.</span></li>` : ''}
         <li><span>From night ${T.mawFrom}, a Maw comes with the last tide. It walks through light to whatever is worth most for the least fight: the candle barring the way up, or a room where people work, counting every fighter on its way. It tears a candle down. A room it stands in for ${fmt(T.mawBreak)} seconds breaks: no work there that night, and ${T.dreadPerBroken} Dread at dawn. It hits the shades beside it.</span></li>
       </ul></details>
     <div class="row"><button class="btn primary" id="btn-start" data-act="start">Begin the night</button></div>`;
@@ -546,6 +560,10 @@ function blackMirror() {
     const what = !tg ? 'nothing it can reach' : tg.kind === 'room' ? `the ${roomName(tg.id, true)} (bracketed)` : `${candleName(tg.id)} (ringed)`;
     lines.push({ bad: false, text: `A Maw rises from ${riftName(m.rift)} around ${at(m.at)}. As things stand it would go for ${what}: what's worth most for the least fight on its way.` });
   }
+  if (th.weepers) {
+    const W = th.weepers;
+    lines.push({ bad: W.dark, text: `${plural(W.count, 'Weeper')} will rise for the day's dead and make for the dark of the ${roomName(W.rooms[0], true)}. ${W.dark ? `It has dark to weep in: each one that weeps there ${fmt(T.nightmareSecs)} seconds gives someone a nightmare. A shade in its light cuts them down, and a Keening shade on its floor sings them quiet.` : "It's lit wall to wall: they can't weep there while the candles last."}` });
+  }
   if (th.hollow) {
     const held = th.hollow.held.length;
     lines.push({ bad: !held, text: `The Hollow rises from ${riftName(th.hollow.rift)} around ${at(th.hollow.at)} and walks to the Veil whatever the light. ${held ? `${plural(held, 'ward')} on its way will hold it ${fmt(T.wardHold)} seconds each.` : `No ward stands on its way yet: each one there holds it ${fmt(T.wardHold)} seconds.`}` });
@@ -606,8 +624,18 @@ function nightPanel() {
       const m = byId(s.mirrors, d.mirror);
       return `<p class="note bad">${esc(d.name)} is caught in the ${esc(roomName(roomAt(K(), d.f, d.x) || 'crypt', true))}. Drop a candle on the spot or send a fighter${m ? `, or break the ${esc(m.name)} to free ${esc(d.name)} at once` : ''}.</p>${m ? breakHTML(m) : ''}`;
     }).join('')}
+    ${weeperNote()}
     ${n.hush ? '<p class="note">Hushed: no work, no fighting, and the Unlit pass the shades by.</p>' : ''}`;
 }
+
+function weeperNote() {
+  const T = s.tuning;
+  const w = s.night.foes.filter((f) => f.type === 'weeper');
+  if (!w.length) return '';
+  const weeping = w.filter((f) => f.mode === 'weep' && !f.quiet).length;
+  return `<p class="note bad">${plural(w.length, 'Weeper')} ${w.length === 1 ? 'is' : 'are'} out${weeping ? `, ${weeping} weeping in the dark of the ${esc(roomName(weeperRoomsNow()[0], true))}` : ''}. One that weeps there ${fmt(T.nightmareSecs)} seconds gives one of the living a nightmare. Light the room, cut them down, or bring a Keening shade to that floor.</p>`;
+}
+const weeperRoomsNow = () => (roomsOf(K(), 'quarters').length ? roomsOf(K(), 'quarters') : roomsOf(K(), 'hearth')).map((r) => r.id);
 
 function nightReport() {
   const r = s.today.night;
@@ -623,6 +651,7 @@ function nightReport() {
     ${r.hollow ? `<p class="note ${r.hollow === 'driven back' ? '' : 'bad'}">The Hollow ${r.hollow === 'crossed' ? `reached the Veil${r.taken ? ` and took ${esc(r.taken)}` : ''}` : r.hollow}.</p>` : ''}
     ${r.broken?.length ? `<p class="note bad">The Maws broke the ${esc(listOf(r.broken.map((id) => roomName(id, true))))}. The living saw the dead walk there: Dread for each.</p>` : ''}
     <ul class="fadelist">${rows}</ul>
+    ${r.nightmares ? `<p class="note bad">The Weepers gave ${plural(r.nightmares, 'nightmare')}.</p>` : ''}
     ${r.lost.length ? `<p class="note bad">Lost: ${esc(listOf(r.lost))}.</p>` : ''}</div>`;
 }
 
@@ -668,7 +697,8 @@ function dawnPanel() {
   ].filter(Boolean).join(', ');
   return `<header class="ph-head"><h2>${s.day === 0 ? `Season ${s.season}: the first dawn` : 'Dawn: the Rite'}</h2><p>The Unlit withdraw and the shades go back into the glass. Choose who stays. Each shade kept adds Dread; ${bear(s)} ${bear(s) === 1 ? 'is' : 'are'} borne by the living (one per ${T.dreadLivingPer} living, one per priest).</p></header>
     ${nightReport()}
-    ${s.dreamt ? `<p class="note">A Wistful shade rested the night through and sent good dreams: the living work ×${s.dreamt} today.</p>` : ''}
+    ${s.dreamt ? `<p class="note">Good dreams from the night: the living work ×${fmt(s.dreamt)} today.</p>` : ''}
+    ${sleepNotes()}
     <div class="rite-list">${s.shades.map(riteRow).join('') || '<p class="empty">The glass is empty.</p>'}</div>
     <div class="preview">
       <p>Dread <b class="big">${D.from} → ${D.to}</b> <small class="muted">(${parts})</small></p>
@@ -761,6 +791,7 @@ function livingRows() {
         p.sick > 0 ? `<span class="tag sick">Sick, ${fmt(p.sick / dayTicks(s))} days</span>` : '',
         p.grief ? '<span class="tag grief">Grieving</span>' : '',
         p.peace > 0 ? '<span class="tag peace">At peace</span>' : '',
+        p.nightmare ? `<span class="tag grief">Nightmare: ×${s.tuning.nightmareMult} today</span>` : '',
         isTwinnedLiving(s, p) ? '<span class="tag twin">Twinned</span>' : '',
       ].join('');
       const b = p.bond ? byId(s.living, p.bond.with) || byId(s.shades, p.bond.with) : null;
@@ -899,6 +930,7 @@ const TUNE = [
   ['lineGuard', 'Shades in the light at the stairs up to the Veil only guard and keep the Watch (1 on, 0 off)'],
   ['goAround', 'The Unlit take any dark way up and gnaw only a light that bars every way (1 on, 0 off)'],
   ['fire', 'Fire by day in Hearths and Forges (1 on, 0 off)'],
+  ['dreamwell', 'Beds and crowding, the Dreamwell and the Weepers (1 on, 0 off)'],
 ];
 const KEYS = [
   ['Space', 'play or pause'], ['1, 2, 4', 'speed'], ['C, M, W, H', 'candle, move, ward, hush (at night)'], ['V', 'turn the Tain upright'],
@@ -1563,6 +1595,12 @@ const GUIDE = [
     when: () => first() && s.phase === 'day' && s.fires?.length > 0,
     done: () => ui.sheet === 'phase',
     text: "Fire! Everyone in the room fights it, but a Hearth or Forge fire outgrows a room's own hands. Send the Yard's masons from the Day panel, or at full heat it kills and spreads.",
+  },
+  {
+    id: 'weepers', target: '#open-phase',
+    when: () => first() && s.phase === 'dusk' && s.dusk?.step === 'place' && s.night?.spawns.some((sp) => sp.type === 'weeper'),
+    done: () => ui.sheet === 'phase',
+    text: () => `Someone died today, so tonight the Weepers come for the sleepers: they make for the dark of the ${roomsOf(K(), 'quarters').length ? 'Dreamwell' : 'Cold Hearth'}. One that weeps there long enough gives someone a nightmare, and they work poorly tomorrow. Light it, post a shade there, or a Keening shade on its floor.`,
   },
   {
     id: 'crypt', target: '#bar-wake',

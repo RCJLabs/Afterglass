@@ -312,6 +312,14 @@ export const SOUNDS = {
     crackle(V, t + 0.15, { peak: 0.7, n: 12, span: 0.9 });
     for (const at of [0.05, 0.35, 0.65]) bell(V, t + at, 698.46, { tau: 0.4, peak: 0.3 });
   } }),
+  weep: def('event', { label: 'A Weeper rises for the dead', every: 600, wet: 0.7, play(V, t) {
+    // A long falling wail, two voices a little apart.
+    tone(V, t, 740, { glide: [440, 1.4], peak: 0.3, a: 0.2, hold: 0.4, tau: 0.8 });
+    tone(V, t + 0.25, 698.46, { glide: [415.3, 1.4], peak: 0.2, a: 0.2, hold: 0.4, tau: 0.8 });
+  } }),
+  nightmare: def('event', { label: 'Nightmares in the keep', wet: 0.6, play(V, t) {
+    for (const f of [146.83, 155.56, 207.65]) tone(V, t, f, { peak: 0.22, a: 0.3, hold: 0.5, tau: 0.9 });
+  } }),
   bell: def('alarm', { label: 'The bell rings for the fire', wet: 0.45, haptic: [30, 40, 30, 40, 30], play(V, t) {
     for (let i = 0; i < 6; i++) bell(V, t + i * 0.18, i % 2 ? 659.25 : 783.99, { tau: 0.35, peak: 0.45 });
   } }),
@@ -441,7 +449,7 @@ export const SOUNDS = {
 // sounds -27, beds -30. Measured on what survives a 300 Hz highpass (roughly a phone speaker), unless the full
 // range is more than 6 dB louder, when headphones decide. Re-measure after changing a sound (the browser
 // check prints a new table).
-const TRIM = { day: 0.47, dusk: 0.40, night: 0.47, dawn: 0.26, end: 0.30, over: 0.98, horn: 0.58, held: 0.30, breached: 0.86, knell: 0.74, rest: 0.66, wake: 0.30, restless: 0.31, wraith: 0.57, fade: 0.33, banish: 0.56, light: 1.01, post: 0.72, ward: 0.32, hush: 0.56, unhush: 0.25, nope: 0.67, seep: 1.22, 'foe-down': 1.56, snuff: 1.59, caught: 0.80, crack: 0.88, shatter: 0.82, fire: 1.10, 'fire-out': 0.51, bell: 1.11, 'ward-break': 0.61, maw: 1.66, smash: 1.28, breaking: 0.86, broken: 1.94, 'maw-down': 0.66, hollow: 0.87, heartbeat: 1.50, torn: 1.15, 'hollow-down': 0.32, 'wraith-down': 0.52, arrive: 0.87, build: 0.98, mirror: 0.41, vigil: 0.59, forge: 0.22, blessed: 0.42, censured: 0.43, warn: 0.36, good: 0.29 };
+const TRIM = { day: 0.47, dusk: 0.40, night: 0.47, dawn: 0.26, end: 0.30, over: 0.98, horn: 0.58, held: 0.30, breached: 0.86, knell: 0.74, rest: 0.66, wake: 0.30, restless: 0.31, wraith: 0.57, fade: 0.33, banish: 0.56, light: 1.01, post: 0.72, ward: 0.32, hush: 0.56, unhush: 0.25, nope: 0.67, seep: 1.22, 'foe-down': 1.56, snuff: 1.59, caught: 0.80, crack: 0.88, shatter: 0.82, fire: 1.10, 'fire-out': 0.51, bell: 1.11, weep: 0.32, nightmare: 0.62, 'ward-break': 0.61, maw: 1.66, smash: 1.28, breaking: 0.86, broken: 1.94, 'maw-down': 0.66, hollow: 0.87, heartbeat: 1.50, torn: 1.15, 'hollow-down': 0.32, 'wraith-down': 0.52, arrive: 0.87, build: 0.98, mirror: 0.41, vigil: 0.59, forge: 0.22, blessed: 0.42, censured: 0.43, warn: 0.36, good: 0.29 };
 for (const [k, v] of Object.entries(TRIM)) SOUNDS[k].gain = v;
 export const BED_TRIM = { day: 0.41, night: 0.33, dusk: 0.19, rite: 0.16 };
 

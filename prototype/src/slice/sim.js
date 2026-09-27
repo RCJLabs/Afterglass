@@ -212,7 +212,8 @@ export function livingMult(s, p) {
   if (isTwinnedLiving(s, p)) m *= T.twinMult;
   const L = livingTrait(s, p);
   if (L) m *= (L.any ?? 1) * (L.jobs?.[p.job] ?? L.other ?? 1) * (p.job === 'barracks' ? (L.guard ?? 1) : 1);
-  if (s.dreamt) m *= s.dreamt; // a Wistful shade's good dreams, the day after
+  if (s.dreamt) m *= s.dreamt; // good dreams, the day after
+  if (p.nightmare) m *= T.nightmareMult;
   return m;
 }
 // What each room type makes today. Only as many work as its rooms hold, the strongest first and in the
@@ -240,6 +241,9 @@ export function jobCap(s, type) {
   return roomsOf(geo(s), type).length * s.tuning.roomCap;
 }
 export const isHaunted = (s, id) => !!s.haunted?.includes(id);
+// Beds: the keep sleeps baseBeds, and each Quarters more. More living than that sleep crowded.
+export const beds = (s) => s.tuning.baseBeds + roomsOf(geo(s), 'quarters').length * s.tuning.quartersBeds;
+export const crowded = (s) => !!s.tuning.dreamwell && s.living.length > beds(s);
 // How many can work a job today in its rooms that aren't haunted.
 export function workCap(s, type) {
   if (DAY_ROOMS[type]?.outdoors) return Infinity;
@@ -347,7 +351,7 @@ function rollDay(s) {
   // A broken mirror's bad luck: sickness more likely, from the same one throw of the dice.
   const luck = s.badLuck > 0 ? T.badLuck : 1;
   if (s.badLuck > 0) s.badLuck--;
-  if (chance(s, Math.min(1, T.sickChance * luck))) s.events.push({ at: Math.round((0.1 + rand(s) * 0.5) * D), type: 'sick' });
+  if (chance(s, Math.min(1, T.sickChance * luck * (crowded(s) ? T.crowdSick : 1)))) s.events.push({ at: Math.round((0.1 + rand(s) * 0.5) * D), type: 'sick' });
   for (const p of s.living) {
     if (p.age === 'old' && chance(s, T.oldAgeChance)) s.events.push({ at: Math.round((0.15 + rand(s) * 0.8) * D), type: 'oldage', id: p.id });
   }
@@ -644,7 +648,10 @@ function endDay(s) {
   s.scorched = (s.fires || []).map((f) => f.room);
   for (const id of s.scorched) say(s, `The fire in the ${DAY_ROOMS[typeOf(geo(s), id)].name} burns into the night. Nobody can work there tomorrow.`, 'bad', true);
   s.fires = [];
-  for (const p of s.living) if (p.fighting) p.fighting = null;
+  for (const p of s.living) {
+    if (p.fighting) p.fighting = null;
+    if (p.nightmare) delete p.nightmare;
+  }
   s.dusk = { step: s.bodies.length ? 'crypt' : 'place' };
   s.night = newNight(s);
   s.dreamt = 0;
@@ -755,6 +762,10 @@ function newNight(s) {
     for (let i = 0; i < maws; i++) spawns.push({ at: Math.round(clamp(order[i % order.length] - 0.03, 0.02, 0.9) * N), type: 'maw', seep: false, snuff: false, rift: pick(s, MAP.rifts).id });
   }
   if (isNewMoon(s)) spawns.push({ at: Math.round(T.hollowAt * N), type: 'hollow', seep: false, snuff: false, rift: pick(s, MAP.rifts).id });
+  // The night after a death, the Weepers: one for each of the day's dead.
+  if (T.dreamwell) {
+    for (let i = 0; i < Math.min(T.weepersMax, s.today.deaths.length); i++) spawns.push({ at: Math.round((0.1 + 0.6 * rand(s)) * N), type: 'weeper', seep: true, snuff: false, rift: pick(s, MAP.rifts).id });
+  }
   spawns.sort((a, b) => a.at - b.at);
   return {
     candles: [], foes: [], spawns, tides: tides.map((x) => Math.round(x * N)).sort((a, b) => a - b), wards: [], wardHold: {}, hush: false, steel: !!s.steel,
@@ -769,6 +780,7 @@ function startNight(s) {
   s.dusk = null;
   for (const d of s.shades) {
     Object.assign(d, { path: [], climb: 0, grabbedBy: null, rest: 0, sang: 0, watch: 0, drained: 0, forged: 0 });
+    if (d.dreamed) d.dreamed = 0;
     if (canWork(d)) Object.assign(d, { f: d.post.f, x: d.post.x, ox: d.post.x, of: d.post.f });
   }
   const { f, x0 } = roomSpan(geo(s), 'crypt');
@@ -784,7 +796,7 @@ function startNight(s) {
 
 export function addFoe(s, type, f, x, extra = {}) {
   const T = s.tuning;
-  const hp = type === 'hollow' ? T.hollowHp * hard(s) : type === 'maw' ? T.mawHp * hard(s, 'mawHardness') : type === 'wraith' ? T.wraithHp : T.creeperHp;
+  const hp = type === 'hollow' ? T.hollowHp * hard(s) : type === 'maw' ? T.mawHp * hard(s, 'mawHardness') : type === 'wraith' ? T.wraithHp : type === 'weeper' ? T.weeperHp : T.creeperHp;
   const foe = {
     id: 'c' + s.nextId++, type, f, x, ox: x, of: f, hp, max: hp, path: [], climb: 0, climbTotal: 0, temper: extra.temper || 'climb',
     mode: 'climb', prey: null, gnaw: null, gnawing: false, grab: null, replan: 0, shade: extra.shade || null, batter: null, smashing: false, target: null, breaking: 0,
@@ -871,6 +883,13 @@ function spawnFoes(s, L) {
         }
       }
     }
+    // A Weeper seeps up in the dark of the sleepers' twin, if there's any dark there; if not, at its rift.
+    if (sp.type === 'weeper') {
+      const spots = weeperSpots(s, L);
+      if (spots.length) at = pick(s, spots);
+      say(s, `A Weeper rises for the day's dead${at ? ` in the ${TWINS[typeAt(geo(s), at.f, at.x)].name}` : ''}. In the dark there it gives the sleepers nightmares.`, 'bad', true);
+      cue(s, 'weep', at?.f, at?.x);
+    }
     // Wards can't hold the new moon or a Maw: they break up through their rift whatever seals it.
     if (!at) at = { f: DEEP_FLOOR, x: (rift || byId(MAP.rifts, sp.rift)).x };
     addFoe(s, sp.type, at.f, at.x, { temper: sp.snuff ? 'snuff' : 'climb' });
@@ -955,6 +974,7 @@ function shadeTick(s, L, d) {
   else if (job === 'guidance') n.stats.guidance += T.guidePerSec * w;
   else if (job === 'watch') d.watch++;
   else if (job === 'rest' && S?.rests !== false) d.rest++;
+  else if (job === 'dreams') d.dreamed = (d.dreamed || 0) + 1;
   else if (job === 'steel') d.forged = (d.forged || 0) + 1;
 }
 
@@ -969,6 +989,10 @@ function foeTick(s, L, c) {
   }
   if (c.type === 'maw') {
     mawTick(s, L, c);
+    return;
+  }
+  if (c.type === 'weeper') {
+    weeperTick(s, L, c);
     return;
   }
   const lit = !c.climb && isLit(L, c.f, c.x);
@@ -1070,6 +1094,55 @@ function plan(s, L, c) {
   if (w.mode === 'hunt') c.prey = w.prey;
   else if (w.mode === 'gnaw') c.gnaw = w.gnaw;
   else if (w.mode === 'climb') c.gnaw = null;
+}
+
+// The Weepers' rooms: the twins of where the living sleep, the Dreamwells, or the Cold Hearth in a keep
+// without Quarters; and every dark spot in them.
+export function weeperRooms(s) {
+  const G = geo(s);
+  const q = roomsOf(G, 'quarters');
+  return q.length ? q : roomsOf(G, 'hearth');
+}
+export function weeperSpots(s, L) {
+  const out = [];
+  for (const r of weeperRooms(s)) for (let x = r.x0 + 3; x <= r.x1 - 3; x += 2) if (!isLit(L, r.f, x)) out.push({ f: r.f, x });
+  return out;
+}
+// A Weeper drifts to the dark of the sleepers' twin and weeps there. Once it has wept its fill it gives one
+// of the living asleep above a nightmare and sinks away. It catches no one and gnaws nothing. Light burns it
+// and turns it back, a shade cuts it down, and a Keening shade on its floor sings it quiet.
+function weeperTick(s, L, c) {
+  const T = s.tuning;
+  const n = s.night;
+  const lit = !c.climb && isLit(L, c.f, c.x);
+  if (lit) {
+    c.hp -= T.burnDps * DT;
+    if (c.mode !== 'flee') {
+      c.mode = 'flee';
+      c.path = fleePath(L, c);
+      c.replan = 10;
+    }
+  } else if (!c.climb && weeperRooms(s).some((r) => r.id === roomAt(geo(s), c.f, c.x))) {
+    c.mode = 'weep';
+    c.path = [];
+    c.quiet = s.shades.some((d) => canWork(d) && !d.grabbedBy && !d.climb && d.f === c.f && shadeTrait(s, d)?.hushes);
+    if (!c.quiet) c.wept = (c.wept || 0) + DT;
+    if (c.wept >= T.nightmareSecs) {
+      n.nightmares = (n.nightmares || 0) + 1;
+      n.foes.splice(n.foes.indexOf(c), 1);
+      say(s, `A Weeper has wept its fill in the ${TWINS[typeAt(geo(s), c.f, c.x)].name} and sinks away. Someone asleep above will wake from a nightmare.`, 'bad');
+      cue(s, 'nightmare', c.f, c.x);
+    }
+    return;
+  }
+  if (--c.replan <= 0 && !c.climb) {
+    c.replan = 10;
+    const spots = weeperSpots(s, L);
+    const r = spots.length && route(geo(s), L, c, spots, { creeper: true, wards: n.wards });
+    c.mode = r ? 'drift' : 'idle';
+    c.path = r ? r.path : [];
+  }
+  advance(c, T.weeperSpeed, Math.round(T.creeperClimb * TICKS_PER_SEC));
 }
 
 // A Maw weighs what it could wreck against the fight it would meet: the candle barring the Creepers' way up
@@ -1300,7 +1373,7 @@ function takeLiving(s, p) {
 function foeDown(s, f) {
   const n = s.night;
   n.stats.killed++;
-  if (f.type === 'creeper' || f.type === 'maw') cue(s, f.type === 'maw' ? 'maw-down' : 'foe-down', f.f, f.x);
+  if (f.type === 'creeper' || f.type === 'maw' || f.type === 'weeper') cue(s, f.type === 'maw' ? 'maw-down' : 'foe-down', f.f, f.x);
   const hero = f.lastHit && ledgerOf(s, f.lastHit);
   if (hero) hero.kills = (hero.kills || 0) + 1;
   const d = f.grab && byId(s.shades, f.grab);
@@ -1392,6 +1465,8 @@ function endNight(s) {
     const S = shadeTrait(s, d);
     const rested = d.rest >= T.restShare * N;
     if (rested && S?.dreams) dreams = Math.max(dreams, S.dreams);
+    // Dreaming in the Dreamwell through half the night: better still for a Wistful shade.
+    if ((d.dreamed || 0) >= T.restShare * N) dreams = Math.max(dreams, S?.dreams ?? T.dreamWork);
     const loss = T.fadePerNight * (d.named ? 0.5 : 1) * (rested ? 0.5 : 1) * (S?.fade ?? 1);
     d.memory = Math.round((d.memory - loss) * 100) / 100;
     d.nights++;
@@ -1408,9 +1483,22 @@ function endNight(s) {
     fading.push({ id: d.id, name: d.name, fade: loss, drained: Math.round(d.drained * 10) / 10, rested, memory: d.memory });
     if (d.memory <= 0) fadeAway(s, d, `${d.name} has faded. Nothing is left in the glass.`);
   }
-  // What a Maw broke tonight is haunted tomorrow; good dreams last the day.
+  // What a Maw broke tonight is haunted tomorrow; good dreams last the day, and so do nightmares: one for each
+  // Weeper that wept its fill in the dark.
   s.haunted = [...n.broken];
   s.dreamt = dreams || 0;
+  const bad = Math.min(s.living.length, n.nightmares || 0);
+  const dreamers = [];
+  for (let i = 0; i < bad; i++) {
+    const p = pick(s, s.living.filter((x) => !x.nightmare));
+    p.nightmare = true;
+    dreamers.push(p.name);
+  }
+  if (bad) {
+    const where = roomsOf(geo(s), 'quarters').length ? 'Quarters' : 'Hearth';
+    say(s, `Nightmares: ${bad}, in the ${where}. ${listNames(dreamers)} ${bad === 1 ? 'works' : 'work'} at ${Math.round(100 * T.nightmareMult)}% today.`, 'bad', true);
+  }
+  n.stats.nightmares = bad;
   s.today.night = { ...n.stats, broken: [...n.broken], fading, withdrew, wick, guidance: g, watch: s.watchBonus };
   const cracks = n.stats.cracks;
   s.night = null;
@@ -1932,6 +2020,7 @@ export function upgrade(g) {
   // Likewise a keep from before the Unlit went around lights, or before fire.
   for (const t of [g.tuning, g.tuning0]) if (t && !('goAround' in t)) t.goAround = 0;
   for (const t of [g.tuning, g.tuning0]) if (t && !('fire' in t)) t.fire = 0;
+  for (const t of [g.tuning, g.tuning0]) if (t && !('dreamwell' in t)) t.dreamwell = 0;
   for (const p of g.living || []) p.trait ??= traitFor(g, p.name);
   for (const b of g.bodies || []) if (b.was === undefined) b.was = b.from === 'raider' ? null : traitFor(g, b.name);
   for (const d of g.shades || []) {

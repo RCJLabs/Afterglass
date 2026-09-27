@@ -15,7 +15,7 @@ All four are live on GitHub Pages at https://rcjlabs.github.io/Base-Manager/ (ev
 
 ```sh
 cd prototype
-npm test                        # 113 tests: rules, replay, building, traits, save and load, save slots, sound cues, soak runs, the pixel quiz, the people sprites, colour-blind eyes, the app's file list (Node 20+, no dependencies)
+npm test                        # 144 tests: rules, replay, building, traits, the black mirror, breaking mirrors, fire, the Weepers, save and load, save slots, sound cues, soak runs, the pixel quiz, the people sprites, colour-blind eyes, the app's file list (Node 20+, no dependencies)
 npm run serve                   # then open http://localhost:8080, /night.html, /pixel.html or /season.html (any static server works)
 npm run bundle                  # dist/afterglass-greybox.html, -night, -pixel and -season.html: single files that open from disk
 npm run balance -- 20 40        # weeks 1-2 autopilot report: 40 seeds x 20 days per policy
@@ -39,14 +39,14 @@ The pages load ES modules, so they need a web server; GitHub Pages works as is. 
 | `src/slice/` | The season slice: `data.js` (content, tuning and the traits), `geo.js` (the geometry of any keep the player builds: floors, stairs, light, routes and cameras), `sim.js` (the whole season as one state), `autopilot.js`, `draw.js` (the art, built on `src/px/`), `people.js` (the living and the dead as pixel figures), `book.js` (the Book of the Dead's pages), `saves.js` (the save slots, and loading a keep from a file), `sound.js` (every sound, made with Web Audio as it plays), `threats.js` (the black mirror: tonight's threats, read at dusk) |
 | `src/slice-ui.js` | The season page |
 | `sw.js`, `season.webmanifest`, `icons/` | The installable season: the service worker that keeps it playable offline, the manifest, and the icons `tools/icons.mjs` draws |
-| `test/` | 16 weeks 1–2 tests, 15 night tests, 8 pixel tests, 39 season tests, 13 for traits, 11 for the save slots, 6 for sound, 10 for the black mirror, 7 for breaking mirrors, 7 for fire, 3 for the people sprites, 1 for colour-blind eyes and 2 for the installable app, including soak runs |
+| `test/` | 16 weeks 1–2 tests, 15 night tests, 8 pixel tests, 39 season tests, 13 for traits, 11 for the save slots, 6 for sound, 10 for the black mirror, 7 for breaking mirrors, 7 for fire, 6 for the Dreamwell and the Weepers, 3 for the people sprites, 1 for colour-blind eyes and 2 for the installable app, including soak runs |
 | `tools/` | Balance reports, the single-file bundler and the icon drawer |
 
 Everything is seeded and every action is logged, so `replay()` (in `src/sim.js` and `src/slice/sim.js`) and `replayNight()` rebuild any session exactly, including one from a playtester's export.
 
 ## Weeks 7–10: one season
 
-The vertical slice: seven days in one keep, ending on the night of the new moon, when the Hollow rises. The weeks 1–2 day, the weeks 3–4 night and the weeks 5–6 art run as one game, with raids that escalate, fire by day, Maws from night 3, and the Lantern Church's first inspection. The keep starts as two rooms, the Hearth and the Crypt, and you build the rest a room at a time. The question is **do people want to play a second season?** The page asks it when the season ends (or the keep falls), with a box for why, and saves the answer in the playtest export. It installs as an app and plays offline.
+The vertical slice: seven days in one keep, ending on the night of the new moon, when the Hollow rises. The weeks 1–2 day, the weeks 3–4 night and the weeks 5–6 art run as one game, with raids that escalate, fire by day, Maws from night 3, Weepers the night after a death, and the Lantern Church's first inspection. The keep starts as two rooms, the Hearth and the Crypt, and you build the rest a room at a time. The question is **do people want to play a second season?** The page asks it when the season ends (or the keep falls), with a box for why, and saves the answer in the playtest export. It installs as an app and plays offline.
 
 **Problems it has already shown.** From autopilot runs (100 seeds for one season, 200 for two), scripted runs in Chromium and my own reading of the rules. Nobody else has played it yet.
 
@@ -83,8 +83,8 @@ The vertical slice: seven days in one keep, ending on the night of the new moon,
    - read traits: the Brave to the gate and Cowards to the Yard, the Devout, Gentle and Greedy to the jobs they're best at, Wistful shades to rest and Hoarding ones to sing, and at dawn cover whichever shade is worth least per point of Dread. `AP_BLIND=1` plays as if nobody had a trait.
 
    Every plan stands guards only on raid days (the rest quarry) and builds in a fixed order. Without the tide reaction and the wards, the balanced plan finished 86% of first seasons on the two-room start.
-6. **Both seasons may be too easy.** With the autopilot playing sensibly, every plan finishes 95–100% of first seasons. On the two-room start the balanced plan finishes 88% of the second seasons it reaches (173 of 196), the keeper 80% (156 of 194), the mourner 87% (173 of 198) and Double 92% (183 of 200), each about ±5. Fire by day took each of them down 5 to 14 second seasons (problem 13). A first-timer will do worse than a script that knows the rules, but by how much is unknown. If people come near these numbers, the game needs to be harder. Raids, Creeper counts and the Hollow are ×1.2 a season (`hardness`); Maws stay as they were (`mawHardness` 1), since a stronger Maw hurts a player who answers it more than one who stacks the line. The target, harder than season 1 but not a coin flip, is my guess at "harder but fair", and every knob is in Settings.
-7. **The Hollow gets through about one new moon in twenty, one in four for the mourner.** It reaches the Veil in 4 of the balanced plan's 98 finished first seasons, is driven back in 16 and withdraws at dawn in 78. It was 25 before the autopilot kept essence for it (problem 1). The mourner, with fewer shades, lets it through in 24 of 98, and the doubled line in 7 of 100.
+6. **Both seasons may be too easy.** With the autopilot playing sensibly, every plan finishes 95–98% of first seasons. On the two-room start the balanced plan finishes 91% of the second seasons it reaches (174 of 192), the keeper 86% (162 of 189), the mourner 85% (166 of 196) and Double 89% (175 of 197), each about ±5. Fire by day took each of them down 5 to 14 second seasons (problem 13); the Weepers moved them by −8 to +6, within noise (problem 14). A first-timer will do worse than a script that knows the rules, but by how much is unknown. If people come near these numbers, the game needs to be harder. Raids, Creeper counts and the Hollow are ×1.2 a season (`hardness`); Maws stay as they were (`mawHardness` 1), since a stronger Maw hurts a player who answers it more than one who stacks the line. The target, harder than season 1 but not a coin flip, is my guess at "harder but fair", and every knob is in Settings.
+7. **The Hollow gets through about one new moon in twenty, one in six for the mourner.** It reaches the Veil in 4 of the balanced plan's 95 finished first seasons, is driven back in 19 and withdraws at dawn in 72. It was 25 before the autopilot kept essence for it (problem 1). The mourner, with fewer shades, lets it through in 18 of 98, and the doubled line in 8 of 98.
 8. **Traits don't yet make the rite a choice, as far as the autopilot can tell.** Keep or cover was a Dread valve: shades were interchangeable, and the living bore most of what you kept. Traits make each shade different, and `AP_BLIND=1` runs the autopilot as if nobody had a trait, so I could measure whether reading them pays. Balanced plan, 200 seeds, two seasons, second seasons finished:
    - **Reading traits:** 173 of 196. **Blind:** 172 of 192. Within noise, as it was before fire (182 of 198 against 185 of 195) and before the Unlit went around lights (178 of 193 against 175). At a harsher Dread (one borne per 4 living), 171 against 172.
    - **A claim I got wrong.** I first measured a lead of about 10 for reading traits under the harsher Dread, and made that Dread the default. The lead came from the autopilot's new-moon mistake (problem 1) and vanished once that was fixed. The harsher Dread made every plan finish a few points fewer second seasons and didn't clearly widen the gaps between them, so it's back to one per 3 (`dreadLivingPer`, in Settings).
@@ -115,11 +115,28 @@ The vertical slice: seven days in one keep, ending on the night of the new moon,
     | Fire on | 173 of 196 | 183 of 200 | 156 of 194 | 173 of 198 |
 
     That's about 2 fires a season, fewer than one in twenty burning into the night, and 0.14–0.18 deaths in them per two seasons. Deaths of every kind rise by 0.2–0.5 per two seasons. My first version had only the Yard to send, and most Yards were empty once rooms were built, so half the fires burned all day and a scorched Hearth meant a hungry keep. The bell fixed that. How many deaths fire brings for a slower player, and so how many more choices at the rite, is for the playtest.
-12. **Installing has limits I can't test here.** I checked it in Chromium only: it's installable, every file is cached, and it plays with the server gone.
+14. **The Weepers can be ignored, the Quarters doesn't pay, and on the four-floor keep they cost the doubled line.** The Weepers were meant to be a second thing to defend at night, pulling the night away from the line. Ignored, they come about 7 times in two seasons and give about 6 nightmares.
+    - **On the two-room start** that costs 2–5 first seasons in 200, the same way in every plan, and nothing measurable over two: 677 of 800 two-season runs finished across the four plans, against 685 without them.
+    - **On the four-floor keep** it costs the balanced plan 3 second seasons in 200, the keeper 10, the mourner none and the doubled line 22 (177 of 199 down to 155), its losses mostly at the Veil on nights 5 and 7. I haven't found why the doubled line suffers most.
+    - **Answering them costs more than it saves.** Balanced plan, two-room start, 200 seeds, two seasons, fire on:
+
+      | | Nightmares | First seasons | Second seasons |
+      |---|---|---|---|
+      | No Weepers or beds (`dreamwell` 0) | – | 196 | 173 of 196 |
+      | Ignored (the autopilot now) | 5.7 | 192 | 174 of 192 |
+      | A worker dreams in the Dreamwell every night, under a candle (`AP_DREAM=1`) | 5.1 | 192 | 173 of 192 |
+      | A fighter guards their room the night after a death, unless it's below the line (`AP_WEEPGUARD=1`) | 2.6 | 192 | 158 of 192 |
+
+      A nightmare costs 40% of one person's day, and a fighter sent against it is a fighter off the line. Dreaming comes out even: the candle keeps some Weepers out and the dreams help, but they cost a worker and a candle.
+    - **Why they matter so little is structural.** The Quarters goes where the keep builds next, and by night that's the Tain's deepest floor. In all 245 nights with a Quarters, over 40 of the balanced plan's two-season runs, it stood two floors below the line's lowest candle. So the sleepers' twin is out where the tides come up, in rooms the autopilot never works anyway. Lighting it wall to wall with 2 candles is the cheap answer, and the autopilot doesn't try it.
+    - **The Quarters doesn't pay.** The autopilot builds one once the keep is crowded, after its second Barracks: in about 90 runs of 200 on the two-room start, and about 140 on the four-floor keep. Never building one did as well or better. The balanced plan finished 174 of 192 either way, and the four-floor doubled line 167 of 199 against 155. Beds only make sickness less likely, which is worth less than the room they take the place of. With the Quarters before the second Barracks, the four-floor doubled line lost 34.
+
+    At these numbers the Weepers and the Quarters add texture, not a decision. If the playtest says they should bite, `nightmareMult`, `nightmareSecs`, `weepersMax` and `crowdSick` are in Settings.
+15. **Installing has limits I can't test here.** I checked it in Chromium only: it's installable, every file is cached, and it plays with the server gone.
     - Safari on an iPhone has no install prompt, so the page says Share, then Add to Home Screen. I haven't checked whether iOS honours full screen.
     - Google Play, as a Trusted Web Activity, needs Digital Asset Links at `https://rcjlabs.github.io/.well-known/assetlinks.json`. That's the root of the domain, which a project site like this can't serve. Without it the app shows a URL bar. The fix is an `rcjlabs.github.io` repository or a custom domain.
     - The worker goes to the network first on every load, so a deploy shows at once. On a slow connection, though, the app waits for the network before it falls back to its copy.
-13. **Building is a first pass.**
+16. **Building is a first pass.**
     - **The numbers are guesses:** 6 stone a room, three workers a room, 2 stone a day from each mason, 8 to start, and one floor to start. All are in Settings.
     - **A small keep has a short Tain.** With one floor, the rifts and the mirrors share it and the line is two candles between them. With two, the line's stairs stand 4 pixels from the rifts. Each floor you build puts another floor between the rifts and the line.
     - **Stair placement nearly made building a trap.** My first stairs for a built floor came up mid-room, where the candle lighting that room also lights the stair's top. Creepers then gnaw that candle from the floor below, where no shade in the light can reach them. A built floor's stairs now come up by the walls. The rule underneath is old: a candle that lights any stair's top can be gnawed from below, and players can still walk into it with their own candles.
@@ -140,9 +157,10 @@ The vertical slice: seven days in one keep, ending on the night of the new moon,
   - Fighting it can kill: each fighter's chance is 2% a second times the heat squared, and those who die in it die on duty and wake Loyal.
   - At full heat it catches a room beside it or over or under it every 10 seconds. A fire still burning at dusk scorches its room: nobody works there the next day.
   - Keeps from before fire play on without it (`fire` in Settings, under Advanced).
-- **Building** (by day). The keep starts as its ground floor, the Hearth and the Crypt, with 8 stone. Masons in the Yard quarry 2 stone a day each; they work on the roof. The Build list (the bar's Build button, or B) shows what 6 stone raises and where it goes. A room goes into the top floor's bare hall, or starts a new floor on top with a bare hall beside it. Each room holds three workers, so a second Barracks lets more guards stand. You can build any of the original rooms but the Crypt, as many as you like, and two new ones:
+- **Building** (by day). The keep starts as its ground floor, the Hearth and the Crypt, with 8 stone. Masons in the Yard quarry 2 stone a day each; they work on the roof. The Build list (the bar's Build button, or B) shows what 6 stone raises and where it goes. A room goes into the top floor's bare hall, or starts a new floor on top with a bare hall beside it. Each room holds three workers, so a second Barracks lets more guards stand. You can build any of the original rooms but the Crypt, as many as you like, and three new ones:
   - **the Forge.** Its smiths add 1 defense each. Its twin, the Cold Forge, makes grave-steel: a shade who forges through half the night makes every shade fight 25% harder the next night.
   - **the Cellar.** It keeps half the candles and glass from raiders who break in. Its twin, the Hollow Cellar, is a dark weak spot.
+  - **the Quarters.** The keep sleeps 8, and each Quarters 4 more. With more living than beds the crowded fall sick more often (the day's chance ×1.5), and the Day panel says so. Nobody works there. Its twin, the Dreamwell: a shade who dreams there through half the night sends the living good dreams, and they work ×1.1 the next day.
 
   By night, whatever was built last is the Tain's deepest room, beside the rifts, and the Creepers' climb is a floor longer. The camera fits the taller keep, down to 3× on a desktop; on a phone it stays at 3× and you pan up.
 - **Dusk** (paused). The crossing:
@@ -164,7 +182,8 @@ The vertical slice: seven days in one keep, ending on the night of the new moon,
   - the Wick Room saves candles for the next dusk;
   - the Threshold readies guidance, so the next sickness or neglect death wakes one kind better;
   - the Watch adds to tomorrow's defense;
-  - the Cold Hearth halves fading.
+  - the Cold Hearth halves fading;
+  - the Dreamwell sends good dreams (above).
 
   The Unlit take any dark way up, however long, and pass lit rooms by; only when every way up crosses light do they gnaw, at the light that bars the way (`goAround`, a switch in Settings). So a room worked below the line is safe from the tides while the other side of the keep stays dark, and the line takes the whole tide on that side. Light both sides and the rooms below take the gnawing, one shade each.
 
@@ -175,6 +194,13 @@ The vertical slice: seven days in one keep, ending on the night of the new moon,
   - walks through light, tears a candle down, and breaks a room by standing in it for 12 seconds: nobody works there for the rest of the night, and the keep pays 1 Dread at dawn;
   - drains any shade beside it, and has 6 strength, so two shades fighting it cut it down fast and one Loyal shade can just about hold it;
   - is held below by a ward on a stair.
+
+  **Weepers** come the night after a death: one for each of the day's dead, up to 3, at some hour of the night. Each seeps up in the dark of the sleepers' twin, the Dreamwell, or the Cold Hearth before there are Quarters. One that weeps there 15 seconds gives one of the living a nightmare and sinks away, and they work at 60% the next day. A Weeper catches no one and gnaws nothing:
+  - light burns it and turns it back, so a room lit wall to wall leaves it nowhere to weep;
+  - a shade cuts it down (it has 1.5 strength);
+  - a Keening shade on its floor sings it quiet for as long as it stays.
+
+  The black mirror counts them at dusk and says whether their room has dark, and the Night panel says when one is weeping. Keeps from before them have neither Weepers nor beds (`dreamwell` in Settings, under Advanced).
 - **Dawn: the Rite** (paused). Keep or cover, release or bind, banish or leave, as in weeks 1–2. Fading happens, and names and remembrance can be bought, as in weeks 3–4. Each Veil crack from the night adds 1 Dread, and so does each room a Maw broke.
 - **Breaking a mirror** (at any time, asked twice). Everyone in it goes free at once, as if covered: +1 remembrance each, and their bonded living at peace. Dread falls 1 for each, which covering can't do, so breaking one before noon can turn a censure into a warning. At night it frees a caught shade from the Creeper's grip, and a freed Wraith leaves the Tain. The mirror is lost, and the next 7 days are unlucky: sickness comes twice as often, carried into the next season if need be. The Day panel's mirrors have a Break button, the Rite opens a Break a mirror section by itself when the inspector is coming, and the Night panel offers it for a caught shade.
 - **Day 5: the Lantern Church.** It is announced the dawn before, and it comes again the same day whenever Dread reaches 5. The inspector judges Dread at noon:
@@ -200,10 +226,10 @@ The vertical slice: seven days in one keep, ending on the night of the new moon,
   | Coward | guards ×0.5; never falls at the gate | Lurker | unseen by Creepers and Wraiths, so never caught; fights ×0.25 |
   | Devout | ×1.5 in the Chapel, ×0.8 anywhere else | Bitter | costs 3 Dread to keep; while it stays, wards cost a fifth |
   | Diligent | ×1.15 at any job | Tireless | works ×1.6, but never rests and never works as a twin |
-  | Gentle | ×1.5 healing in the Infirmary; grieves harder (works ×0.6 while grieving, not ×0.8) | Keening | calms two Restless shades a night, wherever it stands |
+  | Gentle | ×1.5 healing in the Infirmary; grieves harder (works ×0.6 while grieving, not ×0.8) | Keening | calms two Restless shades a night, wherever it stands, and sings the Weepers on its floor quiet |
   | Greedy | ×1.25 at the Glazier or the Chandlery, ×0.8 anywhere else | Hoarding | ×2 essence in the Choir, but pockets 2 candles every dusk while the store holds more than 4 |
   | Stubborn | sickness kills them half as fast | Anchored | fades half as fast |
-  | Cheerful | never grieves | Wistful | resting the night through in the Cold Hearth, sends good dreams: the living work ×1.15 the next day |
+  | Cheerful | never grieves | Wistful | resting the night through in the Cold Hearth, or dreaming in the Dreamwell, sends better dreams: the living work ×1.15 the next day |
 
   The cast has each trait once. A newcomer's comes from their name and the seed, not the random stream, so a seed plays the same raids and sickness with traits on or off. Older saves give everyone the trait their name draws.
 - **The end.** A season summary, the question, and **Begin season 2**. The keep carries its living, shades, stores, mirrors and Dread into the next season, and the Veil starts whole. Raids, Creepers and the Hollow are ×1.2 stronger each season; Maws stay as they were.
@@ -211,7 +237,7 @@ The vertical slice: seven days in one keep, ending on the night of the new moon,
 - **The Menu** pauses the season while it's open and plays on when it closes.
   - **Settings:** pausing for raids, the guide, the Tain reflected or upright, room names, the Unlit's ways at dusk, motion (as the device is set, less or full), sound, the keys, and installing. The playtest numbers are under Advanced. Numbers you haven't set there follow the current version: a save from an older one takes the new defaults when it loads, and says so. Starting a new keep keeps only the numbers you set.
   - **Saves:** three keeps, each saved as you play, listed with season, day, rooms, the living and the shades. Continue, New keep, Start over and Delete (the last two ask first). Export writes a keep to a file, and Load a file takes it back into any slot, on this device or another; it also takes a playtest export and replays it. The page opens the keep played last, and the single save from before slots becomes keep 1.
-- **Sound and vibration.** Every sound is made as it plays, with Web Audio: there are no sound files, so nothing more to download or cache. The sim raises a cue for what happens (45 kinds: the phases, raids, deaths, wakings, candles set and going out, the Unlit seeping up and being cut down, Maws, the Hollow, cracks in the Veil, building, the rite), and the page plays it, panned to where it happened. Bells ring for the phases and the dead, glass for the mirrors and the Veil; the Unlit hiss, growl and crack. Under each phase lies a bed of sound: wind and water by day, a drone in the Tain at night that opens as the Unlit gather, a slow chord at dusk and at the rite. While the Hollow walks, a heartbeat quickens as it nears the mirrors. On Android phones, candles tick and raids, deaths, cracks and the Hollow vibrate.
+- **Sound and vibration.** Every sound is made as it plays, with Web Audio: there are no sound files, so nothing more to download or cache. The sim raises a cue for what happens (51 kinds: the phases, raids, fire and the bell, deaths, wakings, candles set and going out, the Unlit seeping up and being cut down, Maws, Weepers and nightmares, the Hollow, cracks in the Veil, a mirror breaking, building, the rite), and the page plays it, panned to where it happened. Bells ring for the phases and the dead, glass for the mirrors and the Veil; the Unlit hiss, growl and crack. Under each phase lies a bed of sound: wind and water by day, a drone in the Tain at night that opens as the Unlit gather, a slow chord at dusk and at the rite. While the Hollow walks, a heartbeat quickens as it nears the mirrors. On Android phones, candles tick and raids, deaths, cracks and the Hollow vibrate.
   - Settings has sound on or off (also S), effects and ambience volume, vibration, and a list to hear what each sound means.
   - Sound starts with the first tap or key (browsers allow nothing sooner) and stops while the page is hidden.
   - The cues are a side channel: the rules never read them, a keep without a page listening never collects them, and saves drop them, so replays and the autopilot are unchanged (tested).
@@ -239,23 +265,32 @@ The vertical slice: seven days in one keep, ending on the night of the new moon,
    The doc's Library, Quarters, Hall and Gatehouse aren't built.
 10. **Breaking a mirror's rules are mine.** The doc says only that breaking a mirror frees everyone in it at once, in an emergency, and that its room then has seven seasons of bad luck. The slice's mirrors aren't in rooms, so the keep carries the bad luck, for seven days rather than seasons. What the bad luck does (sickness twice as often), the Dread it lifts, and that it can be done at any time are my choices.
 11. **Fire's rules are mine.** The doc lists fire as a day threat that starts in forges and hearths and spreads through wooden rooms, answered by stone rooms and water barrels. The slice's rooms have no materials and there are no barrels, so the answer is hands: the room's own workers, the Yard, or the bell. The chances, the heat, the danger and scorching are my numbers.
-10. **Traits: the pairs and their night effects are the doc's; the rest is mine.** The day effects of the living traits are mine; the doc gives only the night side. So are all the numbers, and Bitter's cost in Dread, which comes from my round-four note. Wistful's "better dreams in the Dreamwell" became a day's better work, because there's no Dreamwell yet. A Reckless shade lunges and hits harder rather than charging into the dark: my first version left the light, got caught, and killed less than an ordinary shade. Hoarding leaves the last 4 candles because taking 2 of a store's last 2.5 lost a keep on its first night.
+12. **Traits: the pairs and their night effects are the doc's; the rest is mine.** The day effects of the living traits are mine; the doc gives only the night side. So are all the numbers, and Bitter's cost in Dread, which comes from my round-four note. Wistful's "better dreams in the Dreamwell" became a day's better work, first from the Cold Hearth because there was no Dreamwell, and now from either. A Reckless shade lunges and hits harder rather than charging into the dark: my first version left the light, got caught, and killed less than an ordinary shade. Hoarding leaves the last 4 candles because taking 2 of a store's last 2.5 lost a keep on its first night.
+13. **The Quarters, the Dreamwell and the Weepers' rules are mine.** Round three names the Dreamwell as the Quarters' twin and dreams as a night output; round four's list added Weepers that give the sleepers nightmares. The rest is mine:
+    - beds, and crowding making sickness likelier;
+    - dreams as a day's better work;
+    - one nightmare for each Weeper that weeps its fill;
+    - the Cold Hearth standing in for the Dreamwell before there are Quarters;
+    - the Keening singing them quiet;
+    - all the numbers.
 
-**What the numbers say so far.** From `npm run balance:season -- 100 1`, on the two-room start. Every plan but Idle builds in the same order (a Barracks, a Chapel, a Chandlery, a Glazier, an Infirmary, a second Barracks, a Forge, a Granary, a Cellar), stands guards only on raid days, holds the stairs to the Veil, relights candles, and posts nobody below the line's floor at night except in the Choir. All but Double and Idle pull a second fighter to each stair for each tide from that stair's own room, ward the line for the last tide of nights 5 and 6 when the essence is there, and send help against a Maw. The first three differ in how they treat the dead; Double treats them like Balanced.
+    My first version gave a nightmare for every 15 seconds any Weeper wept, with no limit. Ignored, that came to 27 nightmares in two seasons and cost the balanced plan 24 first seasons in 200. One nightmare per Weeper bounds it.
+
+**What the numbers say so far.** From `npm run balance:season -- 100 1`, on the two-room start. Every plan but Idle builds in the same order (a Barracks, a Chapel, a Chandlery, a Glazier, an Infirmary, a second Barracks, a Quarters once the keep is crowded, a Forge, a Granary, a Cellar), stands guards only on raid days, holds the stairs to the Veil, relights candles, and posts nobody below the line's floor at night except in the Choir. All but Double and Idle pull a second fighter to each stair for each tide from that stair's own room, ward the line for the last tide of nights 5 and 6 when the essence is there, and send help against a Maw. The first three differ in how they treat the dead; Double treats them like Balanced.
 
 | | Balanced | Keeper (never covers) | Mourner (every funeral, covers to keep Dread at 1) | Double (two fighters per stair on Maw nights, never moves anyone) | Idle (no candles, no posts) |
 |---|---|---|---|---|---|
-| Seasons finished | 98% | 95% | 98% | 100% | 0% |
-| Lost on night 6 / 7 (and earlier) | 0 / 2 | 1 / 4 | 0 / 2 | 0 / 0 | all on night 1 |
-| Your deaths per season | 3.7 | 3.8 | 3.9 | 3.5 | – |
-| Raids held | 86% | 85% | 88% | 92% | – |
-| Church: blessed / warned / censured | 100 / 0 / 0 | 79 / 5 / 24 (108 visits) | 100 / 0 / 0 | 100 / 0 / 0 | – |
-| Shades lost at night per season | 0.8 | 0.9 | 0.9 | 0.8 | – |
-| The Hollow, in finished seasons: reached the Veil / driven back / withdrew | 4 / 16 / 78 | 4 / 13 / 78 | 24 / 21 / 53 | 7 / 21 / 72 | – |
+| Seasons finished | 95% | 95% | 98% | 98% | 0% |
+| Lost on night 6 / 7 (and earlier) | 1 / 4 | 0 / 4 (1) | 0 / 2 | 0 / 2 | all on night 1 |
+| Your deaths per season | 3.7 | 3.8 | 3.9 | 3.9 | – |
+| Raids held | 89% | 90% | 88% | 90% | – |
+| Church: blessed / warned / censured | 100 / 0 / 0 | 76 / 10 / 25 (111 visits) | 100 / 0 / 0 | 100 / 0 / 0 | – |
+| Shades lost at night per season | 0.9 | 1.0 | 0.8 | 0.9 | – |
+| The Hollow, in finished seasons: reached the Veil / driven back / withdrew | 4 / 19 / 72 | 6 / 16 / 73 | 18 / 23 / 57 | 8 / 20 / 70 | – |
 
-- **Raids with traits:** 86% held for the balanced plan, against 90% without them (and 58% before the two-room start). Traits first cut it to 75%. No one trait did it: Wil (a Coward) and Nell (Gentle) guarded at half strength, Tam (Devout) at ×0.8 off the Chapel, Ada (Brave) fell twice as often, which thinned the gate for the next raid, and the Greedy ate double. The Gentle's and the Greedy's costs now fall elsewhere: the Gentle grieve harder, and the Greedy work ×0.8 away from the Glazier and the Chandlery. The Coward and the Brave keep theirs, since the gate is what they're about. Guards stand only on raid days, when every free hand goes to the Barracks.
-- **Season 2** (200 seeds, two seasons): the balanced plan finishes 173 of the 196 second seasons it reaches (88%), the keeper 156 of 194 (80%), the mourner 173 of 198 (87%) and Double 183 of 200 (92%).
-- **The original four-floor start** (`startFloors` 4 in Settings), same rules, 200 seeds and two seasons: every plan finishes 97–100% of first seasons. Of the second seasons they reach, the balanced plan finishes 180 of 198 (91%), the keeper 170 of 199 (85%), the mourner 157 of 195 (81%) and Double 177 of 199 (89%). Here the balanced plan leads.
+- **Raids with traits:** when traits went in, 86% held for the balanced plan, against 90% without them (and 58% before the two-room start). Traits first cut it to 75%. No one trait did it: Wil (a Coward) and Nell (Gentle) guarded at half strength, Tam (Devout) at ×0.8 off the Chapel, Ada (Brave) fell twice as often, which thinned the gate for the next raid, and the Greedy ate double. The Gentle's and the Greedy's costs now fall elsewhere: the Gentle grieve harder, and the Greedy work ×0.8 away from the Glazier and the Chandlery. The Coward and the Brave keep theirs, since the gate is what they're about. Guards stand only on raid days, when every free hand goes to the Barracks.
+- **Season 2** (200 seeds, two seasons): the balanced plan finishes 174 of the 192 second seasons it reaches (91%), the keeper 162 of 189 (86%), the mourner 166 of 196 (85%) and Double 175 of 197 (89%).
+- **The original four-floor start** (`startFloors` 4 in Settings), same rules, 200 seeds and two seasons: every plan finishes 96–100% of first seasons. Of the second seasons they reach, the balanced plan finishes 177 of 197 (90%), the keeper 160 of 193 (83%), the mourner 157 of 198 (79%) and Double 155 of 199 (78%). Here the balanced plan leads, and the Weepers cost the doubled line most (problem 14).
 
 ## Weeks 5–6: the pixel pass
 

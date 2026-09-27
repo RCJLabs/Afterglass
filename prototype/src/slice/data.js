@@ -178,6 +178,25 @@ export const TUNING = {
   fireFight: 0.04,
   fireDeath: 0.02,
   fireSpread: 10,
+
+  // Quarters, the Dreamwell and Weepers (1 on, 0 off; keeps from before them play on without crowding or
+  // Weepers). The keep sleeps baseBeds and each Quarters quartersBeds more; with more living than beds,
+  // sickness comes crowdSick times as often. A shade who dreams in the Dreamwell through half the night rests
+  // the living: dreamWork better the next day. The night after a death, a Weeper for each of the day's dead
+  // (up to weepersMax) seeps into the sleepers' twin (the Dreamwell, or the Cold Hearth in a keep without
+  // Quarters) wherever it's dark. A Weeper that weeps nightmareSecs there gives one of the living a
+  // nightmare (they work at nightmareMult the next day) and sinks away. Light keeps Weepers out and burns
+  // them, and a Keening shade on their floor sings them quiet.
+  dreamwell: 1,
+  baseBeds: 8,
+  quartersBeds: 4,
+  crowdSick: 1.5,
+  dreamWork: 1.1,
+  weepersMax: 3,
+  weeperHp: 1.5,
+  weeperSpeed: 5,
+  nightmareSecs: 15,
+  nightmareMult: 0.6,
 };
 
 // Traits, from round three: each of the living has one, which helps or hinders at a job, and death turns it
@@ -200,10 +219,10 @@ export const SHADE_TRAITS = {
   lurker: { name: 'Lurker', short: 'unseen by Creepers and Wraiths, so never caught; fights ×0.25', fight: 0.25, unseen: true },
   bitter: { name: 'Bitter', short: 'costs 3 Dread to keep; while it stays, wards cost a fifth', dread: 3, wards: 0.2 },
   tireless: { name: 'Tireless', short: 'works ×1.6, but never rests and never works as a twin', work: 1.6, rests: false, twins: false },
-  keening: { name: 'Keening', short: 'sings wherever it stands: calms two Restless shades a night', calms: 2 },
+  keening: { name: 'Keening', short: 'sings wherever it stands: calms two Restless shades a night, and Weepers on its floor fall quiet', calms: 2, hushes: true },
   hoarding: { name: 'Hoarding', short: '×2 essence in the Choir, but pockets 2 candles every dusk while the store holds more than 4', essence: 2, pockets: 2, spares: 4 },
   anchored: { name: 'Anchored', short: 'fades half as fast', fade: 0.5 },
-  wistful: { name: 'Wistful', short: 'resting the night through in the Cold Hearth, it sends good dreams: the living work ×1.15 the next day', dreams: 1.15 },
+  wistful: { name: 'Wistful', short: 'resting the night through in the Cold Hearth, or dreaming in the Dreamwell, it sends good dreams: the living work ×1.15 the next day', dreams: 1.15 },
 };
 
 // Day rooms. out is what a worker makes each day at full strength.
@@ -219,11 +238,12 @@ export const DAY_ROOMS = {
   // Built rooms and the Yard.
   forge: { name: 'Forge', out: 'defense', rate: 1, role: 'smith', job: (R) => `Smiths: ${R.rate} defense each, arming the guards.` },
   cellar: { name: 'Cellar', out: null, job: () => 'Stores. Raiders who break in take half as many candles and half as much glass.' },
+  quarters: { name: 'Quarters', out: null, beds: 4, job: () => 'Beds for four. With too few beds the living sleep crowded, and sickness comes more often.' },
   empty: { name: 'Bare hall', out: null, job: () => 'Unfinished stone. The next room built goes here.' },
   yard: { name: 'Yard', out: 'stone', rate: 2, role: 'mason', outdoors: true, job: (R) => `Masons: ${R.rate} stone a day each, to build with. The Yard holds any number.` },
 };
 // What can be built on top of the keep, in the order the build list shows them.
-export const BUILDABLE = ['barracks', 'chandlery', 'hearth', 'forge', 'cellar', 'chapel', 'glazier', 'infirmary', 'granary'];
+export const BUILDABLE = ['barracks', 'chandlery', 'hearth', 'forge', 'cellar', 'chapel', 'glazier', 'infirmary', 'granary', 'quarters'];
 export const WORK_ROOMS = Object.keys(DAY_ROOMS).filter((k) => DAY_ROOMS[k].out);
 
 // Each room's twin in the Tain, and what a lit shade standing there does.
@@ -238,6 +258,7 @@ export const TWINS = {
   crypt: { name: 'Waking Room', job: null, note: 'Where the dead wake.' },
   forge: { name: 'Cold Forge', job: 'steel', note: 'Grave-steel: a shade who forges through half the night arms every shade the next night.' },
   cellar: { name: 'Hollow Cellar', job: null, note: 'Empty and dark: a weak spot.' },
+  quarters: { name: 'Dreamwell', job: 'dreams', note: 'Dreams: a shade who dreams here through half the night rests the living for the day after. Weepers come here for the sleepers above.' },
   empty: { name: 'Hollow Hall', job: null, note: 'Bare and dark: a weak spot until something is built.' },
 };
 

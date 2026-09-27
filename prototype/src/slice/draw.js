@@ -28,7 +28,7 @@ export const ctxOf = (cv) => {
 const TONES = {
   chapel: ['#4a3a52', P.grape], glazier: ['#39485a', P.indigo], chandlery: ['#5a4632', P.brown], infirmary: ['#4c5361', P.slate],
   barracks: ['#4a3e36', P.brown], granary: ['#5a4a38', P.brown], hearth: ['#5a4038', P.brown], crypt: ['#2a2430', P.soot],
-  forge: ['#3e3436', P.soot], cellar: ['#3a3028', P.earth], empty: ['#55575f', P.slate],
+  forge: ['#3e3436', P.soot], cellar: ['#3a3028', P.earth], empty: ['#55575f', P.slate], quarters: ['#4a4058', P.grape],
 };
 // The keep being drawn: its geometry, set at the start of every frame (it grows as rooms are built).
 let G = geoOf();
@@ -112,6 +112,17 @@ const FURNISH = {
     R(c, x + 38, y + 15, 9, 2, P.bone);
     R(c, x + 38, y + 11, 1, 6, P.brown);
     R(c, x + 46, y + 11, 1, 6, P.brown);
+  },
+  quarters(c, x, y) {
+    for (let i = 0; i < 4; i++) {
+      const bx = x + 3 + i * 11;
+      R(c, bx, y + 15, 9, 3, P.brown);
+      R(c, bx + 1, y + 14, 7, 2, i % 2 ? P.navy : P.indigo);
+      R(c, bx + 6, y + 13, 2, 1, P.bone);
+      R(c, bx, y + 12, 1, 6, P.clay);
+    }
+    R(c, x + 20, y + 4, 6, 5, P.ink);
+    R(c, x + 21, y + 5, 4, 3, '#86bff0');
   },
   granary(c, x, y) {
     for (let i = 0; i < 3; i++) ellipse(c, x + 4 + i * 5, y + 15, 2, 2, i % 2 ? P.tan : P.bone);
@@ -197,6 +208,12 @@ const TWIN_ART = {
       R(c, x + 34 + i * 3, y + 6, 1, 9, UMBRA[6]);
       D(c, x + 34 + i * 3, y + 6, UMBRA[7]);
     }
+  },
+  // The Dreamwell: a still pool among the beds, and dreams rising off it.
+  quarters(c, x, y) {
+    ellipse(c, x + 24, y + 11, 5, 2, UMBRA[2]);
+    ellipse(c, x + 24, y + 11, 3, 1, UMBRA[6]);
+    for (let i = 0; i < 3; i++) D(c, x + 21 + i * 3, y + 7 - (i % 2) * 2, UMBRA[7]);
   },
   // The Hollow Cellar: the stores gone, like the Hollow Granary's.
   cellar(c, x, y) {
@@ -592,6 +609,22 @@ function wraithEyes(c, x, y, t) {
   D(c, bx + 2, Math.round(y) - 10, P.white);
   D(c, bx + 4, Math.round(y) - 10, P.white);
 }
+// A Weeper: tall, thin and stooped, pale where the other Unlit are dark, its hands to its face. It's drawn
+// over the lighting, so it shows in the dark it haunts; while it weeps there, tears fall from it.
+const WEEPER = { head: '#9aabc8', body: '#6f7fa0', hands: '#c2d0e8', tear: '#9fd6ff' };
+function weeperSprite(c, u, x, y, t) {
+  const bx = Math.round(x - 2);
+  const by = Math.round(y);
+  const sway = u.mode === 'weep' ? Math.round(Math.sin(t * 1.5 + u.x)) : 0;
+  R(c, bx + 1 + sway, by - 10, 3, 2, WEEPER.head);
+  R(c, bx, by - 8, 4, 6, WEEPER.body);
+  R(c, bx - 1, by - 2, 6, 2, WEEPER.body);
+  D(c, bx + 3 + sway, by - 8, WEEPER.hands);
+  if (u.mode === 'weep' && !u.quiet) {
+    const k = t ? MF(t * 4 + u.x) % 4 : 1;
+    D(c, bx + 2 + sway, by - 7 + k, WEEPER.tear);
+  }
+}
 // A Maw: a hunched brute, wider and taller than a Creeper, with a mouth that opens as it tears at a candle.
 function mawSprite(c, u, x, y, t) {
   const bx = Math.round(x - 4);
@@ -812,7 +845,7 @@ function composeTain(s, t, opts = {}) {
     if (u.type === 'creeper') creeperSprite(c, u, x, y, t);
     else if (u.type === 'wraith') wraithSprite(c, x, y, t);
     else if (u.type === 'maw') mawSprite(c, u, x, y, t);
-    else hollowSprite(c, x, y, t);
+    else if (u.type !== 'weeper') hollowSprite(c, x, y, t);
   }
   const hollow = foes.find((f) => f.u.type === 'hollow');
   const img = c.getImageData(0, 0, W, VEIL - y0);
@@ -891,6 +924,7 @@ function composeTain(s, t, opts = {}) {
     if (u.type === 'creeper') creeperEyes(c, u, x, y, t);
     else if (u.type === 'wraith') wraithEyes(c, x, y, t);
     else if (u.type === 'maw') mawEyes(c, u, x, y, t);
+    else if (u.type === 'weeper') A(c, 0.85, () => weeperSprite(c, u, x, y, t));
     else hollowEyes(c, x, y, t);
   }
   // Guide marks: pulsing rings on the spots a guide card is talking about.

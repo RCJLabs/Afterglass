@@ -57,6 +57,7 @@ test('a keep saved to a slot loads back exactly, and plays on the same', () => {
   const index = openIndex(store, 0);
   const s = played(21);
   assert.ok(saveSlot(store, index, 2, s, 5));
+  const at = summary(s, 5);
   const g = loadSlot(store, 2);
   assert.deepEqual(g, plain(s));
   for (let i = 0; i < 400; i++) {
@@ -64,8 +65,8 @@ test('a keep saved to a slot loads back exactly, and plays on the same', () => {
     step(g);
   }
   assert.deepEqual(plain(g), plain(s));
-  // The index line is what the Saves tab shows.
-  assert.deepEqual(index.slots[2], summary(s, 5));
+  // The index line is what the Saves tab shows, as the keep stood when it was saved.
+  assert.deepEqual(index.slots[2], at);
   assert.deepEqual(store.get('afterglass-season/slots/v1'), index);
 });
 

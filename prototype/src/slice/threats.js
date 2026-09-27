@@ -4,7 +4,7 @@
 // starts, candles burn down and shades move, so it can still turn out otherwise. Tomorrow's raid is rolled
 // when the day begins, so the mirror shows its range.
 
-import { wayOf, preyNear, mawPick, hard, defense, byId, nightTicks, isNewMoon } from './sim.js';
+import { wayOf, preyNear, mawPick, hard, defense, byId, nightTicks, isNewMoon, weeperRooms, weeperSpots } from './sim.js';
 import { MAP } from './data.js';
 import { geo, lightMap, darkRooms, DEEP_FLOOR, route, mirrorGoals } from './geo.js';
 
@@ -108,5 +108,9 @@ export function threats(s) {
     ? { day: s.day + 1, lo: Math.max(2, mid - T.raidSpread), hi: Math.max(2, mid + T.raidSpread), defense: defense(s) - (s.raid?.ward || 0) - (s.watchBonus || 0) }
     : null;
 
-  return { rises, tides, alone, seep, seepRooms: dark.map(([, id]) => id), maws, hollow, raid };
+  // The Weepers, the night after a death: how many, the room they make for, and whether it has dark to weep in.
+  const w = n.spawns.filter((sp) => sp.type === 'weeper').length;
+  const weepers = w ? { count: w, rooms: weeperRooms(s).map((r) => r.id), dark: weeperSpots(s, L).length > 0 } : null;
+
+  return { rises, tides, alone, seep, seepRooms: dark.map(([, id]) => id), maws, hollow, raid, weepers };
 }

@@ -9,7 +9,7 @@
 // All but double and idle react at night: a second fighter to each stair of the line for each tide, a ward
 // on the line for the biggest tides when the essence is there, and a fighter to meet a Maw.
 
-import { step, act, newSeason, ritePreview, crossingPreview, capacity, canWork, defense, funeralCap, choicesFor, jobCap, jobCount, eatRate, wardCost, livingTrait, shadeTrait, peopleIn } from './sim.js';
+import { step, act, newSeason, ritePreview, crossingPreview, capacity, canWork, defense, funeralCap, choicesFor, jobCap, jobCount, eatRate, wardCost, livingTrait, shadeTrait, peopleIn, crowded } from './sim.js';
 import { DAY_ROOMS, MIRRORS, KINDS, MAP } from './data.js';
 import { geo, roomSpan, roomAt, roomsOf, lineSpots } from './geo.js';
 
@@ -23,6 +23,11 @@ const BLIND = !!globalThis.process?.env?.AP_BLIND;
 const BELOW = !!globalThis.process?.env?.AP_BELOW;
 // AP_BREAK=1 breaks a mirror to stop a censure (to measure whether that pays).
 const BREAK = globalThis.process?.env?.AP_BREAK;
+// AP_WEEPGUARD=1 posts a fighter in the Weepers' room the night after a death, AP_DREAM=1 a worker to dream
+// in the Dreamwell every night, below the line or not, under a candle of its own (to measure whether either
+// pays).
+const WEEPGUARD = !!globalThis.process?.env?.AP_WEEPGUARD;
+const DREAM = !!globalThis.process?.env?.AP_DREAM;
 const LT = (s, p) => (BLIND ? null : livingTrait(s, p));
 const ST = (s, d) => (BLIND ? null : shadeTrait(s, d));
 // How well someone does a job, by their trait.
@@ -35,12 +40,15 @@ const fit = (s, p, k) => {
 
 // What it builds, in order, counting what's already standing: a Barracks for the day-2 raid, a Chapel (its
 // priests bear Dread and hold funerals), a Chandlery before the first candles run out, a Glazier for mirrors,
-// an Infirmary, a second Barracks (one holds only three guards), a Forge for grave-steel, a Granary and a
-// Cellar. A crude player: nothing past that.
-const BUILD_ORDER = ['barracks', 'chapel', 'chandlery', 'glazier', 'infirmary', 'barracks', 'forge', 'granary', 'cellar'];
+// an Infirmary, a second Barracks (one holds only three guards), Quarters once the keep is crowded, a Forge
+// for grave-steel, a Granary and a Cellar. A crude player: nothing past that. AP_NOQUARTERS=1 never builds
+// Quarters (to measure whether they pay).
+const BUILD_ORDER = ['barracks', 'chapel', 'chandlery', 'glazier', 'infirmary', 'barracks', 'quarters', 'forge', 'granary', 'cellar'];
+const NOQUARTERS = !!globalThis.process?.env?.AP_NOQUARTERS;
 function nextBuild(s) {
   const want = {};
   for (const type of BUILD_ORDER) {
+    if (type === 'quarters' && (NOQUARTERS || !crowded(s))) continue;
     want[type] = (want[type] || 0) + 1;
     if (roomsOf(geo(s), type).length < want[type]) return type;
   }
@@ -163,9 +171,13 @@ function postings(s, ds) {
   const G = geo(s);
   const left = (room) => roomSpan(G, room).x0 < (MAP.LEFT + MAP.RIGHT) / 2;
   const side = roomsOf(G, 'chapel').length ? left('chapel') : true;
+  // The night after a death the Weepers come for the sleepers' twin: a fighter there cuts them down. It
+  // doesn't pay (a nightmare apiece costs less than a fighter off the line), so only to measure that.
+  const weepRoom = roomsOf(G, 'quarters').length ? 'quarters' : 'hearth';
+  const weepers = WEEPGUARD && s.night?.spawns.some((sp) => sp.type === 'weeper') && roomSpan(G, weepRoom).f >= lf;
   const take = (room, score) => {
     if (!ds.length || !roomsOf(G, room).length) return false;
-    if (room !== 'chapel' && roomSpan(G, room).f < lf && !(BELOW && left(room) === side)) return false;
+    if (room !== 'chapel' && !(weepers && room === weepRoom) && !(DREAM && room === 'quarters') && roomSpan(G, room).f < lf && !(BELOW && left(room) === side)) return false;
     const d = [...ds].sort((a, b) => score(b) - score(a))[0];
     ds.splice(ds.indexOf(d), 1);
     const r = rooms.find((x) => x[0] === room);
@@ -176,8 +188,10 @@ function postings(s, ds) {
   // Traits: a Wistful shade rests in the Cold Hearth (good dreams: the living work better); a Hoarding one sings.
   for (const d of ds.filter((x) => ST(s, x)?.dreams)) take('hearth', (x) => (x === d ? 1 : 0));
   for (const d of ds.filter((x) => ST(s, x)?.essence)) take('chapel', (x) => (x === d ? 1 : 0));
+  if (weepers) take(weepRoom, fighter);
   take('chapel', worker);
   if (roomsOf(geo(s), 'forge').length) take('forge', worker);
+  if (DREAM && s.tuning.dreamwell) take('quarters', worker);
   if (ds.some((d) => d.memory < 50 && ST(s, d)?.rests !== false)) take('hearth', (d) => (ST(s, d)?.rests === false ? -1e9 : -d.memory));
   if (capacity(s).free <= 1) take('glazier', worker);
   if (s.res.candles < 6) take('chandlery', worker);
