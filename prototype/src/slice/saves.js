@@ -21,6 +21,7 @@ export function summary(s, now) {
     lost: s.phase === 'over',
     sealed: !!s.sealed,
     daily: s.daily || null,
+    preset: s.preset || null,
     tutorial: !!s.tuning?.tutorial,
     tutorialOver: !!(s.tut?.over || s.tut?.off),
     saved: now,

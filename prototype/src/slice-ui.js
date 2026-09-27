@@ -2,13 +2,13 @@
 // bar at the bottom, and everything else opens in a panel over the castle. Like the greyboxes it changes
 // the game only through act(), so every session replays from its seed and action log.
 
-import { TICKS_PER_SEC, DAY_ROOMS, WORK_ROOMS, TWINS, KINDS, MIRRORS, CAUSES, MAP, BOND_OTHER, TUNING, BUILDABLE, TRAITS, SHADE_TRAITS, SEASONS, TUTORIAL, REQUESTS } from './slice/data.js';
+import { TICKS_PER_SEC, DAY_ROOMS, WORK_ROOMS, TWINS, KINDS, MIRRORS, CAUSES, MAP, BOND_OTHER, TUNING, BUILDABLE, TRAITS, SHADE_TRAITS, SEASONS, TUTORIAL, REQUESTS, PRESETS } from './slice/data.js';
 import {
   newSeason, step, act, retune, playerTuning, jobCap, jobCount, nextSlot, ritePreview, crossingPreview, capacity, canWork, defense, roomPower, bear, priests, funeralCap, eatRate,
   dayTicks, nightTicks, isNewMoon, choicesFor, byId, isTwinnedLiving, isTwinnedShade, lastSeason, SAVE_VERSION, fmt, mirrorCap, bareHalls, tainPlace,
   postRoom, wardCost, shadeTrait, peopleIn, beds, tradeOf, inGreatGlass, handsAt, whispers, stepsThrough, perf,
   seasonIndex, seasonName, yearOf, dayLength, isLongNight, tributeOf, besieged, sallyOdds, plagueSeason, atGate, gateGuard,
-  weatherOf, forecastOf, raining, foggy, drownedDue,
+  weatherOf, forecastOf, raining, foggy, drownedDue, keepDefaults,
 } from './slice/sim.js';
 import { geo, feet, floorAtY, roomAt, typeAt, typeOf, roomSpan, roomsOf, lightMap, isLit, unitAt, DEEP_FLOOR, lineSpots as lineOf, guardLit, MAX_FLOORS } from './slice/geo.js';
 import { drawScene, drawMoment } from './slice/draw.js';
@@ -108,8 +108,8 @@ function loadGame(n) {
   const g = loadSlot(store, n);
   if (!g) return null;
   g.alerts = [];
-  // Numbers the player never set in Settings follow this build's defaults.
-  retuned = retune(g, TUNING);
+  // Numbers the player never set in Settings follow this build's defaults, except those the keep was made with.
+  retuned = retune(g, keepDefaults(g));
   return g;
 }
 window.addEventListener('storage', (e) => {
@@ -339,6 +339,7 @@ function introHTML() {
       <li><b>The Lantern Church</b> inspects on day 5, and again whenever Dread reaches 5. Low Dread is blessed; high Dread costs you a mirror and the shades in it.</li>
     </ul>
     <p class="note">The castle is the screen. The bar at the bottom holds the tools for the moment and opens the panels: this phase, the people, and the records. Pause any time.</p>
+    ${presetPicker('intro')}
     <div class="row"><button class="btn primary" id="btn-intro-tutorial" data-act="intro-tutorial">Play the tutorial</button><button class="btn" id="btn-intro-guide" data-act="intro-guide">Begin with a guide</button><button class="btn" id="btn-intro" data-act="intro-close">Begin without</button></div>
     <p class="hint">The tutorial is a keep whose first three days are set out to teach: one thing at a time, in order, and the Veil can't break before night 4. From day 4 it's an ordinary season. The guide instead shows a short card the first time each thing happens in any keep; you can switch it off in Settings. Every lesson is kept in Menu, under How to play.</p>
     ${installHTML('intro')}
@@ -1327,6 +1328,7 @@ function settingsTab() {
   const motion = prefs.motion || 'system';
   return `<section class="settings">
     <h3>Play</h3>
+    <p class="note">This keep is ${PRESETS[s.preset]?.name.toLowerCase() || 'standard'}${s.daily ? ", as today's keep is for everyone" : ''}. A new keep's difficulty is chosen in Saves.</p>
     <label class="row" for="autopause"><input type="checkbox" id="autopause" data-act="autopause"${prefs.autoPause ? ' checked' : ''}>Pause for raids, fires, catches and the Hollow</label>
     <label class="row" for="guide-on"><input type="checkbox" id="guide-on" data-act="guide-toggle"${prefs.guide ? ' checked' : ''}>Guide me through the first season (turning it on starts it over)</label>
     <h3>The castle</h3>
@@ -1436,7 +1438,7 @@ function savesTab() {
     else if (m) acts = `<div class="row"><button class="btn sm primary" id="slot-play-${n}" data-act="slot-play" data-n="${n}">Continue</button><button class="btn sm" id="slot-export-${n}" data-act="slot-export" data-n="${n}">Export</button>${file}<button class="btn sm" id="slot-delete-${n}" data-act="slot-delete" data-n="${n}">Delete</button></div>`;
     else acts = `<div class="row"><button class="btn sm primary" id="slot-new-${n}" data-act="slot-new" data-n="${n}">New keep</button>${file}</div>`;
     const what = m
-      ? `<p><b>${m.daily ? `The keep of ${esc(dayText(m.daily))}. ` : m.tutorial ? 'The tutorial keep. ' : ''}Season ${m.season}, ${esc(whereText(m))}</b></p><p class="hint">${plural(m.rooms, 'room')} · ${m.living} living · ${plural(m.shades, 'shade')}${here ? '' : ` · played ${esc(agoText(m.saved))}`}</p>`
+      ? `<p><b>${m.daily ? `The keep of ${esc(dayText(m.daily))}. ` : m.tutorial ? 'The tutorial keep. ' : m.preset && PRESETS[m.preset] ? `${PRESETS[m.preset].name}. ` : ''}Season ${m.season}, ${esc(whereText(m))}</b></p><p class="hint">${plural(m.rooms, 'room')} · ${m.living} living · ${plural(m.shades, 'shade')}${here ? '' : ` · played ${esc(agoText(m.saved))}`}</p>`
       : '<p class="hint">Empty.</p>';
     return `<div class="kslot${here ? ' is-here' : ''}" id="slot-${n}"><div class="kslot-head"><span class="eyebrow">Keep ${n}</span>${here ? '<span class="tag">Playing</span>' : ''}</div>${what}${acts}</div>`;
   }).join('');
@@ -1444,6 +1446,7 @@ function savesTab() {
     ${dailyHTML()}
     ${tutorialHTML()}
     <p class="note">Each keep saves itself as you play. Export writes a keep to a file you can keep or send; Load a file takes that file back, or a tester's playtest export, which is replayed into the keep it came from.</p>
+    ${presetPicker('saves')}
     <div class="kslots">${slots}</div>
     ${ui.slotMsg ? `<p class="note bad" role="alert">${esc(ui.slotMsg)}</p>` : ''}
   </section>`;
@@ -1995,7 +1998,7 @@ function render(alpha, now) {
     if (drawn[id] === key) continue;
     const host = document.getElementById(id);
     const a = document.activeElement;
-    if (a && host.contains(a) && a.matches('select, textarea, input:not([type="checkbox"])')) continue;
+    if (a && host.contains(a) && a.matches('select, textarea, input:not([type="checkbox"]):not([type="radio"])')) continue;
     const focusId = a && host.contains(a) ? a.id : null;
     const scrolls = [...host.querySelectorAll('#sheet-body, #log, #days-wrap')].map((el) => [el.id, el.scrollTop, el.scrollLeft]);
     host.innerHTML = html();
@@ -2744,7 +2747,32 @@ function playSlot(n) {
 }
 function newKeep(n) {
   retuned = 0;
-  return playKeep(n, newSeason(Date.now() >>> 0, playerTuning(s)), `A new keep in slot ${n}.`);
+  const p = presetNow();
+  return playKeep(n, keepWith(p), `A new keep in slot ${n}${p === 'standard' ? '' : `, ${PRESETS[p].name.toLowerCase()}`}.`);
+}
+// Difficulty (round five): the preset chosen for a new keep, and a new keep made on it, with the player's own
+// numbers from the keep before where the preset has none. The keep keeps them as its own defaults.
+const presetNow = () => (PRESETS[prefs.preset] ? prefs.preset : 'standard');
+function keepWith(p) {
+  const defaults = { ...playerTuning(s), ...PRESETS[p].tuning };
+  const k = newSeason(Date.now() >>> 0, defaults);
+  k.defaults = defaults;
+  if (p !== 'standard') k.preset = p;
+  return k;
+}
+function presetPicker(where) {
+  const cur = presetNow();
+  return `<fieldset class="presets" id="presets-${where}"><legend>Difficulty${where === 'saves' ? ' for a new keep' : ''}</legend>
+      <div class="seg">${Object.entries(PRESETS).map(([k, P]) => `<input type="radio" class="visually-hidden" name="preset-${where}" id="preset-${where}-${k}" data-act="preset" value="${k}"${cur === k ? ' checked' : ''}><label class="btn sm" for="preset-${where}-${k}">${P.name}</label>`).join('')}</div>
+      <p class="hint">${esc(PRESETS[cur].text)}</p></fieldset>`;
+}
+// A keep nothing has been done in yet can take the difficulty chosen at the intro.
+const untouched = () => !s.actions.length && s.season === 1 && s.day === 1 && s.phase === 'day' && s.t === 0 && !s.daily && !s.tuning.tutorial;
+function takePreset() {
+  const p = presetNow();
+  if (!untouched() || (s.preset || 'standard') === p) return;
+  s = listen(keepWith(p));
+  saveGame();
 }
 function confirmSlot(n) {
   const ask = ui.confirmSlot;
@@ -2754,7 +2782,7 @@ function confirmSlot(n) {
   if (ask.kind === 'daily') return startDaily(n);
   if (ask.kind === 'tutorial') return startTutorial(n);
   if (ask.kind === 'import') {
-    retuned = retune(ask.g, TUNING);
+    retuned = retune(ask.g, keepDefaults(ask.g));
     return playKeep(n, ask.g, `Keep ${n}, from ${ask.name}.`);
   }
   if (ask.kind !== 'delete' || n === saves.current) return bump(); // the keep being played is never deleted
@@ -2792,7 +2820,7 @@ function importSlot(n, el) {
         ui.confirmSlot = { n, kind: 'import', g: r.s, name: file.name };
         return bump();
       }
-      retuned = retune(r.s, TUNING);
+      retuned = retune(r.s, keepDefaults(r.s));
       return playKeep(n, r.s, `Keep ${n}, from ${file.name}.`);
     },
     () => {
@@ -3039,11 +3067,17 @@ function onAct(name, el) {
       return bump();
     case 'intro-close':
       prefs.guide = false;
+      takePreset();
       return closeSheet();
     case 'intro-guide':
       prefs.guide = true;
       prefs.guideSeen = {};
+      takePreset();
       return closeSheet();
+    case 'preset':
+      prefs.preset = el.value;
+      savePrefs();
+      return bump();
     case 'intro-tutorial':
       prefs.guideSeen = {};
       return startTutorial(saves.current);

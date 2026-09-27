@@ -167,6 +167,11 @@ export const TUNING = {
   // answers it more than one who stacks the line, which is backwards.
   hardness: 1.2,
   mawHardness: 1,
+  // With the year on, hardness compounds through a year's seasons, and each year after the first starts
+  // yearHardness times harder than the one before, rather than carrying on from its winter: compounding a
+  // season at a time, the second winter came at 3.6 times the first spring and no autopilot plan won it
+  // (README, problem 29). 0 compounds a season at a time into every year, as before.
+  yearHardness: 1.3,
 
   // Building. A season starts with startFloors floors of the original keep, counted from the ground: at 1,
   // only the Hearth and the Crypt stand, and whoever has no room to work in quarries stone in the Yard.
@@ -335,6 +340,22 @@ export const TUNING = {
 };
 
 export const SEASONS = ['spring', 'summer', 'autumn', 'winter'];
+
+// Difficulty presets (round five): named sets of the Settings numbers, chosen for a new keep. A keep keeps
+// the numbers it was made with: a newer build moves the rest of its numbers to its own, not these.
+export const PRESETS = {
+  gentle: {
+    name: 'Gentle',
+    text: 'Six cracks break the Veil, not five. Fewer Creepers, weaker raids, more food and candles to start, and each season only a little harder than the last.',
+    tuning: { cracksMax: 6, creepersPerNight: 1.8, raidFightStrength: 0.85, startFood: 18, startCandles: 12, hardness: 1.1, yearHardness: 1.15 },
+  },
+  standard: { name: 'Standard', text: 'The rules as they ship, and as the README measures them.', tuning: {} },
+  hard: {
+    name: 'Hard',
+    text: 'Four cracks break the Veil. More Creepers, stronger raids, fewer candles to start, and each season harder by more.',
+    tuning: { cracksMax: 4, creepersPerNight: 2.6, raidFightStrength: 1.15, startCandles: 6, hardness: 1.3, yearHardness: 1.45 },
+  },
+};
 
 // What each kind of shade asks at the rite (TUNING.requests): what granting does, and its words.
 export const REQUESTS = {

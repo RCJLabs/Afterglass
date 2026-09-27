@@ -37,7 +37,12 @@ const nightLength = (s) => (s.tuning.year ? s.tuning.seasonNight[seasonIndex(s)]
 export const dayTicks = (s) => Math.round(s.tuning.daySecs * dayLength(s) * TICKS_PER_SEC);
 export const nightTicks = (s) => Math.round(s.tuning.nightSecs * nightLength(s) * TICKS_PER_SEC);
 export const perf = (d) => 0.4 + (0.6 * Math.max(0, d.memory)) / 100;
-export const hard = (s, k = 'hardness') => Math.pow(s.tuning[k], s.season - 1);
+export const hard = (s, k = 'hardness') => {
+  const T = s.tuning;
+  // With the year on, a season's place in its year, and the year: each year yearHardness harder (Maws aside).
+  if (T.year && T.yearHardness) return Math.pow(T[k], seasonIndex(s)) * (k === 'hardness' ? Math.pow(T.yearHardness, yearOf(s) - 1) : 1);
+  return Math.pow(T[k], s.season - 1);
+};
 // The tutorial keep's script for today and tonight, while it lasts (its first three days), and whether the
 // Veil is still kept from breaking.
 export const tutorialDay = (s) => (s.tuning.tutorial && s.season === 1 ? TUTORIAL.days[s.day] || null : null);
@@ -2945,6 +2950,9 @@ export function retune(s, defaults) {
   return n;
 }
 const KINDS_OF_KEEP = ['tutorial'];
+// A keep's own defaults: the build's numbers, with the ones it was made with (a difficulty preset, or the
+// player's own from the keep before) standing in for them, so a newer build doesn't move those.
+export const keepDefaults = (s) => ({ ...TUNING, ...(s.defaults || {}) });
 
 // A save from an older build, brought up to this one: what it predates gets what it would have had. Saves
 // from before seasons started from two rooms had the whole original keep.
@@ -2968,6 +2976,7 @@ export function upgrade(g) {
   for (const t of [g.tuning, g.tuning0]) if (t && !('weather' in t)) t.weather = 0;
   for (const t of [g.tuning, g.tuning0]) if (t && !('deep' in t)) t.deep = 0;
   for (const t of [g.tuning, g.tuning0]) if (t && !('generations' in t)) t.generations = 0;
+  for (const t of [g.tuning, g.tuning0]) if (t && !('yearHardness' in t)) t.yearHardness = 0;
   for (const p of g.living || []) p.trait ??= traitFor(g, p.name);
   for (const b of g.bodies || []) if (b.was === undefined) b.was = b.from === 'raider' ? null : traitFor(g, b.name);
   for (const d of g.shades || []) {

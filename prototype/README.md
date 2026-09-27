@@ -254,19 +254,32 @@ The vertical slice: seven days in one keep, ending on the night of the new moon,
     - **A catch rarely finishes a shade here**, because the autopilot only sends one with more than 45 memory: 1 was lost in 1,203 descents to depth 3. A person can send a weaker one.
     - Untested with people: whether sending a shade down feels like a gamble worth taking, and whether three depths are three choices or one.
 
-29. **Generations change who lives in the keep, not whether it lasts, and the autopilot never sees a child grow up, because it never survives a second winter.** 200 seeds, two years, the second year's seasons finished of those reached:
+29. **Generations change who lives in the keep, not clearly whether it lasts.** 200 seeds, two years, the second year's seasons finished of those reached:
 
     | | Spring | Summer | Autumn | Winter |
     |---|---|---|---|---|
-    | Balanced, without generations | 48 of 82 | 46 of 48 | 35 of 46 | 0 of 35 |
-    | Balanced, with them | 50 of 82 | 45 of 50 | 37 of 45 | 0 of 37 |
-    | Keeper, without | 27 of 53 | 25 of 27 | 15 of 25 | 0 of 15 |
-    | Keeper, with | 30 of 53 | 27 of 30 | 14 of 27 | 0 of 14 |
+    | Balanced, without generations | 70 of 82 | 66 of 70 | 61 of 66 | 15 of 61 |
+    | Balanced, with them | 72 of 82 | 71 of 72 | 68 of 71 | 23 of 68 |
+    | Keeper, without | 44 of 53 | 44 of 44 | 41 of 44 | 10 of 41 |
+    | Keeper, with | 48 of 53 | 47 of 48 | 39 of 47 | 3 of 39 |
 
-    - **In the balanced plan's second years** 43 children were born, 104 of the living grew old and 64 couples wed. 128 died of old age and woke Serene, against 53 without generations.
-    - **No second Long Night was won, by any plan, with generations or without.** Hardness compounds ×1.2 a season, so the second winter comes at 3.6 times the first spring's raids, Creepers and Hollow. For the autopilot, keeping the watch into a harder year is a sure loss, and no child it raises comes of age. This predates generations; it's the first thing I'll take up in difficulty presets (round five's #11).
-    - **My first children were cut down.** 25 of the first 44 died in raids. When the bell sends everyone well to the walls, a breach cuts down whoever is left in the yard, and that was the children. They now shelter inside; since then 2 of 43 have died, both of hunger (children starve first).
+    - **Within noise both ways:** the balanced plan came through 23 second years with generations and 15 without, the keeper 3 and 10.
+    - **In the balanced plan's second years** 61 children were born, 104 of the living grew old and 64 couples wed. 164 died of old age and woke Serene, against 102 without generations. Over three years, 12 children came of age.
+    - **The second Long Night used to be lost every time.** Hardness compounded ×1.2 a season, so the second winter came at 3.6 times the first spring's raids, Creepers and Hollow, and no plan won it, with generations or without: none of 35 for the balanced plan. Each year now starts from its own spring (problem 30), and about a third of second winters are won; the third year's, 1 of 12.
+    - **My first children were cut down.** 25 of the first 44 died in raids. When the bell sends everyone well to the walls, a breach cuts down whoever is left in the yard, and that was the children. They now shelter inside; in the two-year runs 6 of 61 died.
     - Untested with people, and nothing of it shows before the second year.
+30. **Difficulty presets: Gentle is easy and Hard makes the first season a real risk; each year now starts from its own spring.** A new keep is Gentle, Standard or Hard, chosen at the intro or in Saves. 200 seeds, the whole year:
+
+    | | First seasons finished | Whole years |
+    |---|---|---|
+    | Balanced: Gentle, Standard, Hard | 196, 194, 175 | 159, 82, 18 |
+    | Keeper: Gentle, Standard, Hard | 198, 195, 174 | 136, 53, 9 |
+
+    - **Gentle** breaks the Veil at six cracks, adds 1.8 Creepers a night rather than 2.2, sends raids at 0.85 of their strength, starts with 18 food and 12 candles, and grows each season ×1.1 and each year ×1.15. **Hard** breaks it at four, adds 2.6, raids at ×1.15, starts with 6 candles, and grows ×1.3 a season and ×1.45 a year.
+    - **Hard answers problem 6 for the first season:** it loses 1 in 8 of them, against 1 in 30. Whether that's harder but fair, or only harder, is for people to say.
+    - **The second year** (problem 29): hardness now compounds through a year's seasons, and each year starts `yearHardness` (1.3 on Standard) above the last, rather than carrying on from its winter. The first year is as it was. Over two years the balanced plan now wins 23 of 68 second winters, against none of 37 on the old curve, and 1 of 12 third ones. `yearHardness` 0 is the old curve.
+    - **A keep keeps the numbers it was made with.** A new keep took your own Settings numbers from the keep before, then lost them on its next load: the page moves every number you haven't set to the build's, and said it had kept yours. A keep now remembers what it was made with, a preset or your numbers, and a newer build moves only the rest.
+    - Measured with the autopilot only; nobody has played a preset.
 
 **How a season plays**
 
@@ -276,6 +289,7 @@ The vertical slice: seven days in one keep, ending on the night of the new moon,
   - **Zoom and pan.** Pinch or the mouse wheel zooms in whole-pixel steps toward your fingers or the pointer, from 1× to 10×. Dragging pans, and a tap still acts, since it's judged on release. The +, − and Fit buttons at the right edge do the same. Panning stays near the castle and resets when day turns to night.
   - **Keys:** space, 1, 2 and 4 for time; C, M, W, H and V for the tools; + and − to zoom, 0 to fit, arrows to pan; K, P and R for the panels; L for room names; S for sound; Esc closes a panel, or opens the Menu when none is open.
 - **People** are 6 by 12 pixels (10 for the young, 11 and stooped for the old). They're dressed by their job: the guard in a helm and crimson tabard with a spear, the priest in a hood and robe, the cook in a cap and apron, the healer marked with a red cross. Hair, beard and skin come from each name. By day each works a station in their room and now and then walks a few steps. The shades are the same bodies as dark silhouettes with glowing eyes; their feet thin into a wisp, and the Loyal wear a helm, the Serene a hood and Strangers horns.
+- **Difficulty.** A new keep is Gentle, Standard or Hard, chosen at the intro or in the Menu under Saves (problem 30). Today's keep and the tutorial are always Standard. Settings says which the keep is, and every number a preset sets is there to change.
 - **Day** (60 s at 1×). Eight living, and at first only the Hearth to work in: two cook, and the other six quarry stone in the Yard until their rooms are built. A job needs its room. The Chandlery makes the night's candles, the Chapel's priests hold funerals and bear Dread, and thanks to a Granary, raiders who break in take only half as much food. Raids come on days 2, 4 and 6 (below). Sickness, old age and an empty larder kill as before, and a newcomer arrives every second day. Jobs are in People; pick a name there, then tap a room on the castle, or use the job list. A room a Maw broke the night before is haunted for the day: a cold light and one of the dead drifting through it.
 - **Raids** (by day). The Ashen Host is sighted in the morning of days 2, 4 and 6 and reaches the gate a little after noon, at strength about 4, 7 and 11 (±1.5), ×1.2 harder each season. War banners go up over the turrets.
   - **From the sighting:** guards in the Barracks, a ward on the gate (essence), or two new choices. **Pay them off**, 1.5 food and half a candle per point of their strength: they turn back, but the season's next raid comes ×1.25 harder. **Bar the stores**: the Hearth, the Chandlery and the Glazier stop while the Host is at the gate, and a breach carries off half as much.
@@ -453,6 +467,7 @@ The vertical slice: seven days in one keep, ending on the night of the new moon,
 24. **The weather and the Drowned are mostly mine.** Round three has the Drowned come up through the moat's twin on rainy nights and drag shades down, answered by warding the cellar twins. Round five's plan added a forecast a day ahead, rain that slows the Yard and helps against fire, and fog that clouds the black mirror. The moat's twin at the ends of the floor under the Veil, one end a night, the Drowned making for the mirrors, a caught shade dragged to the moat, one ward on the moat in place of the cellar twins, each season's odds, and all the numbers are mine.
 25. **The Deep's rules are mostly mine.** Round three has quicksilver as a night resource for upgrading mirrors, and round five's plan sent a shade below the rifts for it: the deeper, the more, and the likelier it's caught. Three depths, being caught as a loss of memory, a Lurker caught half as often, no descents on the new moon, the upgrade costs and all the numbers are mine.
 26. **Generations are mostly mine.** Round three has the living age each spring, bonded pairs have children who grow into workers, and the old die and wake Serene, cut there for cost. Yearly aging from the second year, the weddings, a child a season at most for each couple, children who don't work, answer no bell, shelter from a breach and starve first, and all the numbers are mine.
+27. **The presets are mine.** Round five's plan asked for named sets of the Settings numbers, chosen for a new keep. Which numbers, their values, and each year starting from its own spring are mine.
 
 **What the numbers say so far.** From `npm run balance:season -- 100 1`, on the two-room start. Every plan but Idle builds in the same order (a Barracks, a Chapel, a Chandlery, a Glazier, an Infirmary, a second Barracks, a Quarters once the keep is crowded, a Forge, a Granary, a Cellar), stands guards only on raid days, holds the stairs to the Veil, relights candles, and posts nobody below the line's floor at night except in the Choir, and never has the dead help by day. All but Double and Idle pull a second fighter to each stair for each tide from that stair's own room, ward the line for the last tide of nights 5 and 6 when the essence is there, and send help against a Maw. The first three differ in how they treat the dead; Double treats them like Balanced.
 

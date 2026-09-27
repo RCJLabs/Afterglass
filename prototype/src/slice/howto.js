@@ -61,6 +61,7 @@ export function howTo(T) {
       items: [
         `A season is ${T.seasonDays} days and nights, and it ends on the night of the new moon. By day the living work the keep; anyone who dies inside the walls wakes at dusk as a shade. By night the shades hold the Tain, the keep's reflection, against the Unlit. At dawn you decide which of the dead stay.`,
         'The castle is the screen. The bar at the bottom holds the tools for the moment and opens the panels: this phase, People, Records and the Menu. Pause whenever you like; the clock runs at 1×, 2× or 4×.',
+        'A new keep can be Gentle, Standard or Hard, chosen at the start or in the Menu under Saves. Every number any of them sets is in Settings.',
       ],
     },
     {

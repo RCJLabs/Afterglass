@@ -370,6 +370,11 @@ label.btn { display: inline-flex; align-items: center; }
   white-space: nowrap;
 }
 .visually-hidden:focus-visible + label { outline: 2px solid var(--focus); outline-offset: 2px; }
+/* The difficulty for a new keep: the chosen one shows pressed. */
+.presets { border: 0; padding: 0; margin: 10px 0; }
+.presets legend { font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-3); margin-bottom: 4px; }
+.presets .seg input:checked + label.btn,
+.presets .seg input:checked + label.btn:hover { background: var(--ink); border-color: var(--ink); color: var(--box); }
 
 /* ---------- traits */
 .ptrait { grid-column: 1 / -1; font-size: 12.5px; color: var(--ink-2); }
