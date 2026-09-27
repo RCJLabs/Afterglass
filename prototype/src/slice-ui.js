@@ -13,6 +13,7 @@ import { geo, feet, floorAtY, roomAt, typeAt, typeOf, roomSpan, roomsOf, lightMa
 import { drawScene } from './slice/draw.js';
 import { threats } from './slice/threats.js';
 import { recapOf } from './slice/recap.js';
+import { newDaily, dayKey, dayText } from './slice/daily.js';
 import { drawCard, cardFonts } from './slice/card.js';
 import { epitaph, ordinal, RESTING, LOST } from './slice/book.js';
 import { SLOTS, slotKey, openIndex, loadSlot, saveSlot, useSlot, deleteSlot, keepFromFile, summary, mergeIndex, isIndexKey } from './slice/saves.js';
@@ -442,6 +443,7 @@ function dayPanel() {
   const lunar = isLongNight(s) ? `Tonight is the Long Night: ${longTimes()} as long as a winter night, with the Hollow, a Maw and more of the Unlit. At dawn the year ends.` : moon > 0 ? `The ${T.year && seasonIndex(s) === 3 ? 'Long Night' : 'new moon'} is ${plural(moon, 'night')} off.` : 'Tonight is the new moon. The Hollow will rise.';
   return `<header class="ph-head"><h2>${seasonWord() ? `${seasonWord()}, day ${s.day}` : `Day ${s.day}`}</h2><p>${lunar} The living work; anyone who dies inside the walls wakes at dusk.</p></header>
     ${s.day === 1 ? seasonNote() : ''}
+    ${s.daily && s.season === 1 && s.day === 1 ? `<p class="note">This is the keep of ${esc(dayText(s.daily))}: everyone who plays it gets this same keep, on the same rules.</p>` : ''}
     ${fireCards()}
     ${raidCard()}
     ${inspectionCard()}
@@ -838,7 +840,7 @@ async function makeCard() {
   const cv = document.createElement('canvas');
   drawCard(cv, s, r);
   const blob = await new Promise((done) => cv.toBlob(done, 'image/png'));
-  const name = `afterglass-${(r.daily ? `daily-${r.daily}-` : '') + r.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.png`;
+  const name = `afterglass-${(s.daily ? `daily-${s.daily}-` : '') + r.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.png`;
   const alt = `The recap card for ${r.title}: ${r.head}. ${r.sub} ${r.stats.map(([l, v]) => `${l}: ${v}`).join('; ')}.${r.remembered.length ? ` Remembered: ${r.remembered.map((m) => `${m.name}, ${m.line}`).join('; ')}.` : ''}`;
   ui.card = { season: r.season, keep: s.seed, url: URL.createObjectURL(blob), blob, name, text: r.text, alt };
   bump();
@@ -1011,6 +1013,7 @@ function exportJSON() {
       save: SAVE_VERSION,
       exported: new Date().toISOString(),
       seed: s.seed,
+      daily: s.daily || null,
       now: { season: s.season, day: s.day, phase: s.phase },
       seasons: s.seasons,
       days: s.days,
@@ -1099,7 +1102,8 @@ function settingsTab() {
     <dl class="keys">${KEYS.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl>
     ${installHTML('settings')}
     <details class="advanced" id="advanced" data-keep="advanced"${ui.open.advanced ? ' open' : ''}><summary>Advanced: the playtest numbers</summary>
-      <div class="fields">${TUNE.map(([k, label]) => `<label for="tune-${k}">${esc(label)}<input type="number" id="tune-${k}" data-act="tune" data-key="${k}" value="${s.tuning[k]}" min="0" step="any"></label>`).join('')}</div>
+      <div class="fields">${TUNE.map(([k, label]) => `<label for="tune-${k}">${esc(label)}<input type="number" id="tune-${k}" data-act="tune" data-key="${k}" value="${s.tuning[k]}" min="0" step="any"${s.daily ? ' disabled' : ''}></label>`).join('')}</div>
+      ${s.daily ? `<p class="note">This is the keep of ${esc(dayText(s.daily))}, the same for everyone, so its numbers are locked.</p>` : ''}
       <p class="hint">These are this keep's numbers. Changes apply from the next tick or the next dusk, and are recorded, so exports still replay. A new keep keeps only the ones you set. Seed ${s.seed}.</p>
     </details>
   </section>`;
@@ -1122,11 +1126,33 @@ function whereText(m) {
   if (m.phase === 'dawn') return m.day === 0 ? 'the first dawn' : `dawn after night ${m.day}`;
   return `day ${m.day}`;
 }
+// Today's keep: continue it where a slot holds it, else start it in an empty slot, else offer to put it in
+// place of the keep being played.
+function dailyHTML() {
+  const key = dayKey();
+  const nums = Array.from({ length: SLOTS }, (_, i) => i + 1);
+  const holds = nums.find((n) => (n === saves.current ? s.daily : saves.slots[n]?.daily) === key);
+  const empty = nums.find((n) => n !== saves.current && !saves.slots[n]);
+  let acts;
+  if (holds === saves.current) acts = "<p class=\"hint\">It's the keep you're playing.</p>";
+  else if (holds) acts = `<div class="row"><button class="btn sm primary" id="daily-go" data-act="slot-play" data-n="${holds}">Continue it, in keep ${holds}</button></div>`;
+  else if (ui.confirmSlot?.kind === 'daily') {
+    acts = `<p class="note bad">Put today's keep in keep ${saves.current}, in place of the one you're playing? That one is lost unless you exported it.</p><div class="row"><button class="btn sm primary" id="daily-yes" data-act="slot-yes" data-n="${saves.current}">Play today's keep</button><button class="btn sm" id="daily-no" data-act="slot-no">Cancel</button></div>`;
+  } else if (empty) acts = `<div class="row"><button class="btn sm primary" id="daily-go" data-act="daily" data-n="${empty}">Play it, in keep ${empty}</button></div>`;
+  else acts = `<div class="row"><button class="btn sm" id="daily-go" data-act="daily-ask">Play it in keep ${saves.current}</button></div>`;
+  return `<div class="card daily"><h3>Today's keep: ${esc(dayText(key))}</h3>
+    <p class="note">Everyone who plays today gets this same keep, on the rules as they ship: your own numbers from Settings are set aside, and can't be changed in it. Its recap card names the day, so you can compare how it went. A new one comes at midnight UTC.</p>${acts}</div>`;
+}
+function startDaily(n) {
+  retuned = 0;
+  const key = dayKey();
+  return playKeep(n, newDaily(key), `Today's keep, ${dayText(key)}, in slot ${n}.`);
+}
 function savesTab() {
   const slots = Array.from({ length: SLOTS }, (_, i) => i + 1).map((n) => {
     const here = n === saves.current;
     const m = here ? summary(s, Date.now()) : saves.slots[n];
-    const ask = ui.confirmSlot?.n === n ? ui.confirmSlot : null;
+    const ask = ui.confirmSlot?.n === n && ui.confirmSlot.kind !== 'daily' ? ui.confirmSlot : null;
     const file = `<input type="file" id="import-${n}" class="visually-hidden" data-act="import" data-n="${n}" accept=".json,application/json"><label class="btn sm" for="import-${n}">Load a file</label>`;
     let acts;
     if (ask) {
@@ -1136,11 +1162,12 @@ function savesTab() {
     else if (m) acts = `<div class="row"><button class="btn sm primary" id="slot-play-${n}" data-act="slot-play" data-n="${n}">Continue</button><button class="btn sm" id="slot-export-${n}" data-act="slot-export" data-n="${n}">Export</button>${file}<button class="btn sm" id="slot-delete-${n}" data-act="slot-delete" data-n="${n}">Delete</button></div>`;
     else acts = `<div class="row"><button class="btn sm primary" id="slot-new-${n}" data-act="slot-new" data-n="${n}">New keep</button>${file}</div>`;
     const what = m
-      ? `<p><b>Season ${m.season}, ${esc(whereText(m))}</b></p><p class="hint">${plural(m.rooms, 'room')} · ${m.living} living · ${plural(m.shades, 'shade')}${here ? '' : ` · played ${esc(agoText(m.saved))}`}</p>`
+      ? `<p><b>${m.daily ? `The keep of ${esc(dayText(m.daily))}. ` : ''}Season ${m.season}, ${esc(whereText(m))}</b></p><p class="hint">${plural(m.rooms, 'room')} · ${m.living} living · ${plural(m.shades, 'shade')}${here ? '' : ` · played ${esc(agoText(m.saved))}`}</p>`
       : '<p class="hint">Empty.</p>';
     return `<div class="kslot${here ? ' is-here' : ''}" id="slot-${n}"><div class="kslot-head"><span class="eyebrow">Keep ${n}</span>${here ? '<span class="tag">Playing</span>' : ''}</div>${what}${acts}</div>`;
   }).join('');
   return `<section class="saves">
+    ${dailyHTML()}
     <p class="note">Each keep saves itself as you play. Export writes a keep to a file you can keep or send; Load a file takes that file back, or a tester's playtest export, which is replayed into the keep it came from.</p>
     <div class="kslots">${slots}</div>
     ${ui.slotMsg ? `<p class="note bad" role="alert">${esc(ui.slotMsg)}</p>` : ''}
@@ -2086,6 +2113,7 @@ function confirmSlot(n) {
   ui.confirmSlot = null;
   if (!ask || ask.n !== n) return bump();
   if (ask.kind === 'over') return newKeep(n);
+  if (ask.kind === 'daily') return startDaily(n);
   if (ask.kind === 'import') {
     retuned = retune(ask.g, TUNING);
     return playKeep(n, ask.g, `Keep ${n}, from ${ask.name}.`);
@@ -2213,6 +2241,10 @@ function onAct(name, el) {
       return bump();
     case 'slot-play': return playSlot(Number(el.dataset.n));
     case 'slot-new': return newKeep(Number(el.dataset.n));
+    case 'daily': return startDaily(Number(el.dataset.n));
+    case 'daily-ask':
+      ui.confirmSlot = { n: saves.current, kind: 'daily' };
+      return bump();
     case 'slot-over':
     case 'slot-delete':
       ui.confirmSlot = { n: Number(el.dataset.n), kind: name === 'slot-over' ? 'over' : 'delete' };

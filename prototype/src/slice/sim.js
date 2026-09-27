@@ -2036,7 +2036,9 @@ const ACTIONS = {
     if (s.phase !== 'end') return 'The season is not over.';
     nextSeason(s);
   },
-  tune(s, { key, value }) {
+  tune(s, { key, value, build }) {
+    // Today's keep is the same for everyone, so only a new version's own numbers change it.
+    if (s.daily && !build) return "Today's keep plays by the rules everyone has, so its numbers are locked.";
     const v = Number(value);
     if (!Number.isFinite(v) || v < 0) return 'Needs a number.';
     if (typeof s.tuning[key] !== 'number') return 'No such setting.';

@@ -2,6 +2,7 @@
 // tested in Node; card.js draws it.
 
 import { KINDS, SEASONS } from './data.js';
+import { dayText } from './daily.js';
 
 const cap = (w) => w.charAt(0).toUpperCase() + w.slice(1);
 const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
@@ -65,6 +66,7 @@ export function recapOf(s, season = s.seasons[s.seasons.length - 1]?.season) {
     ['The Church', church || 'no visit'],
     ['The Hollow', S.taken.length ? `took ${S.taken[0]}` : hollow || '—'],
   ];
-  const text = `Afterglass · ${title}: ${o.head.toLowerCase()}. ${plural(e.day, 'day')}, ${plural(S.deaths, 'death')}, ${plural(S.shades, 'shade')} in the glass.`;
-  return { season, title, ...o, stats, remembered: remembered(s, season), seed: s.seed, daily: s.daily || null, text };
+  const daily = s.daily ? dayText(s.daily) : null;
+  const text = `Afterglass${daily ? `, the keep of ${daily}` : ''} · ${title}: ${o.head.toLowerCase()}. ${plural(e.day, 'day')}, ${plural(S.deaths, 'death')}, ${plural(S.shades, 'shade')} in the glass.`;
+  return { season, title, ...o, stats, remembered: remembered(s, season), seed: s.seed, daily, text };
 }

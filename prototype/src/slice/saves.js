@@ -19,6 +19,7 @@ export function summary(s, now) {
     living: s.living.length,
     shades: s.shades.filter(canWork).length,
     lost: s.phase === 'over',
+    daily: s.daily || null,
     saved: now,
   };
 }
@@ -89,7 +90,9 @@ export function keepFromFile(text) {
   if (isExport(x)) {
     const t0 = upgrade({ tuning: { ...x.tuning0 }, tuning0: { ...x.tuning0 }, res: {} }).tuning0;
     try {
-      return { s: replay(x.seed >>> 0, t0, x.actions) };
+      const g = replay(x.seed >>> 0, t0, x.actions);
+      if (typeof x.daily === 'string') g.daily = x.daily; // a day's keep stays that day's
+      return { s: g };
     } catch (e) {
       return { error: `That export didn't replay: ${e.message}` };
     }

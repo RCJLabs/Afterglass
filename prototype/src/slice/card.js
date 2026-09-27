@@ -59,7 +59,7 @@ export function drawCard(out, s, r) {
   c.font = `700 60px ${HEAD}`;
   c.fillText('Afterglass', mid, 96);
   c.fillStyle = C.ink2;
-  const sub = r.daily ? `Daily keep, ${r.daily} · ${r.title}` : r.title;
+  const sub = r.daily ? `The keep of ${r.daily} · ${r.title}` : r.title;
   fitFont(c, sub, (px) => `400 ${px}px ${BODY}`, 30, 900);
   c.fillText(sub, mid, 140);
 
