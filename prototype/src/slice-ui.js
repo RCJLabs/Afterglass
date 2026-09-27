@@ -7,7 +7,7 @@ import {
   newSeason, step, act, retune, playerTuning, jobCap, jobCount, nextSlot, ritePreview, crossingPreview, capacity, canWork, defense, roomPower, bear, priests, funeralCap, eatRate,
   dayTicks, nightTicks, isNewMoon, choicesFor, byId, isTwinnedLiving, isTwinnedShade, lastSeason, SAVE_VERSION, fmt, mirrorCap, bareHalls, tainPlace,
   postRoom, wardCost, shadeTrait, peopleIn, beds, tradeOf, inGreatGlass, handsAt, whispers, stepsThrough, perf,
-  seasonIndex, seasonName, yearOf, dayLength, isLongNight, tributeOf,
+  seasonIndex, seasonName, yearOf, dayLength, isLongNight, tributeOf, besieged, sallyOdds, plagueSeason,
 } from './slice/sim.js';
 import { geo, feet, floorAtY, roomAt, typeAt, typeOf, roomSpan, roomsOf, lightMap, isLit, unitAt, DEEP_FLOOR, lineSpots as lineOf, guardLit, MAX_FLOORS } from './slice/geo.js';
 import { drawScene, drawMoment } from './slice/draw.js';
@@ -358,9 +358,21 @@ function raidCard() {
   const fight = !T.raidFight ? '' : `<div class="row"><button class="btn sm" id="btn-payoff" data-act="payoff"${canPay ? '' : ' disabled'}>Pay them off: ${t.food} food, ${t.candles} candles</button>
       <button class="btn sm" id="btn-bar" data-act="bar-stores"${r.barred ? ' disabled' : ''}>${r.barred ? 'Stores barred' : 'Bar the stores'}</button></div>
     <p class="note">Paid, they turn back, but the season's next raid comes ×${mult(T.raidEmbolden)} harder. Barred, the Hearth, the Chandlery and the Glazier stop while the Host is at the gate, and a breach carries off half as much. At the gate you'll have pitch (${T.raidPitchCost} candles for −${fmt(T.raidPitch)}), stone to shore it up, and the bell.</p>`;
-  return `<div class="card ${short ? 'warn' : 'ok'}"><h3>Raiders on the road</h3>
+  return `<div class="card ${short ? 'warn' : 'ok'}"><h3>${r.camp ? 'The camp comes at the gate' : 'Raiders on the road'}</h3>
     <p>${r.count} raiders, strength <b class="num">${fmt(r.strength)}</b>, at the gate about ${hhmm(6 + (12 * r.hitAt) / dayTicks(s))}. Your defense: <b class="num" data-live="defense">${fmt(def)}</b>. ${short ? 'Not enough. Move people to the Barracks or ward the gate.' : 'Enough, if nothing changes.'}</p>
     <div class="row"><button class="btn sm" id="btn-wardgate" data-act="wardgate"${r.ward || s.res.essence + 1e-9 < s.tuning.wardGateCost ? ' disabled' : ''}>${r.ward ? `Gate warded, +${r.ward}` : `Ward the gate: +${s.tuning.wardGateDefense} for ${s.tuning.wardGateCost} essence`}</button></div>${fight}</div>`;
+}
+// Autumn's siege: how long the camp stays, what the shut gate costs, and the sally.
+function siegeCard() {
+  const g = s.siege;
+  if (!g || s.phase !== 'day' || s.day < g.from || s.day > g.until) return '';
+  if (g.broken) return '<p class="note">The camp is broken, and the gate is open.</p>';
+  const T = s.tuning;
+  const guards = s.living.filter((p) => p.job === 'barracks' && !(p.sick > 0)).length;
+  const left = g.until - s.day + 1;
+  return `<div class="card warn siege"><h3>The siege</h3><p>The Ashen Host is camped outside the walls, strength ${fmt(g.strength)}, ${left === 1 ? 'until tomorrow' : `for ${left} more days`}. The gate is shut: nobody quarries in the Yard, and no one new can come.</p>
+    <div class="row"><button class="btn sm" id="btn-sally" data-act="sally"${guards && s.raid?.state !== 'assault' ? '' : ' disabled'}>${guards ? `Sally out: ${plural(guards, 'guard')}, about ${Math.round(100 * sallyOdds(s))}% to break the camp` : 'No guards to sally out'}</button></div>
+    <p class="note">Broken, the Host scatters and the gate opens${s.raid?.camp && s.raid.state === 'coming' ? ", and today's assault is off" : ''}. Held, they fall back behind it. Either way, each guard has a ${Math.round(100 * T.raidPursueRisk)}% chance of not coming back. More guards, and the watch of the dead, make better odds.</p></div>`;
 }
 // The Host at the gate: the gate's bar, the fight in numbers, and what can turn it.
 function assaultText() {
@@ -454,8 +466,10 @@ function sleepNotes() {
   const b = beds(s);
   const n = s.living.length;
   const bad = s.living.filter((p) => p.nightmare);
+  const plague = plagueSeason(s) ? 1 + Math.floor(Math.max(0, n - b) / T.plagueCrowd) : 0;
   return [
     n > b ? `<p class="note bad">Beds for ${b}, and ${n} living: ${n - b} sleep crowded, and sickness comes ${fmt(T.crowdSick)} times as often. Each Quarters adds ${T.quartersBeds} beds.</p>` : '',
+    plague ? `<p class="note${plague > 1 ? ' bad' : ''}">Summer is plague season: in a crowded keep, sickness takes one more for every ${T.plagueCrowd} living beyond the beds. ${plague > 1 ? `As you sleep now, it would take ${plague} at once.` : 'As you sleep now, it would take one.'}</p>` : '',
     bad.length ? `<p class="note">After the Weepers, ${esc(listOf(bad.map((p) => p.name)))} woke from ${bad.length === 1 ? 'a nightmare and works' : 'nightmares and work'} at ${Math.round(100 * T.nightmareMult)}% today.</p>` : '',
   ].join('');
 }
@@ -481,6 +495,7 @@ function dayPanel() {
     ${s.day === 1 ? seasonNote() : ''}
     ${s.daily && s.season === 1 && s.day === 1 ? `<p class="note">This is the keep of ${esc(dayText(s.daily))}: everyone who plays it gets this same keep, on the same rules.</p>` : ''}
     ${fireCards()}
+    ${siegeCard()}
     ${raidCard()}
     ${inspectionCard()}
     ${sick.length ? `<p class="note bad">Sick: ${esc(listOf(sick.map((p) => p.name)))}. A healer in the Infirmary cures one a day; untreated, the sickness kills.</p>` : ''}
@@ -1139,6 +1154,10 @@ const TUNE = [
   ['year', 'A year of four seasons, days and nights shifting, ending with the Long Night (1 on, 0 off)'],
   ['longNight', 'The Long Night lasts this many winter nights'],
   ['longNightCreepers', 'The Long Night brings this many times a night\'s Creepers'],
+  ['plague', "Summer's plague: sickness in a crowded keep takes one more for every few beyond the beds (1 on, 0 off)"],
+  ['plagueCrowd', 'The plague takes one more for every this many living beyond the beds'],
+  ['siege', "Autumn's siege: the Host camps outside after its day-2 raid (1 on, 0 off)"],
+  ['siegeDays', 'Days the siege lasts'],
 ];
 const KEYS = [
   ['Space', 'play or pause'], ['1, 2, 4', 'speed'], ['C, M, W, H', 'candle, move, ward, hush (at night)'], ['V', 'turn the Tain upright'],
@@ -2300,8 +2319,8 @@ function toast(text, tone = '', open = null) {
   if (ui.toasts.length > room) ui.toasts.splice(0, ui.toasts.length - room);
   ui.toastRev++;
 }
-const STOPS = /has caught|The Hollow rises|Raiders on the road|The Host is at the gate|inspector|has turned Wraith|A Maw is tearing|A Maw is breaking|^Fire in the|The fire spreads/;
-const OPENS = /Raiders on the road|The Host is at the gate|The gate gave way|inspector|fallen sick|larder is empty|arrives at the gate|^Fire in the/;
+const STOPS = /has caught|The Hollow rises|Raiders on the road|The camp outside stirs|has made camp|The Host is at the gate|inspector|has turned Wraith|A Maw is tearing|A Maw is breaking|^Fire in the|The fire spreads|^Plague/;
+const OPENS = /Raiders on the road|The camp outside stirs|has made camp|The Host is at the gate|The gate gave way|inspector|fallen sick|larder is empty|arrives at the gate|^Fire in the/;
 function takeAlerts(fromClock) {
   let stop = false;
   for (const a of s.alerts.splice(0)) {
@@ -2729,6 +2748,7 @@ function onAct(name, el) {
     case 'shore': return game({ type: 'shore' });
     case 'raid-bell': return game({ type: 'raidBell' });
     case 'pursue': return game({ type: 'pursue' });
+    case 'sally': return game({ type: 'sally' });
     case 'vigil': return game({ type: 'vigil' });
     case 'build': return game({ type: 'build', mirror: el.dataset.mirror });
     case 'fight-fire': return game({ type: 'fightFire', room: el.dataset.room, bell: !!el.dataset.bell });

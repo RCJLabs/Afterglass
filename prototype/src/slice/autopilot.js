@@ -9,7 +9,7 @@
 // All but double and idle react at night: a second fighter to each stair of the line for each tide, a ward
 // on the line for the biggest tides when the essence is there, and a fighter to meet a Maw.
 
-import { step, act, newSeason, ritePreview, crossingPreview, capacity, canWork, defense, funeralCap, choicesFor, jobCap, jobCount, eatRate, wardCost, livingTrait, shadeTrait, peopleIn, crowded, tradeOf, inGreatGlass, handsAt, seasonIndex, tributeOf } from './sim.js';
+import { step, act, newSeason, ritePreview, crossingPreview, capacity, canWork, defense, funeralCap, choicesFor, jobCap, jobCount, eatRate, wardCost, livingTrait, shadeTrait, peopleIn, crowded, tradeOf, inGreatGlass, handsAt, seasonIndex, tributeOf, besieged, sallyOdds } from './sim.js';
 import { DAY_ROOMS, MIRRORS, KINDS, MAP, TICKS_PER_SEC } from './data.js';
 import { geo, roomSpan, roomAt, roomsOf, lineSpots } from './geo.js';
 
@@ -63,6 +63,10 @@ const NOQUARTERS = !!globalThis.process?.env?.AP_NOQUARTERS;
 // AP_TALL=1 starts a new floor with every room, never filling a bare hall: the tallest keep its rooms can
 // make (to measure whether a taller Tain makes the night easier).
 const TALL = !!globalThis.process?.env?.AP_TALL;
+// Autumn's siege: the autopilot sallies out when the odds are SALLY_AT or better with two guards or more.
+// AP_NOSALLY=1 waits the siege out (to measure whether sallying pays).
+const SALLY_AT = 0.6;
+const NOSALLY = !!globalThis.process?.env?.AP_NOSALLY;
 function nextBuild(s) {
   const want = {};
   for (const type of BUILD_ORDER) {
@@ -186,6 +190,7 @@ function dayMoves(s) {
   const b = nextBuild(s);
   if (b && s.res.stone >= s.tuning.roomStone) doAct(s, { type: 'raise', room: b, ...(TALL ? { at: 'top' } : {}) });
   if (s.raid?.state !== 'assault') staff(s); // nobody leaves the walls while the Host is at the gate
+  if (!NOSALLY && besieged(s) && s.raid?.state !== 'assault' && sallyOdds(s) >= SALLY_AT && s.living.filter((p) => p.job === 'barracks' && !(p.sick > 0)).length >= 2) doAct(s, { type: 'sally' });
   const r = s.raid;
   if (r && (r.state === 'coming' || r.state === 'assault') && r.warned && !r.ward && defense(s) < r.strength) doAct(s, { type: 'wardGate' });
   const { free } = capacity(s);

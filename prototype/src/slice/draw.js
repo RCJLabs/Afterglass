@@ -587,6 +587,8 @@ function dayActors(c, s, t, dusk = 0) {
     }
   }
   if (r && r.state === 'assault') assaultArt(c, s, r, t);
+  const g = s.siege;
+  if (g && !g.broken && s.day >= g.from && s.day <= g.until && dusk < 1) campArt(c, t);
   if (r && r.state === 'breached' && dusk < 1) {
     for (let i = 0; i < 5; i++) {
       const x = 10 + i * 22 + Math.sin(t + i) * 2;
@@ -594,6 +596,20 @@ function dayActors(c, s, t, dusk = 0) {
       A(c, 0.5 * (1 - dusk), () => ellipse(c, x, y, 2, 1, P.slate));
     }
   }
+}
+
+// Autumn's siege: the Host's tents on the eastern hills, a banner and a fire, while the camp stands.
+function campArt(c, t) {
+  for (const [i, x0] of [W + 1, W + 9, W + 17].entries()) {
+    const y = ridgeTop(x0 + 3, RIDGES.near) - 1;
+    for (let k = 0; k < 5; k++) R(c, x0 + 3 - k, y - 5 + k, 1 + 2 * k, 1, k === 0 ? P.brown : i % 2 ? P.crimson : P.red);
+    D(c, x0 + 3, y - 1, P.night);
+  }
+  const fx = W + 7;
+  const fy = ridgeTop(fx, RIDGES.near) - 1;
+  flame(c, fx, fy, t, 3);
+  R(c, W + 15, fy - 12, 1, 12, P.brown);
+  R(c, W + 16, fy - 12, 4, 2, P.red);
 }
 
 // The Host at the gate: raiders massed on the east shore under their banners, a ram swung at the wall, cracks

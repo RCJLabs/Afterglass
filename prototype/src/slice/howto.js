@@ -128,6 +128,8 @@ export function howTo(T) {
       items: [
         `On the night of the new moon the Hollow rises. It walks to the mirrors whatever the light, eating the light around it. A ward on a stair holds it ${T.wardHold} seconds; shades fighting it drive it back. If it reaches the Veil, it tears through and takes one of the living.`,
         `The seasons turn from spring. Summer's days are ×${mult(T.seasonDay[1])} as long and its nights ×${mult(T.seasonNight[1])}; winter's the other way, ×${mult(T.seasonDay[3])} and ×${mult(T.seasonNight[3])}, and a day's work grows and shrinks with it. Winter's seventh night is the Long Night, ${n1(T.longNight)} winter nights long, with the Hollow and a Maw; at its end the year ends.`,
+        ...(T.plague ? [`Summer brings plague: in a crowded keep, sickness takes one more for every ${T.plagueCrowd} living beyond the beds at once. Beds in Quarters, and healers, are what answer it.`] : []),
+        ...(T.siege ? [`Autumn brings a siege: unless its day-2 raid is paid off, the Host makes camp outside for ${T.siegeDays} days. The gate is shut, so nobody quarries in the Yard and no one new comes, and on day 3 the camp comes at the gate. The guards can sally out to break it: the better your defense against the camp, the better the odds, and each guard risks ${pct(T.raidPursueRisk)}.`] : []),
       ],
     },
   ];

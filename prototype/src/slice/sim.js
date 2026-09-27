@@ -43,6 +43,10 @@ export const hard = (s, k = 'hardness') => Math.pow(s.tuning[k], s.season - 1);
 export const tutorialDay = (s) => (s.tuning.tutorial && s.season === 1 ? TUTORIAL.days[s.day] || null : null);
 export const tutorialNight = (s) => (s.tuning.tutorial && s.season === 1 ? TUTORIAL.nights[s.day] || null : null);
 export const veilKept = (s) => !!s.tuning.tutorial && s.season === 1 && s.day < TUTORIAL.safeUntil;
+// Each season its own trouble: summer's plague and autumn's siege, with the year on.
+export const plagueSeason = (s) => !!s.tuning.plague && !!s.tuning.year && seasonIndex(s) === 1;
+export const besieged = (s) => !!s.siege && !s.siege.broken && s.day >= s.siege.from && s.day <= s.siege.until;
+export const sallyOdds = (s) => (s.siege ? clamp(defense(s) / (s.tuning.sallyOdds * s.siege.strength), 0.1, 0.9) : 0);
 // Traits (data.js): what a living one's trait does by day, and a shade's by night, while traits are on.
 export const livingTrait = (s, p) => (s.tuning.traits && p.trait ? TRAITS[p.trait] : null);
 export const shadeTrait = (s, d) => (s.tuning.traits && d.trait ? SHADE_TRAITS[d.trait] : null);
@@ -244,6 +248,7 @@ export function roomPower(s) {
   for (const p of s.living) if (p.job && !p.fighting && !p.walls) (by[p.job] ||= []).push(livingMult(s, p) * (coached.has(p.job) ? s.tuning.whisperMult : 1));
   for (const d of s.shades) if (stepsThrough(s, d)) (by[d.byDay.room] ||= []).push(perf(d) * s.tuning.stepWork);
   if (storesBarred(s)) for (const k of BARRED) delete by[k];
+  if (besieged(s)) delete by.yard; // the gate is shut: nobody quarries outside
   for (const [job, ms] of Object.entries(by)) {
     const free = workCap(s, job);
     const all = jobCap(s, job) - (DAY_ROOMS[job]?.outdoors ? 0 : roomsOf(geo(s), job).filter((r) => isAblaze(s, r.id)).length * s.tuning.roomCap);
@@ -412,6 +417,11 @@ function rollDay(s) {
   const tut = tutorialDay(s);
   const base = tut ? tut.raid : T.raidDays[s.day];
   if (base) s.raid = newRaid(s, raidStrength(s, base), Math.round(T.raidWarnAt * D), Math.round(T.raidHitAt * D), !!tut);
+  else if (besieged(s)) {
+    // The camp outside comes at the gate on a day with no raid of its own: seen from the first light.
+    s.raid = newRaid(s, s.siege.strength, Math.round(0.05 * D), Math.round(T.raidHitAt * D));
+    s.raid.camp = true;
+  }
   // A broken mirror's bad luck: sickness more likely, from the same one throw of the dice.
   const luck = s.badLuck > 0 ? T.badLuck : 1;
   if (s.badLuck > 0) s.badLuck--;
@@ -463,10 +473,17 @@ function fire(s, e) {
   if (e.type === 'sick') {
     const well = s.living.filter((p) => !(p.sick > 0));
     if (!well.length) return;
-    const p = pick(s, well);
-    const days = s.tuning.sickDays * (livingTrait(s, p)?.sick ?? 1);
-    p.sick = Math.round(days * dayTicks(s));
-    say(s, `${p.name} has fallen sick. Untreated, the sickness kills within ${fmt(days)} days.`, 'bad', true);
+    // Summer's plague: in a crowded keep it takes one more for every plagueCrowd beyond the beds.
+    const n = plagueSeason(s) ? Math.min(well.length, 1 + Math.floor(Math.max(0, s.living.length - beds(s)) / s.tuning.plagueCrowd)) : 1;
+    const taken = [];
+    for (let i = 0; i < n; i++) {
+      const p = pick(s, well.filter((x) => !taken.includes(x)));
+      p.sick = Math.round(s.tuning.sickDays * (livingTrait(s, p)?.sick ?? 1) * dayTicks(s));
+      taken.push(p);
+    }
+    const days = s.tuning.sickDays;
+    if (n > 1) say(s, `Plague: ${listNames(taken.map((p) => p.name))} have fallen sick. In a crowded keep it spreads; untreated, it kills within ${fmt(days)} days.`, 'bad', true);
+    else say(s, `${taken[0].name} has fallen sick. Untreated, the sickness kills within ${fmt(days * (livingTrait(s, taken[0])?.sick ?? 1))} days.`, 'bad', true);
     cue(s, 'warn');
   } else if (e.type === 'oldage') {
     const p = byId(s.living, e.id);
@@ -475,7 +492,8 @@ function fire(s, e) {
     const r = s.raid;
     if (!r || r.state !== 'coming') return;
     r.warned = true;
-    say(s, `Raiders on the road: ${r.count} of the Ashen Host, strength ${fmt(r.strength)}. Your defense is ${fmt(defense(s))}.`, 'bad', true);
+    if (r.camp) say(s, `The camp outside stirs: ${r.count} of the Ashen Host will come at the gate, strength ${fmt(r.strength)}. Your defense is ${fmt(defense(s))}.`, 'bad', true);
+    else say(s, `Raiders on the road: ${r.count} of the Ashen Host, strength ${fmt(r.strength)}. Your defense is ${fmt(defense(s))}.`, 'bad', true);
     cue(s, 'horn');
   } else if (e.type === 'raidHit') {
     if (s.tuning.raidFight) startAssault(s);
@@ -1896,10 +1914,12 @@ function beginDay(s) {
   for (const d of s.shades) d.rites = (d.rites || 0) + 1;
   s.rite = null;
   s.days.push({ season: s.season, day: s.day, ...s.today, dread: s.dread, living: s.living.length, shades: s.shades.length });
+  const yesterday = s.days[s.days.length - 1];
   s.today = blankToday();
   s.day++;
   s.phase = 'day';
   s.t = 0;
+  siegeDawn(s, yesterday);
   if (s.dread >= T.dreadMax && (!s.inspection || s.inspection.done)) {
     s.inspection = { day: s.day, reason: 'dread', done: false };
     say(s, 'Dread has reached its height. The Lantern Church sends an inspector; it arrives at noon.', 'bad', true);
@@ -1908,7 +1928,10 @@ function beginDay(s) {
     s.inspection = { day: T.firstInspection, reason: 'season', done: false };
     say(s, 'Word comes from the Lantern Church: an inspector will visit tomorrow at noon and judge how the keep keeps its dead.', 'rite', true);
   }
-  if (s.day % T.newcomerEvery === 0 && s.living.length < T.maxLiving) newcomer(s);
+  if (s.day % T.newcomerEvery === 0 && s.living.length < T.maxLiving) {
+    if (besieged(s)) say(s, 'No one new can reach the gate through the siege.', 'bad');
+    else newcomer(s);
+  }
   rollDay(s);
   const when = s.tuning.year ? `${cap(seasonName(s))} of year ${yearOf(s)}` : `Season ${s.season}`;
   say(s, `${when}, day ${s.day}${isLongNight(s) ? ': tonight is the Long Night' : isNewMoon(s) ? ': tonight is the new moon' : ''}.`, 'day');
@@ -1918,6 +1941,23 @@ function beginDay(s) {
   if (haunted.length) say(s, `The ${listNames(haunted)} ${haunted.length === 1 ? 'is' : 'are'} haunted today.${half}`, 'bad', true);
   if (haunted.length) cue(s, 'warn');
   return null;
+}
+
+// Autumn's siege: the morning after its day-2 raid, unless that was paid off, the Host makes camp; it
+// breaks camp after siegeDays, unless the guards broke it first.
+function siegeDawn(s, yesterday) {
+  const T = s.tuning;
+  if (s.siege && s.day > s.siege.until) {
+    if (!s.siege.broken) say(s, 'The Ashen Host breaks camp and marches off. The gate opens.', 'good', true);
+    s.siege = null;
+  }
+  if (!T.siege || !T.year || seasonIndex(s) !== 2 || s.day !== 3 || s.siege) return;
+  const raid = yesterday?.raid;
+  if (!raid || raid.paid) return;
+  const strength = r1(raidStrength(s, (T.raidDays[2] || 4) * T.siegeStrength));
+  s.siege = { from: s.day, until: s.day + T.siegeDays - 1, strength, broken: false };
+  say(s, `The Ashen Host has made camp outside the walls. For ${T.siegeDays} days the gate is shut: nobody quarries in the Yard, and no one new can come. The guards can sally out to break the camp.`, 'bad', true);
+  cue(s, 'horn');
 }
 
 function newcomer(s) {
@@ -1976,6 +2016,7 @@ function nextSeason(s) {
   s.day = 0;
   s.inspection = null;
   s.embolden = 1;
+  s.siege = null;
   // Nothing the player does mends the Veil, so cracks don't follow the keep into a new season.
   const mended = s.cracks > 0;
   s.cracks = 0;
@@ -2235,6 +2276,28 @@ const ACTIONS = {
     say(s, `The guards go after the Host and take back ${back.food} food, ${back.glass} glass and ${back.candles} candles.${fallen.length ? ` ${listNames(fallen.map((p) => p.name))} ${fallen.length === 1 ? 'is' : 'are'} brought home dead.` : ''}`, fallen.length ? 'bad' : 'good', true);
     for (const p of fallen) kill(s, p, 'duty', 'died chasing the raiders');
   },
+  // Autumn's siege: the guards go out against the camp. Broken, the Host scatters and the gate opens (and
+  // the camp's own assault today is off); held, they fall back. Each guard risks raidPursueRisk either way.
+  sally(s) {
+    const g = s.siege;
+    if (s.phase !== 'day' || !besieged(s)) return 'There is no camp to break.';
+    if (s.raid?.state === 'assault') return 'Not while the Host is at the gate.';
+    const guards = s.living.filter((p) => p.job === 'barracks' && !(p.sick > 0));
+    if (!guards.length) return 'There are no guards to send out.';
+    const T = s.tuning;
+    const won = chance(s, sallyOdds(s));
+    const fallen = guards.filter(() => chance(s, T.raidPursueRisk));
+    if (won) {
+      g.broken = true;
+      if (s.raid?.camp && s.raid.state === 'coming') {
+        s.raid = null;
+        s.events = s.events.filter((e) => e.type !== 'raidWarn' && e.type !== 'raidHit');
+      }
+    }
+    say(s, won ? `The guards sally out and break the camp. The Host scatters, and the gate opens.${fallen.length ? ` ${listNames(fallen.map((p) => p.name))} ${fallen.length === 1 ? 'is' : 'are'} brought home dead.` : ''}` : `The guards sally out, but the camp holds, and they fall back behind the gate.${fallen.length ? ` ${listNames(fallen.map((p) => p.name))} ${fallen.length === 1 ? 'does' : 'do'} not come back.` : ''}`, won ? 'good' : 'bad', true);
+    cue(s, won ? 'held' : 'breached');
+    for (const p of fallen) kill(s, p, 'duty', 'died sallying out against the camp');
+  },
   // A vigil by day lowers Dread straight away; at dawn, vigils count in the rite's reckoning.
   vigil(s) {
     if (s.phase !== 'day') return 'Vigils by day lower Dread at once. At dawn, set them in the rite.';
@@ -2476,6 +2539,8 @@ export function upgrade(g) {
   for (const t of [g.tuning, g.tuning0]) if (t && !('whispers' in t)) t.whispers = 0;
   for (const t of [g.tuning, g.tuning0]) if (t && !('year' in t)) t.year = 0;
   for (const t of [g.tuning, g.tuning0]) if (t && !('raidFight' in t)) t.raidFight = 0;
+  for (const t of [g.tuning, g.tuning0]) if (t && !('plague' in t)) t.plague = 0;
+  for (const t of [g.tuning, g.tuning0]) if (t && !('siege' in t)) t.siege = 0;
   for (const p of g.living || []) p.trait ??= traitFor(g, p.name);
   for (const b of g.bodies || []) if (b.was === undefined) b.was = b.from === 'raider' ? null : traitFor(g, b.name);
   for (const d of g.shades || []) {

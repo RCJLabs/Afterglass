@@ -251,6 +251,20 @@ export const TUNING = {
   seasonNight: [1, 0.75, 1, 1.35],
   longNight: 1.5,
   longNightCreepers: 1,
+
+  // Each season its own trouble (round five). Summer's plague: when sickness comes to a crowded keep, it
+  // takes one more for every plagueCrowd living beyond the beds. Autumn's siege: unless its day-2 raid was
+  // paid off, the Host camps outside the walls for siegeDays days from the next morning. The gate is shut:
+  // nobody quarries in the Yard and no one new can come, and on a day with no raid of its own the camp
+  // assaults the gate at siegeStrength times the day-2 raid. The guards can sally out to break the camp:
+  // the chance is their defense over sallyOdds times the camp's strength (a tenth to nine in ten), and each
+  // risks raidPursueRisk. plague 0 and siege 0 are the year as it was.
+  plague: 1,
+  plagueCrowd: 2,
+  siege: 1,
+  siegeDays: 2,
+  siegeStrength: 0.6,
+  sallyOdds: 1.5,
 };
 
 export const SEASONS = ['spring', 'summer', 'autumn', 'winter'];
