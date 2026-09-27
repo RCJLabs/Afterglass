@@ -16,7 +16,7 @@ Round four's queue is built except the replay viewer, which is parked ([`round-4
 | 6 | Each season its own trouble: plague summers, autumn sieges | New | M | Built: summer's plague takes more in a crowded keep; autumn's siege shuts the gate for two days, broken by a sally ([problem 24](../../../prototype/README.md)) |
 | 7 | Rain and the Drowned | New | M | Built: a forecast a day ahead; rain slows the Yard and damps fire, fog clouds the black mirror; on rainy nights the Drowned come up behind the line and make for the mirrors. It costs the doubled line about 5 points of whole years and the other plans about as much as noise, and lets the Hollow through more often ([problem 27](../../../prototype/README.md)) |
 | 8 | Down into the Deep, for quicksilver | New | M–L | Built: at dusk a shade goes down to depth 1, 2 or 3 instead of taking a post, and comes back at dawn with quicksilver or caught; quicksilver upgrades a mirror where it hangs. About an even trade for the autopilot ([problem 28](../../../prototype/README.md)) |
-| 9 | Generations: aging and children | New | L | Queued, 10th |
+| 9 | Generations: aging and children | New | L | Built: from the second year the living age each spring, pair off and have children, who come of age the next spring. No effect on survival measured, because no autopilot plan wins a second winter ([problem 29](../../../prototype/README.md)) |
 | 10 | An ending to the year | New | M | Built: keep the watch, take your place in the glass as The Keeper, or seal the Veil and end the keep ([problem 26](../../../prototype/README.md)) |
 | 11 | Difficulty presets | Small | S | Queued, 11th |
 | 12 | The Lantern Church's embargo and inquisition | Small | S–M | Queued, 12th |

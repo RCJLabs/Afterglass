@@ -16,10 +16,12 @@ export function epitaph(e, { traits = false } = {}) {
   const out = [];
   if (e.from === 'raider') out.push('One of the Ashen Host, who came over the wall and never left.');
   else {
-    const desc = [e.age === 'young' || e.age === 'old' ? e.age : '', ROLE[e.job] || ''].filter(Boolean).join(' ');
+    const desc = [e.age === 'young' || e.age === 'old' ? e.age : e.age === 'child' ? 'child' : '', e.age === 'child' ? '' : ROLE[e.job] || ''].filter(Boolean).join(' ');
     let who = e.from === 'before' ? `Of the last keeper's household${ROLE[e.job] ? `, ${article(ROLE[e.job]).toLowerCase()} ${ROLE[e.job]}` : ''}` : desc ? `${article(desc)} ${desc} of the keep` : 'One of the keep';
-    if (e.bond) who += `, ${e.bond.rel} of ${e.bond.name}`;
-    if (e.from === 'living' && e.joined && (e.joined.season > 1 || e.joined.day > 1)) who += `, who came to the gate ${whenText(e.joined.season, e.joined.day)}`;
+    if (e.age === 'child' && e.born && e.bond) who = `${capital(e.bond.rel)} of ${e.bond.name}`;
+    else if (e.bond) who += `, ${e.bond.rel} of ${e.bond.name}`;
+    if (e.born && e.joined) who += `, born in the keep in the ${ordinal(e.joined.season)} season`;
+    else if (e.from === 'living' && e.joined && (e.joined.season > 1 || e.joined.day > 1)) who += `, who came to the gate ${whenText(e.joined.season, e.joined.day)}`;
     out.push(`${who}.`);
   }
   out.push(e.from === 'before' ? `${capital(e.how)} before you came.` : `${capital(e.how)} ${whenText(e.season, e.day)}.`);

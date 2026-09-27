@@ -20,6 +20,12 @@ const UPPER = {
     reach: ['.HHHH..', '.HSSS..', '.HSES..', '..NN...', 'tTTTTTK', 'tTTTT..', 'kBBBB..'],
     low: ['.HHHH..', '.HSSS..', '.HSES..', '..NN...', 'tTTTTT.', 'tTTTT.K', 'kBBBB..'],
   },
+  // A child (generations): the same head on a short body.
+  child: {
+    stand: ['.HHHH..', '.HSSS..', '.HSES..', '..NN...', 'tTTTT..', 'kBBBK..'],
+    reach: ['.HHHH..', '.HSSS..', '.HSES..', '..NN...', 'tTTTTK.', 'kBBB...'],
+    low: ['.HHHH..', '.HSSS..', '.HSES..', '..NN...', 'tTTTT..', 'kBBB.K.'],
+  },
   // Stooped: the head sits a pixel forward of the shoulders.
   old: {
     stand: ['..HHHH.', '..HSSS.', '..HSES.', '...NN..', '.tTTTT.', 'tTTTTT.', 'kBBBBK.'],
@@ -40,6 +46,12 @@ const LOWER = {
     pass: ['..lL...', '..lL...', '..fFF..'],
     robe: ['.TTTT..', 'TTTTTT.', '.ff.FF.'],
   },
+  child: {
+    stand: ['.lLL...', '.fFF...'],
+    stride: ['l..L...', 'f..F...'],
+    pass: ['.lL....', '.fF....'],
+    robe: ['TTTTT..', '.f.F...'],
+  },
   old: {
     stand: ['.llLL..', '.llLL..', '.llLL..', '.ffFF..'],
     stride: ['.llLL..', '.l..L..', 'l...L..', 'f...FF.'],
@@ -47,7 +59,8 @@ const LOWER = {
     robe: ['.TTTT..', '.TTTT..', 'TTTTTT.', '.ff.FF.'],
   },
 };
-export const FIG_H = { adult: 12, young: 10, old: 11 };
+export const FIG_H = { adult: 12, young: 10, old: 11, child: 8 };
+const ageOf = (a) => (a === 'young' || a === 'old' || a === 'child' ? a : 'adult');
 
 const darker = new Map();
 // A darker shade of a palette colour, for the back arm and the back leg.
@@ -86,15 +99,15 @@ function seedOf(name) {
 // The look of a living person: their job's clothes, and hair, beard and skin from their name.
 export function livingLook(p) {
   const n = seedOf(p.name);
-  const age = p.age === 'young' ? 'young' : p.age === 'old' ? 'old' : 'adult';
-  const style = age === 'old' && n % 3 === 0 ? 'bald' : STYLES[n % (age === 'young' ? STYLES.length - 1 : STYLES.length)];
+  const age = ageOf(p.age);
+  const style = age === 'old' && n % 3 === 0 ? 'bald' : STYLES[n % (age === 'young' || age === 'child' ? STYLES.length - 1 : STYLES.length)];
   return {
     ...(OUTFITS[p.job] || OUTFITS.none),
     age,
     skin: p.sick > 0 ? '#a9c79a' : SKINS[(n >>> 4) % SKINS.length],
     hair: age === 'old' ? ((n >>> 8) % 2 ? P.silver : P.white) : HAIRS[(n >>> 8) % HAIRS.length],
     style,
-    beard: age !== 'young' && (n >>> 12) % 4 === 0,
+    beard: age !== 'young' && age !== 'child' && (n >>> 12) % 4 === 0,
     sick: p.sick > 0,
   };
 }
@@ -104,7 +117,7 @@ const SHADE_EYES = { loyal: P.cyan, serene: '#cfe0ff', pale: P.white, stranger: 
 export function shadeLook(d) {
   const body = d.kind === 'pale' ? '#4a4466' : '#07060d';
   return {
-    age: d.age === 'young' ? 'young' : d.age === 'old' ? 'old' : 'adult',
+    age: ageOf(d.age),
     silhouette: body,
     far: d.kind === 'pale' ? '#3a3552' : '#1a1530',
     helm: d.kind === 'loyal' ? body : null,

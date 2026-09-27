@@ -321,6 +321,17 @@ export const TUNING = {
   deepDrain: 35,
   upgradeSilver: { pier: 3, great: 6 },
   upgradeGlass: { pier: 4, great: 8 },
+
+  // Generations (round five; round three's aging and children). From the second year, with the year on:
+  // each spring the living age (a child comes of age and can work, the young grow up, and each adult grows
+  // old with oldChance), and the unwed of an age pair off as spouses with pairChance. Each season, two
+  // living spouses, neither old, have a child with birthChance while the keep has room (maxLiving).
+  // Children don't work, answer no bell, shelter inside from a breach and starve first; they eat and sleep
+  // like anyone. The old still die in their sleep, and wake Serene. generations 0 is the keep without it.
+  generations: 1,
+  oldChance: 0.3,
+  pairChance: 0.4,
+  birthChance: 0.35,
 };
 
 export const SEASONS = ['spring', 'summer', 'autumn', 'winter'];

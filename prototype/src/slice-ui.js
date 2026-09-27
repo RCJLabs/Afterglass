@@ -1140,7 +1140,7 @@ function livingRows() {
       const bond = b ? `${b.name}'s ${BOND_OTHER[p.bond.rel] || p.bond.rel}${byId(s.shades, b.id) ? ' (a shade)' : ''}` : '';
       return `<div class="prow${ui.person === p.id ? ' is-selected' : ''}" id="prow-${p.id}">
         <div class="pname"><button class="linkish" id="pick-${p.id}" data-act="person" data-id="${p.id}" aria-pressed="${ui.person === p.id}"><b>${esc(p.name)}</b></button><small>${p.age}</small></div>
-        <div class="pwork"><select id="job-${p.id}" data-act="assign" data-id="${p.id}" aria-label="Job for ${esc(p.name)}"${s.phase === 'day' || s.phase === 'dusk' || s.phase === 'dawn' ? '' : ' disabled'}>${opts(p)}</select></div>
+        <div class="pwork">${p.age === 'child' ? '<small class="muted">Too young to work, until spring</small>' : `<select id="job-${p.id}" data-act="assign" data-id="${p.id}" aria-label="Job for ${esc(p.name)}"${s.phase === 'day' || s.phase === 'dusk' || s.phase === 'dawn' ? '' : ' disabled'}>${opts(p)}</select>`}</div>
         <div class="pstat">${tags}</div>
         ${bond ? `<div class="pbond">${esc(bond)}</div>` : ''}
         ${livingTraitText(p)}
@@ -1313,6 +1313,9 @@ const TUNE = [
   ['drownedBase', 'The Drowned on a rainy night, before one more every few nights'],
   ['deep', 'Down into the Deep: shades sent down at dusk bring back quicksilver to upgrade mirrors (1 on, 0 off)'],
   ['deepDrain', 'Memory a shade caught in the Deep loses'],
+  ['generations', 'Generations: from the second year the living age each spring, pair off and have children (1 on, 0 off)'],
+  ['oldChance', 'Chance each spring that an adult grows old'],
+  ['birthChance', 'Chance each season that a couple has a child'],
 ];
 const KEYS = [
   ['Space', 'play or pause'], ['1, 2, 4', 'speed'], ['C, M, W, H', 'candle, move, ward, hush (at night)'], ['V', 'turn the Tain upright'],

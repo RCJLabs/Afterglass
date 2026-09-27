@@ -131,6 +131,7 @@ function staff(s) {
   const count = Object.fromEntries(order.map((k) => [k, 0]));
   const free = [];
   for (const p of s.living) {
+    if (p.age === 'child') continue; // too young to work
     if (p.job in count && count[p.job] < want[p.job]) count[p.job]++;
     else free.push(p);
   }
@@ -164,7 +165,7 @@ function raidMoves(s) {
   const r = s.raid;
   const T = s.tuning;
   if (!T.raidFight || RAIDPASSIVE || !r) return;
-  const hands = s.living.filter((p) => p.job !== 'barracks' && !p.fighting && !p.walls && !(p.sick > 0)).length;
+  const hands = s.living.filter((p) => p.job !== 'barracks' && !p.fighting && !p.walls && !(p.sick > 0) && p.age !== 'child').length;
   const pitchable = (c) => Math.max(0, Math.floor((c - PITCH_KEEP) / T.raidPitchCost)) * T.raidPitch;
   if (r.state === 'coming' && r.warned) {
     const best = defense(s) + (r.ward ? 0 : s.res.essence >= T.wardGateCost ? T.wardGateDefense : 0) + hands * T.raidBellDefense + pitchable(s.res.candles);

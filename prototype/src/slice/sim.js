@@ -426,7 +426,7 @@ function eat(s, D) {
   s.starve += 1 / D;
   if (s.starve >= s.tuning.starveDays - EPS) {
     s.starve = 0;
-    const score = (p) => (p.sick > 0 ? 0 : 10) + (p.age === 'old' ? 0 : p.age === 'young' ? 2 : 4);
+    const score = (p) => (p.sick > 0 ? 0 : 10) + (p.age === 'old' ? 0 : p.age === 'child' ? 1 : p.age === 'young' ? 2 : 4);
     const v = [...s.living].sort((a, b) => score(a) - score(b))[0];
     if (v) kill(s, v, 'neglect');
   }
@@ -576,7 +576,7 @@ function resolveRaid(s) {
   const raiders = r.safe ? 1 : held ? (chance(s, T.raidInsideHeld) ? 1 : 0) : 1 + randInt(s, Math.ceil(r.count / 2));
   let loot = '';
   if (!held) {
-    const civ = s.living.filter((p) => p.job !== 'barracks');
+    const civ = s.living.filter((p) => p.job !== 'barracks' && p.age !== 'child'); // children shelter inside
     if (civ.length && !r.safe) fallen.push({ p: pick(s, civ), how: 'was cut down in the yard' });
     const food = Math.floor(s.res.food * T.raidLoot * 0.5); // the Granary keeps half the food out of their hands
     const kept = roomsOf(geo(s), 'cellar').length ? 0.5 : 1; // a Cellar keeps half the candles and glass out of their hands
@@ -642,7 +642,7 @@ function endAssault(s, held) {
   const raiders = r.safe ? 1 : held ? (chance(s, T.raidInsideHeld) ? 1 : 0) : 1 + randInt(s, Math.ceil(r.count / 2));
   let loot = '';
   if (!held) {
-    const civ = s.living.filter((p) => p.job !== 'barracks' && !p.walls);
+    const civ = s.living.filter((p) => p.job !== 'barracks' && !p.walls && p.age !== 'child'); // children shelter inside
     if (civ.length && !r.safe) fallen.push({ p: pick(s, civ), how: 'was cut down in the yard' });
     const barred = r.barred ? 0.5 : 1;
     const food = Math.floor(s.res.food * T.raidLoot * 0.5 * barred);
@@ -734,7 +734,7 @@ export function kill(s, p, cause, how) {
     s.guidance--;
     guided = true;
   }
-  const b = { id: p.id, name: p.name, age: p.age, job: p.job, bond: p.bond, joined: p.joined, cause, kind, guided, how: how || CAUSES[cause].text, day: s.day, funeral: false, from: 'living', was: p.trait || null };
+  const b = { id: p.id, name: p.name, age: p.age, job: p.job, bond: p.bond, joined: p.joined, cause, kind, guided, how: how || CAUSES[cause].text, day: s.day, funeral: false, from: 'living', was: p.trait || null, ...(p.born ? { born: true } : {}) };
   s.bodies.push(b);
   s.today.deaths.push(p.id);
   addLedger(s, b);
@@ -763,7 +763,7 @@ function addLedger(s, b) {
   s.ledger.push({
     id: b.id, name: b.name, from: b.from, season: s.season, day: b.day, cause: b.cause, how: b.how, kind: b.kind, guided: b.guided, job: b.job,
     age: b.age, bond: bondOf(s, b.bond), joined: b.joined ?? null, woke: null, end: null, endDay: null, nights: 0, kills: 0, posts: {}, named: false,
-    memory: null, was: b.was || null,
+    memory: null, was: b.was || null, ...(b.born ? { born: true } : {}),
   });
 }
 // A bond as the Book records it: the partner's name, and what they were to the dead.
@@ -2310,6 +2310,54 @@ function nextSeason(s) {
   const turn = !T.year ? '' : seasonIndex(s) === 0 ? ` A new year begins: year ${yearOf(s)}.` : ` ${cap(seasonName(s))}: ${SEASON_TEXT[seasonIndex(s)]}`;
   say(s, `Season ${s.season} begins with the dawn.${turn}${mended ? ' The Veil has knit whole again.' : ''} The Host will come harder, and so will the Unlit.`, 'rite', true);
   cue(s, 'dawn');
+  generations(s);
+}
+
+// Generations (round five), from the second year: each spring the living age and the unwed pair off, and
+// each season spouses may have a child.
+function generations(s) {
+  const T = s.tuning;
+  if (!T.generations || !T.year || yearOf(s) < 2) return;
+  const news = [];
+  if (seasonIndex(s) === 0) {
+    for (const p of s.living) {
+      if (p.age === 'child') {
+        p.age = 'young';
+        news.push(`${p.name} comes of age and can work`);
+      } else if (p.age === 'young') {
+        p.age = 'adult';
+        news.push(`${p.name} is grown`);
+      } else if (p.age === 'adult' && chance(s, T.oldChance)) {
+        p.age = 'old';
+        news.push(`${p.name} grows old`);
+      }
+    }
+    // The unwed pair off, the young and the grown alike, in the order they came to the keep.
+    const free = s.living.filter((p) => !p.bond && (p.age === 'young' || p.age === 'adult'));
+    for (let i = 0; i + 1 < free.length; i += 2) {
+      if (!chance(s, T.pairChance)) continue;
+      const [a, b] = [free[i], free[i + 1]];
+      a.bond = { with: b.id, rel: 'spouse' };
+      b.bond = { with: a.id, rel: 'spouse' };
+      news.push(`${a.name} and ${b.name} are wed`);
+    }
+  }
+  // Births: once for each pair of living spouses, neither old, while the keep has room.
+  const seen = new Set();
+  for (const p of [...s.living]) {
+    const q = p.bond?.rel === 'spouse' ? byId(s.living, p.bond.with) : null;
+    if (!q || seen.has(p.id) || p.age === 'old' || q.age === 'old' || p.age === 'child' || q.age === 'child') continue;
+    seen.add(p.id);
+    seen.add(q.id);
+    if (s.living.length >= T.maxLiving || !chance(s, T.birthChance)) continue;
+    const c = newPerson(s, freshName(s, NAMES), 'child', null);
+    Object.assign(c, { bond: { with: p.id, rel: 'parent' }, born: true, joined: { season: s.season, day: 1 } });
+    s.living.push(c);
+    news.push(`${p.name} and ${q.name} have a child, ${c.name}`);
+  }
+  if (!news.length) return;
+  say(s, `${cap(listNames(news))}.`, 'good', true);
+  cue(s, 'arrive');
 }
 
 /* ---------------------------------------------------------------- player actions */
@@ -2320,6 +2368,7 @@ const ACTIONS = {
   assign(s, { id, room }) {
     const p = byId(s.living, id);
     if (!p) return 'No one living by that name.';
+    if (p.age === 'child' && room !== null) return `${p.name} is a child: too young to work.`;
     if (room !== null && !(DAY_ROOMS[room] && DAY_ROOMS[room].out)) return 'No one works there.';
     if (room !== null && room !== p.job) {
       const cap = jobCap(s, room);
@@ -2511,7 +2560,7 @@ const ACTIONS = {
     if (s.phase !== 'day') return 'Fires burn by day.';
     if (!s.fires.some((f) => f.room === room)) return 'Nothing is burning there.';
     const burning = s.fires.flatMap((f) => peopleIn(s, f.room));
-    const hands = s.living.filter((p) => !p.fighting && !(p.sick > 0) && (bell ? !burning.includes(p) : p.job === 'yard'));
+    const hands = s.living.filter((p) => !p.fighting && !(p.sick > 0) && p.age !== 'child' && (bell ? !burning.includes(p) : p.job === 'yard'));
     if (!hands.length) return bell ? 'Everyone who can is already fighting.' : 'Nobody is in the Yard to send.';
     for (const p of hands) p.fighting = room;
     const name = DAY_ROOMS[typeOf(geo(s), room)].name;
@@ -2579,7 +2628,7 @@ const ACTIONS = {
   raidBell(s) {
     const r = s.raid;
     if (s.phase !== 'day' || r?.state !== 'assault') return 'The bell calls everyone to the walls only while the Host is at the gate.';
-    const hands = s.living.filter((p) => p.job !== 'barracks' && !p.fighting && !p.walls && !(p.sick > 0));
+    const hands = s.living.filter((p) => p.job !== 'barracks' && !p.fighting && !p.walls && !(p.sick > 0) && p.age !== 'child');
     if (!hands.length) return 'Everyone who can is already on the walls.';
     for (const p of hands) p.walls = true;
     r.bell = true;
@@ -2918,6 +2967,7 @@ export function upgrade(g) {
   for (const t of [g.tuning, g.tuning0]) if (t && !('siege' in t)) t.siege = 0;
   for (const t of [g.tuning, g.tuning0]) if (t && !('weather' in t)) t.weather = 0;
   for (const t of [g.tuning, g.tuning0]) if (t && !('deep' in t)) t.deep = 0;
+  for (const t of [g.tuning, g.tuning0]) if (t && !('generations' in t)) t.generations = 0;
   for (const p of g.living || []) p.trait ??= traitFor(g, p.name);
   for (const b of g.bodies || []) if (b.was === undefined) b.was = b.from === 'raider' ? null : traitFor(g, b.name);
   for (const d of g.shades || []) {
