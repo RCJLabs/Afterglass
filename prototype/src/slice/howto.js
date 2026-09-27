@@ -133,6 +133,7 @@ export function howTo(T) {
       title: 'The Lantern Church',
       items: [
         `It inspects on day ${T.firstInspection}, announced the day before, and again whenever Dread reaches ${T.dreadMax}. At Dread 0–1 it blesses the keep: 3 candles and 2 remembrance. At 2–3 it warns you and takes a tithe. At 4–5 it censures the keep and carries off the fullest mirror with the shades in it.`,
+        ...(T.church ? [`A censure brings a silver embargo for ${T.embargoDays} days: the Glazier makes no glass, and no mirror can be built or upgraded. A blessing lifts it, or a donation of ${T.donation} remembrance. Censured again while it stands, the keep is given to the Inquisition: an inquisitor inspects every day at noon for ${T.inquisitionDays} days, the embargo standing with it, and takes no gifts. A blessing sends it away sooner; another censure starts its days over.`] : []),
       ],
     },
     {

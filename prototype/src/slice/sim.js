@@ -60,6 +60,13 @@ export const weatherOf = (s) => (s.tuning.weather ? s.weather || 'clear' : 'clea
 export const forecastOf = (s) => (s.tuning.weather ? s.forecast || null : null);
 export const raining = (s) => weatherOf(s) === 'rain';
 export const foggy = (s) => weatherOf(s) === 'fog';
+// The Lantern Church's escalation: a day's number across seasons, and whether its embargo or its Inquisition
+// stands today.
+const dayNo = (s) => (s.season - 1) * s.tuning.seasonDays + s.day;
+// Days the embargo, or the Inquisition, has left after today.
+export const churchDaysLeft = (s, what = 'embargo') => Math.max(0, (s.church?.[what] || 0) - dayNo(s));
+export const embargoed = (s) => !!s.tuning.church && !!s.church?.embargo && dayNo(s) <= s.church.embargo;
+export const inquisition = (s) => !!s.tuning.church && !!s.church?.inquisition && dayNo(s) <= s.church.inquisition;
 // How many of the Drowned come up on a rainy night: as many in a later season as in the first.
 export const drownedCount = (s) => s.tuning.drownedBase + Math.floor(s.day / s.tuning.drownedEvery);
 // Whether they come on a rainy night (tonight's, or tomorrow's): not on the new moon, which belongs to the
@@ -273,6 +280,7 @@ export function roomPower(s) {
   for (const d of s.shades) if (stepsThrough(s, d)) (by[d.byDay.room] ||= []).push(perf(d) * s.tuning.stepWork);
   if (storesBarred(s)) for (const k of BARRED) delete by[k];
   if (besieged(s)) delete by.yard; // the gate is shut: nobody quarries outside
+  if (embargoed(s)) delete by.glazier; // no silver to be had
   for (const [job, ms] of Object.entries(by)) {
     const free = workCap(s, job);
     const all = jobCap(s, job) - (DAY_ROOMS[job]?.outdoors ? 0 : roomsOf(geo(s), job).filter((r) => isAblaze(s, r.id)).length * s.tuning.roomCap);
@@ -682,6 +690,8 @@ function inspect(s) {
     s.res.candles += 3;
     gain(s, 'remembrance', 2);
     text = 'The Lantern Church inspector finds a keep at peace with its dead, and blesses it: 3 candles and 2 remembrance.';
+    if (s.church) text += inquisition(s) ? ' The inquisitor leaves, and the embargo is lifted.' : ' The embargo is lifted.';
+    s.church = null;
   } else if (d <= 3) {
     verdict = 'warned';
     let tithe;
@@ -716,6 +726,7 @@ function inspect(s) {
     text = g
       ? `The Lantern Church inspector censures the keep, covers the ${g.m.name}${g.ds.length ? ` and takes ${listNames(g.ds.map((x) => x.name))}` : ''}, and carries the mirror away. Dread ${d} → 2.`
       : `The Lantern Church inspector censures the keep. Dread ${d} → 2.`;
+    text += escalate(s);
   }
   I.done = true;
   I.verdict = verdict;
@@ -724,6 +735,21 @@ function inspect(s) {
   s.today.inspection = { verdict, dread: d };
   say(s, text, verdict === 'blessed' ? 'good' : 'bad', true);
   cue(s, verdict === 'blessed' ? 'blessed' : 'censured');
+}
+
+// A censure with the Church's escalation on: a silver embargo, or, under one already, the Inquisition.
+function escalate(s) {
+  const T = s.tuning;
+  if (!T.church) return '';
+  if (embargoed(s)) {
+    const again = inquisition(s);
+    const until = dayNo(s) + T.inquisitionDays;
+    s.church = { embargo: Math.max(s.church.embargo, until), inquisition: until };
+    if (again) return ` The Inquisition stays: the inquisitor will inspect the keep every day at noon for ${T.inquisitionDays} more days.`;
+    return ` Censured under its embargo, the keep is given to the Inquisition: an inquisitor will inspect it every day at noon for ${T.inquisitionDays} days, unless it finds the keep at peace first.`;
+  }
+  s.church = { embargo: dayNo(s) + T.embargoDays, inquisition: 0 };
+  return ` The Church lays a silver embargo on the keep for ${T.embargoDays} days: the Glazier can make no glass, and no mirror can be built. A blessing lifts it, or a donation of ${T.donation} remembrance.`;
 }
 
 /* ---------------------------------------------------------------- death */
@@ -2104,6 +2130,8 @@ export function ritePreview(s) {
   const top = veilKept(s) ? T.dreadMax - 1 : T.dreadMax;
   P.dread = { from: s.dread, keep: keepD, restless: restD, wraith: wraithD, cracks: crackD, broken: brokenD, bear: bears, vigils: R.vigils, delta, to: clamp(s.dread + delta, 0, Math.max(top, s.dread)) };
   P.inspector = P.dread.to >= T.dreadMax;
+  // The Inquisition inspects tomorrow at noon if it still stands then.
+  P.inquisition = !!T.church && !!s.church?.inquisition && dayNo(s) + 1 <= s.church.inquisition;
   P.remCost = R.vigils * T.vigilCost;
   // Requests granted: a name or a remembering costs remembrance, as bought.
   P.granted = [];
@@ -2167,6 +2195,7 @@ function beginDay(s) {
   s.phase = 'day';
   s.t = 0;
   siegeDawn(s, yesterday);
+  churchDawn(s);
   if (s.dread >= T.dreadMax && (!s.inspection || s.inspection.done)) {
     s.inspection = { day: s.day, reason: 'dread', done: false };
     say(s, 'Dread has reached its height. The Lantern Church sends an inspector; it arrives at noon.', 'bad', true);
@@ -2189,6 +2218,26 @@ function beginDay(s) {
   if (haunted.length) say(s, `The ${listNames(haunted)} ${haunted.length === 1 ? 'is' : 'are'} haunted today.${half}`, 'bad', true);
   if (haunted.length) cue(s, 'warn');
   return null;
+}
+
+// The Church's escalation at dawn: the Inquisition's days running out, then the embargo's; or the inquisitor
+// coming again at noon.
+function churchDawn(s) {
+  const C = s.church;
+  if (!C) return;
+  const gone = !!C.inquisition && !inquisition(s);
+  if (gone) C.inquisition = 0;
+  if (!embargoed(s)) {
+    s.church = null;
+    say(s, gone ? 'The inquisitor leaves, and the Lantern Church lifts its embargo.' : 'The Lantern Church lifts its embargo.', 'good', true);
+  } else if (gone) {
+    const n = churchDaysLeft(s);
+    say(s, `The inquisitor leaves. The silver embargo stands ${n ? `today and ${n} more day${n === 1 ? '' : 's'}` : 'through today'}.`, 'good', true);
+  } else if (inquisition(s) && (!s.inspection || s.inspection.done)) {
+    s.inspection = { day: s.day, reason: 'inquisition', done: false };
+    say(s, 'The inquisitor will inspect the keep again at noon.', 'bad', true);
+    cue(s, 'warn');
+  }
 }
 
 // Autumn's siege: the morning after its day-2 raid, unless that was paid off, the Host makes camp; it
@@ -2511,6 +2560,17 @@ const ACTIONS = {
     say(s, `The masons swap ${named(a)} and ${named(b)}.${twin}`, 'good', true);
     cue(s, 'build');
   },
+  // A donation to the Lantern Church lifts its embargo, but the inquisitor takes no gifts.
+  donate(s) {
+    const T = s.tuning;
+    if (!embargoed(s)) return 'There is no embargo to lift.';
+    if (inquisition(s)) return 'The inquisitor takes no gifts. Only a blessing sends it away before its days are out.';
+    if (s.res.remembrance + EPS < T.donation) return `A donation takes ${T.donation} remembrance.`;
+    s.res.remembrance -= T.donation;
+    s.church = null;
+    say(s, `A donation of ${T.donation} remembrance to the Lantern Church: it lifts the embargo.`, 'good');
+    cue(s, 'good');
+  },
   // At dusk, a shade goes down into the Deep instead of taking a post (depth 1 to 3), or is called back (0).
   descend(s, { id, depth }) {
     const T = s.tuning;
@@ -2535,6 +2595,7 @@ const ACTIONS = {
   // glass into a great glass.
   upgradeMirror(s, { id }) {
     const T = s.tuning;
+    if (embargoed(s)) return "Under the Church's embargo there's no silver to be had for a mirror.";
     const m = byId(s.mirrors, id);
     if (!m) return 'No such mirror.';
     const next = { hand: 'pier', pier: 'great' }[m.type];
@@ -2553,6 +2614,7 @@ const ACTIONS = {
   build(s, { mirror }) {
     const M = MIRRORS[mirror];
     if (!M) return 'No such mirror.';
+    if (embargoed(s)) return "Under the Church's embargo there's no silver to be had for a mirror.";
     if (s.res.glass + EPS < M.glass) return `A ${M.name} needs ${M.glass} glass.`;
     s.res.glass = Math.max(0, s.res.glass - M.glass);
     const m = addMirror(s, mirror, nextPlace(s));
@@ -2977,6 +3039,7 @@ export function upgrade(g) {
   for (const t of [g.tuning, g.tuning0]) if (t && !('deep' in t)) t.deep = 0;
   for (const t of [g.tuning, g.tuning0]) if (t && !('generations' in t)) t.generations = 0;
   for (const t of [g.tuning, g.tuning0]) if (t && !('yearHardness' in t)) t.yearHardness = 0;
+  for (const t of [g.tuning, g.tuning0]) if (t && !('church' in t)) t.church = 0;
   for (const p of g.living || []) p.trait ??= traitFor(g, p.name);
   for (const b of g.bodies || []) if (b.was === undefined) b.was = b.from === 'raider' ? null : traitFor(g, b.name);
   for (const d of g.shades || []) {

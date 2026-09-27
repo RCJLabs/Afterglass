@@ -19,7 +19,7 @@ Round four's queue is built except the replay viewer, which is parked ([`round-4
 | 9 | Generations: aging and children | New | L | Built: from the second year the living age each spring, pair off and have children, who come of age the next spring. No clear effect on survival measured ([problem 29](../../../prototype/README.md)) |
 | 10 | An ending to the year | New | M | Built: keep the watch, take your place in the glass as The Keeper, or seal the Veil and end the keep ([problem 26](../../../prototype/README.md)) |
 | 11 | Difficulty presets | Small | S | Built: Gentle, Standard or Hard for a new keep; each year now starts from its own spring, so a second winter can be won, and a keep keeps the numbers it was made with ([problem 30](../../../prototype/README.md)) |
-| 12 | The Lantern Church's embargo and inquisition | Small | S–M | Queued, 12th |
+| 12 | The Lantern Church's embargo and inquisition | Small | S–M | Built: a censure brings a silver embargo (no glass, no new mirrors) for 5 days, lifted by a blessing or a donation; censured again under it, the Inquisition inspects every noon. Only the keeper plan meets it, at no measurable cost ([problem 31](../../../prototype/README.md)) |
 | 13 | Keyboard play at night | Small | S–M | Queued, 13th |
 
 ## Enhancements

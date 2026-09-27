@@ -9,7 +9,7 @@
 // All but double and idle react at night: a second fighter to each stair of the line for each tide, a ward
 // on the line for the biggest tides when the essence is there, and a fighter to meet a Maw.
 
-import { step, act, newSeason, ritePreview, crossingPreview, capacity, canWork, defense, funeralCap, choicesFor, jobCap, jobCount, eatRate, wardCost, livingTrait, shadeTrait, peopleIn, crowded, tradeOf, inGreatGlass, handsAt, seasonIndex, tributeOf, besieged, sallyOdds } from './sim.js';
+import { step, act, newSeason, ritePreview, crossingPreview, capacity, canWork, defense, funeralCap, choicesFor, jobCap, jobCount, eatRate, wardCost, livingTrait, shadeTrait, peopleIn, crowded, tradeOf, inGreatGlass, handsAt, seasonIndex, tributeOf, besieged, sallyOdds, embargoed, inquisition } from './sim.js';
 import { DAY_ROOMS, MIRRORS, KINDS, MAP, TICKS_PER_SEC } from './data.js';
 import { geo, roomSpan, roomAt, roomsOf, lineSpots } from './geo.js';
 
@@ -220,6 +220,8 @@ function dayMoves(s) {
   const r = s.raid;
   if (r && (r.state === 'coming' || r.state === 'assault') && r.warned && !r.ward && defense(s) < r.strength) doAct(s, { type: 'wardGate' });
   const { free } = capacity(s);
+  // The Church's embargo: pay it off when the dead need mirrors and the remembrance is there.
+  if (embargoed(s) && !inquisition(s) && (free <= 1 || s.bodies.length) && s.res.remembrance >= s.tuning.donation + 2) doAct(s, { type: 'donate' });
   // AP_STEP saves its glass for a great glass unless the dead are waiting for room now.
   const saving = STEP && s.tuning.whispers && !s.bodies.length && s.res.glass < MIRRORS.great.glass;
   const up = DEEP && s.tuning.deep && ((free <= 0 && !saving) || (free <= 1 && s.bodies.length)) && upgradeOne(s);
@@ -476,7 +478,8 @@ function rite(s, plan) {
   const I = s.inspection;
   const inspectedToday = I && !I.done && I.day === s.day + 1;
   const soon = s.day + 1 === T.firstInspection && !s.inspections.some((x) => x.season === s.season);
-  const target = plan === 'keeper' ? T.dreadMax - 1 : plan === 'mourner' ? 1 : inspectedToday || soon ? 1 : 3;
+  const inquired = ritePreview(s).inquisition; // the inquisitor inspects again tomorrow
+  const target = plan === 'keeper' ? T.dreadMax - 1 : plan === 'mourner' ? 1 : inspectedToday || soon || inquired ? 1 : 3;
   for (const d of s.shades) {
     const cs = choicesFor(d);
     if (d.kind === 'wraith') doAct(s, { type: 'rite', id: d.id, choice: s.res.essence >= T.banishCost ? 'banish' : 'leave' });

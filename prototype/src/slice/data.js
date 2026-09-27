@@ -337,6 +337,17 @@ export const TUNING = {
   oldChance: 0.3,
   pairChance: 0.4,
   birthChance: 0.35,
+
+  // The Lantern Church's escalation (round five; round three's embargo and inquisition), for a keep whose
+  // Dread stays high. A censure brings a silver embargo for embargoDays: the Glazier makes no glass, and no
+  // mirror can be built or upgraded. A blessing lifts it, and so does a donation of donation remembrance. A
+  // censure while the embargo stands brings the Inquisition: an inspection every day at noon for
+  // inquisitionDays, the embargo standing with it, unless a blessing sends the inquisitor away sooner; each
+  // censure starts its days over. church 0 is a censure alone, as before.
+  church: 1,
+  embargoDays: 5,
+  inquisitionDays: 3,
+  donation: 6,
 };
 
 export const SEASONS = ['spring', 'summer', 'autumn', 'winter'];

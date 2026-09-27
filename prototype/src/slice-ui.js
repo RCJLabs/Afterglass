@@ -8,7 +8,7 @@ import {
   dayTicks, nightTicks, isNewMoon, choicesFor, byId, isTwinnedLiving, isTwinnedShade, lastSeason, SAVE_VERSION, fmt, mirrorCap, bareHalls, tainPlace,
   postRoom, wardCost, shadeTrait, peopleIn, beds, tradeOf, inGreatGlass, handsAt, whispers, stepsThrough, perf,
   seasonIndex, seasonName, yearOf, dayLength, isLongNight, tributeOf, besieged, sallyOdds, plagueSeason, atGate, gateGuard,
-  weatherOf, forecastOf, raining, foggy, drownedDue, keepDefaults,
+  weatherOf, forecastOf, raining, foggy, drownedDue, keepDefaults, embargoed, inquisition, churchDaysLeft,
 } from './slice/sim.js';
 import { geo, feet, floorAtY, roomAt, typeAt, typeOf, roomSpan, roomsOf, lightMap, isLit, unitAt, DEEP_FLOOR, lineSpots as lineOf, guardLit, MAX_FLOORS } from './slice/geo.js';
 import { drawScene, drawMoment } from './slice/draw.js';
@@ -430,7 +430,7 @@ function inspectionCard() {
   const verdicts = 'Dread 0–1: blessed (candles and remembrance). 2–3: warned, with a tithe. 4–5: censured, and the fullest mirror is taken with its shades.';
   if (I && !I.done) {
     const when = I.day === s.day ? 'today at noon' : 'tomorrow at noon';
-    return `<div class="card ${s.dread >= 4 ? 'warn' : ''}"><h3>The Lantern Church</h3><p>An inspector comes ${when} and judges the keep by its Dread, now <b>${s.dread}</b>. ${verdicts}</p>
+    return `<div class="card ${s.dread >= 4 ? 'warn' : ''}"><h3>The Lantern Church</h3><p>${I.reason === 'inquisition' ? 'The inquisitor inspects' : 'An inspector comes'} ${when} and judges the keep by its Dread, now <b>${s.dread}</b>. ${verdicts}</p>
       ${s.phase === 'day' ? `<div class="row"><button class="btn sm" id="btn-vigil" data-act="vigil"${s.dread <= 0 || s.res.remembrance + 1e-9 < T.vigilCost ? ' disabled' : ''}>Keep a vigil: Dread −1 for ${T.vigilCost} remembrance</button></div>` : ''}</div>`;
   }
   const done = s.inspections.filter((x) => x.season === s.season && x.day === s.day).pop();
@@ -439,6 +439,18 @@ function inspectionCard() {
   return '';
 }
 
+// The Lantern Church's escalation: its silver embargo, and the Inquisition.
+function churchCard() {
+  const T = s.tuning;
+  const more = (n) => (n === 0 ? 'through today' : `today and ${plural(n, 'more day')}`);
+  if (inquisition(s)) {
+    return `<div class="card warn church"><h3>The Inquisition</h3><p>An inquisitor inspects the keep every day at noon, ${more(churchDaysLeft(s, 'inquisition'))}, and the silver embargo stands with it: the Glazier makes no glass, and no mirror can be built. A blessing, at Dread 0 or 1, sends the inquisitor away at once. A censure takes another mirror and starts its days over.</p></div>`;
+  }
+  if (!embargoed(s)) return '';
+  const can = s.res.remembrance + 1e-9 >= T.donation;
+  return `<div class="card warn church"><h3>The Church's embargo</h3><p>A silver embargo, ${more(churchDaysLeft(s))}: the Glazier makes no glass, and no mirror can be built or upgraded. A blessing lifts it, and so does a donation. Censured again while it stands, the keep is given to the Inquisition.</p>
+    <div class="row"><button class="btn sm" id="btn-donate" data-act="donate"${can ? '' : ' disabled'}>Donate ${T.donation} remembrance to lift it</button></div></div>`;
+}
 // A fire by day: how hot, who fights it, whether they're winning, and the Yard to send.
 function fireTrend(id) {
   const T = s.tuning;
@@ -467,8 +479,9 @@ function fireCards() {
 }
 
 function buildRow() {
-  return `<div class="build"><span>Build a mirror</span>${Object.entries(MIRRORS)
-    .map(([k, M]) => `<button class="btn sm" id="build-${k}" data-act="build" data-mirror="${k}"${s.res.glass + 1e-9 < M.glass ? ' disabled' : ''}>${M.name}, room for ${M.cap}: ${M.glass} glass</button>`)
+  const shut = embargoed(s);
+  return `<div class="build"><span>Build a mirror${shut ? ": not under the Church's embargo" : ''}</span>${Object.entries(MIRRORS)
+    .map(([k, M]) => `<button class="btn sm" id="build-${k}" data-act="build" data-mirror="${k}"${shut || s.res.glass + 1e-9 < M.glass ? ' disabled' : ''}>${M.name}, room for ${M.cap}: ${M.glass} glass</button>`)
     .join('')}</div>`;
 }
 function mirrorsHTML({ upgrades = true } = {}) {
@@ -487,7 +500,7 @@ function upgradeHTML(m) {
   if (!T.deep || !next || s.phase === 'over') return '';
   const qs = T.upgradeSilver[next];
   const gl = T.upgradeGlass[next];
-  const can = (s.res.quicksilver || 0) + 1e-9 >= qs && s.res.glass + 1e-9 >= gl;
+  const can = !embargoed(s) && (s.res.quicksilver || 0) + 1e-9 >= qs && s.res.glass + 1e-9 >= gl;
   return `<button class="btn sm" id="upgrade-${m.id}" data-act="upgrade-mirror" data-id="${m.id}"${can ? '' : ' disabled'}>To a ${MIRRORS[next].name}: ${qs} quicksilver, ${gl} glass</button>`;
 }
 // Breaking a mirror, asked twice: what it frees, what it costs.
@@ -539,6 +552,7 @@ function dayPanel() {
     ${gateGuard(s) ? `<p class="note">${esc(listOf(s.shades.filter((d) => atGate(s, d)).map((d) => d.name)))} ${s.shades.filter((d) => atGate(s, d)).length === 1 ? 'stands' : 'stand'} at the gate today, as asked: +${fmt(gateGuard(s))} defense.</p>` : ''}
     ${raidCard()}
     ${inspectionCard()}
+    ${churchCard()}
     ${sick.length ? `<p class="note bad">Sick: ${esc(listOf(sick.map((p) => p.name)))}. A healer in the Infirmary cures one a day; untreated, the sickness kills.</p>` : ''}
     ${badLuckNote()}
     ${sleepNotes()}
@@ -970,7 +984,7 @@ function dawnPanel() {
     <div class="rite-list">${s.shades.map(riteRow).join('') || '<p class="empty">The glass is empty.</p>'}</div>
     <div class="preview">
       <p>Dread <b class="big">${D.from} → ${D.to}</b> <small class="muted">(${parts})</small></p>
-      ${P.inspector ? '<p class="note bad">At 5 the Lantern Church sends an inspector today. At noon a Dread of 4 or 5 is censured.</p>' : warn ? '<p class="note">The Lantern Church inspects soon. A Dread of 0 or 1 at noon is blessed.</p>' : ''}
+      ${P.inquisition ? '<p class="note bad">The inquisitor inspects again at noon. A Dread of 4 or 5 is censured, and another mirror taken; 0 or 1 sends the inquisitor away.</p>' : P.inspector ? '<p class="note bad">At 5 the Lantern Church sends an inspector today. At noon a Dread of 4 or 5 is censured.</p>' : warn ? '<p class="note">The Lantern Church inspects soon. A Dread of 0 or 1 at noon is blessed.</p>' : ''}
       <div class="vigil"><span>Vigils at dawn, ${T.vigilCost} remembrance each:</span><button class="btn sm" id="vig-dn" data-act="vigils" data-n="${s.rite.vigils - 1}"${s.rite.vigils <= 0 ? ' disabled' : ''} aria-label="One fewer vigil">−</button><b>${s.rite.vigils}</b><button class="btn sm" id="vig-up" data-act="vigils" data-n="${s.rite.vigils + 1}" aria-label="One more vigil">+</button><small class="muted">remembrance ${floor1(s.res.remembrance)}</small></div>
       ${badLuckNote()}
       ${s.mirrors.some((m) => s.shades.some((d) => d.mirror === m.id)) ? `<details class="card" data-keep="breaking"${ui.open.breaking ?? P.inspector ? ' open' : ''}><summary><b>Break a mirror</b></summary><p class="note">In an emergency: everyone in it goes free at once and Dread falls ${fmt(T.breakDread)} for each, which covering can't do. The mirror is lost, and ${T.badLuckDays} days of bad luck follow.</p>${mirrorsHTML({ upgrades: false })}</details>` : ''}
@@ -1317,6 +1331,10 @@ const TUNE = [
   ['generations', 'Generations: from the second year the living age each spring, pair off and have children (1 on, 0 off)'],
   ['oldChance', 'Chance each spring that an adult grows old'],
   ['birthChance', 'Chance each season that a couple has a child'],
+  ['church', "The Lantern Church's escalation: an embargo after a censure, the Inquisition after a second (1 on, 0 off)"],
+  ['embargoDays', "Days the Church's silver embargo lasts"],
+  ['inquisitionDays', 'Days the Inquisition inspects the keep every noon, unless a blessing sends it away sooner'],
+  ['donation', 'Remembrance a donation to lift the embargo takes'],
 ];
 const KEYS = [
   ['Space', 'play or pause'], ['1, 2, 4', 'speed'], ['C, M, W, H', 'candle, move, ward, hush (at night)'], ['V', 'turn the Tain upright'],
@@ -2200,6 +2218,11 @@ const GUIDE = [
     text: 'The Lantern Church inspects at noon. Dread 0 or 1 is blessed; 4 or 5 costs your fullest mirror and the shades in it. A vigil in the Day panel lowers Dread for 3 remembrance.',
   },
   {
+    id: 'embargo', target: '#open-phase',
+    when: () => first() && s.phase === 'day' && embargoed(s) && !inquisition(s),
+    text: () => `The censure brought the Church's silver embargo: for ${s.tuning.embargoDays} days the Glazier makes no glass and no mirror can be built. A blessing lifts it, or a donation of ${s.tuning.donation} remembrance in the Day panel. Censured again while it stands, the keep is given to the Inquisition, which inspects every day.`,
+  },
+  {
     id: 'maw', target: '#tool-move', pause: true,
     when: () => first() && s.phase === 'night' && s.night.foes.some((f) => f.type === 'maw'),
     text: 'A Maw. It goes for whatever is worth most for the least fight: the candle holding the stairs, or a room where people work. It counts every fighter on its way, so a thick line only sends it elsewhere. Watch where it heads, and send a fighter there with a candle. A room it stands in for 12 seconds breaks, and costs Dread at dawn.',
@@ -2992,6 +3015,7 @@ function onAct(name, el) {
       return undefined;
     case 'request': return game({ type: 'request', id: el.dataset.id, grant: !!el.dataset.grant });
     case 'sally': return game({ type: 'sally' });
+    case 'donate': return game({ type: 'donate' });
     case 'vigil': return game({ type: 'vigil' });
     case 'build': return game({ type: 'build', mirror: el.dataset.mirror });
     case 'descend': return game({ type: 'descend', id: el.dataset.id, depth: Number(el.dataset.depth) });

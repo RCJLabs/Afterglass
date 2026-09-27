@@ -280,6 +280,16 @@ The vertical slice: seven days in one keep, ending on the night of the new moon,
     - **The second year** (problem 29): hardness now compounds through a year's seasons, and each year starts `yearHardness` (1.3 on Standard) above the last, rather than carrying on from its winter. The first year is as it was. Over two years the balanced plan now wins 23 of 68 second winters, against none of 37 on the old curve, and 1 of 12 third ones. `yearHardness` 0 is the old curve.
     - **A keep keeps the numbers it was made with.** A new keep took your own Settings numbers from the keep before, then lost them on its next load: the page moves every number you haven't set to the build's, and said it had kept yours. A keep now remembers what it was made with, a preset or your numbers, and a newer build moves only the rest.
     - Measured with the autopilot only; nobody has played a preset.
+31. **The Church's escalation costs the autopilot nothing measurable, and only the keeper plan ever meets it.** A censure brings a silver embargo, and a second under it the Inquisition (below). 200 seeds, the whole year, whole years come through (each about ±7):
+
+    | | Escalation off | On |
+    |---|---|---|
+    | Keeper | 53 | 54 |
+    | Balanced, Mourner, Double | 82, 27, 97 | the same: never censured |
+
+    - **The keeper** never covers and holds Dread at 4, so the Church censures it. With the escalation on, 191 of its 200 keeps came under an embargo at least once, 271 embargoes in all, and 128 were given to the Inquisition, whose inquisitor inspected 238 times. 119 embargoes were lifted by a blessing, 69 ran out, and the autopilot donated 10 times.
+    - **For the autopilot it corrects itself rather than squeezing.** Censures fell from 544 to 444, and shades carried off with their mirrors from 924 to 815: with no new mirrors, the keeper keeps fewer shades, its Dread falls, and the Church blesses it more often. Whether it presses a person who lets Dread run is untested. If it should bite harder, round three's next step, a crusade, isn't built.
+    - **The one-season table** below changed only in the keeper's row.
 
 **How a season plays**
 
@@ -374,6 +384,7 @@ The vertical slice: seven days in one keep, ending on the night of the new moon,
   | 4–5 | Censured: the fullest mirror is covered and carried off with its shades, and Dread drops to 2 |
 
   Vigils by day lower Dread at once.
+  - **The Church's escalation.** A censure lays a silver embargo on the keep for 5 days: the Glazier makes no glass, and no mirror can be built or upgraded. A blessing lifts it, and so does a donation of 6 remembrance from the Day panel. Censured again while it stands, the keep is given to the Inquisition: an inquisitor inspects every day at noon for 3 days, the embargo standing with it, and takes no gifts. A blessing sends it away sooner; another censure takes another mirror and starts its days over. Keeps from before this have it off (`church` in Settings, under Advanced).
 - **Night 7: the new moon.** It brings fewer Creepers, no Maw, and the Hollow, which:
   - walks toward the nearest mirror whatever the light;
   - eats candles near it and drains shades beside it;
@@ -468,6 +479,7 @@ The vertical slice: seven days in one keep, ending on the night of the new moon,
 25. **The Deep's rules are mostly mine.** Round three has quicksilver as a night resource for upgrading mirrors, and round five's plan sent a shade below the rifts for it: the deeper, the more, and the likelier it's caught. Three depths, being caught as a loss of memory, a Lurker caught half as often, no descents on the new moon, the upgrade costs and all the numbers are mine.
 26. **Generations are mostly mine.** Round three has the living age each spring, bonded pairs have children who grow into workers, and the old die and wake Serene, cut there for cost. Yearly aging from the second year, the weddings, a child a season at most for each couple, children who don't work, answer no bell, shelter from a breach and starve first, and all the numbers are mine.
 27. **The presets are mine.** Round five's plan asked for named sets of the Settings numbers, chosen for a new keep. Which numbers, their values, and each year starting from its own spring are mine.
+28. **The Church's escalation is mostly mine.** Round three's Lantern Church comes "when dread is high" with inspections, "a silver embargo, then a crusade", answered by "release souls, donate, hide mirrors", and its campaign lists "inspections, an embargo, an inquisition". What the embargo stops (glass and mirrors), its days, the donation, the Inquisition as an inspection every noon, and all the numbers are mine. The crusade and hiding mirrors aren't built.
 
 **What the numbers say so far.** From `npm run balance:season -- 100 1`, on the two-room start. Every plan but Idle builds in the same order (a Barracks, a Chapel, a Chandlery, a Glazier, an Infirmary, a second Barracks, a Quarters once the keep is crowded, a Forge, a Granary, a Cellar), stands guards only on raid days, holds the stairs to the Veil, relights candles, and posts nobody below the line's floor at night except in the Choir, and never has the dead help by day. All but Double and Idle pull a second fighter to each stair for each tide from that stair's own room, ward the line for the last tide of nights 5 and 6 when the essence is there, and send help against a Maw. The first three differ in how they treat the dead; Double treats them like Balanced.
 
@@ -477,9 +489,9 @@ The vertical slice: seven days in one keep, ending on the night of the new moon,
 | Lost on night 6 / 7 (and earlier) | 1 / 2 (1) | 1 / 2 | 2 / 4 | 1 / 5 | all on night 1 |
 | Your deaths per season | 3.7 | 3.8 | 4.1 | 3.7 | – |
 | Raids held | 99% | 100% | 100% | 100% | – |
-| Church: blessed / warned / censured | 99 / 0 / 0 | 75 / 11 / 26 (112 visits) | 100 / 0 / 0 | 100 / 0 / 0 | – |
+| Church: blessed / warned / censured | 99 / 0 / 0 | 75 / 11 / 24 (110 visits) | 100 / 0 / 0 | 100 / 0 / 0 | – |
 | Shades lost at night per season | 1.1 | 1.2 | 1.1 | 1.1 | – |
-| The Hollow, in finished seasons: reached the Veil / driven back / withdrew | 7 / 16 / 73 | 11 / 11 / 75 | 47 / 10 / 37 | 14 / 17 / 63 | – |
+| The Hollow, in finished seasons: reached the Veil / driven back / withdrew | 7 / 16 / 73 | 10 / 10 / 77 | 47 / 10 / 37 | 14 / 17 / 63 | – |
 
 - **Raids with traits** (before raids were fought): when traits went in, 86% held for the balanced plan, against 90% without them (and 58% before the two-room start). Traits first cut it to 75%. No one trait did it: Wil (a Coward) and Nell (Gentle) guarded at half strength, Tam (Devout) at ×0.8 off the Chapel, Ada (Brave) fell twice as often, which thinned the gate for the next raid, and the Greedy ate double. The Gentle's and the Greedy's costs now fall elsewhere: the Gentle grieve harder, and the Greedy work ×0.8 away from the Glazier and the Chandlery. The Coward and the Brave keep theirs, since the gate is what they're about. Guards stand only on raid days, when every free hand goes to the Barracks.
 - **Season 2, a summer** (200 seeds, two seasons): the balanced plan finishes 184 of the 194 second seasons it reaches (95%), the keeper 183 of 195 (94%), the mourner 177 of 190 (93%) and Double 188 of 192 (98%).
