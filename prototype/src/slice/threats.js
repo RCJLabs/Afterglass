@@ -4,7 +4,7 @@
 // starts, candles burn down and shades move, so it can still turn out otherwise. Tomorrow's raid is rolled
 // when the day begins, so the mirror shows its range.
 
-import { wayOf, preyNear, mawPick, hard, defense, byId, nightTicks, isNewMoon, weeperRooms, weeperSpots } from './sim.js';
+import { wayOf, preyNear, mawPick, defense, byId, nightTicks, isNewMoon, weeperRooms, weeperSpots, raidStrength } from './sim.js';
 import { MAP } from './data.js';
 import { geo, lightMap, darkRooms, DEEP_FLOOR, route, mirrorGoals } from './geo.js';
 
@@ -103,7 +103,7 @@ export function threats(s) {
   // Tomorrow's raid, rolled when the day begins: its range, against the gate as it's manned now (tonight's
   // Watch adds to it, and so do guards set tomorrow).
   const base = !isNewMoon(s) && T.raidDays[s.day + 1];
-  const mid = base ? base * hard(s) : 0;
+  const mid = base ? raidStrength(s, base) : 0;
   const raid = base
     ? { day: s.day + 1, lo: Math.max(2, mid - T.raidSpread), hi: Math.max(2, mid + T.raidSpread), defense: defense(s) - (s.raid?.ward || 0) - (s.watchBonus || 0) }
     : null;

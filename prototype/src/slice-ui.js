@@ -7,7 +7,7 @@ import {
   newSeason, step, act, retune, playerTuning, jobCap, jobCount, nextSlot, ritePreview, crossingPreview, capacity, canWork, defense, roomPower, bear, priests, funeralCap, eatRate,
   dayTicks, nightTicks, isNewMoon, choicesFor, byId, isTwinnedLiving, isTwinnedShade, lastSeason, SAVE_VERSION, fmt, mirrorCap,
   postRoom, wardCost, shadeTrait, peopleIn, beds, tradeOf, inGreatGlass, handsAt, whispers, stepsThrough, perf,
-  seasonIndex, seasonName, yearOf, dayLength, isLongNight,
+  seasonIndex, seasonName, yearOf, dayLength, isLongNight, tributeOf,
 } from './slice/sim.js';
 import { geo, feet, floorAtY, roomAt, typeAt, typeOf, roomSpan, roomsOf, lightMap, isLit, unitAt, DEEP_FLOOR, lineSpots as lineOf, guardLit } from './slice/geo.js';
 import { drawScene } from './slice/draw.js';
@@ -336,15 +336,49 @@ function raidCard() {
     const next = Object.keys(s.tuning.raidDays).map(Number).find((d) => d > s.day && s.tuning.raidDays[d]);
     return next ? `<p class="note">No raid today. The Ashen Host is expected on day ${next}.</p>` : '';
   }
+  const T = s.tuning;
   const def = defense(s);
-  if (r.state === 'held' || r.state === 'breached') {
-    return `<div class="card ${r.state === 'held' ? 'ok' : 'warn'}"><h3>The raid</h3><p>${r.state === 'held' ? 'The gate held' : 'The raiders broke through'}: strength ${fmt(r.strength)} against defense ${fmt(s.today.raid?.defense ?? def)}.</p></div>`;
+  if (r.state === 'paid') return `<div class="card"><h3>The raid</h3><p>You paid the Host ${r.paid.food} food and ${r.paid.candles} candles, and they turned back. The season's next raid comes ×${mult(T.raidEmbolden)} harder.</p></div>`;
+  if (r.state === 'held') return `<div class="card ok"><h3>The raid</h3><p>The gate held: strength ${fmt(r.strength)} against defense ${fmt(s.today.raid?.defense ?? def)}.</p></div>`;
+  if (r.state === 'breached') {
+    const k = r.loot;
+    const guards = s.living.filter((p) => p.job === 'barracks' && !(p.sick > 0)).length;
+    const chase = !k || !T.raidFight ? '' : r.pursued ? '<p>The guards went after them.</p>'
+      : `<p>They carried off ${k.food} food, ${k.glass} glass and ${k.candles} candles. Guards sent after them would take back ${Math.round(100 * T.raidRecover)}% of it, and each has a ${Math.round(100 * T.raidPursueRisk)}% chance of not coming back.</p>
+        <div class="row"><button class="btn sm" id="btn-pursue" data-act="pursue"${guards ? '' : ' disabled'}>${guards ? `Go after them (${plural(guards, 'guard')})` : 'No guards to send'}</button></div>`;
+    return `<div class="card warn"><h3>The raid</h3><p>The raiders broke through: strength ${fmt(r.strength)} against defense ${fmt(s.today.raid?.defense ?? def)}.</p>${chase}</div>`;
   }
+  if (r.state === 'assault') return assaultCard(r);
   if (!r.warned) return `<div class="card"><h3>A raid today</h3><p>Scouts expect the Ashen Host before noon. Guards give ${DAY_ROOMS.barracks.rate} defense each; the Watch of the Dead adds what it kept last night${s.watchBonus ? ` (+${fmt(s.watchBonus)} today)` : ''}.</p><p class="num">Defense now ${fmt(def)}</p></div>`;
   const short = def + 1e-9 < r.strength;
+  const t = tributeOf(s);
+  const canPay = s.res.food + 1e-9 >= t.food && s.res.candles + 1e-9 >= t.candles;
+  const fight = !T.raidFight ? '' : `<div class="row"><button class="btn sm" id="btn-payoff" data-act="payoff"${canPay ? '' : ' disabled'}>Pay them off: ${t.food} food, ${t.candles} candles</button>
+      <button class="btn sm" id="btn-bar" data-act="bar-stores"${r.barred ? ' disabled' : ''}>${r.barred ? 'Stores barred' : 'Bar the stores'}</button></div>
+    <p class="note">Paid, they turn back, but the season's next raid comes ×${mult(T.raidEmbolden)} harder. Barred, the Hearth, the Chandlery and the Glazier stop while the Host is at the gate, and a breach carries off half as much. At the gate you'll have pitch (${T.raidPitchCost} candles for −${fmt(T.raidPitch)}), stone to shore it up, and the bell.</p>`;
   return `<div class="card ${short ? 'warn' : 'ok'}"><h3>Raiders on the road</h3>
-    <p>${r.count} raiders, strength <b class="num">${fmt(r.strength)}</b>. Your defense: <b class="num" data-live="defense">${fmt(def)}</b>. ${short ? 'Not enough. Move people to the Barracks or ward the gate.' : 'Enough, if nothing changes.'}</p>
-    <div class="row"><button class="btn sm" id="btn-wardgate" data-act="wardgate"${r.ward || s.res.essence + 1e-9 < s.tuning.wardGateCost ? ' disabled' : ''}>${r.ward ? `Gate warded, +${r.ward}` : `Ward the gate: +${s.tuning.wardGateDefense} for ${s.tuning.wardGateCost} essence`}</button></div></div>`;
+    <p>${r.count} raiders, strength <b class="num">${fmt(r.strength)}</b>, at the gate about ${hhmm(6 + (12 * r.hitAt) / dayTicks(s))}. Your defense: <b class="num" data-live="defense">${fmt(def)}</b>. ${short ? 'Not enough. Move people to the Barracks or ward the gate.' : 'Enough, if nothing changes.'}</p>
+    <div class="row"><button class="btn sm" id="btn-wardgate" data-act="wardgate"${r.ward || s.res.essence + 1e-9 < s.tuning.wardGateCost ? ' disabled' : ''}>${r.ward ? `Gate warded, +${r.ward}` : `Ward the gate: +${s.tuning.wardGateDefense} for ${s.tuning.wardGateCost} essence`}</button></div>${fight}</div>`;
+}
+// The Host at the gate: the gate's bar, the fight in numbers, and what can turn it.
+function assaultText() {
+  const r = s.raid;
+  if (r?.state !== 'assault') return '';
+  const def = defense(s);
+  const giving = r.host > def + 1e-9;
+  return `The Host ${fmt(r.host)} against your defense ${fmt(def)}. The gate is ${Math.round(100 * Math.max(0, r.gate))}% whole and ${giving ? 'giving' : 'holding'}; they give up in ${Math.ceil(r.left / TICKS_PER_SEC)} s.`;
+}
+function assaultCard(r) {
+  const T = s.tuning;
+  const hands = s.living.filter((p) => p.job !== 'barracks' && !p.fighting && !p.walls && !(p.sick > 0)).length;
+  return `<div class="card warn raid"><h3>The Host is at the gate</h3>
+    <div class="gatebar"><span data-bar="gate"></span></div>
+    <p data-live="assault">${esc(assaultText())}</p>
+    <div class="row"><button class="btn sm primary" id="btn-pitch" data-act="pitch"${s.res.candles + 1e-9 < T.raidPitchCost ? ' disabled' : ''}>Pour pitch: −${fmt(T.raidPitch)} for ${T.raidPitchCost} candles</button>
+      <button class="btn sm" id="btn-shore" data-act="shore"${(s.res.stone || 0) + 1e-9 < T.raidShoreCost || r.gate >= 1 - 1e-9 ? ' disabled' : ''}>Shore up the gate: ${T.raidShoreCost} stone</button>
+      <button class="btn sm" id="btn-raidbell" data-act="raid-bell"${r.bell || !hands ? ' disabled' : ''}>${r.bell ? 'The bell has rung' : `Ring the bell: everyone to the walls (${hands})`}</button>
+      ${r.ward ? '' : `<button class="btn sm" id="btn-wardgate" data-act="wardgate"${s.res.essence + 1e-9 < T.wardGateCost ? ' disabled' : ''}>Ward the gate: +${T.wardGateDefense} for ${T.wardGateCost} essence</button>`}</div>
+    <p class="note">Each second the Host is stronger than your defense, the gate gives. If it still stands when their time is up, they fall back. Candles poured are candles you won't have tonight; the bell stops all work, and whoever is on the walls can fall.</p></div>`;
 }
 
 function inspectionCard() {
@@ -776,7 +810,7 @@ function dawnPanel() {
 function summaryHTML(e) {
   const S = e.summary;
   const causes = Object.entries(S.byCause).filter(([, n]) => n).map(([k, n]) => `${n} ${k === 'hollow' ? 'taken by the Hollow' : CAUSES[k].name.toLowerCase()}`).join(', ');
-  const raids = S.raids.map((r) => (r.held ? 'held' : 'breached')).join(', ');
+  const raids = S.raids.map((r) => (r.paid ? 'paid off' : r.held ? 'held' : 'breached')).join(', ');
   const insp = S.inspections.map((i) => `${i.verdict} on day ${i.day}`).join(', ');
   return `<ul class="facts">
     <li><span>Living at the end</span><b class="num">${S.living}</b></li>
@@ -1068,6 +1102,8 @@ const TUNE = [
   ['fire', 'Fire by day in Hearths and Forges (1 on, 0 off)'],
   ['dreamwell', 'Beds and crowding, the Dreamwell and the Weepers (1 on, 0 off)'],
   ['whispers', 'Whispers and the great glass: the dead help by day (1 on, 0 off)'],
+  ['raidFight', 'Raids fought at the gate, with pitch, stone and the bell (1 on, 0 off: decided at a throw)'],
+  ['raidFightStrength', 'A Host you can fight back comes this many times stronger'],
   ['year', 'A year of four seasons, days and nights shifting, ending with the Long Night (1 on, 0 off)'],
   ['longNight', 'The Long Night lasts this many winter nights'],
   ['longNightCreepers', 'The Long Night brings this many times a night\'s Creepers'],
@@ -1613,6 +1649,7 @@ let drawnToasts = -1;
 
 const LIVE = {
   heat: (id) => fireTrend(id),
+  assault: () => assaultText(),
   clock: () => clockText(),
   food: () => floor1(s.res.food),
   candles: () => floor1(s.res.candles),
@@ -1634,6 +1671,7 @@ const LIVE = {
 };
 const BARS = {
   heat: (id) => s.fires?.find((f) => f.room === id)?.heat ?? 0,
+  gate: () => Math.max(0, s.raid?.gate ?? 0),
   clock: () => (s.phase === 'day' ? s.t / dayTicks(s) : s.phase === 'night' ? s.t / nightTicks(s) : s.phase === 'dusk' ? 0 : 1),
   mem: (id) => (byId(s.shades, id)?.memory ?? 0) / 100,
 };
@@ -1752,7 +1790,7 @@ const GUIDE = [
     id: 'raid', target: '#open-phase', pause: true,
     when: () => first() && s.phase === 'day' && s.raid?.warned && s.raid.state === 'coming',
     done: () => ui.sheet === 'phase',
-    text: 'Raiders on the road. Your defense (two for each guard) has to match their strength. The Day panel has the numbers: move people to the Barracks, or ward the gate with essence.',
+    text: () => (s.tuning.raidFight ? "Raiders on the road. Your defense (two for each guard) should match their strength. The Day panel has the numbers: move people to the Barracks, ward the gate with essence, bar the stores, or pay them off. When they reach the gate you'll fight for it, with pitch, stone and the bell." : 'Raiders on the road. Your defense (two for each guard) has to match their strength. The Day panel has the numbers: move people to the Barracks, or ward the gate with essence.'),
   },
   {
     id: 'fire', target: '#open-phase', pause: true,
@@ -1882,8 +1920,8 @@ function toast(text, tone = '', open = null) {
   if (ui.toasts.length > room) ui.toasts.splice(0, ui.toasts.length - room);
   ui.toastRev++;
 }
-const STOPS = /has caught|The Hollow rises|Raiders on the road|inspector|has turned Wraith|A Maw is tearing|A Maw is breaking|^Fire in the|The fire spreads/;
-const OPENS = /Raiders on the road|inspector|fallen sick|larder is empty|arrives at the gate|^Fire in the/;
+const STOPS = /has caught|The Hollow rises|Raiders on the road|The Host is at the gate|inspector|has turned Wraith|A Maw is tearing|A Maw is breaking|^Fire in the|The fire spreads/;
+const OPENS = /Raiders on the road|The Host is at the gate|The gate gave way|inspector|fallen sick|larder is empty|arrives at the gate|^Fire in the/;
 function takeAlerts(fromClock) {
   let stop = false;
   for (const a of s.alerts.splice(0)) {
@@ -2270,6 +2308,12 @@ function onAct(name, el) {
     }
     case 'raise': return game({ type: 'raise', room: el.dataset.room });
     case 'wardgate': return game({ type: 'wardGate' });
+    case 'payoff': return game({ type: 'payOff' });
+    case 'bar-stores': return game({ type: 'barStores' });
+    case 'pitch': return game({ type: 'pitch' });
+    case 'shore': return game({ type: 'shore' });
+    case 'raid-bell': return game({ type: 'raidBell' });
+    case 'pursue': return game({ type: 'pursue' });
     case 'vigil': return game({ type: 'vigil' });
     case 'build': return game({ type: 'build', mirror: el.dataset.mirror });
     case 'fight-fire': return game({ type: 'fightFire', room: el.dataset.room, bell: !!el.dataset.bell });

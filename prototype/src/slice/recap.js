@@ -62,7 +62,7 @@ export function recapOf(s, season = s.seasons[s.seasons.length - 1]?.season) {
     ['Days held', `${e.day} of ${s.tuning.seasonDays}`],
     ['Deaths', String(S.deaths)],
     ['Shades in the glass', String(S.shades)],
-    ['Raids held', S.raids.length ? `${held} of ${S.raids.length}` : 'none'],
+    ['Raids held', S.raids.length ? `${held} of ${S.raids.length}${S.raids.some((x) => x.paid) ? `, ${S.raids.filter((x) => x.paid).length} paid off` : ''}` : 'none'],
     ['The Church', church || 'no visit'],
     ['The Hollow', S.taken.length ? `took ${S.taken[0]}` : hollow || '—'],
   ];

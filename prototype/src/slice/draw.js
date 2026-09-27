@@ -507,10 +507,14 @@ function dayActors(c, s, t, dusk = 0) {
     }
   }
   masons.forEach((p, i) => person(c, { ...p, job: 'yard' }, i, [18, 90, 28, 100, 12, 82][i % 6], walk, t, Math.min(1, dusk * 1.6)));
+  // While the Host is at the gate, the guards and whoever the bell brought stand the walk on the east side.
+  const fight = s.raid?.state === 'assault';
+  const onWalk = fight ? s.living.filter((p) => (p.job === 'barracks' || p.walls) && p.job !== 'yard') : [];
+  onWalk.forEach((p, i) => person(c, { ...p, job: 'barracks' }, i, [98, 91, 84, 102, 77, 70, 63, 56, 49][i % 9], walk, t));
   // Workers of a type fill its rooms in turn, as many as a room holds; the idle wait by the first hearth. A
   // shade stepped through a great glass works among them.
   const byType = {};
-  for (const p of s.living) if (p.job !== 'yard') (byType[p.job || 'hearth'] ||= []).push(p);
+  for (const p of s.living) if (p.job !== 'yard' && !onWalk.includes(p)) (byType[p.job || 'hearth'] ||= []).push(p);
   const dead = s.tuning.whispers && !dusk ? s.shades.filter((d) => d.byDay && d.mirror) : [];
   for (const d of dead) {
     if (d.byDay.how === 'step' && s.mirrors.find((m) => m.id === d.mirror)?.type === 'great' && d.byDay.room !== 'yard') (byType[d.byDay.room] ||= []).push({ shade: d });
@@ -582,11 +586,53 @@ function dayActors(c, s, t, dusk = 0) {
       D(c, x + 3, y - 6, (MF(t * 6) + i) % 2 ? P.orange : P.yellow);
     }
   }
+  if (r && r.state === 'assault') assaultArt(c, s, r, t);
   if (r && r.state === 'breached' && dusk < 1) {
     for (let i = 0; i < 5; i++) {
       const x = 10 + i * 22 + Math.sin(t + i) * 2;
       const y = roofY() + 16 - ((t * 3 + i * 5) % 18);
       A(c, 0.5 * (1 - dusk), () => ellipse(c, x, y, 2, 1, P.slate));
+    }
+  }
+}
+
+// The Host at the gate: raiders massed on the east shore under their banners, a ram swung at the wall, cracks
+// as the gate gives, and burning pitch poured on them from the battlements.
+const CRACKS = [[0, 3], [1, 4], [0, 5], [1, 6], [2, 6], [0, 8], [1, 9], [2, 10], [1, 11], [0, 12]];
+function assaultArt(c, s, r, t) {
+  const gx = MAP.RIGHT - 1;
+  const base = MAP.VEIL - 2;
+  for (const x of [4, 108]) {
+    const wave = MF(t * 4 + x) % 2;
+    R(c, x, roofY() - 8, 1, 11, P.brown);
+    R(c, x + 1, roofY() - 8, 5, 2, P.red);
+    R(c, x + 1, roofY() - 6, 4 + wave, 2, P.red);
+  }
+  // A mob pressed against the east wall, close enough to show even on a phone.
+  const n = Math.min(9, r.count);
+  const ground = (x) => Math.min(base, ridgeTop(x, RIDGES.near) - 1);
+  for (let i = 0; i < n; i++) {
+    const x = Math.round(MAP.RIGHT + 4 + i * 3 + Math.sin(t * 3 + i) * 1);
+    const y = ground(x);
+    human(c, x - 1, y + 1, { body: P.crimson, helm: P.slate, h: 6, walk: 2, ph: i }, t);
+    if (i % 2) D(c, x + 3, y - 6, (MF(t * 6) + i) % 2 ? P.orange : P.yellow);
+  }
+  // The ram: back, then into the wall.
+  const swing = (t * 1.2) % 1 < 0.75 ? 3 : 0;
+  const ry = ground(gx + 6) - 4;
+  R(c, gx + 1 + swing, ry, 8, 2, P.brown);
+  D(c, gx + 1 + swing, ry, P.slate);
+  // The gate gives: cracks up the wall as it weakens.
+  const shown = Math.round((1 - Math.max(0, r.gate)) * CRACKS.length);
+  for (const [dx, dy] of CRACKS.slice(0, shown)) D(c, gx - dx, base - dy, P.ink);
+  // Pitch, for a second after it's poured.
+  const since = s.t - (r.pitchAt ?? -99);
+  if (since >= 0 && since < 12) {
+    const top = roofY() + 20;
+    for (let k = 0; k < 4; k++) {
+      const y = top + ((since * 3 + k * 5) % (base - top));
+      R(c, gx + 1 + k, y, 1, 3, P.ink);
+      D(c, gx + 1 + k, y + 3, MF(t * 10 + k) % 2 ? P.orange : P.yellow);
     }
   }
 }

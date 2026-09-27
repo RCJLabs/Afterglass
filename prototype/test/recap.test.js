@@ -23,8 +23,12 @@ test('a season that stood: its title, how it went, six numbers and a line to sha
 });
 
 test('a fallen keep, a keep that saw the year out, and a season not yet over', () => {
-  const s = runSeasonAuto(1, { seasons: 1 });
-  assert.equal(s.phase, 'over');
+  let s = null;
+  for (let seed = 1; seed < 60 && !s; seed++) {
+    const g = runSeasonAuto(seed, { seasons: 1 });
+    if (g.phase === 'over' && g.seasons[0]?.lost === 'veil') s = g;
+  }
+  assert.ok(s, 'a keep that fell');
   const r = recapOf(s);
   assert.equal(r.stood, false);
   assert.equal(r.head, 'The keep fell');

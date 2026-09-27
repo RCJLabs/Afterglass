@@ -9,8 +9,8 @@
 // All but double and idle react at night: a second fighter to each stair of the line for each tide, a ward
 // on the line for the biggest tides when the essence is there, and a fighter to meet a Maw.
 
-import { step, act, newSeason, ritePreview, crossingPreview, capacity, canWork, defense, funeralCap, choicesFor, jobCap, jobCount, eatRate, wardCost, livingTrait, shadeTrait, peopleIn, crowded, tradeOf, inGreatGlass, handsAt, seasonIndex } from './sim.js';
-import { DAY_ROOMS, MIRRORS, KINDS, MAP } from './data.js';
+import { step, act, newSeason, ritePreview, crossingPreview, capacity, canWork, defense, funeralCap, choicesFor, jobCap, jobCount, eatRate, wardCost, livingTrait, shadeTrait, peopleIn, crowded, tradeOf, inGreatGlass, handsAt, seasonIndex, tributeOf } from './sim.js';
+import { DAY_ROOMS, MIRRORS, KINDS, MAP, TICKS_PER_SEC } from './data.js';
 import { geo, roomSpan, roomAt, roomsOf, lineSpots } from './geo.js';
 
 export const PLANS = ['balanced', 'keeper', 'mourner', 'double', 'idle'];
@@ -31,6 +31,15 @@ const DREAM = !!globalThis.process?.env?.AP_DREAM;
 // AP_WHISPER=1 has a shade whisper to every trade someone works; AP_STEP=1 builds a great glass when it
 // needs mirror room and sends its shades through to work by day (to measure whether either pays).
 const WHISPER = !!globalThis.process?.env?.AP_WHISPER;
+// Raids you fight. AP_RAIDPASSIVE=1 does nothing at the gate (the old autopilot under the new rules);
+// AP_TRIBUTE=1 also pays the Host off when a breach looks certain (to measure whether either pays).
+const RAIDPASSIVE = !!globalThis.process?.env?.AP_RAIDPASSIVE;
+const TRIBUTE = !!globalThis.process?.env?.AP_TRIBUTE;
+// One part of the raid policy off at a time, to find what it costs.
+const NO = (k) => !!globalThis.process?.env?.[`AP_NO${k}`];
+// Candles kept back from pitch for the night.
+const PITCH_KEEP = 8;
+const EPS = 1e-9;
 const STEP = !!globalThis.process?.env?.AP_STEP;
 // A shade spent below this much memory by day would be lost to the night soon after.
 const DAY_KEEP = 30;
@@ -69,7 +78,7 @@ const candleTarget = (s) => (s.tuning.year ? CANDLES_BY[seasonIndex(s)] : 8);
 function wantedJobs(s) {
   const n = s.living.length;
   const r = s.raid;
-  const threat = r && r.state === 'coming' && r.warned && defense(s) < r.strength;
+  const threat = r && (r.state === 'coming' || r.state === 'assault') && r.warned && defense(s) < r.strength;
   const food = eatRate(s) + (s.res.food < n ? 2 : 0) - (s.res.food > 3 * n ? 3 : 0);
   const want = {
     hearth: Math.max(1, Math.ceil(food / DAY_ROOMS.hearth.rate)),
@@ -115,6 +124,35 @@ function staff(s) {
   }
 }
 
+// A raid you fight. From the warning: if even the bell and all the pitch it can spare won't hold the gate,
+// bar the stores (and, with AP_TRIBUTE, pay the Host off if the keep can spare it). At the gate: pitch while
+// the Host outweighs the defense, then the bell if pitch isn't enough, and stone if the gate would fall before
+// the Host gives up. After a breach worth chasing, go after them.
+function raidMoves(s) {
+  const r = s.raid;
+  const T = s.tuning;
+  if (!T.raidFight || RAIDPASSIVE || !r) return;
+  const hands = s.living.filter((p) => p.job !== 'barracks' && !p.fighting && !p.walls && !(p.sick > 0)).length;
+  const pitchable = (c) => Math.max(0, Math.floor((c - PITCH_KEEP) / T.raidPitchCost)) * T.raidPitch;
+  if (r.state === 'coming' && r.warned) {
+    const best = defense(s) + (r.ward ? 0 : s.res.essence >= T.wardGateCost ? T.wardGateDefense : 0) + hands * T.raidBellDefense + pitchable(s.res.candles);
+    if (best + EPS < r.strength) {
+      const t = tributeOf(s);
+      if (TRIBUTE && s.res.food >= t.food + eatRate(s) && s.res.candles >= t.candles + PITCH_KEEP) doAct(s, { type: 'payOff' });
+      else if (!r.barred && !NO('BAR')) doAct(s, { type: 'barStores' });
+    }
+  } else if (r.state === 'assault') {
+    while (!NO('PITCH') && r.host > defense(s) + EPS && s.res.candles >= PITCH_KEEP + T.raidPitchCost && doAct(s, { type: 'pitch' }));
+    if (!NO('BELL') && r.host > defense(s) + EPS && !r.bell && hands) doAct(s, { type: 'raidBell' });
+    // Stone only if the gate would give before the Host's time is up.
+    const loss = (T.raidBreak * Math.max(0, r.host - defense(s))) / r.strength;
+    if (!NO('SHORE') && loss > 0 && r.gate / loss < r.left / TICKS_PER_SEC) doAct(s, { type: 'shore' });
+  } else if (r.state === 'breached' && r.loot && !r.pursued) {
+    const guards = s.living.filter((p) => p.job === 'barracks' && !(p.sick > 0)).length;
+    if (guards >= 2 && r.loot.food + r.loot.glass + r.loot.candles >= 6) doAct(s, { type: 'pursue' });
+  }
+}
+
 // The dead by day: whisper each trade someone works, from the shade with the most memory to spare; send a
 // great glass's shades through to whichever room most needs hands. Stop anyone near the end of their memory.
 function deadByDay(s) {
@@ -144,9 +182,9 @@ function deadByDay(s) {
 function dayMoves(s) {
   const b = nextBuild(s);
   if (b && s.res.stone >= s.tuning.roomStone) doAct(s, { type: 'raise', room: b });
-  staff(s);
+  if (s.raid?.state !== 'assault') staff(s); // nobody leaves the walls while the Host is at the gate
   const r = s.raid;
-  if (r && r.state === 'coming' && r.warned && !r.ward && defense(s) < r.strength) doAct(s, { type: 'wardGate' });
+  if (r && (r.state === 'coming' || r.state === 'assault') && r.warned && !r.ward && defense(s) < r.strength) doAct(s, { type: 'wardGate' });
   const { free } = capacity(s);
   // AP_STEP saves its glass for a great glass unless the dead are waiting for room now.
   const saving = STEP && s.tuning.whispers && !s.bodies.length && s.res.glass < MIRRORS.great.glass;
@@ -419,6 +457,7 @@ export function autoStep(s, plan = 'balanced') {
   const way = plan === 'double' ? 'balanced' : plan; // how the dead are treated
   if (s.phase === 'day') {
     if (s.t % 50 === 0 || (s.raid?.warned && s.raid.state === 'coming' && !s.raid.ward)) dayMoves(s);
+    if (s.raid && s.t % 5 === 0) raidMoves(s);
     step(s);
   } else if (s.phase === 'dusk') {
     if (s.dusk.step === 'crypt') {

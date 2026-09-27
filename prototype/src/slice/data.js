@@ -42,6 +42,32 @@ export const TUNING = {
   raidInsideHeld: 0.25,
   wardGateCost: 4,
   wardGateDefense: 4,
+  // Raids you fight (round five). From the warning the Host can be paid off, raidTributeFood food and
+  // raidTributeCandles candles for each point of its strength: that calls the raid off, but the season's next
+  // one comes raidEmbolden times as strong. Or the stores can be barred: nobody works the Hearth, the Chandlery
+  // or the Glazier while the Host is at the gate, and raiders who break in carry off half as much. At raidHitAt the Host
+  // strikes the gate. Each second it's stronger than your defense, the gate gives raidBreak times its excess as
+  // a share of its strength; if the gate still stands after raidAssaultSecs, it falls back. Meanwhile pitch
+  // (raidPitchCost candles) takes raidPitch off its strength, stone (raidShoreCost) shores the gate up by
+  // raidShore, and the bell brings everyone well onto the walls, raidBellDefense each, at the cost of their work
+  // and the chance of falling. If they break in and carry things off, you can go after them for raidRecover of
+  // it, each guard risking raidPursueRisk. raidFight 0 is the raid as it was: one throw at noon.
+  raidFight: 1,
+  raidFightStrength: 1, // a Host you can fight back can be made this much stronger (README, problem 20)
+  raidTributeFood: 1.5,
+  raidTributeCandles: 0.5,
+  raidEmbolden: 1.25,
+  raidAssaultSecs: 15,
+  raidBreak: 1,
+  raidPitch: 1.5,
+  raidPitchCost: 2,
+  raidShore: 0.25,
+  raidShoreCost: 2,
+  raidBellDefense: 0.5,
+  raidBellRisk: 1.5, // the bell's hands are untrained: this much likelier than a guard to fall
+  raidShare: 3, // the Host's blows are shared: with more on the walls than this, each is that much safer
+  raidRecover: 0.5,
+  raidPursueRisk: 0.2,
 
   // The Lantern Church: a first visit on this day, announced the dawn before, then whenever Dread reaches 5.
   firstInspection: 5,

@@ -231,8 +231,9 @@ export function roomPower(s) {
   const out = Object.fromEntries(Object.keys(DAY_ROOMS).map((r) => [r, 0]));
   const by = {};
   const coached = whisperedTrades(s);
-  for (const p of s.living) if (p.job && !p.fighting) (by[p.job] ||= []).push(livingMult(s, p) * (coached.has(p.job) ? s.tuning.whisperMult : 1));
+  for (const p of s.living) if (p.job && !p.fighting && !p.walls) (by[p.job] ||= []).push(livingMult(s, p) * (coached.has(p.job) ? s.tuning.whisperMult : 1));
   for (const d of s.shades) if (stepsThrough(s, d)) (by[d.byDay.room] ||= []).push(perf(d) * s.tuning.stepWork);
+  if (storesBarred(s)) for (const k of BARRED) delete by[k];
   for (const [job, ms] of Object.entries(by)) {
     const free = workCap(s, job);
     const all = jobCap(s, job) - (DAY_ROOMS[job]?.outdoors ? 0 : roomsOf(geo(s), job).filter((r) => isAblaze(s, r.id)).length * s.tuning.roomCap);
@@ -243,8 +244,18 @@ export function roomPower(s) {
 }
 export const defense = (s) => {
   const pw = roomPower(s);
-  return pw.barracks * DAY_ROOMS.barracks.rate + pw.forge * DAY_ROOMS.forge.rate + (s.raid?.ward || 0) + (s.watchBonus || 0);
+  return pw.barracks * DAY_ROOMS.barracks.rate + pw.forge * DAY_ROOMS.forge.rate + (s.raid?.ward || 0) + (s.watchBonus || 0) + onWalls(s).length * s.tuning.raidBellDefense;
 };
+// A raid you fight: those the bell brought onto the walls, whether the stores are barred, and what the Host
+// wants to turn back.
+export const onWalls = (s) => s.living.filter((p) => p.walls);
+const BARRED = ['hearth', 'chandlery', 'glazier'];
+export const storesBarred = (s) => !!s.raid?.barred && s.raid.state === 'assault'; // the doors shut when the Host reaches the gate
+export function tributeOf(s) {
+  const r = s.raid;
+  const T = s.tuning;
+  return r ? { food: Math.ceil(r.strength * T.raidTributeFood), candles: Math.ceil(r.strength * T.raidTributeCandles) } : null;
+}
 // How many can work a job: roomCap in each room of its kind. The Yard is outdoors and holds any number.
 export function jobCap(s, type) {
   if (DAY_ROOMS[type]?.outdoors) return Infinity;
@@ -304,6 +315,7 @@ function dayTick(s) {
   heal(s, (pw.infirmary * DAY_ROOMS.infirmary.rate * len) / D);
   eat(s, D);
   if (s.fires?.length) burn(s);
+  if (s.raid?.state === 'assault') assaultTick(s);
   if (s.phase !== 'day') return;
   for (const p of [...s.living]) {
     if (s.phase !== 'day') return;
@@ -367,7 +379,7 @@ function rollDay(s) {
   s.events = [];
   s.raid = null;
   const base = T.raidDays[s.day];
-  if (base) s.raid = newRaid(s, base * hard(s), Math.round(T.raidWarnAt * D), Math.round(T.raidHitAt * D));
+  if (base) s.raid = newRaid(s, raidStrength(s, base), Math.round(T.raidWarnAt * D), Math.round(T.raidHitAt * D));
   // A broken mirror's bad luck: sickness more likely, from the same one throw of the dice.
   const luck = s.badLuck > 0 ? T.badLuck : 1;
   if (s.badLuck > 0) s.badLuck--;
@@ -382,6 +394,10 @@ function rollDay(s) {
   if (s.inspection && !s.inspection.done && s.inspection.day === s.day) s.events.push({ at: Math.round(T.inspectAt * D), type: 'inspect' });
   s.events.sort((a, b) => a.at - b.at);
 }
+
+// A raid's strength before the spread: the day's, harder each season, stronger for one you paid off before, and
+// for a Host you can fight back if raidFightStrength says so.
+export const raidStrength = (s, base) => base * hard(s) * (s.embolden || 1) * (s.tuning.raidFight ? s.tuning.raidFightStrength : 1);
 
 function newRaid(s, base, warnAt, hitAt) {
   const T = s.tuning;
@@ -411,7 +427,8 @@ function fire(s, e) {
     say(s, `Raiders on the road: ${r.count} of the Ashen Host, strength ${fmt(r.strength)}. Your defense is ${fmt(defense(s))}.`, 'bad', true);
     cue(s, 'horn');
   } else if (e.type === 'raidHit') {
-    resolveRaid(s);
+    if (s.tuning.raidFight) startAssault(s);
+    else resolveRaid(s);
   } else if (e.type === 'fire') {
     ignite(s, e.room);
   } else if (e.type === 'inspect') {
@@ -456,6 +473,70 @@ function resolveRaid(s) {
     held ? 'good' : 'bad',
     true,
   );
+  for (const f of fallen) kill(s, f.p, 'duty', f.how);
+  for (let i = 0; i < raiders; i++) raiderBody(s);
+  if (raiders) say(s, held ? 'One raider fell inside the gatehouse. The body lies in the crypt.' : `${raiders} raider${raiders === 1 ? ' was' : 's were'} cut down inside the walls. The bodies lie in the crypt.`);
+}
+
+// Raids you fight: the Host at the gate. Each second it's stronger than the defense, the gate gives by its
+// excess as a share of its strength; it falls back if the gate still stands when its time is up, or when
+// pitch has burned it all.
+function startAssault(s) {
+  const r = s.raid;
+  if (!r || r.state !== 'coming') return;
+  r.state = 'assault';
+  r.host = r.strength;
+  r.gate = 1;
+  r.left = Math.round(s.tuning.raidAssaultSecs * TICKS_PER_SEC);
+  r.warned = true;
+  const def = defense(s);
+  say(s, `The Host is at the gate: ${r.count} raiders, strength ${fmt(r.strength)}, against your defense of ${fmt(def)}. ${def + EPS >= r.strength ? 'The gate should hold.' : 'The gate is giving.'} Pitch, stone and the bell can turn it.`, 'bad', true);
+  cue(s, 'ram');
+}
+function assaultTick(s) {
+  const r = s.raid;
+  const def = defense(s);
+  r.gate -= ((s.tuning.raidBreak * Math.max(0, r.host - def)) / r.strength) * DT;
+  r.left--;
+  if (r.left % 20 === 0 && r.host > def + EPS) cue(s, 'ram');
+  if (r.gate <= 0) endAssault(s, false);
+  else if (r.host <= EPS || r.left <= 0) endAssault(s, true);
+}
+function endAssault(s, held) {
+  const r = s.raid;
+  const T = s.tuning;
+  const def = defense(s);
+  const ratio = r.host / Math.max(def, 0.5);
+  const fallen = [];
+  // Everyone on the walls stands a chance of falling, the guards and whoever the bell brought, and the more
+  // of them there are, the more the Host's blows are shared.
+  const walls = s.living.filter((p) => p.job === 'barracks' || p.walls);
+  const share = Math.min(1, T.raidShare / Math.max(1, walls.length));
+  for (const g of walls) {
+    const fall = (livingTrait(s, g)?.fall ?? 1) * (g.walls ? T.raidBellRisk : 1) * share;
+    if (chance(s, clamp((held ? T.raidRiskHeld : T.raidRiskBreach) * ratio * fall, 0.02, T.raidRiskMax)) && fall > 0) fallen.push({ p: g, how: g.job === 'barracks' ? 'died holding the gate' : 'died on the walls' });
+  }
+  const raiders = held ? (chance(s, T.raidInsideHeld) ? 1 : 0) : 1 + randInt(s, Math.ceil(r.count / 2));
+  let loot = '';
+  if (!held) {
+    const civ = s.living.filter((p) => p.job !== 'barracks' && !p.walls);
+    if (civ.length) fallen.push({ p: pick(s, civ), how: 'was cut down in the yard' });
+    const barred = r.barred ? 0.5 : 1;
+    const food = Math.floor(s.res.food * T.raidLoot * 0.5 * barred);
+    const kept = (roomsOf(geo(s), 'cellar').length ? 0.5 : 1) * barred;
+    const glass = Math.floor(s.res.glass * T.raidLoot * kept);
+    const candles = Math.floor(s.res.candles * T.raidLoot * kept);
+    s.res.food -= food;
+    s.res.glass -= glass;
+    s.res.candles -= candles;
+    r.loot = { food, glass, candles };
+    loot = ` They carried off ${food} food, ${glass} glass and ${candles} candles${r.barred ? ', half what the barred stores would have given up' : ''}.`;
+  }
+  r.state = held ? 'held' : 'breached';
+  for (const p of s.living) if (p.walls) delete p.walls;
+  s.today.raid = { strength: r.strength, defense: r1(def), held };
+  cue(s, held ? 'held' : 'breached');
+  say(s, held ? `The Host fell back from the gate${r.pitched ? `, burned by ${r.pitched} ${r.pitched === 1 ? 'pour' : 'pours'} of pitch` : ''}.` : `The gate gave way, and the Host broke in.${loot}`, held ? 'good' : 'bad', true);
   for (const f of fallen) kill(s, f.p, 'duty', f.how);
   for (let i = 0; i < raiders; i++) raiderBody(s);
   if (raiders) say(s, held ? 'One raider fell inside the gatehouse. The body lies in the crypt.' : `${raiders} raider${raiders === 1 ? ' was' : 's were'} cut down inside the walls. The bodies lie in the crypt.`);
@@ -659,6 +740,10 @@ function burn(s) {
 }
 
 function endDay(s) {
+  if (s.raid?.state === 'assault') {
+    endAssault(s, s.raid.gate > 0); // the Host falls back at nightfall if the gate still stands
+    if (s.phase === 'over') return;
+  }
   s.phase = 'dusk';
   s.t = 0;
   s.events = [];
@@ -1750,6 +1835,7 @@ function nextSeason(s) {
   s.season++;
   s.day = 0;
   s.inspection = null;
+  s.embolden = 1;
   // Nothing the player does mends the Veil, so cracks don't follow the keep into a new season.
   const mended = s.cracks > 0;
   s.cracks = 0;
@@ -1869,13 +1955,84 @@ const ACTIONS = {
   },
   wardGate(s) {
     const r = s.raid;
-    if (s.phase !== 'day' || !r || r.state !== 'coming' || !r.warned) return 'No raid to ward against.';
+    if (s.phase !== 'day' || !r || !(r.state === 'coming' || r.state === 'assault') || !r.warned) return 'No raid to ward against.';
     if (r.ward) return 'The gate is already warded.';
     if (s.res.essence + EPS < s.tuning.wardGateCost) return `A ward costs ${s.tuning.wardGateCost} essence.`;
     s.res.essence -= s.tuning.wardGateCost;
     r.ward = s.tuning.wardGateDefense;
     say(s, `The gate is warded with essence: defense +${r.ward}.`, 'good');
     cue(s, 'ward');
+  },
+  // Raids you fight. Before the Host arrives: pay it off, or bar the stores. At the gate: pitch, stone and the
+  // bell. After a breach: go after them.
+  payOff(s) {
+    const r = s.raid;
+    if (!s.tuning.raidFight || s.phase !== 'day' || !r || r.state !== 'coming' || !r.warned) return 'There is no raid on the road to pay off.';
+    const { food, candles } = tributeOf(s);
+    if (s.res.food + EPS < food || s.res.candles + EPS < candles) return `They want ${food} food and ${candles} candles to turn back.`;
+    s.res.food -= food;
+    s.res.candles -= candles;
+    r.state = 'paid';
+    r.paid = { food, candles };
+    s.embolden = (s.embolden || 1) * s.tuning.raidEmbolden;
+    s.today.raid = { strength: r.strength, defense: r1(defense(s)), held: false, paid: true };
+    s.events = s.events.filter((e) => e.type !== 'raidHit');
+    say(s, `You pay the Host ${food} food and ${candles} candles, and they turn back. They'll remember: the season's next raid comes harder.`, 'bad', true);
+    cue(s, 'tribute');
+  },
+  barStores(s) {
+    const r = s.raid;
+    if (!s.tuning.raidFight || s.phase !== 'day' || !r || !r.warned || !(r.state === 'coming' || r.state === 'assault')) return 'There is no raid to bar the stores against.';
+    if (r.barred) return 'The stores are already barred.';
+    r.barred = true;
+    say(s, `The stores ${r.state === 'assault' ? 'are' : 'will be'} barred: nobody works the Hearth, the Chandlery or the Glazier while the Host is at the gate, and raiders who break in will carry off half as much.`);
+  },
+  pitch(s) {
+    const r = s.raid;
+    const T = s.tuning;
+    if (s.phase !== 'day' || r?.state !== 'assault') return 'Pitch is for the Host at the gate.';
+    if (s.res.candles + EPS < T.raidPitchCost) return `Pitch takes ${T.raidPitchCost} candles.`;
+    s.res.candles -= T.raidPitchCost;
+    r.host = Math.max(0, r.host - T.raidPitch);
+    r.pitched = (r.pitched || 0) + 1;
+    r.pitchAt = s.t;
+    say(s, `Burning pitch from the walls: the Host's strength falls to ${fmt(r.host)}.`);
+    cue(s, 'pitch');
+  },
+  shore(s) {
+    const r = s.raid;
+    const T = s.tuning;
+    if (s.phase !== 'day' || r?.state !== 'assault') return 'Stone is for the gate while the Host is at it.';
+    if ((s.res.stone || 0) + EPS < T.raidShoreCost) return `Shoring the gate takes ${T.raidShoreCost} stone.`;
+    if (r.gate >= 1 - EPS) return 'The gate is whole.';
+    s.res.stone -= T.raidShoreCost;
+    r.gate = Math.min(1, r.gate + T.raidShore);
+    r.shoreAt = s.t;
+    say(s, `The masons shore up the gate with stone: it's ${Math.round(100 * r.gate)}% whole.`);
+    cue(s, 'build');
+  },
+  raidBell(s) {
+    const r = s.raid;
+    if (s.phase !== 'day' || r?.state !== 'assault') return 'The bell calls everyone to the walls only while the Host is at the gate.';
+    const hands = s.living.filter((p) => p.job !== 'barracks' && !p.fighting && !p.walls && !(p.sick > 0));
+    if (!hands.length) return 'Everyone who can is already on the walls.';
+    for (const p of hands) p.walls = true;
+    r.bell = true;
+    say(s, `The bell rings: ${listNames(hands.map((p) => p.name))} drop their work and run to the walls.`);
+    cue(s, 'bell');
+  },
+  pursue(s) {
+    const r = s.raid;
+    const T = s.tuning;
+    if (s.phase !== 'day' || r?.state !== 'breached' || !r.loot || r.pursued) return 'There is no one to go after.';
+    const guards = s.living.filter((p) => p.job === 'barracks' && !(p.sick > 0));
+    if (!guards.length) return 'There are no guards to send after them.';
+    r.pursued = true;
+    const back = Object.fromEntries(Object.entries(r.loot).map(([k, v]) => [k, Math.floor(v * T.raidRecover)]));
+    for (const [k, v] of Object.entries(back)) s.res[k] += v;
+    const fallen = guards.filter(() => chance(s, T.raidPursueRisk));
+    say(s, `The guards go after the Host and take back ${back.food} food, ${back.glass} glass and ${back.candles} candles.${fallen.length ? ` ${listNames(fallen.map((p) => p.name))} ${fallen.length === 1 ? 'is' : 'are'} brought home dead.` : ''}`, fallen.length ? 'bad' : 'good', true);
+    for (const p of fallen) kill(s, p, 'duty', 'died chasing the raiders');
   },
   // A vigil by day lowers Dread straight away; at dawn, vigils count in the rite's reckoning.
   vigil(s) {
@@ -2115,6 +2272,7 @@ export function upgrade(g) {
   for (const t of [g.tuning, g.tuning0]) if (t && !('dreamwell' in t)) t.dreamwell = 0;
   for (const t of [g.tuning, g.tuning0]) if (t && !('whispers' in t)) t.whispers = 0;
   for (const t of [g.tuning, g.tuning0]) if (t && !('year' in t)) t.year = 0;
+  for (const t of [g.tuning, g.tuning0]) if (t && !('raidFight' in t)) t.raidFight = 0;
   for (const p of g.living || []) p.trait ??= traitFor(g, p.name);
   for (const b of g.bodies || []) if (b.was === undefined) b.was = b.from === 'raider' ? null : traitFor(g, b.name);
   for (const d of g.shades || []) {
