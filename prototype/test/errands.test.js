@@ -53,6 +53,20 @@ test('a lantern takes a candle and carries its light with the shade; set down, i
   assert.equal(k.x, at);
 });
 
+test('a Maw can tear down a lantern carried through the doorway between two rooms', () => {
+  const s = newSeason(3, quiet);
+  emptyNight(s);
+  const d = s.shades.find(canWork);
+  const [a, b] = geo(s).floors[d.f].rooms;
+  ok(s, { type: 'lantern', id: d.id });
+  const k = s.night.candles.find((c) => c.carrier === d.id);
+  d.x = (a[2] + b[1]) / 2; // in the wall between them, as it is halfway through
+  const m = addFoe(s, 'maw', d.f, d.x + 1);
+  Object.assign(m, { target: { kind: 'candle', id: k.id, f: d.f, x: d.x }, path: [], replan: 99 });
+  steps(s, 2);
+  assert.ok(s.log.some((l) => /A Maw is tearing down the lantern in the /.test(l.text)));
+});
+
 test('echoes and relics below the line: the first shade to reach one takes it', () => {
   const s = newSeason(3, { ...quiet, errandFrom: 1 });
   emptyNight(s);
@@ -153,9 +167,14 @@ test('held too long, or at the Deep, a sleepwalker dies in their sleep and wakes
 });
 
 test('errands and lanterns replay exactly; old saves have neither; How to play covers them', () => {
-  const s = newSeason(1);
-  while (!s.days.some((d) => d.night?.errands?.some((e) => e.done === 'taken')) && s.phase !== 'over' && s.phase !== 'end') autoStep(s, 'balanced');
-  assert.ok(s.days.some((d) => d.night?.errands?.some((e) => e.done === 'taken')), 'the autopilot fetched something');
+  // The first seed from 1 where the autopilot fetches something in its first season.
+  const fetched = (x) => x.days.some((d) => d.night?.errands?.some((e) => e.done === 'taken'));
+  let s = null;
+  for (let seed = 1; seed < 30 && !(s && fetched(s)); seed++) {
+    s = newSeason(seed);
+    while (!fetched(s) && s.phase !== 'over' && s.phase !== 'end') autoStep(s, 'balanced');
+  }
+  assert.ok(fetched(s), 'the autopilot fetched something');
   const r = replay(s.seed, s.tuning0, s.actions);
   while ((r.phase === 'day' || r.phase === 'night') && !(r.season === s.season && r.day === s.day && r.phase === s.phase && r.t === s.t)) step(r);
   assert.deepEqual([r.day, r.log.length, r.res.glass, r.shades.map((d) => [d.id, d.memory])], [s.day, s.log.length, s.res.glass, s.shades.map((d) => [d.id, d.memory])]);

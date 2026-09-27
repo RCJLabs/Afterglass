@@ -195,9 +195,9 @@ function bond(a, b, rel) {
   a.bond = { with: b.id, rel };
   b.bond = { with: a.id, rel };
 }
-function freshName(s, list) {
+function freshName(s, list, r = s) {
   const free = list.filter((n) => !s.used.includes(n));
-  const name = free.length ? pick(s, free) : `${pick(s, list)} ${s.nextId}`;
+  const name = free.length ? pick(r, free) : `${pick(r, list)} ${s.nextId}`;
   s.used.push(name);
   return name;
 }
@@ -369,8 +369,10 @@ export function nextSlot(s) {
 }
 // Every bare hall in the keep, top floor first: where a room can be built besides a new floor on top.
 export const bareHalls = (s) => (s.keep || FULL_KEEP).floors.flatMap((fl, f) => fl.map((r, slot) => ({ ...r, f, slot })).filter((r) => r.type === 'empty'));
+// What a room costs where it goes: a new floor takes floorStone more than a bare hall.
+export const raiseCost = (s, spot) => s.tuning.roomStone + (spot?.newFloor ? s.tuning.floorStone || 0 : 0);
 // Where a room built at `at` goes: a bare hall's id, 'top' for a new floor, or nothing for the default.
-function buildSpot(s, at) {
+export function buildSpot(s, at) {
   const keep = s.keep || FULL_KEEP;
   if (!at) return nextSlot(s);
   if (at === 'top') return keep.floors.length >= MAX_FLOORS ? null : { newFloor: true, f: 0, slot: 0 };
@@ -523,8 +525,18 @@ function rollDay(s) {
   s.events.sort((a, b) => a.at - b.at);
 }
 
+// A random stream of a feature's own, from the seed, the season, the day and a tag: a feature rolled from one
+// (the weather, the Drowned, errands, omens, generations) leaves every other roll where it was, on or off.
+// ownStreams 0, a keep from before the weather and generations had theirs, rolls those from its own.
+const ownStream = (s, tag) => (s.tuning.ownStreams ? sideStream(s, tag) : s);
+function sideStream(s, tag) {
+  let h = (2166136261 ^ s.seed) >>> 0;
+  for (const v of [s.season, s.day, tag]) h = Math.imul(h ^ v, 16777619);
+  return { rng: h >>> 0 };
+}
+
 // Today's weather is yesterday's forecast (a keep's first day is clear), and tomorrow's is rolled now, with
-// tomorrow's season's odds. The tutorial's days are clear.
+// tomorrow's season's odds, from the weather's own stream. The tutorial's days are clear.
 function rollWeather(s) {
   const T = s.tuning;
   s.weather = s.forecast || 'clear';
@@ -533,7 +545,7 @@ function rollWeather(s) {
     return;
   }
   const si = T.year ? (seasonIndex(s) + (s.day >= T.seasonDays ? 1 : 0)) % SEASONS.length : 0;
-  const r = rand(s);
+  const r = rand(ownStream(s, 0x3a7));
   s.forecast = r < T.rainChance[si] ? 'rain' : r < T.rainChance[si] + T.fogChance[si] ? 'fog' : 'clear';
 }
 // What the day's weather means, said at its dawn; and a warning a day ahead of rain.
@@ -1168,8 +1180,9 @@ function newNight(s) {
   // A rainy night: the Drowned come up out of the moat's twin at any hour, all at one end of it (the
   // spawn's rift is its end of the moat). Not on the new moon, which belongs to the Hollow, as for the Maws.
   if (raining(s) && drownedDue(s)) {
-    const end = pick(s, MAP.moat).id;
-    for (let i = 0; i < drownedCount(s); i++) spawns.push({ at: Math.round((0.08 + 0.8 * rand(s)) * N), type: 'drowned', seep: false, snuff: false, rift: end });
+    const r = ownStream(s, 0xd20);
+    const end = pick(r, MAP.moat).id;
+    for (let i = 0; i < drownedCount(s); i++) spawns.push({ at: Math.round((0.08 + 0.8 * rand(r)) * N), type: 'drowned', seep: false, snuff: false, rift: end });
   }
   spawns.sort((a, b) => a.at - b.at);
   const night = {
@@ -1190,9 +1203,7 @@ function newNight(s) {
 // choosing between two needs nothing new from the stream.
 function rollOmens(s, N, n) {
   const T = s.tuning;
-  let h = (2166136261 ^ s.seed) >>> 0;
-  for (const v of [s.season, s.day, 0x0e1]) h = Math.imul(h ^ v, 16777619);
-  const r = { rng: h >>> 0 };
+  const r = sideStream(s, 0x0e1);
   if (!chance(r, T.omenChance)) return [];
   const can = Object.keys(OMENS).filter((id) => (T.omenOnly ? id === T.omenOnly : true) && (id !== 'hunt' || s.day >= T.mawFrom));
   if (!can.length) return [];
@@ -1275,6 +1286,14 @@ export function nightMarks(s) {
 export const SKIP_LEAD = 2 * TICKS_PER_SEC;
 export const nextMark = (s) => (s.phase === 'night' && s.night?.marks?.find((m) => m.at - SKIP_LEAD > s.t)) || null;
 
+// The twin room at a place, or the nearest one on its floor: a lantern carried through the doorway between
+// two rooms is in neither.
+function twinAt(G, f, x) {
+  const rooms = G.floors[f]?.rooms || [];
+  const id = roomAt(G, f, x) || rooms.reduce((a, r) => (!a || Math.abs((r[1] + r[2]) / 2 - x) < Math.abs((a[1] + a[2]) / 2 - x) ? r : a), null)?.[0];
+  return TWINS[typeOf(G, id)] || TWINS.hearth;
+}
+
 // Errands (round six): what turns up in the dark rooms below the line tonight, from night errandFrom, and a
 // sleepwalker from night sleepFrom on some nights. Rolled with the night at dusk, so the black mirror shows
 // them, from their own stream (the seed and the night) and with ids of their own, so a seed brings the same
@@ -1282,9 +1301,7 @@ export const nextMark = (s) => (s.phase === 'night' && s.night?.marks?.find((m) 
 function rollErrands(s, N) {
   const T = s.tuning;
   const G = geo(s);
-  let h = (2166136261 ^ s.seed) >>> 0;
-  for (const v of [s.season, s.day, 0xe44]) h = Math.imul(h ^ v, 16777619);
-  const r = { rng: h >>> 0 };
+  const r = sideStream(s, 0xe44);
   const out = [];
   const eid = () => `e${s.season}.${s.day}.${out.length}`;
   const below = G.floors.flatMap((fl, f) => (f < G.veil - 1 ? fl.rooms.map(([id]) => ({ f, id })) : []));
@@ -1485,10 +1502,10 @@ function errandTick(s, L) {
     e.by = d.name;
     if (e.kind === 'echo') {
       d.memory = Math.min(100, Math.round((d.memory + T.echoMemory) * 100) / 100);
-      say(s, `${d.name} finds an echo in the ${TWINS[typeAt(G, e.f, e.x)].name}, a memory come loose, and takes it in: +${fmt(T.echoMemory)} memory.`, 'good', true);
+      say(s, `${d.name} finds an echo in the ${twinAt(G, e.f, e.x).name}, a memory come loose, and takes it in: +${fmt(T.echoMemory)} memory.`, 'good', true);
     } else {
       gain(s, 'glass', T.relicGlass);
-      say(s, `${d.name} brings back a relic from the dark of the ${TWINS[typeAt(G, e.f, e.x)].name}: ${fmt(T.relicGlass)} glass.`, 'good', true);
+      say(s, `${d.name} brings back a relic from the dark of the ${twinAt(G, e.f, e.x).name}: ${fmt(T.relicGlass)} glass.`, 'good', true);
     }
     cue(s, 'good', e.f, e.x);
   }
@@ -1536,7 +1553,7 @@ function spawnFoes(s, L) {
     if (sp.type === 'weeper') {
       const spots = weeperSpots(s, L);
       if (spots.length) at = pick(s, spots);
-      say(s, `A Weeper rises for the day's dead${at ? ` in the ${TWINS[typeAt(geo(s), at.f, at.x)].name}` : ''}. In the dark there it gives the sleepers nightmares.`, 'bad', true);
+      say(s, `A Weeper rises for the day's dead${at ? ` in the ${twinAt(geo(s), at.f, at.x).name}` : ''}. In the dark there it gives the sleepers nightmares.`, 'bad', true);
       cue(s, 'weep', at?.f, at?.x);
     }
     // Wards can't hold the new moon or a Maw: they break up through their rift whatever seals it.
@@ -1896,7 +1913,7 @@ function weeperTick(s, L, c) {
     if (c.wept >= T.nightmareSecs) {
       n.nightmares = (n.nightmares || 0) + 1;
       n.foes.splice(n.foes.indexOf(c), 1);
-      say(s, `A Weeper has wept its fill in the ${TWINS[typeAt(geo(s), c.f, c.x)].name} and sinks away. Someone asleep above will wake from a nightmare.`, 'bad');
+      say(s, `A Weeper has wept its fill in the ${twinAt(geo(s), c.f, c.x).name} and sinks away. Someone asleep above will wake from a nightmare.`, 'bad');
       cue(s, 'nightmare', c.f, c.x);
     }
     return;
@@ -2025,8 +2042,8 @@ function mawTick(s, L, m) {
     if (k && Math.abs(k.x - m.x) <= 2) {
       if (!m.smashing) {
         m.smashing = true;
-        keepMoment(s, 'smash', k, `A Maw is tearing down the candle in the ${TWINS[typeAt(G, k.f, k.x)].name}.`);
-        say(s, `A Maw is tearing down the candle in the ${TWINS[typeAt(G, k.f, k.x)].name}.`, 'bad', true);
+        keepMoment(s, 'smash', k, `A Maw is tearing down the ${k.carrier ? 'lantern' : 'candle'} in the ${twinAt(G, k.f, k.x).name}.`);
+        say(s, `A Maw is tearing down the ${k.carrier ? 'lantern' : 'candle'} in the ${twinAt(G, k.f, k.x).name}.`, 'bad', true);
         cue(s, 'smash', k.f, k.x);
       }
       if (!L.stood?.has(k.id)) k.wax -= T.mawSmash * DT;
@@ -2101,7 +2118,7 @@ function hollowTick(s, L, h) {
 
 function cross(s, c, m, cracks) {
   const n = s.night;
-  const where = TWINS[typeAt(geo(s), geo(s).veil, m.x)].name;
+  const where = twinAt(geo(s), geo(s).veil, m.x).name;
   const who = c.type === 'drowned' ? 'One of the Drowned' : 'A Creeper';
   if (!veilKept(s) && s.cracks + cracks >= s.tuning.cracksMax) keepMoment(s, 'broke', { f: c.f, x: m.x }, `${c.type === 'hollow' ? 'The Hollow' : who} broke the Veil at the mirror in the ${where}.`);
   else keepMoment(s, c.type === 'hollow' ? 'torn' : 'crack', { f: c.f, x: m.x }, c.type === 'hollow' ? `The Hollow reached the mirror in the ${where}.` : `${who} slipped through the Veil at the mirror in the ${where}.`);
@@ -2720,10 +2737,12 @@ function nextSeason(s) {
 }
 
 // Generations (round five), from the second year: each spring the living age and the unwed pair off, and
-// each season spouses may have a child.
+// each season spouses may have a child. From their own stream, so a keep's raids and Unlit are the same with
+// them or without until someone is born or grows old.
 function generations(s) {
   const T = s.tuning;
   if (!T.generations || !T.year || yearOf(s) < 2) return;
+  const r = ownStream(s, 0x9e7);
   const news = [];
   if (seasonIndex(s) === 0) {
     for (const p of s.living) {
@@ -2733,7 +2752,7 @@ function generations(s) {
       } else if (p.age === 'young') {
         p.age = 'adult';
         news.push(`${p.name} is grown`);
-      } else if (p.age === 'adult' && chance(s, T.oldChance)) {
+      } else if (p.age === 'adult' && chance(r, T.oldChance)) {
         p.age = 'old';
         news.push(`${p.name} grows old`);
       }
@@ -2741,7 +2760,7 @@ function generations(s) {
     // The unwed pair off, the young and the grown alike, in the order they came to the keep.
     const free = s.living.filter((p) => !p.bond && (p.age === 'young' || p.age === 'adult'));
     for (let i = 0; i + 1 < free.length; i += 2) {
-      if (!chance(s, T.pairChance)) continue;
+      if (!chance(r, T.pairChance)) continue;
       const [a, b] = [free[i], free[i + 1]];
       a.bond = { with: b.id, rel: 'spouse' };
       b.bond = { with: a.id, rel: 'spouse' };
@@ -2755,8 +2774,8 @@ function generations(s) {
     if (!q || seen.has(p.id) || p.age === 'old' || q.age === 'old' || p.age === 'child' || q.age === 'child') continue;
     seen.add(p.id);
     seen.add(q.id);
-    if (s.living.length >= T.maxLiving || !chance(s, T.birthChance)) continue;
-    const c = newPerson(s, freshName(s, NAMES), 'child', null);
+    if (s.living.length >= T.maxLiving || !chance(r, T.birthChance)) continue;
+    const c = newPerson(s, freshName(s, NAMES, r), 'child', null);
     Object.assign(c, { bond: { with: p.id, rel: 'parent' }, born: true, joined: { season: s.season, day: 1 } });
     s.living.push(c);
     news.push(`${p.name} and ${q.name} have a child, ${c.name}`);
@@ -2825,8 +2844,9 @@ const ACTIONS = {
     const T = s.tuning;
     const at = buildSpot(s, where);
     if (!at) return where && where !== 'top' ? 'There is no bare hall there.' : 'The keep can rise no higher.';
-    if ((s.res.stone || 0) + EPS < T.roomStone) return `A room takes ${T.roomStone} stone.`;
-    s.res.stone -= T.roomStone;
+    const cost = raiseCost(s, at);
+    if ((s.res.stone || 0) + EPS < cost) return at.newFloor && cost > T.roomStone ? `A room on a new floor takes ${fmt(cost)} stone.` : `A room takes ${fmt(cost)} stone.`;
+    s.res.stone -= cost;
     const keep = s.keep || FULL_KEEP;
     const ids = new Set(keep.floors.flat().map((r) => r.id));
     const idFor = (type) => {
@@ -3516,6 +3536,7 @@ export function upgrade(g) {
   for (const t of [g.tuning, g.tuning0]) if (t && !('lanterns' in t)) t.lanterns = 0;
   for (const t of [g.tuning, g.tuning0]) if (t && !('errands' in t)) t.errands = 0;
   for (const t of [g.tuning, g.tuning0]) if (t && !('omens' in t)) t.omens = 0;
+  for (const t of [g.tuning, g.tuning0]) if (t && !('ownStreams' in t)) t.ownStreams = 0;
   for (const p of g.living || []) p.trait ??= traitFor(g, p.name);
   for (const b of g.bodies || []) if (b.was === undefined) b.was = b.from === 'raider' ? null : traitFor(g, b.name);
   for (const d of g.shades || []) {

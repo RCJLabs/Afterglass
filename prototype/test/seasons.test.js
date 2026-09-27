@@ -8,16 +8,19 @@ const ok = (s, a) => {
   const r = act(s, a);
   assert.ok(r.ok, `${a.type}: ${r.error}`);
 };
-// A keep played by the autopilot to the start of the given season and day (without omens, whose nights would
-// change which keeps get that far).
-function reach(seed, season, day, tuning = {}) {
-  const s = newSeason(seed, { omens: 0, ...tuning });
-  for (let i = 0; i < 2e6 && !(s.season === season && s.day === day && s.phase === 'day') && s.phase !== 'over'; i++) {
-    if (s.phase === 'end') ok(s, { type: 'nextSeason' });
-    else autoStep(s);
+// A keep played by the autopilot to the start of the given season and day: the first seed from `seed` whose
+// keep gets that far (and, given `pred`, is as the test needs it there). Without omens, whose nights would
+// change which keeps get that far.
+function reach(seed, season, day, tuning = {}, pred = () => true) {
+  for (let k = seed; k < seed + 40; k++) {
+    const s = newSeason(k, { omens: 0, ...tuning });
+    for (let i = 0; i < 2e6 && !(s.season === season && s.day === day && s.phase === 'day') && s.phase !== 'over'; i++) {
+      if (s.phase === 'end') ok(s, { type: 'nextSeason' });
+      else autoStep(s);
+    }
+    if (s.season === season && s.day === day && pred(s)) return s;
   }
-  assert.ok(s.season === season && s.day === day, `reached season ${s.season} day ${s.day} (${s.phase})`);
-  return s;
+  assert.fail(`no seed from ${seed} reached season ${season} day ${day} as needed`);
 }
 
 test("summer's plague: sickness in a crowded keep takes one more for every two beyond the beds", () => {
@@ -43,7 +46,7 @@ test("summer's plague: sickness in a crowded keep takes one more for every two b
 });
 
 test("autumn's siege: the morning after its day-2 raid the Host camps; the Yard stops, no one new comes, the camp comes at the gate", () => {
-  const s = reach(1, 3, 3);
+  const s = reach(1, 3, 3, {}, besieged);
   assert.ok(besieged(s), 'the camp stands');
   assert.equal(s.siege.until, 4);
   assert.ok(s.log.some((l) => l.season === 3 && l.day === 3 && /has made camp outside the walls/.test(l.text)));
@@ -61,7 +64,7 @@ test("autumn's siege: the morning after its day-2 raid the Host camps; the Yard 
 });
 
 test('a sally that wins breaks the camp and calls off its assault; one that loses leaves it; each guard risks the chase', () => {
-  const won = reach(3, 3, 3, { sallyOdds: 0.01, raidPursueRisk: 0 });
+  const won = reach(3, 3, 3, { sallyOdds: 0.01, raidPursueRisk: 0 }, besieged);
   assert.ok(besieged(won));
   assert.equal(sallyOdds(won), 0.9);
   // Force the win: odds 0.9 still leaves a roll, so try until it takes, from the same state each time.
@@ -79,7 +82,7 @@ test('a sally that wins breaks the camp and calls off its assault; one that lose
   assert.match(g.log.at(-1).text, /break the camp/);
   assert.match(act(g, { type: 'sally' }).error, /no camp/);
   // Certain loss: the camp stays.
-  const lost = reach(3, 3, 3, { sallyOdds: 1000, raidPursueRisk: 1 });
+  const lost = reach(3, 3, 3, { sallyOdds: 1000, raidPursueRisk: 1 }, besieged);
   if (!lost.living.some((p) => p.job === 'barracks')) ok(lost, { type: 'assign', id: lost.living[0].id, room: 'barracks' });
   const guards = lost.living.filter((p) => p.job === 'barracks').map((p) => p.name);
   assert.equal(sallyOdds(lost), 0.1);
@@ -104,7 +107,7 @@ test('a paid-off day-2 raid brings no siege; older saves have neither trouble; a
   const u = upgrade(old);
   assert.equal(u.tuning.plague, 0);
   assert.equal(u.tuning.siege, 0);
-  const w = reach(1, 3, 4);
+  const w = reach(1, 3, 4, {}, (x) => !!x.siege);
   const r = replay(w.seed, w.tuning0, w.actions);
   while (r.season < w.season || r.day < w.day || r.t < w.t) {
     if (r.phase === 'end') break;

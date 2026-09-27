@@ -1,7 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { newSeason, act, step, replay, bareHalls, tainPlace, jobCap, nextSlot } from '../src/slice/sim.js';
+import { newSeason, act, step, replay, bareHalls, tainPlace, jobCap, nextSlot, raiseCost, buildSpot } from '../src/slice/sim.js';
 import { geo, roomsOf } from '../src/slice/geo.js';
+import { howTo } from '../src/slice/howto.js';
+import { TUNING } from '../src/slice/data.js';
 
 const ok = (s, a) => {
   const r = act(s, a);
@@ -32,6 +34,23 @@ test('building goes on top by default, or into any bare hall, or on a new floor 
   assert.match(act(s, { type: 'raise', room: 'granary', at: 'crypt' }).error, /no bare hall there/);
   // With no choice, the next room still takes the top floor's hall.
   assert.equal(nextSlot(s).id, bareHalls(s)[0].id);
+});
+
+test("a new floor costs floorStone more than a bare hall, nothing by default; How to play says the line's floor is the Chapel's", () => {
+  const s = keep();
+  assert.equal(TUNING.floorStone, 0);
+  assert.equal(raiseCost(s, buildSpot(s, 'top')), TUNING.roomStone);
+  const t = newSeason(3, { floorStone: 3 });
+  ok(t, { type: 'debug', what: 'give', res: 'stone', n: 30 });
+  const stone = t.res.stone;
+  ok(t, { type: 'raise', room: 'barracks', at: 'top' });
+  assert.equal(t.res.stone, stone - TUNING.roomStone - 3);
+  ok(t, { type: 'raise', room: 'chapel', at: bareHalls(t)[0].id });
+  assert.equal(t.res.stone, stone - 2 * TUNING.roomStone - 3);
+  t.res.stone = TUNING.roomStone;
+  assert.match(act(t, { type: 'raise', room: 'glazier', at: 'top' }).error, /A room on a new floor takes 9 stone/);
+  const all = howTo(TUNING).flatMap((x) => x.items).join(' ');
+  assert.match(all, /the place for a Chapel: they sing in its Choir/);
 });
 
 test('tearing down leaves a bare hall, gives half the stone back and sends the overflow to the Yard; the Crypt and the last Hearth stay', () => {

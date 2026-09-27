@@ -15,7 +15,7 @@ Round five's queue is built, and so are the two follow-ups after it: the Lantern
 | 3 | Omens: each night its own shape, and a clock to read it by | The nights | M | Built: six omens, some dusks a choice of two, and a tide clock with Skip. As they come they cost no plan anything measurable; choosing is worth about 18 whole years in 200 to Double and nothing measurable to the balanced plan. The clear sky and the Deep breathes aren't built ([problem 35](../../../prototype/README.md)) |
 | 4 | The playtest kit, with the replay viewer | Enhancement | M–L | Queued, 5th |
 | 5 | Onto Google Play | Shipping | M, plus your steps | Queued, when you've settled the domain |
-| 6 | A balance pass on what measured weak | Enhancement | M | Queued, 4th. Add to it: none of items 1–3 made reacting beat standing still for the autopilot |
+| 6 | A balance pass on what measured weak | Enhancement | M | Built: the autopilot's moves at night were costing it, shades caught in the dark or candles spent on lanterns; moving only along a lit floor, it comes level with Double over 400 seeds, but the moves themselves add nothing measurable, so reacting still doesn't beat standing still. A tall keep's trap was a Chapel below the line; with the Chapel on the line's floor, building tall is the strongest build measured (a design call). Hard grows ×1.2 a year. The weather, generations, fog and hiding from a crusade were measured keep by keep and left as they are ([problem 36](../../../prototype/README.md)) |
 | 7 | Visitors at the gate: the day's choices | New | M–L | Queued, 6th |
 | 8 | The Library, the Hall and the Gatehouse | New | L | Queued, 7th |
 | 9 | The eclipse | New | L | Queued, 8th |

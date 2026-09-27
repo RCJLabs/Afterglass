@@ -182,6 +182,7 @@ export const TUNING = {
   startFloors: 1,
   startStone: 8,
   roomStone: 6,
+  floorStone: 0, // a new floor on top costs this much more than a bare hall: its walls and its stair
   roomCap: 3,
   teardownBack: 0.5,
   moveStone: 2,
@@ -301,6 +302,10 @@ export const TUNING = {
   // toward the moat; if it gets there it's pulled under and gone. A ward on the moat keeps them under.
   // weather 0 is every day clear.
   weather: 1,
+  // The weather, the Drowned and generations roll from streams of their own (round six's balance pass), so a
+  // keep with them and without meets the same raids and Unlit until they change something. 0 rolls them from
+  // the keep's own stream, as a keep made before did, so its export still replays.
+  ownStreams: 1,
   rainChance: [0.3, 0.15, 0.3, 0.05],
   fogChance: [0.1, 0.05, 0.25, 0.3],
   rainYard: 0.75,
@@ -421,8 +426,8 @@ export const PRESETS = {
   standard: { name: 'Standard', text: 'The rules as they ship, and as the README measures them.', tuning: {} },
   hard: {
     name: 'Hard',
-    text: 'Four cracks break the Veil. More Creepers, stronger raids and fewer candles to start: harder from the first night, and growing from there as Standard does.',
-    tuning: { cracksMax: 4, creepersPerNight: 2.6, raidFightStrength: 1.15, startCandles: 6, hardness: 1.2, yearHardness: 1.3 },
+    text: 'Four cracks break the Veil. More Creepers, stronger raids and fewer candles to start: harder from the first night, growing through a year as Standard does, and a little less from one year to the next.',
+    tuning: { cracksMax: 4, creepersPerNight: 2.6, raidFightStrength: 1.15, startCandles: 6, hardness: 1.2, yearHardness: 1.2 },
   },
 };
 

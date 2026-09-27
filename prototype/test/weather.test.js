@@ -10,7 +10,7 @@ import { geo, roomsOf } from '../src/slice/geo.js';
 import { MAP, TUNING } from '../src/slice/data.js';
 
 // The original four-floor keep, nothing by day to get in the way.
-const quiet = { startFloors: 4, sickChance: 0, oldAgeChance: 0, raidDays: { 2: 0, 4: 0, 6: 0 }, fire: 0, dreamwell: 0, errands: 0 };
+const quiet = { startFloors: 4, sickChance: 0, oldAgeChance: 0, raidDays: { 2: 0, 4: 0, 6: 0 }, fire: 0, dreamwell: 0, errands: 0, startFood: 99999 };
 const ok = (s, a) => {
   const r = act(s, a);
   assert.ok(r.ok, `${a.type}: ${r.error}`);
@@ -247,6 +247,24 @@ test('the black mirror shows how many of the Drowned come, when, from which end 
   assert.ok(th.drowned.warded && !th.drowned.way);
   s.weather = 'fog';
   assert.equal(threats(s).fog, true);
+});
+
+test("the weather is rolled from its own stream: rain, clear or none, a keep draws the same raids and Unlit (not a keep from before)", () => {
+  const none = [0, 0, 0, 0];
+  const wet = newSeason(4, { ...quiet, rainChance: [1, 1, 1, 1], fogChance: none });
+  const dry = newSeason(4, { ...quiet, rainChance: none, fogChance: none });
+  const off = newSeason(4, { ...quiet, weather: 0 });
+  assert.deepEqual([forecastOf(wet), forecastOf(dry), forecastOf(off)], ['rain', 'clear', null]);
+  for (const s of [wet, dry, off]) while (s.phase === 'day') step(s);
+  assert.equal(wet.rng, dry.rng);
+  assert.equal(wet.rng, off.rng);
+  // A keep from before rolls it from its own stream, as it did then, so its export still replays.
+  const was = JSON.parse(JSON.stringify(newSeason(4, quiet)));
+  for (const t of [was.tuning, was.tuning0]) delete t.ownStreams;
+  assert.equal(upgrade(was).tuning.ownStreams, 0);
+  const [on0, off0] = [1, 0].map((weather) => newSeason(4, { ...quiet, ownStreams: 0, weather }));
+  for (const s of [on0, off0]) while (s.phase === 'day') step(s);
+  assert.notEqual(on0.rng, off0.rng);
 });
 
 test('a keep with weather replays exactly; an old save plays on without it; How to play covers it', () => {

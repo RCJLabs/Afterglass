@@ -2135,11 +2135,18 @@ function buildHTML() {
   if (!places.includes(ui.buildAt)) ui.buildAt = def ? (def.newFloor ? 'top' : def.id) : null;
   const floorNo = (f) => `floor ${G.n - f}${f === 0 ? ', the top' : f === G.veil ? ', the ground' : ''}`;
   const beside = (h) => G.floors[h.f].rooms.find(([id]) => id !== h.id);
+  // What a place means by night: the line's floor is worked by the shades holding the line, as they hold it;
+  // below the line the tides climb through, so a shade working there needs a candle of its own and risks
+  // being caught; and each floor raised on top makes the Unlit's climb longer.
+  const means = (G2, f) => (G2.n > 1 && f === G2.veil - 1 ? ' The shades holding the line work its rooms as they hold it: the place for a Chapel, whose Choir they sing in.' : G2.n > 1 && f < G2.veil - 1 ? ' The tides climb through it: a shade working it by night needs a candle of its own, and can be caught.' : '');
   const place = (id) => {
-    if (id === 'top') return ['On top, a new floor', `By night, ${tainPlace({ ...G, n: G.n + 1, veil: G.n }, 0)}.`];
+    if (id === 'top') {
+      const G2 = { ...G, n: G.n + 1, veil: G.n };
+      return ['On top, a new floor', `By night, ${tainPlace(G2, 0)}.${means(G2, 0)} Each floor raised makes the Unlit climb farther.`];
+    }
     const h = halls.find((x) => x.id === id);
     const b = beside(h);
-    return [`The bare hall on ${floorNo(h.f)}${b && b[3] !== 'empty' ? `, beside the ${DAY_ROOMS[b[3]].name}` : ''}`, `By night, ${tainPlace(G, h.f)}.`];
+    return [`The bare hall on ${floorNo(h.f)}${b && b[3] !== 'empty' ? `, beside the ${DAY_ROOMS[b[3]].name}` : ''}`, `By night, ${tainPlace(G, h.f)}.${means(G, h.f)}`];
   };
   const radios = places
     .map((id) => {

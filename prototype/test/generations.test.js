@@ -45,6 +45,29 @@ test('nothing changes through the first year; the second spring, the living age 
   assert.ok(s.log.some((l) => l.season === 5 && /grows old/.test(l.text)));
 });
 
+test("generations roll from their own stream: the second spring's ageing draws nothing from the keep's", () => {
+  // The end of the first year, then the dawn of the second, when the living age and pair off.
+  const yearEnd = (tuning) => {
+    const s = newSeason(3, { ...quiet, ...tuning });
+    toSeason(s, 4);
+    for (;;) {
+      while (s.phase === 'day') step(s);
+      if (s.dusk.step === 'crypt') ok(s, { type: 'wake' });
+      ok(s, { type: 'startNight' });
+      s.night.spawns = [];
+      while (s.phase === 'night') step(s);
+      if (s.phase === 'end') break;
+      ok(s, { type: 'beginDay' });
+    }
+    ok(s, { type: 'nextSeason' });
+    return s;
+  };
+  const on = yearEnd({ oldChance: 0.5, pairChance: 0.5 });
+  const off = yearEnd({ generations: 0 });
+  assert.notDeepEqual(ages(on), ages(off));
+  assert.equal(on.rng, off.rng);
+});
+
 test('a couple has a child; children do no work and answer no bell, and come of age the next spring', () => {
   const s = newSeason(3, { ...quiet, oldChance: 0, pairChance: 0, birthChance: 1 });
   toSeason(s, 5);

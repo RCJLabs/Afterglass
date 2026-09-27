@@ -7,9 +7,10 @@
 //            line and never moves anyone: the static answer the Maws are meant to break
 //   idle     works the day but leaves the night alone: no candles, no posts (a baseline)
 // All but double and idle react at night: a second fighter to each stair of the line for each tide, a ward
-// on the line for the biggest tides when the essence is there, and a fighter to meet a Maw.
+// on the line for the biggest tides when the essence is there, and a fighter to meet a Maw. They move a
+// shade only along a lit floor; where its way is dark it stays.
 
-import { step, act, newSeason, ritePreview, crossingPreview, capacity, canWork, defense, funeralCap, choicesFor, jobCap, jobCount, eatRate, wardCost, livingTrait, shadeTrait, peopleIn, crowded, tradeOf, inGreatGlass, handsAt, seasonIndex, tributeOf, besieged, sallyOdds, embargoed, inquisition, crusadeDaysLeft, canAct, actOf, actCost } from './sim.js';
+import { bareHalls, buildSpot, raiseCost, step, act, newSeason, ritePreview, crossingPreview, capacity, canWork, defense, funeralCap, choicesFor, jobCap, jobCount, eatRate, wardCost, livingTrait, shadeTrait, peopleIn, crowded, tradeOf, inGreatGlass, handsAt, seasonIndex, tributeOf, besieged, sallyOdds, embargoed, inquisition, crusadeDaysLeft, canAct, actOf, actCost } from './sim.js';
 import { DAY_ROOMS, MIRRORS, KINDS, MAP, TICKS_PER_SEC } from './data.js';
 import { geo, roomSpan, roomAt, roomsOf, lineSpots, lightMap, isLit } from './geo.js';
 
@@ -28,6 +29,17 @@ const ACTSONLY = globalThis.process?.env?.AP_ACTSONLY?.split(',') || null;
 const NOERRANDS = !!globalThis.process?.env?.AP_NOERRANDS;
 const LANTERNS = !!globalThis.process?.env?.AP_LANTERNS;
 const NOFREESLEEPER = !!globalThis.process?.env?.AP_NOFREESLEEPER; // no candle to wake a sleepwalker
+// AP_RECKLESS=1 sends shades across the dark at night as the autopilot first did, without a lit way or a
+// lantern (to measure what moving carefully is worth). AP_LANTERNMOVE=1 lights a lantern for a move where
+// the way is dark, if the store can spare a candle (4 or more), rather than staying (to measure what that
+// costs). AP_NOMOVE=1 never moves a shade at night to meet a Maw or a tide (to measure what the moves are
+// worth).
+const RECKLESS = !!globalThis.process?.env?.AP_RECKLESS;
+const LANTERNMOVE = !!globalThis.process?.env?.AP_LANTERNMOVE;
+const NOMOVE = !!globalThis.process?.env?.AP_NOMOVE;
+// AP_HYBRID=1 gives every plan Double's second fighter at each stair on Maw nights, reactions and all (to
+// measure what reacting adds to a static line as good as Double's).
+const HYBRID = !!globalThis.process?.env?.AP_HYBRID;
 // AP_OMENPICK=first takes the first of two omens, =worst the one that costs most (to measure what choosing is
 // worth).
 const OMENPICK = globalThis.process?.env?.AP_OMENPICK || null;
@@ -78,6 +90,9 @@ const NOQUARTERS = !!globalThis.process?.env?.AP_NOQUARTERS;
 // AP_TALL=1 starts a new floor with every room, never filling a bare hall: the tallest keep its rooms can
 // make (to measure whether a taller Tain makes the night easier).
 const TALL = !!globalThis.process?.env?.AP_TALL;
+// AP_TALL=line builds tall but puts the Chapel in the line's floor's bare hall, where the shades holding the
+// line sing in the Choir as they hold it.
+const TALLLINE = globalThis.process?.env?.AP_TALL === 'line';
 // Autumn's siege: the autopilot sallies out when the odds are SALLY_AT or better with two guards or more.
 // AP_NOSALLY=1 waits the siege out (to measure whether sallying pays).
 const SALLY_AT = 0.6;
@@ -229,7 +244,9 @@ function deadByDay(s) {
 
 function dayMoves(s) {
   const b = nextBuild(s);
-  if (b && s.res.stone >= s.tuning.roomStone) doAct(s, { type: 'raise', room: b, ...(TALL ? { at: 'top' } : {}) });
+  const lineHall = TALLLINE && b === 'chapel' && bareHalls(s).find((h) => h.f === geo(s).veil - 1);
+  const at = TALL ? (lineHall ? lineHall.id : 'top') : undefined;
+  if (b && s.res.stone >= raiseCost(s, buildSpot(s, at))) doAct(s, { type: 'raise', room: b, ...(at ? { at } : {}) });
   if (s.raid?.state !== 'assault') staff(s); // nobody leaves the walls while the Host is at the gate
   if (!NOSALLY && besieged(s) && s.raid?.state !== 'assault' && sallyOdds(s) >= SALLY_AT && s.living.filter((p) => p.job === 'barracks' && !(p.sick > 0)).length >= 2) doAct(s, { type: 'sally' });
   const r = s.raid;
@@ -357,7 +374,7 @@ function placeNight(s, plan) {
     if (d) doAct(s, { type: 'move', id: d.id, f: st.f, x: st.x });
   }
   // The doubled line: a second fighter beside each stair's candle on every Maw night, taken from the rooms.
-  if (plan === 'double' && s.day >= T.mawFrom && s.day < T.seasonDays) {
+  if ((plan === 'double' || HYBRID) && s.day >= T.mawFrom && s.day < T.seasonDays) {
     for (const st of LINE) {
       const d = ds.shift();
       if (d) doAct(s, { type: 'move', id: d.id, f: st.f, x: st.x + 2 });
@@ -514,6 +531,21 @@ function pickOmen(s, plan) {
   return OMENPICK === 'worst' ? worse : 1 - worse;
 }
 
+// A move at night that doesn't walk a shade into the dark: along its own floor through light, or with the
+// lantern it already carries. Otherwise it stays. (Lighting a lantern for the move cost more than staying:
+// README, problem 36.)
+const litAll = (L, f, x1, x2) => L.merged[f].some(([a, b]) => a <= Math.min(x1, x2) + 1e-9 && b >= Math.max(x1, x2) - 1e-9);
+function safeMove(s, L, d, f, x) {
+  if (NOMOVE) return false;
+  if (RECKLESS) return doAct(s, { type: 'move', id: d.id, f, x });
+  const lit = d.f === f && litAll(L, f, d.x, x);
+  const carried = s.night.candles.some((k) => k.carrier === d.id);
+  if (!lit && !carried) {
+    if (!LANTERNMOVE || !s.tuning.lanterns || s.res.candles < 4 || !doAct(s, { type: 'lantern', id: d.id })) return false;
+  }
+  return doAct(s, { type: 'move', id: d.id, f, x });
+}
+
 function tendNight(s, plan) {
   const n = s.night;
   const T = s.tuning;
@@ -545,7 +577,7 @@ function tendNight(s, plan) {
       .sort((a, b) => fighter(b) * b.memory - fighter(a) * a.memory)[0];
     if (!help || (help.post.f === t.f && Math.abs(help.post.x - t.x) <= 8)) continue;
     const x = t.x + (help.x < t.x ? -2 : 2);
-    doAct(s, { type: 'move', id: help.id, f: t.f, x });
+    if (!safeMove(s, lightMap(G, T, n.candles), help, t.f, x)) continue;
     // Don't send anyone to stand in the dark: light the spot, with the last candle if need be.
     if (!n.candles.some((c) => c.f === t.f && roomAt(G, c.f, c.x) === roomAt(G, t.f, x) && Math.abs(c.x - x) <= 12 && c.wax > 15)) doAct(s, { type: 'candle', f: t.f, x });
   }
@@ -567,12 +599,12 @@ function tendNight(s, plan) {
         const d = s.shades
           .filter((x) => canWork(x) && !onLine(x) && !busy.has(x.id) && !x.grabbedBy && !x.climb && x.memory > 30 && fighter(x) >= 0.8 && roomAt(G, x.post.f, x.post.x) === roomAt(G, st.f, st.x))
           .sort((a, b) => fighter(b) * b.memory - fighter(a) * a.memory)[0];
-        if (d) doAct(s, { type: 'move', id: d.id, f: st.f, x: st.x + 2 });
+        if (d) safeMove(s, lightMap(G, T, n.candles), d, st.f, st.x + 2);
       }
     } else {
       for (const d of s.shades.filter(canWork)) {
         const h = home.get(d.id);
-        if (h && onLine(d) && !LINE.some((st) => at({ post: h }, st))) doAct(s, { type: 'move', id: d.id, f: h.f, x: h.x });
+        if (h && onLine(d) && !LINE.some((st) => at({ post: h }, st))) safeMove(s, lightMap(G, T, n.candles), d, h.f, h.x);
       }
     }
   }
