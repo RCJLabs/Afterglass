@@ -986,7 +986,8 @@ function lightFor(s, hollow, ambient) {
 
 // The Tain upright, lit, with everything in it. opts: alpha (between ticks), selected (shade id),
 // ghost ({ f, x, tool }) for the candle or ward preview, marks (guide rings), threats (the black mirror at
-// dusk). t is 0 with less motion: nothing marches or blinks, and what blinks stays on.
+// dusk), cursor ({ f, x }, the keyboard's). t is 0 with less motion: nothing marches or blinks, and what
+// blinks stays on.
 function composeTain(s, t, opts = {}) {
   const L = layers();
   const y0 = L.y0;
@@ -1110,6 +1111,18 @@ function composeTain(s, t, opts = {}) {
     const r = 5 + (MF(t * 4) % 3);
     ring(c, Math.round(m.x), feet(m.f) - 5, r, P.yellow);
     ring(c, Math.round(m.x), feet(m.f) - 5, r + 1, P.amber, (dx, dy) => (dx + dy) % 2 === 0);
+  }
+  // The keyboard's cursor: corner brackets round a figure's height at the spot, pulsing yellow and amber.
+  if (opts.cursor) {
+    const col = !t || MF(t * 2) % 2 ? P.yellow : P.amber;
+    const x = Math.round(opts.cursor.x);
+    const foot = feet(opts.cursor.f) + 1;
+    for (const [cx, sx] of [[x - 4, 1], [x + 4, -1]]) {
+      for (const [cy, sy] of [[foot - 14, 1], [foot, -1]]) {
+        R(c, sx > 0 ? cx : cx - 2, cy, 3, 1, col);
+        R(c, cx, sy > 0 ? cy : cy - 2, 1, 3, col);
+      }
+    }
   }
   // The Restless wait at the edge of the Deep, flickering by the rifts.
   const restless = s.shades.filter((d) => d.kind === 'restless');

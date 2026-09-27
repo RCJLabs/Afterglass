@@ -20,7 +20,7 @@ Round four's queue is built except the replay viewer, which is parked ([`round-4
 | 10 | An ending to the year | New | M | Built: keep the watch, take your place in the glass as The Keeper, or seal the Veil and end the keep ([problem 26](../../../prototype/README.md)) |
 | 11 | Difficulty presets | Small | S | Built: Gentle, Standard or Hard for a new keep; each year now starts from its own spring, so a second winter can be won, and a keep keeps the numbers it was made with ([problem 30](../../../prototype/README.md)) |
 | 12 | The Lantern Church's embargo and inquisition | Small | S–M | Built: a censure brings a silver embargo (no glass, no new mirrors) for 5 days, lifted by a blessing or a donation; censured again under it, the Inquisition inspects every noon. Only the keeper plan meets it, at no measurable cost ([problem 31](../../../prototype/README.md)) |
-| 13 | Keyboard play at night | Small | S–M | Queued, 13th |
+| 13 | Keyboard play at night | Small | S–M | Built: from dusk to dawn the arrows move a cursor over the Tain, Enter does there what a tap would, and [ and ] pick the shades; Shift and the arrows pan. Checked by script only ([problem 32](../../../prototype/README.md)) |
 
 ## Enhancements
 
@@ -52,4 +52,4 @@ Round four's queue is built except the replay viewer, which is parked ([`round-4
 
 ## The queue
 
-2, 1, 4, 3, 6, then 5, 10, 7, 8, 9, then 11, 12, 13.
+2, 1, 4, 3, 6, then 5, 10, 7, 8, 9, then 11, 12, 13. All thirteen are built.

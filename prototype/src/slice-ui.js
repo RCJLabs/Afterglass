@@ -128,7 +128,7 @@ const K = () => geo(s);
 const roofTop = () => K().top - 24;
 const ui = {
   paused: true, rev: 0, tool: 'candle', selected: null, person: null, hover: null, toasts: [], toastRev: 0, confirmNew: false,
-  copied: '', showExport: false, rush: false, flash: 0, scale: 3, sheet: null, cross: null, open: {},
+  copied: '', showExport: false, rush: false, flash: 0, scale: 3, sheet: null, cross: null, open: {}, kb: null,
 };
 const bump = () => {
   ui.rev++;
@@ -314,6 +314,7 @@ function hintText() {
   }
   if (s.phase === 'dusk' && s.dusk.step === 'crypt') return 'The dead wake first. Choose funerals in the Crossing panel, or let them wake.';
   if (s.phase === 'dawn' || s.phase === 'end' || s.phase === 'over') return '';
+  if (kbAt()) return kbText();
   const d = byId(s.shades, ui.selected);
   if (ui.tool === 'candle') {
     return s.res.candles >= 1
@@ -323,6 +324,12 @@ function hintText() {
   if (ui.tool === 'ward') return `Tap a stair or a rift${raining(s) ? ", or an end of the moat's twin under the Veil," : ''} to seal it until dawn (${fmt(wardCost(s))} essence${wardCost(s) < T.wardCost ? ', cheaper while a Bitter shade stays' : ''}). The Hollow breaks a ward in ${T.wardHold} s.`;
   if (!d) return 'Tap a shade to pick it, then tap where it should stand.';
   return s.phase === 'dusk' ? `${d.name}: tap a spot to post ${d.name} there.` : `${d.name}: tap a spot to send ${d.name} there. The dark between is dangerous.`;
+}
+
+function showHint() {
+  const hint = hintText();
+  const el = document.getElementById('stage-hint');
+  if (el.textContent !== hint) el.textContent = hint;
 }
 
 /* ---------------------------------------------------------------- the phase panels */
@@ -1338,7 +1345,9 @@ const TUNE = [
 ];
 const KEYS = [
   ['Space', 'play or pause'], ['1, 2, 4', 'speed'], ['C, M, W, H', 'candle, move, ward, hush (at night)'], ['V', 'turn the Tain upright'],
-  ['+ and −, 0', 'zoom, and fit the castle again'], ['Arrows', 'pan'], ['K, P, R, B', 'this phase, People, Records, Build'], ['L', 'room names'],
+  ['+ and −, 0', 'zoom, and fit the castle again'], ['Arrows', 'pan by day; from dusk, move the cursor on the Tain (Shift and the arrows pan)'],
+  ['Enter', 'at the cursor: set a candle, pick or send a shade, or ward, by the tool'], ['[ and ]', 'pick the previous or next shade'],
+  ['K, P, R, B', 'this phase, People, Records, Build'], ['L', 'room names'],
   ['S', 'sound on or off'], ['Esc', 'the Menu, or close a panel'],
 ];
 function settingsTab() {
@@ -1747,7 +1756,12 @@ function onStage(e) {
     } else if (at.room) toast(DAY_ROOMS[at.room].job(DAY_ROOMS[at.room]), 'day');
     return;
   }
-  if (!(s.phase === 'night' || (s.phase === 'dusk' && s.dusk.step === 'place'))) return;
+  ui.kb = null; // a tap puts the keyboard's cursor away
+  return actAt(at);
+}
+// Whatever the tool does at a spot on the Tain, from a tap or from the keyboard's cursor.
+function actAt(at) {
+  if (!placing()) return undefined;
   if (ui.tool === 'candle') {
     if (!at.room) return toast('That is inside a wall.', 'bad');
     return game({ type: 'candle', f: at.f, x: Math.round(at.x * 2) / 2 });
@@ -1766,14 +1780,107 @@ function onStage(e) {
 }
 
 function ghost() {
-  const h = ui.hover;
-  if (!h || !h.room || !(s.phase === 'night' || (s.phase === 'dusk' && s.dusk?.step === 'place'))) return null;
+  const h = kbAt() || ui.hover;
+  if (!h || !h.room || !placing()) return null;
   if (ui.tool === 'candle' && s.res.candles >= 1) return { tool: 'candle', f: h.f, x: Math.round(h.x) };
   if (ui.tool === 'ward') {
     const w = wardNear(h);
     return w ? { tool: 'ward', target: w } : null;
   }
   return null;
+}
+
+/* ---------------------------------------------------------------- the keyboard at night */
+
+// Whether the focus came from the keyboard (Tab) rather than a click. Browsers without :focus-visible
+// (Safari before 15.4) are taken as the keyboard, so a focused button keeps its keys there as before.
+function keyFocused(el) {
+  try {
+    return el.matches(':focus-visible');
+  } catch {
+    return true;
+  }
+}
+
+// Round five: the night and the dusk's posts from the keyboard. The arrows move a cursor over the Tain, a
+// floor at a time up and down as the screen shows them; Enter does what a tap would there; [ and ] pick the
+// shades in turn. Shift and the arrows pan, as the arrows alone still do by day. A tap, or Esc, puts the
+// cursor away.
+const placing = () => s.phase === 'night' || (s.phase === 'dusk' && s.dusk?.step === 'place');
+const KB_STEP = 3;
+function kbAt() {
+  if (!ui.kb || !placing()) return null;
+  const { f, x } = ui.kb;
+  return { f, x, room: typeAt(K(), f, x), id: roomAt(K(), f, x) };
+}
+// Starts the cursor on the chosen shade, else on the line, else mid-floor under the Veil.
+function kbStart() {
+  const d = byId(s.shades, ui.selected);
+  if (d && canWork(d)) return (ui.kb = { f: d.f, x: unitAt(K(), d, 1).x });
+  const at = lineSpots()[0];
+  ui.kb = at ? { f: at.f, x: at.x } : { f: Math.max(0, K().veil - 1), x: Math.round((MAP.LEFT + MAP.RIGHT) / 2) };
+  return ui.kb;
+}
+function kbMove(key) {
+  if (!ui.kb) kbStart();
+  else if (key === 'arrowleft' || key === 'arrowright') {
+    ui.kb.x = Math.max(MAP.LEFT, Math.min(MAP.RIGHT - 1, ui.kb.x + (key === 'arrowleft' ? -KB_STEP : KB_STEP)));
+  } else {
+    // Up and down as they are on the screen, whichever way up the Tain is shown.
+    const G = K();
+    const yOf = (f) => worldToScreen(0, keepToWorldY(feet(G, f))).y;
+    const dir = key === 'arrowup' ? -1 : 1;
+    let best = null;
+    for (let f = 0; f < G.n; f++) {
+      const d = (yOf(f) - yOf(ui.kb.f)) * dir;
+      if (d > 0 && (!best || d < best.d)) best = { f, d };
+    }
+    if (best) ui.kb.f = best.f;
+  }
+  kbShown();
+}
+// The previous or next shade that can take a post: chosen, and the cursor on it.
+function kbPick(dir) {
+  const ds = s.shades.filter(canWork);
+  if (!ds.length) return toast('No shade can take a post.', 'bad');
+  const i = ds.findIndex((d) => d.id === ui.selected);
+  const d = ds[i < 0 ? (dir > 0 ? 0 : ds.length - 1) : (i + dir + ds.length) % ds.length];
+  ui.selected = d.id;
+  ui.tool = 'move';
+  ui.kb = { f: d.f, x: unitAt(K(), d, 1).x };
+  return kbShown();
+}
+// After the cursor moves: in view, the hint said, and Enter free for it (a button clicked a moment ago
+// would otherwise keep it).
+function kbShown() {
+  const a = document.activeElement;
+  if (a && a !== document.body && !a.closest('#sheet')) a.blur();
+  const fr = freeRect();
+  const box = canvas.getBoundingClientRect();
+  const p = worldToScreen(ui.kb.x, keepToWorldY(feet(K(), ui.kb.f) - 6));
+  const [x, y] = [box.left + p.x, box.top + p.y];
+  const m = 24;
+  const dx = x < fr.left + m ? fr.left + m - x : x > fr.right - m ? fr.right - m - x : 0;
+  const dy = y < fr.top + m ? fr.top + m - y : y > fr.bottom - m ? fr.bottom - m - y : 0;
+  if (dx || dy) panBy(dx, dy);
+  showHint();
+  bump();
+}
+// What's under the cursor and what Enter would do there.
+function kbText() {
+  const at = kbAt();
+  const where = at.room ? `the ${TWINS[at.room].name}` : 'inside a wall';
+  const here = shadeNear(at);
+  const d = byId(s.shades, ui.selected);
+  let enter;
+  if (ui.tool === 'candle') enter = !at.room ? 'nothing here' : s.res.candles >= 1 ? 'set a candle' : 'nothing (no candles left)';
+  else if (ui.tool === 'ward') {
+    const w = wardNear(at);
+    enter = w ? `ward ${wardName(w.id)} (${fmt(wardCost(s))} essence)` : 'nothing (no stair or rift near)';
+  } else if (here && here.id !== ui.selected) enter = `pick ${here.name}`;
+  else if (d && at.room) enter = `${s.phase === 'dusk' ? 'post' : 'send'} ${d.name} here`;
+  else enter = d ? 'nothing here' : 'nothing ([ and ] pick a shade)';
+  return `Cursor: ${where}${here ? `, ${here.name}` : ''}. Enter: ${enter}. Esc puts it away.`;
 }
 
 // Between day and night the old picture fades out over the new one while the camera travels.
@@ -1805,6 +1912,7 @@ function draw(alpha, now) {
     alpha: s.phase === 'night' && !ui.paused ? alpha : 1,
     selected: ui.selected,
     ghost: ghost(),
+    cursor: kbAt(),
     ambient: s.phase === 'dawn' || s.phase === 'over' ? 0.45 : 0.22,
     veilFlash: ui.flash > now ? (ui.flash - now) / 600 : 0,
   });
@@ -1828,6 +1936,7 @@ window.__season = {
     return { x: box.left + p.x, y: box.top + p.y };
   },
   get crossing() { return !!ui.cross; },
+  get cursor() { return kbAt() && { ...ui.kb }; },
   get sound() { return { state: sound.state, bed: sound.bed, heard: [...heard] }; },
   // For scripted checks: the keep as it stands (read only), the line's spots, and the middle of a room.
   get keep() { return s; },
@@ -2038,9 +2147,7 @@ function render(alpha, now) {
   if (changed) {
     liveEls = [...document.querySelectorAll('[data-live]')];
     barEls = [...document.querySelectorAll('[data-bar]')];
-    const hint = hintText();
-    const el = document.getElementById('stage-hint');
-    if (el.textContent !== hint) el.textContent = hint;
+    showHint();
     const hh = `${hudEl.offsetHeight}|${barEl.offsetHeight}`;
     if (hh !== layout.last) {
       layout.last = hh;
@@ -2639,6 +2746,7 @@ function onPhase() {
   } else if (s.phase === 'dawn' || s.phase === 'end' || s.phase === 'over') openSheet('phase');
   else if (ui.sheet === 'phase') closeSheet();
   if (s.phase !== 'night' && s.phase !== 'dusk') ui.selected = null;
+  if (!placing()) ui.kb = null;
 }
 
 // The bed of sound for the moment, how near the Hollow is to the mirrors (its heart beats only while the night
@@ -3197,7 +3305,11 @@ document.addEventListener('input', (e) => {
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
     if (ui.sheet) closeSheet();
-    else if (!e.target.closest('input, select, textarea')) openSheet('menu');
+    else if (kbAt()) {
+      ui.kb = null;
+      showHint();
+      bump();
+    } else if (!e.target.closest('input, select, textarea')) openSheet('menu');
     return;
   }
   const k = e.key.toLowerCase();
@@ -3208,13 +3320,32 @@ document.addEventListener('keydown', (e) => {
   }
   // Typing in a field is left alone; a focused button keeps space and enter for itself.
   if (e.altKey || e.ctrlKey || e.metaKey || e.target.closest('input, select, textarea')) return;
+  // While the cursor is out, Enter is the cursor's, even with the focus left on a button the mouse clicked
+  // (Play, say). A button reached with Tab keeps it, and so does the panel.
+  const clicked = e.target.closest('button, a') && !e.target.closest('#sheet') && !keyFocused(e.target);
+  if (k === 'enter' && clicked && kbAt()) {
+    e.preventDefault();
+    actAt(kbAt());
+    showHint();
+    return;
+  }
   if (e.target.closest('button, a') && (k === ' ' || k === 'enter')) return;
-  if (k === ' ') {
+  const tain = placing() && !ui.cross && !(ui.sheet && !wide());
+  if (tain && k.startsWith('arrow') && !e.shiftKey) {
+    e.preventDefault();
+    kbMove(k);
+  } else if (tain && k === 'enter' && kbAt()) {
+    e.preventDefault();
+    actAt(kbAt());
+    showHint();
+  } else if (tain && (k === '[' || k === ']')) kbPick(k === ']' ? 1 : -1);
+  else if (k === ' ') {
     e.preventDefault();
     togglePlay();
   } else if (k === '1' || k === '2' || k === '4') setSpeed(Number(k));
   else if (k === 'c' || k === 'm' || k === 'w') {
     ui.tool = { c: 'candle', m: 'move', w: 'ward' }[k];
+    showHint();
     bump();
   } else if (k === 'h' && s.phase === 'night') game({ type: 'hush', on: !s.night.hush });
   else if (k === 'v') onAct('flip', { dataset: {} });

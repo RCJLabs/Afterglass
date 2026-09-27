@@ -114,6 +114,7 @@ export function howTo(T) {
         `From night ${T.mawFrom}, a Maw. It goes for whatever is worth most for the least fight: the candle holding the way up, or a room where people work. It counts every fighter on its way. A room it stands in for ${T.mawBreak} seconds breaks: no work there tonight, and ${T.dreadPerBroken} Dread at dawn.`,
         `The night after a death, the Weepers: one for each of the day's dead, up to ${T.weepersMax}. They make for the dark of the sleepers' twin (the Dreamwell, or the Cold Hearth), and one that weeps there ${T.nightmareSecs} seconds gives someone a nightmare: they work at ${pct(T.nightmareMult)} the next day. Light burns them, and a Keening shade on their floor hushes them.`,
         'A Wraith is one of your own dead gone wrong. It hunts inside the Tain every night until it is banished.',
+        'With a keyboard, from dusk to dawn: the arrows move a cursor over the Tain, and Enter does there what a tap would with the tool in hand (C for candles, M to move, W to ward). [ and ] pick the shades in turn. Shift and the arrows pan; Esc puts the cursor away.',
       ],
     },
     ...(T.weather ? [weather(T)] : []),
