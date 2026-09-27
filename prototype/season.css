@@ -73,6 +73,11 @@ body.game-page {
 .gres dd { margin: 0; font-family: var(--font-num); font-variant-numeric: tabular-nums; }
 .gres .short { display: none; }
 .gres .pips i { width: 8px; height: 8px; }
+/* The weather: today's, then tomorrow's; rain, and rain coming, stand out. */
+.gres .wx .fc { color: var(--ink-3); font-family: inherit; font-size: 11px; }
+.gres .wx-rain b { color: #9fcfff; }
+.gres .wx-fog b { color: #c9ced8; }
+.gres .wx-coming .fc { color: #9fcfff; }
 
 .gbar {
   bottom: 0;

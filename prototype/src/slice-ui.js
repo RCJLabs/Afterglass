@@ -8,6 +8,7 @@ import {
   dayTicks, nightTicks, isNewMoon, choicesFor, byId, isTwinnedLiving, isTwinnedShade, lastSeason, SAVE_VERSION, fmt, mirrorCap, bareHalls, tainPlace,
   postRoom, wardCost, shadeTrait, peopleIn, beds, tradeOf, inGreatGlass, handsAt, whispers, stepsThrough, perf,
   seasonIndex, seasonName, yearOf, dayLength, isLongNight, tributeOf, besieged, sallyOdds, plagueSeason, atGate, gateGuard,
+  weatherOf, forecastOf, raining, foggy, drownedDue,
 } from './slice/sim.js';
 import { geo, feet, floorAtY, roomAt, typeAt, typeOf, roomSpan, roomsOf, lightMap, isLit, unitAt, DEEP_FLOOR, lineSpots as lineOf, guardLit, MAX_FLOORS } from './slice/geo.js';
 import { drawScene, drawMoment } from './slice/draw.js';
@@ -146,6 +147,7 @@ const nightView = () => {
 
 const esc = (x) => String(x ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+const upper = (x) => x.charAt(0).toUpperCase() + x.slice(1);
 // Traits in words, shown only while they're on: a living one's, and a shade's with what it was in life.
 const traitsOn = () => !!s.tuning.traits;
 const livingTraitText = (p) => (traitsOn() && TRAITS[p.trait] ? `<div class="ptrait"><b>${TRAITS[p.trait].name}</b>: ${esc(TRAITS[p.trait].short)}</div>` : '');
@@ -250,7 +252,16 @@ function hudHTML() {
     <div><dt>Veil</dt><dd>${pips(s.cracks, T.cracksMax, true)}</dd></div>
     <div><dt><span class="long">Living</span><span class="short">Liv</span></dt><dd><b>${s.living.length}</b></dd></div>
     <div><dt><span class="long">Shades</span><span class="short">Sh</span></dt><dd><b>${cap.used}</b>/${cap.cap}</dd></div>
+    ${skyHUD()}
   </dl>`;
+}
+// The weather (round five): today's, and tomorrow's forecast.
+const WX = { clear: 'Clear', rain: 'Rain', fog: 'Fog' };
+function skyHUD() {
+  if (!s.tuning.weather) return '';
+  const now = weatherOf(s);
+  const next = forecastOf(s);
+  return `<div class="wx wx-${now}${next === 'rain' ? ' wx-coming' : ''}" title="Today: ${WX[now]}. Tomorrow: ${next ? WX[next] : 'not known yet'}."><dt>Sky</dt><dd><b>${WX[now]}</b>${next ? `<span class="fc">, then ${WX[next].toLowerCase()}</span>` : ''}</dd></div>`;
 }
 
 /* ---------------------------------------------------------------- the action bar */
@@ -307,7 +318,7 @@ function hintText() {
       ? `Tap a floor to set a candle. It lights its own room; the Unlit can't enter the light.`
       : 'No candles left. The Chandlery makes them by day; the Wick Room saves them at night.';
   }
-  if (ui.tool === 'ward') return `Tap a stair or a rift to seal it until dawn (${fmt(wardCost(s))} essence${wardCost(s) < T.wardCost ? ', cheaper while a Bitter shade stays' : ''}). The Hollow breaks a ward in ${T.wardHold} s.`;
+  if (ui.tool === 'ward') return `Tap a stair or a rift${raining(s) ? ", or an end of the moat's twin under the Veil," : ''} to seal it until dawn (${fmt(wardCost(s))} essence${wardCost(s) < T.wardCost ? ', cheaper while a Bitter shade stays' : ''}). The Hollow breaks a ward in ${T.wardHold} s.`;
   if (!d) return 'Tap a shade to pick it, then tap where it should stand.';
   return s.phase === 'dusk' ? `${d.name}: tap a spot to post ${d.name} there.` : `${d.name}: tap a spot to send ${d.name} there. The dark between is dangerous.`;
 }
@@ -361,6 +372,21 @@ function raidCard() {
   return `<div class="card ${short ? 'warn' : 'ok'}"><h3>${r.camp ? 'The camp comes at the gate' : 'Raiders on the road'}</h3>
     <p>${r.count} raiders, strength <b class="num">${fmt(r.strength)}</b>, at the gate about ${hhmm(6 + (12 * r.hitAt) / dayTicks(s))}. Your defense: <b class="num" data-live="defense">${fmt(def)}</b>. ${short ? 'Not enough. Move people to the Barracks or ward the gate.' : 'Enough, if nothing changes.'}</p>
     <div class="row"><button class="btn sm" id="btn-wardgate" data-act="wardgate"${r.ward || s.res.essence + 1e-9 < s.tuning.wardGateCost ? ' disabled' : ''}>${r.ward ? `Gate warded, +${r.ward}` : `Ward the gate: +${s.tuning.wardGateDefense} for ${s.tuning.wardGateCost} essence`}</button></div>${fight}</div>`;
+}
+const share = (x) => (x === 0.5 ? 'half' : `${mult(x)} times`);
+// The weather by day: today's, and a warning a day ahead of rain.
+function weatherNotes() {
+  const T = s.tuning;
+  if (!T.weather) return '';
+  const now = weatherOf(s);
+  const next = forecastOf(s);
+  const out = [];
+  if (now === 'rain') out.push(`<p class="note bad">Rain today. The Yard quarries at ${Math.round(100 * T.rainYard)}%, and a fire is ${share(T.rainFire)} as likely and grows ${share(T.rainFire)} as fast. ${drownedDue(s) ? `Tonight the Drowned come up out of the moat's twin${K().n > 1 ? ', behind the line' : ''}.` : 'The Drowned stay under tonight: the new moon belongs to the Hollow.'}</p>`);
+  else if (now === 'fog') out.push("<p class=\"note\">Fog today. At dusk the black mirror will show how many come and when, but not their ways.</p>");
+  if (next === 'rain' && !drownedDue(s, true)) out.push('<p class="note">Rain tomorrow. The Drowned will stay under: the new moon belongs to the Hollow.</p>');
+  else if (next === 'rain') out.push(`<p class="note bad">Rain tomorrow. Tomorrow night the Drowned come up out of the moat's twin, on the floor under the Veil, and make for the mirrors${K().n > 1 ? ' from behind the line' : ''}. Keep ${fmt(wardCost(s))} essence to ward the moat, or a candle and a fighter for the mirror on their side.</p>`);
+  else if (next) out.push(`<p class="note">Tomorrow: ${next === 'fog' ? 'fog' : 'clear'}.</p>`);
+  return out.join('');
 }
 // Autumn's siege: how long the camp stays, what the shut gate costs, and the sally.
 function siegeCard() {
@@ -494,6 +520,7 @@ function dayPanel() {
   return `<header class="ph-head"><h2>${seasonWord() ? `${seasonWord()}, day ${s.day}` : `Day ${s.day}`}</h2><p>${lunar} The living work; anyone who dies inside the walls wakes at dusk.</p></header>
     ${s.day === 1 ? seasonNote() : ''}
     ${s.daily && s.season === 1 && s.day === 1 ? `<p class="note">This is the keep of ${esc(dayText(s.daily))}: everyone who plays it gets this same keep, on the same rules.</p>` : ''}
+    ${weatherNotes()}
     ${fireCards()}
     ${siegeCard()}
     ${gateGuard(s) ? `<p class="note">${esc(listOf(s.shades.filter((d) => atGate(s, d)).map((d) => d.name)))} ${s.shades.filter((d) => atGate(s, d)).length === 1 ? 'stands' : 'stand'} at the gate today, as asked: +${fmt(gateGuard(s))} defense.</p>` : ''}
@@ -558,6 +585,7 @@ function duskCrypt() {
 }
 
 function wardName(id) {
+  if (id === 'moat') return "the moat's twin";
   const st = K().stairs.find((x) => x.id === id);
   if (st) return `the ${TWINS[typeAt(K(), st.f, st.x)].name} stair`;
   const rf = MAP.rifts.find((x) => x.id === id);
@@ -588,6 +616,7 @@ function duskPlace() {
     </ul>
     ${dark.length ? `<p class="note">${esc(listOf(dark.map((d) => d.name)))} ${dark.length === 1 ? 'stands' : 'stand'} in the dark, where Creepers catch and drain shades. A shade works only in light.</p>` : ''}
     ${wraiths.length ? `<p class="note bad">${esc(listOf(wraiths.map((d) => d.name)))} will rise as ${wraiths.length === 1 ? 'a Wraith' : 'Wraiths'} in the Waking Room. Cut ${wraiths.length === 1 ? 'it' : 'them'} down to banish for good.</p>` : ''}
+    ${drownedDusk()}
     ${moonNote()}
     ${blackMirror()}
     <details class="card"><summary><b>How the Tain works</b></summary>
@@ -599,9 +628,23 @@ function duskPlace() {
         <li><span>Each twin room has a night job for a lit shade at its post: the Choir sings essence, the Silvering makes glass, the Wick Room saves candles, the Threshold readies gentler deaths, the Watch adds to tomorrow's defense and the Cold Hearth halves fading.</span></li>
         <li><span>From night ${T.seepFrom}, some Unlit seep up in rooms with no candle at all.</span></li>
         ${T.dreamwell ? `<li><span>The night after a death, Weepers come: one for each of the day's dead, for the dark of the sleepers' twin (the Dreamwell, or the Cold Hearth before there are Quarters). One that weeps there ${fmt(T.nightmareSecs)} seconds gives one of the living a nightmare. They can't enter light, a shade cuts them down, and a Keening shade on their floor sings them quiet.</span></li>` : ''}
+        ${T.weather ? `<li><span>On a rainy night the Drowned come up out of the moat's twin, at one end of the floor under the Veil, behind the line. They never take a stair: they make for the mirrors on that floor, and one that reaches a mirror cracks the Veil. Light bars them, and they gnaw it ${share(T.drownedGnaw)} as fast as a Creeper. A shade they catch in the dark is drained and dragged to the moat, and pulled under there. A ward on the moat keeps them under.</span></li>` : ''}
         <li><span>From night ${T.mawFrom}, a Maw comes with the last tide. It walks through light to whatever is worth most for the least fight: the candle barring the way up, or a room where people work, counting every fighter on its way. It tears a candle down. A room it stands in for ${fmt(T.mawBreak)} seconds breaks: no work there that night, and ${T.dreadPerBroken} Dread at dawn. It hits the shades beside it.</span></li>
       </ul></details>
     <div class="row"><button class="btn primary" id="btn-start" data-act="start">Begin the night</button></div>`;
+}
+
+// A rainy dusk: where the Drowned come up, and how to meet them.
+const moatEnd = (x) => `the ${x < MAP.W / 2 ? 'left' : 'right'} end, in the ${roomName(roomAt(K(), K().veil, x), true)}`;
+function drownedDusk() {
+  const n = s.night;
+  const dr = n?.spawns.filter((x) => x.type === 'drowned') || [];
+  if (!dr.length) return '';
+  const end = MAP.moat.find((w) => w.id === dr[0].rift) || MAP.moat[0];
+  const warded = n.wards.includes('moat');
+  if (warded) return `<p class="note">Rain. The moat's twin is warded: the ${plural(dr.length, 'Drowned', 'Drowned')} stay under tonight.</p>`;
+  const one = K().n === 1;
+  return `<p class="note bad">Rain. ${dr.length === 1 ? 'One of the Drowned comes' : `${dr.length} of the Drowned come`} up tonight out of the moat's twin at ${esc(moatEnd(end.x))}${one ? '' : ', behind the line'}, and ${dr.length === 1 ? 'makes' : 'make'} for the mirrors on that floor. Ward the moat (${fmt(wardCost(s))} essence), or light the mirror on their side and post a fighter by it. A shade they catch in the dark is dragged to the moat and pulled under.</p>`;
 }
 
 // The black mirror (threats.js): tonight as the candles, posts and wards stand, and tomorrow's raid. Worked
@@ -640,6 +683,21 @@ function blackMirror() {
     return { text: 'find no way up', bad: false };
   };
   const lines = [];
+  if (th.drowned) {
+    const D = th.drowned;
+    const when = listOf(D.at.map((t) => at(t)));
+    lines.push(D.warded
+      ? { bad: false, text: `The moat's twin is warded: the Drowned stay under.` }
+      : { bad: D.way?.end === 'veil' || D.way?.end === 'catch', text: `${D.count === 1 ? 'One of the Drowned comes' : `${D.count} of the Drowned come`} up at ${esc(moatEnd(D.x))} around ${when}. As things stand, ${D.count === 1 ? 'it' : 'they'} would ${goes(D.way || { end: 'none' }).text.replace('find no way up', 'find nothing to go for')}.` });
+  }
+  // Fog: how many come and when, and not their ways.
+  if (th.fog) {
+    const all = s.night.spawns.filter((x) => x.type === 'creeper').length;
+    return `<details class="card scry fogged" data-keep="scry"${ui.open.scry !== false ? ' open' : ''}><summary><b>The black mirror</b></summary>
+      <p class="note">Fog clouds the black mirror tonight. It shows ${plural(all, 'Creeper')}${th.maws.length ? ` and ${plural(th.maws.length, 'Maw')}` : ''}${th.hollow ? ', and the Hollow' : ''}, but not their ways.</p>
+      ${th.tides.length ? `<p class="note">Tides at ${listOf(th.tides.map((t) => `${at(t.at)} (${t.count})`))}${th.alone ? `; ${plural(th.alone, 'Creeper')} ${th.alone === 1 ? 'comes' : 'come'} alone` : ''}.</p>` : ''}
+    </details>`;
+  }
   // Each rift's tide, and its candle hunters where they go elsewhere; rifts whose tides end alike in one line.
   const tides = [];
   for (const e of th.rises) {
@@ -736,10 +794,20 @@ function nightPanel() {
     ${n.broken.length ? `<p class="note">Broken tonight: the ${esc(listOf(n.broken.map((id) => roomName(id, true))))}. Nobody works there until dawn.</p>` : ''}
     ${caught.map((d) => {
       const m = byId(s.mirrors, d.mirror);
-      return `<p class="note bad">${esc(d.name)} is caught in the ${esc(roomName(roomAt(K(), d.f, d.x) || 'crypt', true))}. Drop a candle on the spot or send a fighter${m ? `, or break the ${esc(m.name)} to free ${esc(d.name)} at once` : ''}.</p>${m ? breakHTML(m) : ''}`;
+      const by = n.foes.find((f) => f.id === d.grabbedBy);
+      return `<p class="note bad">${esc(d.name)} is ${by?.type === 'drowned' ? 'being dragged to the moat by the Drowned' : 'caught'} in the ${esc(roomName(roomAt(K(), d.f, d.x) || 'crypt', true))}. Drop a candle on the spot or send a fighter${m ? `, or break the ${esc(m.name)} to free ${esc(d.name)} at once` : ''}.</p>${m ? breakHTML(m) : ''}`;
     }).join('')}
     ${weeperNote()}
+    ${drownedNote()}
     ${n.hush ? '<p class="note">Hushed: no work, no fighting, and the Unlit pass the shades by.</p>' : ''}`;
+}
+function drownedNote() {
+  const d = s.night.foes.filter((f) => f.type === 'drowned');
+  const more = s.night.spawns.filter((x) => x.type === 'drowned').length;
+  if (!d.length && !more) return '';
+  const out = d.length ? `${d.length === 1 ? 'One of the Drowned is' : `${d.length} of the Drowned are`} out on the floor under the Veil` : '';
+  const coming = more ? `${more === 1 ? 'one more comes' : `${more} more come`} up ${s.night.wards.includes('moat') ? 'against the ward on the moat' : 'out of the moat before dawn'}` : '';
+  return `<p class="note bad">${upper([out, coming].filter(Boolean).join(', and '))}. They make for the mirrors${K().n > 1 ? ' from behind the line' : ''}. Light bars them, a fighter cuts them down, and a shade they catch is dragged to the moat.</p>`;
 }
 
 function weeperNote() {
@@ -1205,6 +1273,9 @@ const TUNE = [
   ['plagueCrowd', 'The plague takes one more for every this many living beyond the beds'],
   ['siege', "Autumn's siege: the Host camps outside after its day-2 raid (1 on, 0 off)"],
   ['siegeDays', 'Days the siege lasts'],
+  ['weather', 'Weather: rain slows the Yard and damps fire, and brings the Drowned; fog clouds the black mirror (1 on, 0 off)'],
+  ['rainYard', 'Share of the Yard’s stone quarried in the rain'],
+  ['drownedBase', 'The Drowned on a rainy night, before one more every few nights'],
 ];
 const KEYS = [
   ['Space', 'play or pause'], ['1, 2, 4', 'speed'], ['C, M, W, H', 'candle, move, ward, hush (at night)'], ['V', 'turn the Tain upright'],
@@ -1590,6 +1661,13 @@ function wardNear(at) {
       if (dist <= 6 && (!best || dist < best.dist)) best = { id: rf.id, f: at.f, x: rf.x, dist };
     }
   }
+  // On a rainy night, either end of the moat's twin: one ward keeps the Drowned under.
+  if (at.f === K().veil && raining(s)) {
+    for (const w of MAP.moat) {
+      const dist = Math.abs(w.x - at.x);
+      if (dist <= 6 && (!best || dist < best.dist)) best = { id: 'moat', f: at.f, x: w.x, dist };
+    }
+  }
   return best;
 }
 
@@ -1615,7 +1693,7 @@ function onStage(e) {
   }
   if (ui.tool === 'ward') {
     const w = wardNear(at);
-    return w ? game({ type: 'ward', target: w.id }) : toast('Tap closer to a stair or a rift.', 'bad');
+    return w ? game({ type: 'ward', target: w.id }) : toast(`Tap closer to a stair or a rift${raining(s) ? ", or an end of the moat's twin" : ''}.`, 'bad');
   }
   const hit = shadeNear(at);
   if (hit && hit.id !== ui.selected) {
@@ -1662,7 +1740,7 @@ function draw(alpha, now) {
     dusk: duskAmount(now),
     souls: soulSpots(now),
     marks: night && ui.guide?.marks ? ui.guide.marks() : null,
-    threats: night && waysOn() ? threatsNow() : null,
+    threats: night && waysOn() && !foggy(s) ? threatsNow() : null,
     alpha: s.phase === 'night' && !ui.paused ? alpha : 1,
     selected: ui.selected,
     ghost: ghost(),
@@ -1993,6 +2071,23 @@ const GUIDE = [
     when: () => first() && s.phase === 'dusk' && s.dusk?.step === 'place' && s.night?.spawns.some((sp) => sp.type === 'weeper'),
     done: () => ui.sheet === 'phase',
     text: () => `Someone died today, so tonight the Weepers come for the sleepers: they make for the dark of the ${roomsOf(K(), 'quarters').length ? 'Dreamwell' : 'Cold Hearth'}. One that weeps there long enough gives someone a nightmare, and they work poorly tomorrow. Light it, post a shade there, or a Keening shade on its floor.`,
+  },
+  {
+    id: 'rain-coming', target: '#open-phase',
+    when: () => !!s.tuning.weather && s.phase === 'day' && forecastOf(s) === 'rain' && drownedDue(s, true),
+    done: () => ui.sheet === 'phase',
+    text: "Rain tomorrow: the Sky in the HUD shows the weather a day ahead. Rain slows the Yard and damps fire, and tomorrow night the Drowned come up out of the moat's twin, behind your line, and make for the mirrors. Keep essence to ward the moat, or a fighter and a candle for the mirror on their side.",
+  },
+  {
+    id: 'drowned', target: '#tool-ward',
+    when: () => s.phase === 'dusk' && s.dusk?.step === 'place' && nightView() && !!s.night?.spawns.some((sp) => sp.type === 'drowned') && !s.night.wards.includes('moat'),
+    marks: () => {
+      const end = MAP.moat.find((w) => w.id === s.night?.spawns.find((sp) => sp.type === 'drowned')?.rift) || MAP.moat[0];
+      const m = MAP.mirrors.reduce((a, b) => (Math.abs(b.x - end.x) < Math.abs(a.x - end.x) ? b : a));
+      return [{ f: K().veil, x: end.x }, { f: K().veil, x: m.x }];
+    },
+    done: () => !!s.night?.wards.includes('moat') || s.phase === 'night',
+    text: () => `Rain: tonight the Drowned come up out of the moat's twin at the marked end, behind the line, and make for the mirror beside it. Ward the moat (${fmt(wardCost(s))} essence: pick Ward, then tap that end), or light that mirror and post a fighter by it.`,
   },
   {
     id: 'crypt', target: '#bar-wake',

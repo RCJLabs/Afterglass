@@ -53,6 +53,7 @@ export function epitaph(e, { traits = false } = {}) {
     released: `Released from the edge of the Deep${at}.`,
     faded: `Faded to nothing in the glass${at}.`,
     drained: `Drained to nothing by the Unlit${at}.`,
+    drowned: `Dragged down into the moat's twin by the Drowned${at}.`,
     banished: `Banished into the Deep${at}.`,
     taken: e.cause === 'hollow' ? '' : `Carried off with their mirror by the Lantern Church${at}.`,
     funeral: '',
@@ -64,4 +65,4 @@ export function epitaph(e, { traits = false } = {}) {
   return out.join(' ');
 }
 export const RESTING = ['funeral', 'covered', 'released', 'freed', 'sealed'];
-export const LOST = ['faded', 'drained', 'banished', 'taken'];
+export const LOST = ['faded', 'drained', 'drowned', 'banished', 'taken'];

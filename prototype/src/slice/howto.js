@@ -14,6 +14,25 @@ const days = (x) => {
 const pct = (x) => `${Math.round(x * 100)}%`;
 const mult = (x) => String(Math.round(x * 100) / 100);
 
+// The weather (round five), in the keep's numbers.
+function weather(T) {
+  const odds = T.year
+    ? `rain comes on about ${['spring', 'summer', 'autumn', 'winter'].map((k, i) => `${pct(T.rainChance[i])} of ${k} days`).join(', ').replace(/, ([^,]+)$/, ' and $1')}, and fog on ${['spring', 'summer', 'autumn', 'winter'].map((k, i) => `${pct(T.fogChance[i])}`).join(', ').replace(/, ([^,]+)$/, ' and $1')} of them`
+    : `rain comes on about ${pct(T.rainChance[0])} of days and fog on ${pct(T.fogChance[0])}`;
+  const half = (x) => (x === 0.5 ? 'half' : `${mult(x)} times`);
+  return {
+    id: 'weather',
+    title: 'Weather',
+    items: [
+      `Each day and the night after it are clear, rainy or foggy, and the Sky in the HUD shows tomorrow's a day ahead: ${odds}.`,
+      `Rain slows the Yard to ${pct(T.rainYard)} and damps fire: a fire is ${half(T.rainFire)} as likely, and grows ${half(T.rainFire)} as fast.`,
+      `On a rainy night the Drowned come up out of the moat's twin, at one end of the floor under the Veil: behind the line. The Dusk panel says which end. They never take a stair: they make for the mirrors on that floor, and one that reaches a mirror cracks the Veil. ${T.drownedBase === 1 ? 'One comes' : `${T.drownedBase} come`}, and one more every ${T.drownedEvery} nights, but none on the new moon, which belongs to the Hollow${T.year ? ' (the Long Night has them too)' : ''}. Light bars them, and they gnaw it ${times(T.drownedGnaw)} as fast as a Creeper; a shade in the light cuts them down. A shade they catch in the dark is drained and dragged to the moat, and pulled under there: gone.`,
+      `A ward on the moat (${n1(T.wardCost)} essence) keeps them under all night. Or light the mirror on their side and post a fighter by it.`,
+      'Fog clouds the black mirror: at dusk it shows how many come and when, but not their ways.',
+    ],
+  };
+}
+
 // [{ id, title, items: [text] }], in the order a season meets them.
 export function howTo(T) {
   const R = DAY_ROOMS;
@@ -96,6 +115,7 @@ export function howTo(T) {
         'A Wraith is one of your own dead gone wrong. It hunts inside the Tain every night until it is banished.',
       ],
     },
+    ...(T.weather ? [weather(T)] : []),
     {
       id: 'dawn',
       title: 'Dawn: the rite',

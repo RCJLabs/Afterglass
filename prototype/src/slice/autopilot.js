@@ -74,6 +74,10 @@ const NOSALLY = !!globalThis.process?.env?.AP_NOSALLY;
 const GRANT = !!globalThis.process?.env?.AP_GRANT;
 const REFUSE = !!globalThis.process?.env?.AP_REFUSE;
 const NOGATE = !!globalThis.process?.env?.AP_NOGATE;
+// Rain: the Drowned come up behind the line. By default the autopilot wards the moat when it has the essence
+// beyond what the new moon will need, and otherwise lights each mirror and posts its best free fighter there.
+// AP_DROWN=ward only wards (whenever it can), guard only guards, none does neither (to measure each).
+const DROWN = globalThis.process?.env?.AP_DROWN || 'both';
 function nextBuild(s) {
   const want = {};
   for (const type of BUILD_ORDER) {
@@ -312,11 +316,12 @@ function placeNight(s, plan) {
       if (d) doAct(s, { type: 'move', id: d.id, f: st.f, x: st.x + 2 });
     }
   }
+  const lit = meetDrowned(s, ds);
   // The new moon: no work tonight. Everyone off the line waits by the Veil for the Hollow.
   if (s.day >= T.seasonDays) {
     const { f, x0 } = roomSpan(G, 'hearth');
     ds.forEach((d, i) => doAct(s, { type: 'move', id: d.id, f, x: x0 + 14 + (i % 4) * 5 }));
-    if (ds.length) doAct(s, { type: 'candle', f, x: x0 + 24 });
+    if (ds.length && !lit.has(roomAt(G, f, x0 + 24))) doAct(s, { type: 'candle', f, x: x0 + 24 });
     return;
   }
   for (const [room, group] of postings(s, ds)) {
@@ -328,10 +333,37 @@ function placeNight(s, plan) {
     const near = st && (!T.lineGuard || G.n === 1 || room === 'barracks');
     const mid = !st ? (x0 + x1) / 2 : near ? (st === LINE[0] ? st.x + 10 : st.x - 10) : st.x - x0 < x1 - st.x ? x1 - 8 : x0 + 8;
     group.forEach((d, i) => doAct(s, { type: 'move', id: d.id, f, x: mid - 4 + (i % 3) * 4 }));
-    if (!near && s.res.candles > 1) doAct(s, { type: 'candle', f, x: mid });
+    if (!near && s.res.candles > 1 && !lit.has(roomAt(G, f, mid))) doAct(s, { type: 'candle', f, x: mid });
   }
   homes.set(s, new Map(s.shades.filter(canWork).map((d) => [d.id, { ...d.post }])));
 }
+// A rainy night (DROWN above): ward the moat, or light the mirror nearest the end the Drowned come up at and
+// post the best fighter left (ds is strongest first) by it. Returns the rooms it lit, so no second candle
+// goes in them.
+function meetDrowned(s, ds) {
+  const T = s.tuning;
+  const G = geo(s);
+  const lit = new Set();
+  const sp = s.night.spawns.find((x) => x.type === 'drowned');
+  mirrorGuard.delete(s);
+  if (DROWN === 'none' || !sp) return lit;
+  const reserve = DROWN === 'ward' || s.day < T.seasonDays - 2 ? 0 : G.stairs.length * wardCost(s);
+  const ward = () => s.res.essence >= wardCost(s) + reserve && doAct(s, { type: 'ward', target: 'moat' });
+  if (DROWN === 'guardfirst' && (!ds.length || G.n === 1)) {
+    ward();
+    return lit;
+  }
+  if (DROWN !== 'guard' && DROWN !== 'guardfirst' && ward()) return lit;
+  if (DROWN === 'ward' || G.n === 1) return lit; // a keep one floor high has its moat outside the line
+  const end = MAP.moat.find((w) => w.id === sp.rift);
+  const m = MAP.mirrors.reduce((a, b) => (Math.abs(b.x - end.x) < Math.abs(a.x - end.x) ? b : a));
+  if (doAct(s, { type: 'candle', f: G.veil, x: m.x })) lit.add(roomAt(G, G.veil, m.x));
+  const d = ds.shift();
+  if (d && doAct(s, { type: 'move', id: d.id, f: G.veil, x: m.x })) mirrorGuard.set(s, d.id);
+  return lit;
+}
+// Tonight's guard at the mirror, kept there: nobody sends it off to a Maw.
+const mirrorGuard = new WeakMap();
 
 /* ---------------------------------------------------------------- night */
 
@@ -357,7 +389,7 @@ function tendNight(s, plan) {
     const near = s.shades.filter((d) => canWork(d) && at(d));
     if (near.length >= 2) continue;
     const help = s.shades
-      .filter((d) => canWork(d) && !near.includes(d) && !d.grabbedBy && !d.climb && d.memory > 30 && !LINE.some((st) => d.post.f === st.f && d.post.x === st.x))
+      .filter((d) => canWork(d) && !near.includes(d) && !d.grabbedBy && !d.climb && d.memory > 30 && !LINE.some((st) => d.post.f === st.f && d.post.x === st.x) && mirrorGuard.get(s) !== d.id)
       .sort((a, b) => fighter(b) * b.memory - fighter(a) * a.memory)[0];
     if (!help || (help.post.f === t.f && Math.abs(help.post.x - t.x) <= 8)) continue;
     const x = t.x + (help.x < t.x ? -2 : 2);

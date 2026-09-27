@@ -4,7 +4,7 @@
 // starts, candles burn down and shades move, so it can still turn out otherwise. Tomorrow's raid is rolled
 // when the day begins, so the mirror shows its range.
 
-import { wayOf, preyNear, mawPick, defense, byId, nightTicks, isNewMoon, weeperRooms, weeperSpots, raidStrength } from './sim.js';
+import { wayOf, preyNear, mawPick, defense, byId, nightTicks, isNewMoon, weeperRooms, weeperSpots, raidStrength, foggy } from './sim.js';
 import { MAP } from './data.js';
 import { geo, lightMap, darkRooms, DEEP_FLOOR, route, mirrorGoals } from './geo.js';
 
@@ -112,5 +112,16 @@ export function threats(s) {
   const w = n.spawns.filter((sp) => sp.type === 'weeper').length;
   const weepers = w ? { count: w, rooms: weeperRooms(s).map((r) => r.id), dark: weeperSpots(s, L).length > 0 } : null;
 
-  return { rises, tides, alone, seep, seepRooms: dark.map(([, id]) => id), maws, hollow, raid, weepers };
+  // The Drowned, on a rainy night: how many and when, the end of the moat's twin they come up at, and the way
+  // they'd go from it as things stand, unless a ward keeps them under.
+  const dr = n.spawns.filter((sp) => sp.type === 'drowned');
+  let drowned = null;
+  if (dr.length) {
+    const end = byId(MAP.moat, dr[0].rift) || MAP.moat[0];
+    const warded = n.wards.includes('moat');
+    drowned = { count: dr.length, at: dr.map((sp) => sp.at), end: end.id, x: end.x, f: G.veil, warded, way: warded ? null : follow(s, L, { type: 'drowned', f: G.veil, x: end.x, temper: 'climb' }) };
+  }
+
+  // Fog clouds the black mirror: the page shows how many come and when, but not their ways.
+  return { rises, tides, alone, seep, seepRooms: dark.map(([, id]) => id), maws, hollow, raid, weepers, drowned, fog: foggy(s) };
 }

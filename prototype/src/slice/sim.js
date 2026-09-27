@@ -49,6 +49,21 @@ export const yearsEnd = (s) => s.phase === 'end' && !!s.tuning.year && seasonInd
 export const plagueSeason = (s) => !!s.tuning.plague && !!s.tuning.year && seasonIndex(s) === 1;
 export const besieged = (s) => !!s.siege && !s.siege.broken && s.day >= s.siege.from && s.day <= s.siege.until;
 export const sallyOdds = (s) => (s.siege ? clamp(defense(s) / (s.tuning.sallyOdds * s.siege.strength), 0.1, 0.9) : 0);
+// Weather (round five): today's, which holds through the night after it, and tomorrow's, known a day ahead.
+// Every day is clear with the weather off.
+export const weatherOf = (s) => (s.tuning.weather ? s.weather || 'clear' : 'clear');
+export const forecastOf = (s) => (s.tuning.weather ? s.forecast || null : null);
+export const raining = (s) => weatherOf(s) === 'rain';
+export const foggy = (s) => weatherOf(s) === 'fog';
+// How many of the Drowned come up on a rainy night: as many in a later season as in the first.
+export const drownedCount = (s) => s.tuning.drownedBase + Math.floor(s.day / s.tuning.drownedEvery);
+// Whether they come on a rainy night (tonight's, or tomorrow's): not on the new moon, which belongs to the
+// Hollow, as for the Maws, except the Long Night.
+export function drownedDue(s, tomorrow = false) {
+  const T = s.tuning;
+  const day = s.day + (tomorrow ? 1 : 0);
+  return day !== T.seasonDays || (!!T.year && seasonIndex(s) === 3);
+}
 // Traits (data.js): what a living one's trait does by day, and a shade's by night, while traits are on.
 export const livingTrait = (s, p) => (s.tuning.traits && p.trait ? TRAITS[p.trait] : null);
 export const shadeTrait = (s, d) => (s.tuning.traits && d.trait ? SHADE_TRAITS[d.trait] : null);
@@ -148,6 +163,7 @@ export function newSeason(seed = Date.now() >>> 0, overrides = {}) {
   }
   rollDay(s);
   say(s, `Season 1, day 1. The new moon is ${tuning.seasonDays} days off. Anyone who dies inside the walls wakes at dusk as a shade.`, 'day');
+  weatherNews(s);
   return s;
 }
 
@@ -257,6 +273,7 @@ export function roomPower(s) {
     if (ms.length > free) ms.sort((a, b) => b - a);
     for (let i = 0; i < ms.length && i < all; i++) out[job] += i < free ? ms[i] : ms[i] * s.tuning.hauntWork;
   }
+  if (raining(s)) out.yard *= s.tuning.rainYard; // the Yard is outdoors
   return out;
 }
 export const defense = (s) => {
@@ -419,6 +436,7 @@ function rollDay(s) {
   const D = dayTicks(s);
   s.events = [];
   s.raid = null;
+  if (T.weather) rollWeather(s);
   const tut = tutorialDay(s);
   const base = tut ? tut.raid : T.raidDays[s.day];
   if (base) s.raid = newRaid(s, raidStrength(s, base), Math.round(T.raidWarnAt * D), Math.round(T.raidHitAt * D), !!tut);
@@ -452,10 +470,36 @@ function rollDay(s) {
   }
   if (T.fire) {
     const hot = [...roomsOf(geo(s), 'hearth'), ...roomsOf(geo(s), 'forge')];
-    if (chance(s, Math.min(1, T.fireChance * luck)) && hot.length) s.events.push({ at: Math.round((0.1 + 0.6 * rand(s)) * D), type: 'fire', room: pick(s, hot).id });
+    if (chance(s, Math.min(1, T.fireChance * luck * (raining(s) ? T.rainFire : 1))) && hot.length) s.events.push({ at: Math.round((0.1 + 0.6 * rand(s)) * D), type: 'fire', room: pick(s, hot).id });
   }
   if (s.inspection && !s.inspection.done && s.inspection.day === s.day) s.events.push({ at: Math.round(T.inspectAt * D), type: 'inspect' });
   s.events.sort((a, b) => a.at - b.at);
+}
+
+// Today's weather is yesterday's forecast (a keep's first day is clear), and tomorrow's is rolled now, with
+// tomorrow's season's odds. The tutorial's days are clear.
+function rollWeather(s) {
+  const T = s.tuning;
+  s.weather = s.forecast || 'clear';
+  if (T.tutorial && s.season === 1 && TUTORIAL.days[s.day + 1]) {
+    s.forecast = 'clear';
+    return;
+  }
+  const si = T.year ? (seasonIndex(s) + (s.day >= T.seasonDays ? 1 : 0)) % SEASONS.length : 0;
+  const r = rand(s);
+  s.forecast = r < T.rainChance[si] ? 'rain' : r < T.rainChance[si] + T.fogChance[si] ? 'fog' : 'clear';
+}
+// What the day's weather means, said at its dawn; and a warning a day ahead of rain.
+function weatherNews(s) {
+  if (!s.tuning.weather) return;
+  const behind = geo(s).n > 1 ? ', behind the line' : ''; // a keep one floor high has its moat outside the line
+  const under = 'the new moon belongs to the Hollow';
+  if (raining(s)) say(s, `Rain. The Yard quarries at ${Math.round(100 * s.tuning.rainYard)}%, and fire catches and spreads less. ${drownedDue(s) ? `Tonight the Drowned come up out of the moat's twin${behind}.` : `The Drowned stay under tonight: ${under}.`}`, 'bad');
+  else if (foggy(s)) say(s, 'Fog. Tonight the black mirror will show how many come and when, but not their ways.');
+  if (forecastOf(s) === 'rain' && drownedDue(s, true)) {
+    say(s, `Rain is coming tomorrow. Tomorrow night the Drowned will come up out of the moat's twin, on the floor under the Veil, and make for the mirrors${behind ? ' from behind the line' : ''}.`, 'bad', true);
+    cue(s, 'warn');
+  } else if (forecastOf(s) === 'rain') say(s, `Rain is coming tomorrow. The Drowned will stay under: ${under}.`);
 }
 
 // A raid's strength before the spread: the day's, harder each season, stronger for one you paid off before, and
@@ -791,7 +835,7 @@ function burn(s) {
   const G = geo(s);
   for (const f of [...s.fires]) {
     const inside = peopleIn(s, f.room);
-    f.heat = Math.min(1, f.heat + (T.fireGrow - T.fireFight * inside.length) * DT);
+    f.heat = Math.min(1, f.heat + (T.fireGrow * (raining(s) ? T.rainFire : 1) - T.fireFight * inside.length) * DT);
     const name = DAY_ROOMS[typeOf(G, f.room)].name;
     if (f.heat <= 0) {
       s.fires.splice(s.fires.indexOf(f), 1);
@@ -1001,11 +1045,17 @@ function newNight(s) {
   if (T.dreamwell) {
     for (let i = 0; i < Math.min(tut?.weepers ?? T.weepersMax, s.today.deaths.length); i++) spawns.push({ at: Math.round((0.1 + 0.6 * rand(s)) * N), type: 'weeper', seep: true, snuff: false, rift: pick(s, MAP.rifts).id });
   }
+  // A rainy night: the Drowned come up out of the moat's twin at any hour, all at one end of it (the
+  // spawn's rift is its end of the moat). Not on the new moon, which belongs to the Hollow, as for the Maws.
+  if (raining(s) && drownedDue(s)) {
+    const end = pick(s, MAP.moat).id;
+    for (let i = 0; i < drownedCount(s); i++) spawns.push({ at: Math.round((0.08 + 0.8 * rand(s)) * N), type: 'drowned', seep: false, snuff: false, rift: end });
+  }
   spawns.sort((a, b) => a.at - b.at);
   return {
     candles: [], foes: [], spawns, tides: tides.map((x) => Math.round(x * N)).sort((a, b) => a - b), wards: [], wardHold: {}, hush: false, steel: !!s.steel,
     broken: [], // twin rooms (ids) a Maw has broken tonight
-    stats: { spawned: 0, killed: 0, crossed: 0, cracks: 0, grabbed: 0, drained: 0, essence: 0, glass: 0, wick: 0, guidance: 0, candles: 0, wards: 0, lost: [], hollow: null, taken: null, wraiths: 0, maws: 0, smashed: 0, broken: [] },
+    stats: { spawned: 0, killed: 0, crossed: 0, cracks: 0, grabbed: 0, drained: 0, essence: 0, glass: 0, wick: 0, guidance: 0, candles: 0, wards: 0, lost: [], hollow: null, taken: null, wraiths: 0, maws: 0, smashed: 0, broken: [], drowned: 0, under: 0, pulled: 0 },
   };
 }
 
@@ -1023,7 +1073,9 @@ function startNight(s) {
     addFoe(s, 'wraith', f, x0 + 10 + i * 9, { shade: w.id, temper: 'snuff' });
     s.night.stats.wraiths++;
   }
-  say(s, `Night ${s.day}${isLongNight(s) ? `: the Long Night. It lasts ${s.tuning.longNight === 2 ? 'twice' : `${fmt(s.tuning.longNight)} times`} as long as a winter night, and the Hollow, a Maw and more of the Unlit will come. At its end the year ends` : isNewMoon(s) ? ': the new moon. The Hollow will rise' : ''}. ${s.night.spawns.filter((x) => x.type === 'creeper').length} Creepers will come before dawn.`, 'night', isNewMoon(s));
+  const drowned = s.night.spawns.filter((x) => x.type === 'drowned').length;
+  const under = drowned && s.night.wards.includes('moat');
+  say(s, `Night ${s.day}${isLongNight(s) ? `: the Long Night. It lasts ${s.tuning.longNight === 2 ? 'twice' : `${fmt(s.tuning.longNight)} times`} as long as a winter night, and the Hollow, a Maw and more of the Unlit will come. At its end the year ends` : isNewMoon(s) ? ': the new moon. The Hollow will rise' : ''}. ${s.night.spawns.filter((x) => x.type === 'creeper').length} Creepers will come before dawn${drowned && !under ? `, and ${drowned === 1 ? 'one of the Drowned' : `${drowned} of the Drowned`} out of the moat` : ''}.`, 'night', isNewMoon(s));
   if (isLongNight(s)) cue(s, 'long-night');
   cue(s, 'night');
   if (s.night.stats.wraiths) say(s, `${listNames(s.shades.filter((d) => d.kind === 'wraith').map((d) => d.name))} ${s.night.stats.wraiths === 1 ? 'rises' : 'rise'} as a Wraith in the Waking Room.`, 'bad', true);
@@ -1032,7 +1084,7 @@ function startNight(s) {
 
 export function addFoe(s, type, f, x, extra = {}) {
   const T = s.tuning;
-  const hp = type === 'hollow' ? T.hollowHp * hard(s) : type === 'maw' ? T.mawHp * hard(s, 'mawHardness') : type === 'wraith' ? T.wraithHp : type === 'weeper' ? T.weeperHp : T.creeperHp;
+  const hp = type === 'hollow' ? T.hollowHp * hard(s) : type === 'maw' ? T.mawHp * hard(s, 'mawHardness') : type === 'wraith' ? T.wraithHp : type === 'weeper' ? T.weeperHp : type === 'drowned' ? T.drownedHp : T.creeperHp;
   const foe = {
     id: 'c' + s.nextId++, type, f, x, ox: x, of: f, hp, max: hp, path: [], climb: 0, climbTotal: 0, temper: extra.temper || 'climb',
     mode: 'climb', prey: null, gnaw: null, gnawing: false, grab: null, replan: 0, shade: extra.shade || null, batter: null, smashing: false, target: null, breaking: 0,
@@ -1101,6 +1153,10 @@ function spawnFoes(s, L) {
   const n = s.night;
   while (n.spawns.length && n.spawns[0].at <= s.t) {
     const sp = n.spawns.shift();
+    if (sp.type === 'drowned') {
+      riseDrowned(s, sp);
+      continue;
+    }
     const open = MAP.rifts.filter((r) => !n.wards.includes(r.id));
     const rift = open.find((r) => r.id === sp.rift) || open[0] || null;
     let at = null;
@@ -1150,6 +1206,24 @@ function spawnFoes(s, L) {
   }
 }
 
+// One of the Drowned comes up out of its end of the moat's twin, unless a ward there keeps it under.
+function riseDrowned(s, sp) {
+  const n = s.night;
+  const G = geo(s);
+  if (n.wards.includes('moat')) {
+    n.stats.under++;
+    return;
+  }
+  const w = byId(MAP.moat, sp.rift) || MAP.moat[0];
+  addFoe(s, 'drowned', G.veil, w.x);
+  n.stats.spawned++;
+  const first = !n.stats.drowned;
+  n.stats.drowned++;
+  const room = TWINS[typeAt(G, G.veil, w.x)]?.name || 'dark';
+  say(s, `One of the Drowned comes up out of the moat's twin in the ${room}${G.n > 1 ? ', behind the line' : ''}. It makes for the mirrors, and drags any shade it catches in the dark down into the moat.`, 'bad', first);
+  cue(s, 'drowned', G.veil, w.x);
+}
+
 function drainShade(s, d, amount) {
   amount *= shadeTrait(s, d)?.drain ?? 1; // the Reckless lose themselves faster
   d.memory -= amount;
@@ -1171,6 +1245,12 @@ function shadeTick(s, L, d) {
       drainShade(s, d, (f.type === 'wraith' ? T.wraithDrain : T.drainPerSec) * DT);
       return;
     }
+  }
+  if (d.dragged) {
+    // Let go by the Drowned somewhere along the way to the moat: back to its post.
+    d.dragged = false;
+    const r = !d.climb && route(geo(s), L, d, [d.post]);
+    if (r) d.path = r.path;
   }
   advance(d, T.shadeSpeed * K.speed, Math.round(T.shadeClimb * TICKS_PER_SEC));
   if (d.climb || n.hush) return;
@@ -1234,6 +1314,10 @@ function foeTick(s, L, c) {
   }
   if (c.type === 'weeper') {
     weeperTick(s, L, c);
+    return;
+  }
+  if (c.type === 'drowned') {
+    drownedTick(s, L, c);
     return;
   }
   const lit = !c.climb && isLit(L, c.f, c.x);
@@ -1300,6 +1384,7 @@ export function wayOf(s, L, c) {
     const prey = preyNear(s, L, c, c.x, c.x);
     if (prey) return { mode: 'hunt', prey: prey.id, path: [{ f: c.f, x: prey.x }] };
   }
+  if (c.type === 'drowned') return drownedWay(L, c);
   if (c.temper === 'snuff') {
     const edges = [];
     for (let f = 0; f < L.spans.length; f++) {
@@ -1337,6 +1422,84 @@ function plan(s, L, c) {
   if (w.mode === 'hunt') c.prey = w.prey;
   else if (w.mode === 'gnaw') c.gnaw = w.gnaw;
   else if (w.mode === 'climb') c.gnaw = null;
+}
+
+// One of the Drowned never leaves the floor under the Veil: it walks to the nearest mirror it can reach in
+// the dark, or else to the light barring its way to the nearest mirror, to gnaw it.
+function drownedWay(L, c) {
+  const ms = [...MAP.mirrors].sort((a, b) => Math.abs(a.x - c.x) - Math.abs(b.x - c.x));
+  const open = ms.find((m) => darkBetween(L, c.f, c.x, m.x));
+  if (open) return { mode: 'climb', path: [{ f: c.f, x: open.x }] };
+  const cut = firstLight(L, c, [{ f: c.f, x: ms[0].x }]);
+  return cut ? { mode: 'gnaw', gnaw: cut.candle, path: cut.path } : { mode: 'idle', path: [] };
+}
+const moatNear = (x) => MAP.moat.reduce((a, b) => (Math.abs(b.x - x) < Math.abs(a.x - x) ? b : a));
+
+// The Drowned (a rainy night). Light makes one let go, and burns it, less than a Creeper; a shade cuts it
+// down. A shade it has caught it drags toward the nearer end of the moat's twin, and there pulls it under:
+// the shade is gone, and so is it. Otherwise it goes its way (drownedWay), catching any shade in the dark on
+// the way, and one that reaches a mirror cracks the Veil.
+function drownedTick(s, L, c) {
+  const T = s.tuning;
+  const n = s.night;
+  const lit = isLit(L, c.f, c.x);
+  if (c.grab) {
+    const d = byId(s.shades, c.grab);
+    if (!d || d.grabbedBy !== c.id || n.hush || lit) {
+      if (d && d.grabbedBy === c.id) d.grabbedBy = null;
+      c.grab = null;
+      c.replan = 0;
+    } else {
+      const w = moatNear(c.x);
+      const stepPx = T.drownedDrag * DT;
+      c.ox = c.x;
+      c.of = c.f;
+      c.x = Math.abs(w.x - c.x) <= stepPx ? w.x : c.x + Math.sign(w.x - c.x) * stepPx;
+      Object.assign(d, { ox: d.x, of: d.f, x: c.x, dragged: true });
+      if (c.x === w.x) {
+        n.foes = n.foes.filter((x) => x !== c);
+        n.stats.pulled++;
+        fadeAway(s, d, `${d.name} was dragged down into the moat's twin by the Drowned and is gone.`, 'drowned');
+      }
+      return;
+    }
+  }
+  if (lit) {
+    c.hp -= T.burnDps * T.drownedBurn * DT;
+    if (c.mode !== 'flee') {
+      c.mode = 'flee';
+      c.path = fleePath(L, c);
+      c.replan = 10;
+    }
+  }
+  if (--c.replan <= 0) plan(s, L, c);
+  advance(c, T.drownedSpeed, 1);
+  const m = MAP.mirrors.find((x) => Math.abs(x.x - c.x) < 2);
+  if (m) {
+    cross(s, c, m, 1);
+    return;
+  }
+  if (c.mode === 'hunt' && !n.hush) {
+    const d = byId(s.shades, c.prey);
+    if (d && canWork(d) && !d.grabbedBy && !d.climb && d.f === c.f && Math.abs(d.x - c.x) < 2.5 && !isLit(L, d.f, d.x)) {
+      c.grab = d.id;
+      c.path = [];
+      d.grabbedBy = c.id;
+      d.path = [];
+      n.stats.grabbed++;
+      const caught = `One of the Drowned has caught ${d.name} in the dark of the ${TWINS[typeAt(geo(s), d.f, d.x) || 'crypt'].name} and is dragging them to the moat.`;
+      keepMoment(s, 'caught', d, caught);
+      say(s, `${caught} Light the spot to make it let go.`, 'bad', true);
+      cue(s, 'caught', d.f, d.x);
+    }
+  }
+  if (c.mode === 'gnaw' && !c.path.length) {
+    const k = byId(n.candles, c.gnaw);
+    if (k && touching(geo(s), L, c, k.id)) {
+      k.wax -= T.gnawRate * T.drownedGnaw * DT;
+      c.gnawing = true;
+    } else c.replan = 0;
+  }
 }
 
 // The Weepers' rooms: the twins of where the living sleep, the Dreamwells, or the Cold Hearth in a keep
@@ -1579,8 +1742,9 @@ function hollowTick(s, L, h) {
 function cross(s, c, m, cracks) {
   const n = s.night;
   const where = TWINS[typeAt(geo(s), geo(s).veil, m.x)].name;
-  if (!veilKept(s) && s.cracks + cracks >= s.tuning.cracksMax) keepMoment(s, 'broke', { f: c.f, x: m.x }, `${c.type === 'hollow' ? 'The Hollow' : 'A Creeper'} broke the Veil at the mirror in the ${where}.`);
-  else keepMoment(s, c.type === 'hollow' ? 'torn' : 'crack', { f: c.f, x: m.x }, c.type === 'hollow' ? `The Hollow reached the mirror in the ${where}.` : `A Creeper slipped through the Veil at the mirror in the ${where}.`);
+  const who = c.type === 'drowned' ? 'One of the Drowned' : 'A Creeper';
+  if (!veilKept(s) && s.cracks + cracks >= s.tuning.cracksMax) keepMoment(s, 'broke', { f: c.f, x: m.x }, `${c.type === 'hollow' ? 'The Hollow' : who} broke the Veil at the mirror in the ${where}.`);
+  else keepMoment(s, c.type === 'hollow' ? 'torn' : 'crack', { f: c.f, x: m.x }, c.type === 'hollow' ? `The Hollow reached the mirror in the ${where}.` : `${who} slipped through the Veil at the mirror in the ${where}.`);
   n.foes = n.foes.filter((x) => x !== c);
   s.cracks += cracks;
   n.stats.crossed++;
@@ -1593,10 +1757,10 @@ function cross(s, c, m, cracks) {
   } else if (veilKept(s) && s.cracks >= s.tuning.cracksMax) {
     // The tutorial's first nights: the Veil holds by a thread.
     s.cracks = s.tuning.cracksMax - 1;
-    say(s, `A Creeper slipped through the Veil at the mirror in the ${where}. The Veil holds by a thread; from night ${TUTORIAL.safeUntil}, that would break it and lose the keep.`, 'bad', true);
+    say(s, `${who} slipped through the Veil at the mirror in the ${where}. The Veil holds by a thread; from night ${TUTORIAL.safeUntil}, that would break it and lose the keep.`, 'bad', true);
     cue(s, 'crack', c.f, m.x);
   } else {
-    say(s, `A Creeper slipped through the Veil at the mirror in the ${where}. The Veil cracks: ${s.cracks} of ${s.tuning.cracksMax}.`, 'bad', true);
+    say(s, `${who} slipped through the Veil at the mirror in the ${where}. The Veil cracks: ${s.cracks} of ${s.tuning.cracksMax}.`, 'bad', true);
     cue(s, 'crack', c.f, m.x);
   }
   if (s.phase === 'night' && s.cracks >= s.tuning.cracksMax) {
@@ -1686,7 +1850,7 @@ function takeLiving(s, p) {
 function foeDown(s, f) {
   const n = s.night;
   n.stats.killed++;
-  if (f.type === 'creeper' || f.type === 'maw' || f.type === 'weeper') cue(s, f.type === 'maw' ? 'maw-down' : 'foe-down', f.f, f.x);
+  if (f.type === 'creeper' || f.type === 'maw' || f.type === 'weeper' || f.type === 'drowned') cue(s, f.type === 'maw' ? 'maw-down' : 'foe-down', f.f, f.x);
   const hero = f.lastHit && ledgerOf(s, f.lastHit);
   if (hero) hero.kills = (hero.kills || 0) + 1;
   const d = f.grab && byId(s.shades, f.grab);
@@ -1982,6 +2146,7 @@ function beginDay(s) {
   const when = s.tuning.year ? `${cap(seasonName(s))} of year ${yearOf(s)}` : `Season ${s.season}`;
   say(s, `${when}, day ${s.day}${isLongNight(s) ? ': tonight is the Long Night' : isNewMoon(s) ? ': tonight is the new moon' : ''}.`, 'day');
   cue(s, 'day');
+  weatherNews(s);
   const haunted = (s.haunted || []).map((id) => DAY_ROOMS[typeOf(geo(s), id)].name);
   const half = T.hauntWork < 1 ? ` Whoever works there manages ${Math.round(100 * T.hauntWork)}% until dusk.` : '';
   if (haunted.length) say(s, `The ${listNames(haunted)} ${haunted.length === 1 ? 'is' : 'are'} haunted today.${half}`, 'bad', true);
@@ -2466,7 +2631,8 @@ const ACTIONS = {
   },
   ward(s, { target }) {
     if (s.phase !== 'night' && s.phase !== 'dusk') return 'Wards are set at dusk or during the night.';
-    if (!geo(s).stairs.some((x) => x.id === target) && !MAP.rifts.some((x) => x.id === target)) return 'Wards seal a stair or a rift.';
+    if (target === 'moat' && !raining(s)) return "The moat's twin is still tonight: nothing will come up it.";
+    if (!geo(s).stairs.some((x) => x.id === target) && !MAP.rifts.some((x) => x.id === target) && target !== 'moat') return 'Wards seal a stair, a rift or the moat.';
     if (s.night.wards.includes(target)) return 'Already warded tonight.';
     const cost = wardCost(s);
     if (s.res.essence + EPS < cost) return `A ward costs ${fmt(cost)} essence.`;
@@ -2679,6 +2845,7 @@ export function upgrade(g) {
   for (const t of [g.tuning, g.tuning0]) if (t && !('plague' in t)) t.plague = 0;
   for (const t of [g.tuning, g.tuning0]) if (t && !('requests' in t)) t.requests = 0;
   for (const t of [g.tuning, g.tuning0]) if (t && !('siege' in t)) t.siege = 0;
+  for (const t of [g.tuning, g.tuning0]) if (t && !('weather' in t)) t.weather = 0;
   for (const p of g.living || []) p.trait ??= traitFor(g, p.name);
   for (const b of g.bodies || []) if (b.was === undefined) b.was = b.from === 'raider' ? null : traitFor(g, b.name);
   for (const d of g.shades || []) {

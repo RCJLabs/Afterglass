@@ -10,6 +10,8 @@ import { geo, geoOf, feet as feetOf, roomSpan, roomsOf, lightMap, unitAt as unit
 import { figure, livingLook, shadeLook, eyesAt, FIG_H } from './people.js';
 
 const { W, VEIL, ROOM_H } = MAP;
+// Today's weather (round five), as the sim has it: clear with the weather off.
+const skyOf = (s) => (s.tuning.weather && s.weather) || 'clear';
 
 export function mk(w, h) {
   const c = document.createElement('canvas');
@@ -395,6 +397,27 @@ function stars(c, x0, w, y0, y1, t, col = P.white) {
     }
   }
 }
+// Rain: short slanting streaks on a repeating tile, falling fast.
+const RAIN_TILE = 89;
+function rain(c, x0, w, y0, y1, t, col) {
+  const span = y1 - y0 + 40;
+  for (let k = Math.floor(x0 / RAIN_TILE) - 1; k * RAIN_TILE < x0 + w + 10; k++) {
+    for (let i = 0; i < 22; i++) {
+      const x = k * RAIN_TILE + ((i * 41) % RAIN_TILE);
+      const y = y0 - 20 + ((((t * (70 + (i % 4) * 12) + i * 67 + k * 31) % span) + span) % span);
+      for (let j = 0; j < 3; j++) {
+        const px = Math.round(x - (y + j) * 0.25);
+        const py = Math.round(y + j);
+        if (px >= x0 && px < x0 + w && py >= y0 && py < y1) D(c, px, py, col);
+      }
+    }
+  }
+}
+// Fog: a pale haze, thickest near the water.
+function fog(c, x0, w, y0, y1, col, a) {
+  for (let y = y0; y < y1; y += 4) A(c, a * (0.35 + (0.65 * (y - y0)) / Math.max(1, y1 - y0)), () => R(c, x0, y, w, Math.min(4, y1 - y), col));
+}
+const RAIN_SKY = [[-9999, '#5d6878'], [-60, '#7a8594'], [40, '#9aa3ae']];
 // Winter's snow: flakes on a repeating tile, each falling at its own pace and swaying a little.
 const SNOW_TILE = 97;
 function snow(c, x0, w, y0, y1, t) {
@@ -723,6 +746,46 @@ function weeperSprite(c, u, x, y, t) {
     D(c, bx + 2 + sway, by - 7 + k, WEEPER.tear);
   }
 }
+// One of the Drowned: stooped and sodden, long arms hanging, weed on it. Dark like the other Unlit, so in the
+// dark only its eyes show: pale, level and wide-set, high on it (a Creeper's are an upright pair at the
+// floor), with water running off it.
+const DROWNED = { body: '#08141a', weed: '#123a33', eye: '#8ff0dc', drip: '#7fbfff' };
+const drownSway = (u, t) => (u.grab ? 0 : Math.round(Math.sin(t * 2 + u.x) * 0.8));
+function drownedSprite(c, u, x, y, t) {
+  const bx = Math.round(x - 2);
+  const by = Math.round(y);
+  const sw = drownSway(u, t);
+  R(c, bx + sw, by - 9, 4, 3, DROWNED.body);
+  R(c, bx - 1, by - 6, 6, 4, DROWNED.body);
+  R(c, bx, by - 2, 4, 2, DROWNED.body);
+  R(c, bx - 2, by - 5, 1, 3, DROWNED.body);
+  R(c, bx + 5, by - 5, 1, 3, DROWNED.body);
+  D(c, bx + 1, by - 5, DROWNED.weed);
+  D(c, bx + 3 + sw, by - 7, DROWNED.weed);
+}
+function drownedEyes(c, u, x, y, t) {
+  const bx = Math.round(x - 2) + drownSway(u, t);
+  const by = Math.round(y);
+  D(c, bx, by - 8, DROWNED.eye);
+  D(c, bx + 3, by - 8, DROWNED.eye);
+  if (t) {
+    const k = MF(t * 5 + u.x) % 6;
+    if (k < 4) D(c, bx + 1 + (MF(u.x) % 3), by - 5 + k, DROWNED.drip);
+  }
+}
+// The moat's twin at the ends of the floor under the Veil, on a rainy night: dark water, stirring where the
+// Drowned are still to come up.
+function moatWater(c, s, t) {
+  const y = feet(G.veil);
+  const rising = new Set((s.night?.spawns || []).filter((x) => x.type === 'drowned').map((x) => x.rift));
+  for (const w of MAP.moat) {
+    const x0 = Math.max(MAP.LEFT, w.x - 3);
+    R(c, x0, y - 1, 7, 1, '#1d3b5a');
+    const k = t ? MF(t * 3 + w.x) % 5 : 2;
+    D(c, x0 + k + 1, y - 1, '#6fa6d8');
+    if (rising.has(w.id)) glow(c, w.x, y - 2, 4, '#7fe3ff', 0.18 + (t ? 0.1 * Math.sin(t * 3) : 0.1));
+  }
+}
 // A Maw: a hunched brute, wider and taller than a Creeper, with a mouth that opens as it tears at a candle.
 function mawSprite(c, u, x, y, t) {
   const bx = Math.round(x - 4);
@@ -806,7 +869,7 @@ function sigil(c, x, y, hold) {
 // a bite where they'll gnaw, a ring round a mirror they can reach, a mark over a shade they'll catch; the
 // candle hunters' way, sparser and a row higher, where it differs; brackets on what the Maw would make for;
 // the Hollow's way in bigger dots on the new moon. Shapes differ as well as colours. Still with less motion.
-const WAY = { climb: P.red, open: P.hot, hunt: P.pink, hollow: '#d4b8ff' };
+const WAY = { climb: P.red, open: P.hot, hunt: P.pink, hollow: '#d4b8ff', drowned: '#8ff0dc' };
 // A way as a faint dotted line with chevrons along it pointing where it goes; the chevrons march unless
 // motion is off. lift: how far above the floor it runs.
 function trace(c, pts, col, { gap = 8, lift = 4, big = false, t = 0 } = {}) {
@@ -888,6 +951,10 @@ function threatLayer(c, s, th, t) {
     const m = last && mirrorAt(MAP.mirrors.reduce((a, b) => (Math.abs(b.x - last.x) < Math.abs(a.x - last.x) ? b : a)).id);
     if (m) ring(c, m.x, m.y, 8, WAY.hollow);
   }
+  if (th.drowned?.way) {
+    trace(c, th.drowned.way.pts, WAY.drowned, { gap: 6, lift: 10, t });
+    wayEnd(c, s, th.drowned.way, WAY.drowned, t, 10);
+  }
   for (const e of th.rises) {
     if (e.hunt && !sameWay(e.hunt, e.way)) {
       trace(c, e.hunt.pts, WAY.hunt, { gap: 12, lift: 7, t });
@@ -943,6 +1010,7 @@ function composeTain(s, t, opts = {}) {
     if (u.type === 'creeper') creeperSprite(c, u, x, y, t);
     else if (u.type === 'wraith') wraithSprite(c, x, y, t);
     else if (u.type === 'maw') mawSprite(c, u, x, y, t);
+    else if (u.type === 'drowned') drownedSprite(c, u, x, y, t);
     else if (u.type !== 'weeper') hollowSprite(c, x, y, t);
   }
   const hollow = foes.find((f) => f.u.type === 'hollow');
@@ -970,6 +1038,7 @@ function composeTain(s, t, opts = {}) {
     const pulse = 0.25 + 0.2 * Math.sin(t * 2 + rf.x);
     glow(c, rf.x, feet(G.deep) - 2, 5, P.hot, pulse);
   }
+  if (skyOf(s) === 'rain' && n) moatWater(c, s, t);
   // The mirrors under the Veil, where the Unlit are headed: always bright enough to find.
   for (const m of MAP.mirrors) {
     const my = G.floors[G.veil].y + 4;
@@ -987,6 +1056,8 @@ function composeTain(s, t, opts = {}) {
     if (st) {
       sigil(c, st.x, feet(st.f) - 6, n.wardHold?.[w]);
       sigil(c, st.x, feet(st.f + 1) - 6, n.wardHold?.[w]);
+    } else if (w === 'moat') {
+      for (const m of MAP.moat) sigil(c, m.x, feet(G.veil) - 6);
     } else {
       const rf = MAP.rifts.find((x) => x.id === w);
       if (rf) sigil(c, rf.x, feet(G.deep) - 6);
@@ -1022,6 +1093,7 @@ function composeTain(s, t, opts = {}) {
     if (u.type === 'creeper') creeperEyes(c, u, x, y, t);
     else if (u.type === 'wraith') wraithEyes(c, x, y, t);
     else if (u.type === 'maw') mawEyes(c, u, x, y, t);
+    else if (u.type === 'drowned') drownedEyes(c, u, x, y, t);
     else if (u.type === 'weeper') A(c, 0.85, () => weeperSprite(c, u, x, y, t));
     else hollowEyes(c, x, y, t);
   }
@@ -1086,7 +1158,9 @@ function dayScene(c, w, h, s, v) {
       });
     }
     const season = s.tuning.year ? (s.season - 1) % LAND.length : 0;
+    const sky = skyOf(s);
     if (season === 3) A(u, 0.45 * (1 - sunset), () => bands(u, cx, w, yTop, VEIL, WINTER_SKY));
+    if (sky === 'rain') A(u, 0.7 * (1 - sunset), () => bands(u, cx, w, yTop, VEIL, RAIN_SKY));
     A(u, 1 - dk, () => clouds(u, cx, w, t));
     ridge(u, cx, w, RIDGES.far, sunset > 0.5 ? '#7a6a8a' : LAND[season][0]);
     ridge(u, cx, w, RIDGES.near, sunset > 0.5 ? '#5a4a6a' : LAND[season][1]);
@@ -1100,7 +1174,9 @@ function dayScene(c, w, h, s, v) {
     if (dk > 0) A(u, dk, () => u.drawImage(L.nightKeep, 0, L.y0));
     if (sunset > 0 && dk < 0.6) A(u, 0.25 * sunset * (1 - dk / 0.6), () => R(u, cx, yTop, w, upH, P.orange));
     dayActors(u, s, t, dk);
-    if (season === 3) A(u, 0.9, () => snow(u, cx, w, yTop, VEIL, t));
+    if (season === 3 && sky !== 'rain') A(u, 0.9, () => snow(u, cx, w, yTop, VEIL, t));
+    if (sky === 'rain') A(u, 0.55, () => rain(u, cx, w, yTop, VEIL, t, dk > 0.5 ? '#6d7f99' : '#dfe8f2'));
+    if (sky === 'fog') fog(u, cx, w, yTop, VEIL, dk > 0.5 ? '#3a4150' : '#dde2e8', 0.55);
     for (const id of s.haunted || []) if (G.rooms[id]) A(u, 1 - dk, () => haunt(u, G.rooms[id], G.floors[G.rooms[id].f].y, t));
     // Souls of the dead crossing: down through the Veil to wake, or up and away to rest.
     for (const sl of v.souls || []) {
@@ -1147,6 +1223,8 @@ function nightScene(c, w, h, s, v) {
     ridge(c, cx, w, RIDGES.far, '#141c2a');
     ridge(c, cx, w, RIDGES.near, '#1a2430');
     c.drawImage(L.nightKeep, 0, L.y0);
+    if (skyOf(s) === 'rain') A(c, 0.45, () => rain(c, cx, w, cy, VEIL, t, '#6d7f99'));
+    if (skyOf(s) === 'fog') fog(c, cx, w, cy, VEIL, '#3a4150', 0.5);
     c.setTransform(1, 0, 0, 1, 0, 0);
   }
   const below = cy + h - VEIL;

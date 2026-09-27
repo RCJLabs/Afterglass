@@ -14,7 +14,7 @@ Round four's queue is built except the replay viewer, which is parked ([`round-4
 | 4 | A night review at dawn | Enhancement (the night report) | M | Built: up to three stills of the night at the rite, and at the season's end or a keep's fall ([problem 22](../../../prototype/README.md)) |
 | 5 | The dead ask for things | Enhancement (the rite) | M | Built: a request from each shade after two nights; refused twice, it turns Restless. The rite is a choice now, but it costs the mourner ([problem 25](../../../prototype/README.md)) |
 | 6 | Each season its own trouble: plague summers, autumn sieges | New | M | Built: summer's plague takes more in a crowded keep; autumn's siege shuts the gate for two days, broken by a sally ([problem 24](../../../prototype/README.md)) |
-| 7 | Rain and the Drowned | New | M | Queued, 8th |
+| 7 | Rain and the Drowned | New | M | Built: a forecast a day ahead; rain slows the Yard and damps fire, fog clouds the black mirror; on rainy nights the Drowned come up behind the line and make for the mirrors. It costs the doubled line about 5 points of whole years and the other plans about as much as noise, and lets the Hollow through more often ([problem 27](../../../prototype/README.md)) |
 | 8 | Down into the Deep, for quicksilver | New | M–L | Queued, 9th |
 | 9 | Generations: aging and children | New | L | Queued, 10th |
 | 10 | An ending to the year | New | M | Built: keep the watch, take your place in the glass as The Keeper, or seal the Veil and end the keep ([problem 26](../../../prototype/README.md)) |

@@ -282,6 +282,31 @@ export const TUNING = {
   siegeDays: 2,
   siegeStrength: 0.6,
   sallyOdds: 1.5,
+
+  // Weather (round five). Each day, and the night after it, is clear, rainy or foggy, and it's rolled a day
+  // ahead, so tomorrow's is always known: rain on rainChance of days in each season (spring to winter), fog on
+  // fogChance. Rain slows the Yard to rainYard, and damps fire: a fire is rainFire times as likely and grows
+  // rainFire times as fast. Fog clouds the black mirror: at dusk it shows how many come and when, not their
+  // ways. On a rainy night the Drowned rise out of the moat's twin, at one end of the floor under the Veil
+  // (known at dusk): drownedBase of them, one more every drownedEvery nights, at any hour, but none on the new
+  // moon, which belongs to the Hollow (as for the Maws, the Long Night has them too). They never take a stair:
+  // they make for the mirrors on that floor from behind the line, and one that reaches a mirror cracks the
+  // Veil. Light bars them and burns them at drownedBurn of a Creeper's rate; they gnaw it, drownedGnaw times
+  // as fast. A shade they catch in the dark is drained as a Creeper drains it and dragged drownedDrag a second
+  // toward the moat; if it gets there it's pulled under and gone. A ward on the moat keeps them under.
+  // weather 0 is every day clear.
+  weather: 1,
+  rainChance: [0.3, 0.15, 0.3, 0.05],
+  fogChance: [0.1, 0.05, 0.25, 0.3],
+  rainYard: 0.75,
+  rainFire: 0.5,
+  drownedBase: 1,
+  drownedEvery: 4,
+  drownedHp: 3,
+  drownedSpeed: 5,
+  drownedGnaw: 2,
+  drownedBurn: 0.5,
+  drownedDrag: 2,
 };
 
 export const SEASONS = ['spring', 'summer', 'autumn', 'winter'];
@@ -413,6 +438,12 @@ export const MAP = {
   mirrors: [
     { id: 'm1', x: 30 },
     { id: 'm2', x: 82 },
+  ],
+  // The moat's twin: where the Drowned come up on a rainy night, at the two ends of the floor under the Veil.
+  // One ward (id 'moat') keeps them under.
+  moat: [
+    { id: 'w1', x: 8 },
+    { id: 'w2', x: 104 },
   ],
 };
 

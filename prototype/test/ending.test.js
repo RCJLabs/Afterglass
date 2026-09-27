@@ -5,9 +5,9 @@ import { runSeasonAuto } from '../src/slice/autopilot.js';
 import { recapOf } from '../src/slice/recap.js';
 import { epitaph } from '../src/slice/book.js';
 
-// A keep the autopilot brings through a whole year (seed 2 does), at the year's end.
+// A keep the autopilot brings through a whole year (seed 4 does), at the year's end.
 const yearDone = (() => {
-  const s = runSeasonAuto(2, { seasons: 4 });
+  const s = runSeasonAuto(4, { seasons: 4 });
   return () => JSON.parse(JSON.stringify(s));
 })();
 
@@ -15,7 +15,7 @@ test("the year's end comes after the Long Night only; the endings wait for it", 
   const s = yearDone();
   assert.ok(yearsEnd(s));
   assert.equal(seasonIndex(s), 3);
-  const spring = runSeasonAuto(2, { seasons: 1 });
+  const spring = runSeasonAuto(4, { seasons: 1 });
   assert.equal(spring.phase, 'end');
   assert.ok(!yearsEnd(spring));
   assert.match(act(spring, { type: 'sealVeil' }).error, /only when a year ends/);
