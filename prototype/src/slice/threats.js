@@ -4,7 +4,7 @@
 // starts, candles burn down and shades move, so it can still turn out otherwise. Tomorrow's raid is rolled
 // when the day begins, so the mirror shows its range.
 
-import { wayOf, preyNear, mawPick, defense, byId, nightTicks, isNewMoon, weeperRooms, weeperSpots, raidStrength, foggy } from './sim.js';
+import { wayOf, preyNear, mawPick, defense, byId, nightTicks, isNewMoon, weeperRooms, weeperSpots, raidStrength, foggy, gatehouseOf } from './sim.js';
 import { MAP } from './data.js';
 import { geo, lightMap, darkRooms, DEEP_FLOOR, route, mirrorGoals } from './geo.js';
 
@@ -55,8 +55,11 @@ export function threats(s) {
   const N = nightTicks(s);
   const dark = darkRooms(G, L);
 
-  // Tonight's Creepers: which rift, which temper, which tide.
-  const rises = MAP.rifts.map((r) => ({ rift: r.id, x: r.x, climb: 0, snuff: 0 }));
+  // Tonight's Creepers: which rift, which temper, which tide. From summer some come up the Undergate, the
+  // Gatehouse's twin, on its own floor, unless it's warded.
+  const rises = MAP.rifts.map((r) => ({ rift: r.id, f: DEEP_FLOOR, x: r.x, climb: 0, snuff: 0 }));
+  const gh = !n.wards.includes('undergate') && gatehouseOf(s);
+  if (gh) rises.push({ rift: 'undergate', f: gh.f, x: (gh.x0 + gh.x1) / 2, climb: 0, snuff: 0 });
   const tides = n.tides.map((at) => ({ at, count: 0 }));
   let seep = 0;
   let alone = 0;
@@ -66,6 +69,10 @@ export function threats(s) {
     const tide = tides.find((t) => Math.abs(t.at - sp.at) <= window);
     if (tide) tide.count++;
     else alone++;
+    if (gh && sp.rift === 'undergate') {
+      rises.at(-1)[sp.snuff ? 'snuff' : 'climb']++;
+      continue;
+    }
     const rift = riftFor(n, sp);
     if ((sp.seep && dark.length) || !rift) {
       seep++;
@@ -74,7 +81,7 @@ export function threats(s) {
     rises.find((e) => e.rift === rift.id)[sp.snuff ? 'snuff' : 'climb']++;
   }
   for (const e of rises) {
-    const at = { type: 'creeper', f: DEEP_FLOOR, x: e.x };
+    const at = { type: 'creeper', f: e.f, x: e.x };
     e.way = e.climb ? follow(s, L, { ...at, temper: 'climb' }) : null;
     e.hunt = e.snuff ? follow(s, L, { ...at, temper: 'snuff' }) : null;
   }

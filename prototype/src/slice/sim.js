@@ -9,7 +9,7 @@
 import {
   TICKS_PER_SEC, TUNING, DAY_ROOMS, WORK_ROOMS, TWINS, MAP, KINDS, WORKING, CAUSES, GUIDE_UP,
   MIRRORS, START_MIRRORS, MIRROR_PLACES, CAST, BONDS, START_SHADES, BOND_OTHER, NAMES, RAIDER_NAMES, BUILDABLE, TRAITS, TRAIT_KEYS, SHADE_TRAITS, SEASONS,
-  TUTORIAL, REQUESTS, ACTS, OMENS, VISITORS,
+  TUTORIAL, REQUESTS, ACTS, OMENS, VISITORS, STUDIES, DECREES,
 } from './data.js';
 import {
   geo, FULL_KEEP, startKeep, lineSpots, MAX_FLOORS, roomsOf, roomAt, roomSpan, typeOf, typeAt, lightMap, isLit, spanAt, darkBetween, darkRooms, darkGaps, route, firstLight, fleePath, touching,
@@ -116,6 +116,10 @@ export function newSeason(seed = Date.now() >>> 0, overrides = {}) {
     fires: [], // rooms burning today: { room, heat, full }
     scorched: [], // rooms (ids) burned out yesterday, dead until dusk
     dreamt: 0, // a Wistful shade's good dreams: what the living work at the day after, or 0
+    learned: [], // the Library's studies finished (ids of STUDIES)
+    study: null, // the one it's on: { id, lore, kind (for the old rites) }
+    decree: null, // the Hall's standing decree: { id, season }
+    court: false, // a shade sat in the Court of Shades last night: one request is heard free at this rite
     dread: 0,
     cracks: 0,
     living: [],
@@ -263,7 +267,7 @@ export function actText(T, a) {
   }[a];
 }
 // Whether a shade could act now: tonight's act unspent, and memory to pay for it.
-export const canAct = (s, d) => !!s.tuning.acts && s.phase === 'night' && canWork(d) && !!actOf(d) && !d.acted && !d.climb && d.memory > actCost(s, d) + EPS;
+export const canAct = (s, d) => !!s.tuning.acts && s.phase === 'night' && canWork(d) && !!actOf(d) && (d.acted || 0) < actsFor(s, d) && !d.climb && d.memory > actCost(s, d) + EPS;
 // The type of room a shade is posted in (its twin's type), or null.
 export const postRoom = (s, d) => (d.post ? typeAt(geo(s), d.post.f, d.post.x) : null);
 export const griefMult = (s, p) => (p.grief ? p.grief.mult : 1);
@@ -289,8 +293,9 @@ export function livingMult(s, p) {
   if (p.peace > 0) m *= T.peaceMult;
   if (isTwinnedLiving(s, p)) m *= T.twinMult;
   const L = livingTrait(s, p);
-  if (L) m *= (L.any ?? 1) * (L.jobs?.[p.job] ?? L.other ?? 1) * (p.job === 'barracks' ? (L.guard ?? 1) : 1);
+  if (L) m *= (L.any ?? 1) * (L.jobs?.[p.job] ?? L.other ?? 1) * (isGuard(p) ? (L.guard ?? 1) : 1);
   if (s.dreamt) m *= s.dreamt; // good dreams, the day after
+  if (decreeOf(s) === 'curfew') m *= DECREES.curfew.work;
   if (p.nightmare) m *= T.nightmareMult;
   return m;
 }
@@ -317,11 +322,33 @@ export function roomPower(s) {
 }
 export const defense = (s) => {
   const pw = roomPower(s);
-  const riders = s.raid && (s.raid.state === 'coming' || s.raid.state === 'assault') && !s.raid.crusade ? s.riders || 0 : 0; // the lord's, against the Host only
-  return pw.barracks * DAY_ROOMS.barracks.rate + pw.forge * DAY_ROOMS.forge.rate + (s.raid?.ward || 0) + (s.watchBonus || 0) + onWalls(s).length * s.tuning.raidBellDefense + gateGuard(s) + (s.gateHelp || 0) + riders;
+  const raiding = s.raid && (s.raid.state === 'coming' || s.raid.state === 'assault');
+  const riders = raiding && !s.raid.crusade ? s.riders || 0 : 0; // the lord's, against the Host only
+  const levy = raiding && decreeOf(s) === 'levy' ? DECREES.levy.defense : 0;
+  return pw.barracks * DAY_ROOMS.barracks.rate + pw.forge * DAY_ROOMS.forge.rate + (pw.gatehouse || 0) * DAY_ROOMS.gatehouse.rate + (s.raid?.ward || 0) + (s.watchBonus || 0) + onWalls(s).length * s.tuning.raidBellDefense + gateGuard(s) + (s.gateHelp || 0) + riders + levy;
 };
 // The dead at the gate: Loyal shades granted their request stand guard by day at their night strength.
 export const atGate = (s, d) => !!s.tuning.requests && canWork(d) && d.byDay?.how === 'gate';
+// Round six's three rooms. Guards stand in a Barracks or a Gatehouse; the Library's studies, once finished,
+// are the keep's for good; the Hall's decree stands for the season it was proclaimed in, while a Hall stands.
+export const GUARD_JOBS = ['barracks', 'gatehouse'];
+export const isGuard = (p) => GUARD_JOBS.includes(p.job);
+export const learned = (s, id) => !!s.tuning.library && !!s.learned?.includes(id);
+export const decreeOf = (s) => (s.decree && s.tuning.hall && s.decree.season === s.season && roomsOf(geo(s), 'hall').length ? s.decree.id : null);
+export const gatehouseOf = (s) => (s.tuning.gatehouse ? roomsOf(geo(s), 'gatehouse')[0] || null : null);
+// From summer the Host brings ladders to the gate, and the Gatehouse's twin opens a way up from the Deep.
+export const laddersDue = (s) => !!s.tuning.gatehouse && !!s.tuning.raidFight && s.season >= s.tuning.laddersFrom;
+export const undergateOpen = (s) => s.season >= s.tuning.undergateFrom && !!gatehouseOf(s);
+// How long a ward holds the Hollow.
+export const wardHoldOf = (s) => s.tuning.wardHold * (learned(s, 'hollow') ? STUDIES.hollow.hold : 1);
+// What a pour of pitch takes off the Host.
+export const pitchOf = (s) => s.tuning.raidPitch * (learned(s, 'pitch') ? STUDIES.pitch.mult : 1);
+// Round six's rooms, each with its own switch in the tuning (a keep from before has none of them).
+export const NEW_ROOMS = ['library', 'hall', 'gatehouse'];
+// Where the Gatehouse may stand: at the gate, on the ground floor or the one above it (floor f of G).
+export const atTheGate = (G, f) => G.n - 1 - f <= 1;
+// How many acts a night a shade has: two for the kind the old rites were learned for.
+export const actsFor = (s, d) => 1 + (learned(s, 'rites') && s.riteKind === d.kind ? 1 : 0);
 export const gateGuard = (s) => s.shades.filter((d) => atGate(s, d)).reduce((a, d) => a + KINDS[d.kind].fight * perf(d) * DAY_ROOMS.barracks.rate, 0);
 // A raid you fight: those the bell brought onto the walls, whether the stores are barred, and what the Host
 // wants to turn back.
@@ -360,7 +387,7 @@ export const tradeOf = (s, d) => d.job || ledgerOf(s, d.id)?.job || null;
 // Everyone at a job today, the living and the dead who stepped through.
 export const handsAt = (s, type) => jobCount(s, type) + s.shades.filter((d) => stepsThrough(s, d) && d.byDay.room === type).length;
 // A ward's price tonight: half while a Bitter shade stays in the glass.
-export const wardCost = (s) => s.tuning.wardCost * (s.shades.some((d) => canWork(d) && shadeTrait(s, d)?.wards) ? SHADE_TRAITS.bitter.wards : 1);
+export const wardCost = (s) => Math.max(1, s.tuning.wardCost - (learned(s, 'wards') ? STUDIES.wards.less : 0)) * (s.shades.some((d) => canWork(d) && shadeTrait(s, d)?.wards) ? SHADE_TRAITS.bitter.wards : 1);
 // Where the next room goes: the top floor's bare hall if it has one, else a new floor on top.
 export function nextSlot(s) {
   const keep = s.keep || FULL_KEEP;
@@ -371,7 +398,7 @@ export function nextSlot(s) {
 // Every bare hall in the keep, top floor first: where a room can be built besides a new floor on top.
 export const bareHalls = (s) => (s.keep || FULL_KEEP).floors.flatMap((fl, f) => fl.map((r, slot) => ({ ...r, f, slot })).filter((r) => r.type === 'empty'));
 // What a room costs where it goes: a new floor takes floorStone more than a bare hall.
-export const raiseCost = (s, spot) => s.tuning.roomStone + (spot?.newFloor ? s.tuning.floorStone || 0 : 0);
+export const raiseCost = (s, spot) => s.tuning.roomStone - (learned(s, 'masonry') ? STUDIES.masonry.less : 0) + (spot?.newFloor ? s.tuning.floorStone || 0 : 0);
 // Where a room built at `at` goes: a bare hall's id, 'top' for a new floor, or nothing for the default.
 export function buildSpot(s, at) {
   const keep = s.keep || FULL_KEEP;
@@ -393,7 +420,10 @@ export function tainPlace(G, f, short = false) {
 }
 export const priests = (s) => s.living.filter((p) => p.job === 'chapel').length;
 export const funeralCap = (s) => priests(s) + (s.today?.priest || 0);
-export const eatRate = (s) => s.living.reduce((a, p) => a + (livingTrait(s, p)?.eats ?? 1), 0) * s.tuning.eatPerDay;
+export const eatRate = (s) => {
+  const d = decreeOf(s);
+  return s.living.reduce((a, p) => a + (livingTrait(s, p)?.eats ?? 1), 0) * s.tuning.eatPerDay * (d === 'rationing' ? DECREES.rationing.eat : 1) + (d === 'levy' ? DECREES.levy.food : 0);
+};
 export const bear = (s) => Math.floor(s.living.length / s.tuning.dreadLivingPer) + priests(s);
 
 /* ---------------------------------------------------------------- the clock */
@@ -412,7 +442,8 @@ function dayTick(s) {
     const R = DAY_ROOMS[r];
     if (R.out in s.res) gain(s, R.out, (pw[r] * R.rate * len) / D);
   }
-  heal(s, (pw.infirmary * DAY_ROOMS.infirmary.rate * len) / D);
+  heal(s, (pw.infirmary * DAY_ROOMS.infirmary.rate * len * (learned(s, 'herbs') ? STUDIES.herbs.heal : 1)) / D);
+  if (pw.library && s.study) study(s, (pw.library * DAY_ROOMS.library.rate * len) / D);
   eat(s, D);
   if (s.fires?.length) burn(s);
   if (s.raid?.state === 'assault') assaultTick(s);
@@ -520,7 +551,7 @@ function rollDay(s) {
     s.events.sort((a, b) => a.at - b.at);
     return;
   }
-  if (chance(s, Math.min(1, T.sickChance * luck * (crowded(s) ? T.crowdSick : 1)))) s.events.push({ at: Math.round((0.1 + rand(s) * 0.5) * D), type: 'sick' });
+  if (chance(s, Math.min(1, T.sickChance * luck * (crowded(s) ? T.crowdSick : 1) * (decreeOf(s) === 'rationing' ? DECREES.rationing.sick : 1)))) s.events.push({ at: Math.round((0.1 + rand(s) * 0.5) * D), type: 'sick' });
   for (const p of s.living) {
     if (p.age === 'old' && chance(s, T.oldAgeChance)) s.events.push({ at: Math.round((0.15 + rand(s) * 0.8) * D), type: 'oldage', id: p.id });
   }
@@ -531,6 +562,35 @@ function rollDay(s) {
   if (s.inspection && !s.inspection.done && s.inspection.day === s.day) s.events.push({ at: Math.round(T.inspectAt * D), type: 'inspect' });
   s.events.sort((a, b) => a.at - b.at);
   rollVisitors(s);
+}
+
+/* ---------------------------------------------------------------- the Library, the Hall and the Gatehouse */
+
+// The Library (round six): lore from its scholars by day and the Archive's readers by night goes to the one
+// study begun; finished, it's the keep's for good.
+function study(s, lore) {
+  const S = s.study;
+  S.lore += lore;
+  const need = STUDIES[S.id].lore;
+  if (S.lore + EPS < need) return;
+  s.learned.push(S.id);
+  if (S.id === 'rites') s.riteKind = S.kind;
+  s.study = null;
+  const what = S.id === 'rites' ? `the ${KINDS[S.kind].name} can act twice a night` : STUDIES[S.id].text;
+  say(s, `The Library has finished ${STUDIES[S.id].name}: ${what}.`, 'good', true);
+  cue(s, 'good');
+}
+// A mirror's glass, and a room's stone, after what the Library has learned.
+export const mirrorGlass = (s, n) => (learned(s, 'silvering') ? Math.ceil(n * STUDIES.silvering.glass - EPS) : n);
+// The Hall's decree for the season, and the Court's hearing: which of the rite's requests it hears. The one
+// that would turn a shade Restless if refused again goes first, then the costliest.
+function heardAt(s, asks) {
+  const T = s.tuning;
+  const ids = Object.keys(asks);
+  if (!ids.length) return null;
+  const cost = (k) => (k === 'name' ? T.nameCost : k === 'remember' ? T.rememberCost : 0);
+  const score = (id) => ((byId(s.shades, id)?.refused || 0) >= T.refusals - 1 ? 100 : 0) + cost(asks[id]);
+  return ids.reduce((a, b) => (score(b) > score(a) ? b : a));
 }
 
 /* ---------------------------------------------------------------- visitors at the gate */
@@ -866,7 +926,7 @@ function resolveRaid(s) {
   const held = def + EPS >= r.strength;
   const ratio = r.strength / Math.max(def, 0.5);
   const fallen = [];
-  for (const g of s.living.filter((p) => p.job === 'barracks')) {
+  for (const g of s.living.filter(isGuard)) {
     // The Brave fall twice as often; a Coward never does, though the dice are still thrown, so the random
     // stream doesn't shift with traits.
     const fall = livingTrait(s, g)?.fall ?? 1;
@@ -875,7 +935,7 @@ function resolveRaid(s) {
   const raiders = r.safe ? 1 : held ? (chance(s, T.raidInsideHeld) ? 1 : 0) : 1 + randInt(s, Math.ceil(r.count / 2));
   let loot = '';
   if (!held) {
-    const civ = s.living.filter((p) => p.job !== 'barracks' && p.age !== 'child'); // children shelter inside
+    const civ = s.living.filter((p) => !isGuard(p) && p.age !== 'child'); // children shelter inside
     if (civ.length && !r.safe) fallen.push({ p: pick(s, civ), how: 'was cut down in the yard' });
   }
   if (!held && !r.crusade) {
@@ -917,6 +977,7 @@ function startAssault(s) {
   r.gate = 1;
   r.left = Math.round(s.tuning.raidAssaultSecs * TICKS_PER_SEC);
   r.warned = true;
+  if (laddersDue(s)) r.ladders = { up: 0, down: 0, next: Math.round(s.tuning.ladderEvery * TICKS_PER_SEC) };
   const def = defense(s);
   const who = r.crusade ? `The crusade is at the gate: ${r.count} knights of the Lantern` : `The Host is at the gate: ${r.count} raiders`;
   say(s, `${who}, strength ${fmt(r.strength)}, against your defense of ${fmt(def)}. ${def + EPS >= r.strength ? 'The gate should hold.' : 'The gate is giving.'} Pitch, stone and the bell can turn it.`, 'bad', true);
@@ -924,12 +985,29 @@ function startAssault(s) {
 }
 function assaultTick(s) {
   const r = s.raid;
+  if (r.ladders && --r.ladders.next <= 0) ladder(s, r);
   const def = defense(s);
   r.gate -= ((s.tuning.raidBreak * Math.max(0, r.host - def)) / r.strength) * DT;
   r.left--;
   if (r.left % 20 === 0 && r.host > def + EPS) cue(s, 'ram');
   if (r.gate <= 0) endAssault(s, false);
   else if (r.host <= EPS || r.left <= 0) endAssault(s, true);
+}
+// From summer a ladder goes up against the wall every ladderEvery seconds of the assault. Each gate guard
+// throws one down as it goes up; the rest stand, and the raiders coming over them add to the Host.
+function ladder(s, r) {
+  const T = s.tuning;
+  r.ladders.next = Math.round(T.ladderEvery * TICKS_PER_SEC);
+  const guards = Math.min(jobCap(s, 'gatehouse'), s.living.filter((p) => p.job === 'gatehouse' && !(p.sick > 0) && !p.fighting).length);
+  if (r.ladders.down < guards) {
+    r.ladders.down++;
+    say(s, 'A ladder goes up against the wall, and a gate guard throws it down.', 'good');
+  } else {
+    r.ladders.up++;
+    r.host += T.ladderHost;
+    say(s, `A ladder goes up against the wall and stands. Raiders come over it: the Host +${fmt(T.ladderHost)}.`, 'bad', r.ladders.up === 1);
+  }
+  cue(s, 'ram');
 }
 function endAssault(s, held) {
   const r = s.raid;
@@ -939,16 +1017,16 @@ function endAssault(s, held) {
   const fallen = [];
   // Everyone on the walls stands a chance of falling, the guards and whoever the bell brought, and the more
   // of them there are, the more the Host's blows are shared.
-  const walls = s.living.filter((p) => p.job === 'barracks' || p.walls);
+  const walls = s.living.filter((p) => isGuard(p) || p.walls);
   const share = Math.min(1, T.raidShare / Math.max(1, walls.length));
   for (const g of walls) {
     const fall = (livingTrait(s, g)?.fall ?? 1) * (g.walls ? T.raidBellRisk : 1) * share;
-    if (chance(s, clamp((held ? T.raidRiskHeld : T.raidRiskBreach) * ratio * fall, 0.02, T.raidRiskMax)) && fall > 0 && !r.safe) fallen.push({ p: g, how: g.job === 'barracks' ? 'died holding the gate' : 'died on the walls' });
+    if (chance(s, clamp((held ? T.raidRiskHeld : T.raidRiskBreach) * ratio * fall, 0.02, T.raidRiskMax)) && fall > 0 && !r.safe) fallen.push({ p: g, how: isGuard(g) ? 'died holding the gate' : 'died on the walls' });
   }
   const raiders = r.safe ? 1 : held ? (chance(s, T.raidInsideHeld) ? 1 : 0) : 1 + randInt(s, Math.ceil(r.count / 2));
   let loot = '';
   if (!held) {
-    const civ = s.living.filter((p) => p.job !== 'barracks' && !p.walls && p.age !== 'child'); // children shelter inside
+    const civ = s.living.filter((p) => !isGuard(p) && !p.walls && p.age !== 'child'); // children shelter inside
     if (civ.length && !r.safe) fallen.push({ p: pick(s, civ), how: 'was cut down in the yard' });
   }
   if (!held && !r.crusade) {
@@ -1437,6 +1515,12 @@ function newNight(s) {
     const end = pick(r, MAP.moat).id;
     for (let i = 0; i < drownedCount(s); i++) spawns.push({ at: Math.round((0.08 + 0.8 * rand(r)) * N), type: 'drowned', seep: false, snuff: false, rift: end });
   }
+  // From summer, a share of the Creepers come up the Gatehouse's twin, the Undergate, drawn from a stream of
+  // its own (not the seepers, who come up in the dark wherever it is).
+  if (undergateOpen(s) && !tut) {
+    const r = sideStream(s, 0x9a7);
+    for (const sp of spawns) if (sp.type === 'creeper' && !sp.seep && chance(r, T.undergateShare)) sp.rift = 'undergate';
+  }
   spawns.sort((a, b) => a.at - b.at);
   const night = {
     ...(T.errands && !tut ? { errands: rollErrands(s, N) } : {}),
@@ -1486,7 +1570,7 @@ function applyOmen(s, n, o) {
     n.spawns = n.base.spawns.map((x) => ({ ...x }));
     n.tides = [...n.base.tides];
   }
-  if (o.id === 'sealed') for (const sp of n.spawns) if (sp.type === 'creeper' || sp.type === 'maw') sp.rift = o.rift;
+  if (o.id === 'sealed') for (const sp of n.spawns) if ((sp.type === 'creeper' || sp.type === 'maw') && sp.rift !== 'undergate') sp.rift = o.rift;
   if (o.id === 'thin') for (const sp of n.spawns) if (sp.type === 'creeper' && Math.abs(sp.at - n.tides[0]) <= w) sp.seep = true;
   if (o.adds) n.spawns.push(...o.adds.map((x) => ({ ...x })));
   if (o.id === 'restless') {
@@ -1567,7 +1651,7 @@ function rollErrands(s, N) {
     }
   }
   const sleepers = s.living.filter((p) => p.age !== 'child' && !(p.sick > 0));
-  if (s.day >= T.sleepFrom && !isNewMoon(s) && sleepers.length && chance(r, T.sleepChance)) {
+  if (s.day >= T.sleepFrom && !isNewMoon(s) && sleepers.length && chance(r, T.sleepChance) && decreeOf(s) !== 'curfew') {
     const p = pick(r, sleepers);
     const room = weeperRooms(s)[0];
     if (room) {
@@ -1583,7 +1667,7 @@ function startNight(s) {
   s.t = 0;
   s.dusk = null;
   for (const d of s.shades) {
-    Object.assign(d, { path: [], climb: 0, grabbedBy: null, rest: 0, sang: 0, watch: 0, drained: 0, forged: 0 });
+    Object.assign(d, { path: [], climb: 0, grabbedBy: null, rest: 0, sang: 0, watch: 0, drained: 0, forged: 0, court: 0 });
     if (s.tuning.acts) Object.assign(d, { acted: false, act: null });
     if (d.dreamed) d.dreamed = 0;
     if (canWork(d)) Object.assign(d, { f: d.post.f, x: d.post.x, ox: d.post.x, of: d.post.f });
@@ -1783,9 +1867,16 @@ function spawnFoes(s, L) {
     }
     const open = MAP.rifts.filter((r) => !n.wards.includes(r.id));
     const rift = open.find((r) => r.id === sp.rift) || open[0] || null;
+    // Up the Undergate, unless it's warded (then at a rift like the rest) or the Gatehouse is gone.
+    const g = sp.rift === 'undergate' && !n.wards.includes('undergate') ? gatehouseOf(s) : null;
     let at = null;
     let seeped = null;
-    if (sp.type === 'creeper' && (sp.seep || !rift)) {
+    if (g) {
+      at = { f: g.f, x: (g.x0 + g.x1) / 2 };
+      if (!n.stats.undergate) say(s, `The Unlit are coming up through the Undergate, ${tainPlace(geo(s), g.f, true)}.`, 'bad', true);
+      n.stats.undergate = (n.stats.undergate || 0) + 1;
+      cue(s, 'seep', at.f, at.x);
+    } else if (sp.type === 'creeper' && (sp.seep || !rift)) {
       const dark = darkRooms(geo(s), L);
       if (dark.length) {
         const [f, id, a, b] = pick(s, dark);
@@ -1810,7 +1901,7 @@ function spawnFoes(s, L) {
       cue(s, 'weep', at?.f, at?.x);
     }
     // Wards can't hold the new moon or a Maw: they break up through their rift whatever seals it.
-    if (!at) at = { f: DEEP_FLOOR, x: (rift || byId(MAP.rifts, sp.rift)).x };
+    if (!at) at = { f: DEEP_FLOOR, x: (rift || byId(MAP.rifts, sp.rift) || MAP.rifts[0]).x };
     const foe = addFoe(s, sp.type, at.f, at.x, { temper: sp.snuff ? 'snuff' : 'climb' });
     if (sp.weak) foe.hp = foe.max = foe.hp * sp.weak; // the tutorial's Maw
     if (seeped) keepMoment(s, 'seep', seeped.at, seeped.text);
@@ -1922,6 +2013,8 @@ function shadeTick(s, L, d) {
   else if (job === 'rest' && S?.rests !== false) d.rest++;
   else if (job === 'dreams') d.dreamed = (d.dreamed || 0) + 1;
   else if (job === 'steel') d.forged = (d.forged || 0) + 1;
+  else if (job === 'lore') n.stats.lore = (n.stats.lore || 0) + T.lorePerSec * w;
+  else if (job === 'court') d.court = (d.court || 0) + 1;
 }
 
 function foeTick(s, L, c) {
@@ -2351,7 +2444,7 @@ function hollowTick(s, L, h) {
   }
   if (h.batter && !h.path.length) {
     h.gnawing = true;
-    n.wardHold[h.batter] = (n.wardHold[h.batter] ?? T.wardHold) - DT;
+    n.wardHold[h.batter] = (n.wardHold[h.batter] ?? wardHoldOf(s)) - DT;
     if (n.wardHold[h.batter] <= EPS) {
       n.wards = n.wards.filter((w) => w !== h.batter);
       delete n.wardHold[h.batter];
@@ -2573,6 +2666,10 @@ function endNight(s) {
   if (wick) s.res.candles += wick;
   const g = Math.floor(n.stats.guidance + EPS);
   if (g) s.guidance = Math.min(T.guidanceMax, s.guidance + g);
+  // The Archive's reading goes to what the Library studies; a shade sat in the Court through half the night
+  // has one of this rite's requests heard free.
+  if (n.stats.lore && s.study) study(s, n.stats.lore);
+  s.court = !!T.hall && s.shades.some((d) => canWork(d) && (d.court || 0) >= N / 2);
   upFromTheDeep(s);
   let watch = 0;
   let calm = 0;
@@ -2636,7 +2733,7 @@ function endNight(s) {
   // Weeper that wept its fill in the dark.
   s.haunted = [...n.broken];
   s.dreamt = dreams || 0;
-  const bad = Math.min(s.living.length, n.nightmares || 0);
+  const bad = decreeOf(s) === 'curfew' ? 0 : Math.min(s.living.length, n.nightmares || 0); // barred in, they sleep
   const dreamers = [];
   for (let i = 0; i < bad; i++) {
     const p = pick(s, s.living.filter((x) => !x.nightmare));
@@ -2682,7 +2779,9 @@ function toRite(s, cracks) {
   s.t = 0;
   const asks = Object.fromEntries(s.shades.map((d) => [d.id, asksNow(s, d)]).filter(([, k]) => k));
   for (const id of Object.keys(asks)) byId(s.shades, id).askedAt = byId(s.shades, id).nights;
-  s.rite = { choice: Object.fromEntries(s.shades.map((d) => [d.id, defaultChoice(d)])), vigils: 0, cracks, broken: (s.haunted || []).length, asks, grant: {} };
+  const heard = s.court ? heardAt(s, asks) : null; // the Court of Shades hears one, free
+  s.court = false;
+  s.rite = { choice: Object.fromEntries(s.shades.map((d) => [d.id, defaultChoice(d)])), vigils: 0, cracks, broken: (s.haunted || []).length, asks, grant: {}, ...(heard ? { heard } : {}) };
   say(s, 'Dawn. The Unlit withdraw and the shades go back into the glass. Decide who stays.', 'rite', true);
   cue(s, 'dawn');
 }
@@ -2746,6 +2845,7 @@ export function ritePreview(s) {
     const d = byId(s.shades, id);
     if (!d || !(R.grant?.[id] || (k === 'release' && P.cover.includes(d)))) continue;
     P.granted.push(d);
+    if (id === R.heard) continue; // heard in the Court of Shades: granted free
     if (k === 'name' && !d.named) P.remCost += T.nameCost;
     if (k === 'remember') P.remCost += T.rememberCost;
   }
@@ -2903,6 +3003,10 @@ function answerRequests(s, P) {
         d.memory = Math.min(100, d.memory + T.rememberGain);
         say(s, `${d.name} is remembered: +${T.rememberGain} memory.`, 'good');
       }
+      continue;
+    }
+    if (id === R.heard) {
+      say(s, `${d.name}'s request was heard in the Court of Shades. It will wait.`, 'rite');
       continue;
     }
     d.refused = (d.refused || 0) + 1;
@@ -3097,8 +3201,15 @@ const ACTIONS = {
     if (s.phase !== 'day') return 'Masons build by day.';
     if (!BUILDABLE.includes(room)) return 'That cannot be built.';
     const T = s.tuning;
+    if (NEW_ROOMS.includes(room) && !T[room]) return `There is no ${DAY_ROOMS[room].name} in this keep.`;
     const at = buildSpot(s, where);
     if (!at) return where && where !== 'top' ? 'There is no bare hall there.' : 'The keep can rise no higher.';
+    if (room === 'gatehouse') {
+      if (gatehouseOf(s)) return 'The keep has its Gatehouse.';
+      const G0 = geo(s);
+      const fromGround = at.newFloor ? G0.n : G0.n - 1 - at.f;
+      if (fromGround > 1) return 'A Gatehouse stands at the gate: on the ground floor, or the one above it.';
+    }
     const cost = raiseCost(s, at);
     if ((s.res.stone || 0) + EPS < cost) return at.newFloor && cost > T.roomStone ? `A room on a new floor takes ${fmt(cost)} stone.` : `A room takes ${fmt(cost)} stone.`;
     s.res.stone -= cost;
@@ -3173,6 +3284,7 @@ const ACTIONS = {
     if (!a || !b || a === b) return 'Choose two places.';
     if (a.type === 'empty' && b.type === 'empty') return 'Both halls are bare.';
     if (s.fires.some((f) => f.room === id || f.room === to)) return 'Not while it burns.';
+    if ((a.type === 'gatehouse' && !atTheGate(G, b.f)) || (b.type === 'gatehouse' && !atTheGate(G, a.f))) return 'A Gatehouse stands at the gate: on the ground floor, or the one above it.';
     const T = s.tuning;
     if ((s.res.stone || 0) + EPS < T.moveStone) return `Moving a room takes ${T.moveStone} stone.`;
     s.res.stone -= T.moveStone;
@@ -3218,10 +3330,43 @@ const ACTIONS = {
     if (d.grabbedBy) return `${d.name} is caught: it can't light a lantern now.`;
     if (s.res.candles < 1) return 'A lantern takes a candle, and the store is empty.';
     s.res.candles--;
-    n.candles.push({ id: 'k' + s.nextId++, f: d.f, x: d.x, wax: T.lanternWax, max: T.lanternWax, carrier: d.id });
+    const wax = T.lanternWax * (learned(s, 'tallow') ? STUDIES.tallow.wax : 1);
+    n.candles.push({ id: 'k' + s.nextId++, f: d.f, x: d.x, wax, max: wax, carrier: d.id });
     n.stats.candles++;
     say(s, `${d.name} takes up a lantern: its own light for ${fmt(T.lanternWax)} seconds, wherever it goes.`);
     cue(s, 'light', d.f, d.x);
+    return undefined;
+  },
+  // Beginning one of the Library's studies (round six), for its remembrance. One at a time; the old rites
+  // name the kind of shade they're for.
+  study(s, { id, kind }) {
+    const T = s.tuning;
+    if (!T.library) return 'This keep has no Library.';
+    if (s.phase !== 'day') return 'The Library works by day.';
+    if (!roomsOf(geo(s), 'library').length) return 'Build a Library first.';
+    const S = STUDIES[id];
+    if (!S) return 'No such study.';
+    if (s.learned.includes(id)) return `The Library has learned ${S.name} already.`;
+    if (s.study) return `The Library is studying ${STUDIES[s.study.id].name}.`;
+    if (id === 'rites' && !(WORKING.includes(kind) && Object.values(ACTS).some((a) => a.kind === kind))) return 'Choose the kind of shade the old rites are for.';
+    if (s.res.remembrance + EPS < S.rem) return `Beginning ${S.name} takes ${S.rem} remembrance.`;
+    s.res.remembrance -= S.rem;
+    s.study = { id, lore: 0, ...(id === 'rites' ? { kind } : {}) };
+    say(s, `The Library begins ${S.name}${id === 'rites' ? `, for the ${KINDS[kind].name}` : ''}: ${S.lore} lore to go.`, 'good');
+    return undefined;
+  },
+  // The Hall's decree for the season (round six): one, standing until the season ends.
+  decree(s, { id }) {
+    const T = s.tuning;
+    if (!T.hall) return 'This keep has no Hall.';
+    if (s.phase !== 'day') return 'Decrees are proclaimed by day.';
+    if (!roomsOf(geo(s), 'hall').length) return 'Build a Hall first.';
+    const D = DECREES[id];
+    if (!D) return 'No such decree.';
+    if (s.decree?.season === s.season) return `${DECREES[s.decree.id].name} stands until the season ends.`;
+    s.decree = { id, season: s.season };
+    say(s, `${D.name} is proclaimed from the Hall, until the season ends: ${D.does}. The price: ${D.price}.`, 'good', true);
+    cue(s, 'bell');
     return undefined;
   },
   // An answer to a visitor at the gate (round six).
@@ -3246,7 +3391,7 @@ const ACTIONS = {
     if (!d || !canWork(d)) return 'That shade can do nothing tonight.';
     const what = actOf(d);
     if (!what) return `${d.name} has no act.`;
-    if (d.acted) return `${d.name} has acted once tonight already.`;
+    if ((d.acted || 0) >= actsFor(s, d)) return actsFor(s, d) > 1 ? `${d.name} has acted twice tonight already.` : `${d.name} has acted once tonight already.`;
     if (d.climb) return `${d.name} is on the stairs.`;
     const cost = actCost(s, d);
     if (d.memory <= cost + EPS) return `${ACTS[what].name} would cost ${d.name} ${fmt(cost)} memory, and it has ${fmt(d.memory)}.`;
@@ -3287,7 +3432,7 @@ const ACTIONS = {
       else cue(s, 'horn', d.f, d.x);
     }
     d.memory = Math.round((d.memory - cost) * 100) / 100;
-    d.acted = true;
+    d.acted = (d.acted || 0) + 1;
     (n.stats.acts ||= []).push({ name: d.name, what, t: s.t });
     say(s, `${text} −${fmt(cost)} memory.`, 'good');
     return undefined;
@@ -3357,7 +3502,7 @@ const ACTIONS = {
     const next = { hand: 'pier', pier: 'great' }[m.type];
     if (!next) return `The ${m.name} is as great as a glass can be.`;
     const qs = T.upgradeSilver[next];
-    const gl = T.upgradeGlass[next];
+    const gl = mirrorGlass(s, T.upgradeGlass[next]);
     if ((s.res.quicksilver || 0) + EPS < qs || s.res.glass + EPS < gl) return `Upgrading the ${m.name} takes ${qs} quicksilver and ${gl} glass.`;
     s.res.quicksilver -= qs;
     s.res.glass = Math.max(0, s.res.glass - gl);
@@ -3371,8 +3516,9 @@ const ACTIONS = {
     const M = MIRRORS[mirror];
     if (!M) return 'No such mirror.';
     if (embargoed(s)) return "Under the Church's embargo there's no silver to be had for a mirror.";
-    if (s.res.glass + EPS < M.glass) return `A ${M.name} needs ${M.glass} glass.`;
-    s.res.glass = Math.max(0, s.res.glass - M.glass);
+    const glass = mirrorGlass(s, M.glass);
+    if (s.res.glass + EPS < glass) return `A ${M.name} needs ${glass} glass.`;
+    s.res.glass = Math.max(0, s.res.glass - glass);
     const m = addMirror(s, mirror, nextPlace(s));
     say(s, `The ${m.name} is finished: room for ${M.cap} more ${M.cap === 1 ? 'shade' : 'shades'}.`, 'good');
     cue(s, 'mirror');
@@ -3432,7 +3578,7 @@ const ACTIONS = {
     if (s.phase !== 'day' || r?.state !== 'assault') return 'Pitch is for the Host at the gate.';
     if (s.res.candles + EPS < T.raidPitchCost) return `Pitch takes ${T.raidPitchCost} candles.`;
     s.res.candles -= T.raidPitchCost;
-    r.host = Math.max(0, r.host - T.raidPitch);
+    r.host = Math.max(0, r.host - pitchOf(s));
     r.pitched = (r.pitched || 0) + 1;
     r.pitchAt = s.t;
     say(s, `Burning pitch from the walls: the Host's strength falls to ${fmt(r.host)}.`);
@@ -3453,7 +3599,7 @@ const ACTIONS = {
   raidBell(s) {
     const r = s.raid;
     if (s.phase !== 'day' || r?.state !== 'assault') return 'The bell calls everyone to the walls only while the Host is at the gate.';
-    const hands = s.living.filter((p) => p.job !== 'barracks' && !p.fighting && !p.walls && !(p.sick > 0) && p.age !== 'child');
+    const hands = s.living.filter((p) => !isGuard(p) && !p.fighting && !p.walls && !(p.sick > 0) && p.age !== 'child');
     if (!hands.length) return 'Everyone who can is already on the walls.';
     for (const p of hands) p.walls = true;
     r.bell = true;
@@ -3464,7 +3610,7 @@ const ACTIONS = {
     const r = s.raid;
     const T = s.tuning;
     if (s.phase !== 'day' || r?.state !== 'breached' || !r.loot || r.pursued) return 'There is no one to go after.';
-    const guards = s.living.filter((p) => p.job === 'barracks' && !(p.sick > 0));
+    const guards = s.living.filter((p) => isGuard(p) && !(p.sick > 0));
     if (!guards.length) return 'There are no guards to send after them.';
     r.pursued = true;
     const back = Object.fromEntries(Object.entries(r.loot).map(([k, v]) => [k, Math.floor(v * T.raidRecover)]));
@@ -3479,7 +3625,7 @@ const ACTIONS = {
     const g = s.siege;
     if (s.phase !== 'day' || !besieged(s)) return 'There is no camp to break.';
     if (s.raid?.state === 'assault') return 'Not while the Host is at the gate.';
-    const guards = s.living.filter((p) => p.job === 'barracks' && !(p.sick > 0));
+    const guards = s.living.filter((p) => isGuard(p) && !(p.sick > 0));
     if (!guards.length) return 'There are no guards to send out.';
     const T = s.tuning;
     const won = chance(s, sallyOdds(s));
@@ -3551,7 +3697,8 @@ const ACTIONS = {
     if (!roomAt(geo(s), f, x)) return 'That is inside a wall.';
     if (s.res.candles < 1) return 'No candles left. The Chandlery makes them by day.';
     s.res.candles--;
-    s.night.candles.push({ id: 'k' + s.nextId++, f, x, wax: s.tuning.candleWax, max: s.tuning.candleWax });
+    const wax = s.tuning.candleWax * (learned(s, 'tallow') ? STUDIES.tallow.wax : 1);
+    s.night.candles.push({ id: 'k' + s.nextId++, f, x, wax, max: wax });
     s.night.stats.candles++;
     cue(s, 'light', f, x);
   },
@@ -3577,13 +3724,14 @@ const ACTIONS = {
   ward(s, { target }) {
     if (s.phase !== 'night' && s.phase !== 'dusk') return 'Wards are set at dusk or during the night.';
     if (target === 'moat' && !raining(s)) return "The moat's twin is still tonight: nothing will come up it.";
-    if (!geo(s).stairs.some((x) => x.id === target) && !MAP.rifts.some((x) => x.id === target) && target !== 'moat') return 'Wards seal a stair, a rift or the moat.';
+    if (target === 'undergate' && !undergateOpen(s)) return 'Nothing comes up the Undergate yet.';
+    if (!geo(s).stairs.some((x) => x.id === target) && !MAP.rifts.some((x) => x.id === target) && target !== 'moat' && target !== 'undergate') return 'Wards seal a stair, a rift, the moat or the Undergate.';
     if (s.night.wards.includes(target)) return 'Already warded tonight.';
     const cost = wardCost(s);
     if (s.res.essence + EPS < cost) return `A ward costs ${fmt(cost)} essence.`;
     s.res.essence -= cost;
     s.night.wards.push(target);
-    if (geo(s).stairs.some((x) => x.id === target)) s.night.wardHold[target] = s.tuning.wardHold;
+    if (geo(s).stairs.some((x) => x.id === target)) s.night.wardHold[target] = wardHoldOf(s);
     s.night.stats.wards++;
     for (const c of s.night.foes) c.replan = 0;
     cue(s, 'ward');
@@ -3807,6 +3955,12 @@ export function upgrade(g) {
   for (const t of [g.tuning, g.tuning0]) if (t && !('visitors' in t)) t.visitors = 0;
   for (const t of [g.tuning, g.tuning0]) if (t && !('streamHash' in t)) t.streamHash = 0;
   g.visitors ??= [];
+  // A keep from before round six's three rooms has none of them, nor the ladders.
+  for (const t of [g.tuning, g.tuning0]) for (const k of NEW_ROOMS) if (t && !(k in t)) t[k] = 0;
+  g.learned ??= [];
+  g.study ??= null;
+  g.decree ??= null;
+  g.court ??= false;
   for (const p of g.living || []) p.trait ??= traitFor(g, p.name);
   for (const b of g.bodies || []) if (b.was === undefined) b.was = b.from === 'raider' ? null : traitFor(g, b.name);
   for (const d of g.shades || []) {

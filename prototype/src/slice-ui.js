@@ -2,7 +2,7 @@
 // bar at the bottom, and everything else opens in a panel over the castle. Like the greyboxes it changes
 // the game only through act(), so every session replays from its seed and action log.
 
-import { TICKS_PER_SEC, DAY_ROOMS, WORK_ROOMS, TWINS, KINDS, MIRRORS, CAUSES, MAP, BOND_OTHER, TUNING, BUILDABLE, TRAITS, SHADE_TRAITS, SEASONS, TUTORIAL, REQUESTS, PRESETS, ACTS, OMENS, VISITORS } from './slice/data.js';
+import { TICKS_PER_SEC, DAY_ROOMS, WORK_ROOMS, TWINS, KINDS, MIRRORS, CAUSES, MAP, BOND_OTHER, TUNING, BUILDABLE, TRAITS, SHADE_TRAITS, SEASONS, TUTORIAL, REQUESTS, PRESETS, ACTS, OMENS, VISITORS, STUDIES, DECREES } from './slice/data.js';
 import {
   newSeason, step, act, retune, playerTuning, jobCap, jobCount, nextSlot, ritePreview, crossingPreview, capacity, canWork, defense, roomPower, bear, priests, funeralCap, eatRate,
   dayTicks, nightTicks, isNewMoon, choicesFor, byId, isTwinnedLiving, isTwinnedShade, lastSeason, SAVE_VERSION, fmt, mirrorCap, bareHalls, tainPlace,
@@ -10,6 +10,7 @@ import {
   seasonIndex, seasonName, yearOf, dayLength, isLongNight, tributeOf, besieged, sallyOdds, plagueSeason, atGate, gateGuard,
   weatherOf, forecastOf, raining, foggy, drownedDue, keepDefaults, embargoed, inquisition, churchDaysLeft, crusadeDay, crusadeDaysLeft,
   actOf, actCost, canAct, acting, actText, omenText, nextMark, SKIP_LEAD, visitorBlock,
+  raiseCost, buildSpot, NEW_ROOMS, learned, decreeOf, gatehouseOf, undergateOpen, laddersDue, actsFor, mirrorGlass, pitchOf,
 } from './slice/sim.js';
 import { geo, feet, floorAtY, roomAt, typeAt, typeOf, roomSpan, roomsOf, lightMap, isLit, unitAt, DEEP_FLOOR, lineSpots as lineOf, guardLit, MAX_FLOORS } from './slice/geo.js';
 import { drawScene, drawMoment } from './slice/draw.js';
@@ -330,7 +331,7 @@ function barHTML() {
     tools += s.phase === 'night' ? `<button class="btn sm" id="btn-hush" data-act="hush" aria-pressed="${!!s.night?.hush}">Hush</button>` : '';
     const d = s.phase === 'night' && s.tuning.acts ? byId(s.shades, ui.selected) : null;
     const a = d && canWork(d) && actOf(d);
-    if (a) tools += `<button class="btn sm act" id="btn-act" data-act="shade-act" data-id="${d.id}"${canAct(s, d) ? '' : ' disabled'} title="${ACTS[a].name} (A)">${ACTS[a].name}${d.acted ? ': spent' : ` −${fmt(actCost(s, d))}`}</button>`;
+    if (a) tools += `<button class="btn sm act" id="btn-act" data-act="shade-act" data-id="${d.id}"${canAct(s, d) ? '' : ' disabled'} title="${ACTS[a].name} (A)">${ACTS[a].name}${(d.acted || 0) >= actsFor(s, d) ? ': spent' : ` −${fmt(actCost(s, d))}`}</button>`;
     const lit = s.tuning.lanterns ? byId(s.shades, ui.selected) : null;
     if (lit && canWork(lit)) {
       const held = s.night?.candles.some((k) => k.carrier === lit.id);
@@ -371,7 +372,7 @@ function hintText() {
   if (!d) return 'Tap a shade to pick it, then tap where it should stand.';
   if (s.phase === 'dusk') return `${d.name}: tap a spot to post ${d.name} there.`;
   const a = T.acts && actOf(d);
-  const act = !a ? '' : d.acted ? ` Its act is spent tonight.` : ` ${ACTS[a].name} (A, −${fmt(actCost(s, d))} memory): ${actText(T, a)}.`;
+  const act = !a ? '' : (d.acted || 0) >= actsFor(s, d) ? ` Its ${actsFor(s, d) > 1 ? 'acts are' : 'act is'} spent tonight.` : ` ${ACTS[a].name} (A, −${fmt(actCost(s, d))} memory): ${actText(T, a)}.`;
   return `${d.name}: tap a spot to send ${d.name} there. The dark between is dangerous.${act}`;
 }
 
@@ -435,10 +436,19 @@ function raidCard() {
       <button class="btn sm" id="btn-bar" data-act="bar-stores"${r.barred ? ' disabled' : ''}>${r.barred ? 'Stores barred' : 'Bar the stores'}</button></div>
     <p class="note">Paid, they turn back, but the season's next raid comes ×${mult(T.raidEmbolden)} harder. Barred, the Hearth, the Chandlery and the Glazier stop while the Host is at the gate, and a breach carries off half as much. At the gate you'll have pitch (${T.raidPitchCost} candles for −${fmt(T.raidPitch)}), stone to shore it up, and the bell.</p>`;
   return `<div class="card ${short ? 'warn' : 'ok'}"><h3>${r.crusade ? 'The crusade on the road' : r.camp ? 'The camp comes at the gate' : 'Raiders on the road'}</h3>
-    <p>${r.count} ${r.crusade ? 'knights of the Lantern' : 'raiders'}, strength <b class="num">${fmt(r.strength)}</b>, at the gate about ${hhmm(6 + (12 * r.hitAt) / dayTicks(s))}. Your defense: <b class="num" data-live="defense">${fmt(def)}</b>. ${short ? 'Not enough. Move people to the Barracks or ward the gate.' : 'Enough, if nothing changes.'}</p>
+    <p>${r.count} ${r.crusade ? 'knights of the Lantern' : 'raiders'}, strength <b class="num">${fmt(r.strength)}</b>, at the gate about ${hhmm(6 + (12 * r.hitAt) / dayTicks(s))}. Your defense: <b class="num" data-live="defense">${fmt(def)}</b>. ${short ? 'Not enough. Move people to the Barracks or ward the gate.' : 'Enough, if nothing changes.'}</p>${laddersDue(s) ? ladderNote(r) : ''}
     <div class="row"><button class="btn sm" id="btn-wardgate" data-act="wardgate"${r.ward || s.res.essence + 1e-9 < s.tuning.wardGateCost ? ' disabled' : ''}>${r.ward ? `Gate warded, +${r.ward}` : `Ward the gate: +${s.tuning.wardGateDefense} for ${s.tuning.wardGateCost} essence`}</button></div>${fight}</div>`;
 }
 const share = (x) => (x === 0.5 ? 'half' : `${mult(x)} times`);
+// From summer the Host brings ladders: how many go up over the assault, and how many the gate guards throw down.
+function ladderNote(r) {
+  const T = s.tuning;
+  const n = Math.floor((T.raidAssaultSecs - 1e-9) / T.ladderEvery);
+  const g = Math.min(jobCap(s, 'gatehouse'), s.living.filter((p) => p.job === 'gatehouse' && !(p.sick > 0)).length);
+  const stand = Math.max(0, n - g);
+  const who = r.crusade ? 'The crusaders' : 'They';
+  return `<p class="note${stand ? ' bad' : ''}">${who} bring ladders: about ${n} go up over the assault, each left standing adding ${fmt(T.ladderHost)} to their strength. ${gatehouseOf(s) ? `Each gate guard in the Gatehouse throws one down: with ${g}, ${stand ? `${stand} would stand, +${fmt(stand * T.ladderHost)}` : 'none would stand'}.` : `Only a Gatehouse's guards throw them down: with none, all would stand, +${fmt(n * T.ladderHost)}.`}</p>`;
+}
 // The weather by day: today's, and a warning a day ahead of rain.
 function weatherNotes() {
   const T = s.tuning;
@@ -471,19 +481,21 @@ function assaultText() {
   if (r?.state !== 'assault') return '';
   const def = defense(s);
   const giving = r.host > def + 1e-9;
-  return `${r.crusade ? 'The crusade' : 'The Host'} ${fmt(r.host)} against your defense ${fmt(def)}. The gate is ${Math.round(100 * Math.max(0, r.gate))}% whole and ${giving ? 'giving' : 'holding'}; they give up in ${Math.ceil(r.left / TICKS_PER_SEC)} s.`;
+  const L = r.ladders;
+  const ladders = L && (L.up || L.down) ? ` Ladders: ${L.down} thrown down, ${L.up} standing.` : '';
+  return `${r.crusade ? 'The crusade' : 'The Host'} ${fmt(r.host)} against your defense ${fmt(def)}. The gate is ${Math.round(100 * Math.max(0, r.gate))}% whole and ${giving ? 'giving' : 'holding'}; they give up in ${Math.ceil(r.left / TICKS_PER_SEC)} s.${ladders}`;
 }
 function assaultCard(r) {
   const T = s.tuning;
-  const hands = s.living.filter((p) => p.job !== 'barracks' && !p.fighting && !p.walls && !(p.sick > 0)).length;
+  const hands = s.living.filter((p) => p.job !== 'barracks' && p.job !== 'gatehouse' && !p.fighting && !p.walls && !(p.sick > 0)).length;
   return `<div class="card warn raid"><h3>${r.crusade ? 'The crusade is at the gate' : 'The Host is at the gate'}</h3>
     <div class="gatebar"><span data-bar="gate"></span></div>
     <p data-live="assault">${esc(assaultText())}</p>
-    <div class="row"><button class="btn sm primary" id="btn-pitch" data-act="pitch"${s.res.candles + 1e-9 < T.raidPitchCost ? ' disabled' : ''}>Pour pitch: −${fmt(T.raidPitch)} for ${T.raidPitchCost} candles</button>
+    <div class="row"><button class="btn sm primary" id="btn-pitch" data-act="pitch"${s.res.candles + 1e-9 < T.raidPitchCost ? ' disabled' : ''}>Pour pitch: −${fmt(pitchOf(s))} for ${T.raidPitchCost} candles</button>
       <button class="btn sm" id="btn-shore" data-act="shore"${(s.res.stone || 0) + 1e-9 < T.raidShoreCost || r.gate >= 1 - 1e-9 ? ' disabled' : ''}>Shore up the gate: ${T.raidShoreCost} stone</button>
       <button class="btn sm" id="btn-raidbell" data-act="raid-bell"${r.bell || !hands ? ' disabled' : ''}>${r.bell ? 'The bell has rung' : `Ring the bell: everyone to the walls (${hands})`}</button>
       ${r.ward ? '' : `<button class="btn sm" id="btn-wardgate" data-act="wardgate"${s.res.essence + 1e-9 < T.wardGateCost ? ' disabled' : ''}>Ward the gate: +${T.wardGateDefense} for ${T.wardGateCost} essence</button>`}</div>
-    <p class="note">Each second ${r.crusade ? 'the crusade' : 'the Host'} is stronger than your defense, the gate gives. If it still stands when their time is up, they fall back. Candles poured are candles you won't have tonight; the bell stops all work, and whoever is on the walls can fall.</p></div>`;
+    <p class="note">Each second ${r.crusade ? 'the crusade' : 'the Host'} is stronger than your defense, the gate gives. If it still stands when their time is up, they fall back. Candles poured are candles you won't have tonight; the bell stops all work, and whoever is on the walls can fall.${r.ladders ? ` A ladder goes up every ${fmt(T.ladderEvery)} s: each gate guard in the Gatehouse throws one down, and each one left standing adds ${fmt(T.ladderHost)} to ${r.crusade ? 'the crusade' : 'the Host'}.` : ''}</p></div>`;
 }
 
 function inspectionCard() {
@@ -570,6 +582,50 @@ function gateNotes() {
   if (s.charm) out.push(`The hedge-witch's charm: tonight the candles burn ×${mult(T.charmBurn)} as fast.`);
   if (s.curse) out.push("The hedge-witch's curse: a Weeper comes tonight.");
   return out.map((x) => `<p class="note">${esc(x)}</p>`).join('');
+}
+
+// The Library (round six): what it studies and how far along, and what else it could; what it has learned.
+const studyWhat = (id, kind) => (id === 'rites' && kind ? `the ${KINDS[kind].name} can act twice a night` : STUDIES[id].text);
+function libraryCard() {
+  const T = s.tuning;
+  if (!T.library || !roomsOf(K(), 'library').length) return '';
+  const day = s.phase === 'day';
+  const St = s.study;
+  const scholars = jobCount(s, 'library');
+  const now = St
+    ? `<p>Studying <b>${esc(STUDIES[St.id].name)}</b>: ${esc(studyWhat(St.id, St.kind))}. <b class="num" data-live="lore">${fmt(St.lore)}</b> of ${STUDIES[St.id].lore} lore.</p>`
+    : '<p>Nothing is being studied. Remembrance begins a study; the scholars and the Archive finish it.</p>';
+  const kinds = Object.values(ACTS).map((a) => a.kind);
+  const pick = ui.riteKind && kinds.includes(ui.riteKind) ? ui.riteKind : kinds[0];
+  const rows = Object.entries(STUDIES)
+    .filter(([id]) => !s.learned.includes(id))
+    .map(([id, S]) => {
+      const can = day && !St && s.res.remembrance + 1e-9 >= S.rem;
+      const choose = id === 'rites' ? `<select id="rite-kind" data-act="rite-kind" aria-label="For which kind">${kinds.map((k) => `<option value="${k}"${k === pick ? ' selected' : ''}>${KINDS[k].name}</option>`).join('')}</select>` : '';
+      return `<li><div><b>${esc(S.name)}:</b> <small>${esc(S.text)}; ${S.lore} lore</small></div><span class="row">${choose}<button class="btn sm" id="study-${id}" data-act="study" data-id="${id}"${can ? '' : ' disabled'}>Begin, ${S.rem} remembrance</button></span></li>`;
+    })
+    .join('');
+  const done = s.learned.map((id) => `${STUDIES[id].name} (${studyWhat(id, id === 'rites' ? s.riteKind : null)})`);
+  return `<div class="card lib"><h3>The Library</h3>${now}
+    <p class="note">${scholars ? `${esc(plural(scholars, 'scholar'))} ${scholars === 1 ? 'makes' : 'make'} ${fmt(scholars * DAY_ROOMS.library.rate)} lore a day.` : 'Nobody works in the Library: give someone the job, in People.'} By night a lit shade posted in the Archive of the Dead adds to it.</p>
+    ${rows && !St ? `<ul class="studies">${rows}</ul>` : ''}
+    ${done.length ? `<p class="note">Learned: ${esc(listOf(done))}.</p>` : ''}</div>`;
+}
+// The Hall (round six): the season's decree, or the choice of one; and what the Court of Shades does by night.
+function hallCard() {
+  const T = s.tuning;
+  if (!T.hall || !roomsOf(K(), 'hall').length) return '';
+  const d = decreeOf(s);
+  const day = s.phase === 'day';
+  const court = 'By night, a shade seated in the Court of Shades, lit, through half the night has one of the dead\'s requests heard free at the next rite: granted, it costs nothing; refused, it isn\'t held against you.';
+  if (d) {
+    const D = DECREES[d];
+    return `<div class="card hall"><h3>The Hall</h3><p><b>${esc(D.name)}</b> stands until the season ends: ${esc(D.does)}. The price: ${esc(D.price)}.</p><p class="note">${court}</p></div>`;
+  }
+  const rows = Object.entries(DECREES)
+    .map(([id, D]) => `<li><div><b>${esc(D.name)}:</b> <small>${esc(D.does)}. The price: ${esc(D.price)}.</small></div><button class="btn sm" id="decree-${id}" data-act="decree" data-id="${id}"${day ? '' : ' disabled'}>Proclaim</button></li>`)
+    .join('');
+  return `<div class="card hall"><h3>The Hall</h3><p>One decree a season, proclaimed from here, stands until the season ends.</p><ul class="studies">${rows}</ul><p class="note">${court}</p></div>`;
 }
 
 // The Lantern Church's escalation: its silver embargo, and the Inquisition.
@@ -706,6 +762,8 @@ function dayPanel() {
     ${raidCard()}
     ${inspectionCard()}
     ${churchCard()}
+    ${libraryCard()}
+    ${hallCard()}
     ${sick.length ? `<p class="note bad">Sick: ${esc(listOf(sick.map((p) => p.name)))}. A healer in the Infirmary cures one a day; untreated, the sickness kills.</p>` : ''}
     ${badLuckNote()}
     ${sleepNotes()}
@@ -809,6 +867,7 @@ function duskPlace() {
     ${s.charm ? `<p class="note">The hedge-witch's charm: tonight the candles burn ×${mult(T.charmBurn)} as fast.</p>` : ''}
     ${n.spawns.some((sp) => sp.curse) ? '<p class="note bad">On the hedge-witch\'s curse, a Weeper comes tonight.</p>' : ''}
     ${omenCard()}
+    ${undergateDusk()}
     ${drownedDusk()}
     ${moonNote()}
     ${deepCard()}
@@ -839,6 +898,20 @@ function drownedDusk() {
   if (warded) return `<p class="note">Rain. The moat's twin is warded: the ${plural(dr.length, 'Drowned', 'Drowned')} stay under tonight.</p>`;
   const one = K().n === 1;
   return `<p class="note bad">Rain. ${dr.length === 1 ? 'One of the Drowned comes' : `${dr.length} of the Drowned come`} up tonight out of the moat's twin at ${esc(moatEnd(end.x))}${one ? '' : ', behind the line'}, and ${dr.length === 1 ? 'makes' : 'make'} for the mirrors on that floor. Ward the moat (${fmt(wardCost(s))} essence), or light the mirror on their side and post a fighter by it. A shade they catch in the dark is dragged to the moat and pulled under.</p>`;
+}
+
+// The Undergate (round six): the Gatehouse's twin, where from summer a share of the Creepers come up.
+function undergateDusk() {
+  const n = s.night;
+  if (!n || !undergateOpen(s)) return '';
+  const g = gatehouseOf(s);
+  const k = n.spawns.filter((x) => x.rift === 'undergate').length;
+  const where = tainPlace(K(), g.f);
+  if (n.wards.includes('undergate')) return `<p class="note">The Undergate is warded tonight: whatever would have come up it comes up at the rifts.</p>`;
+  if (!k) return `<p class="note">The Undergate, your Gatehouse's twin, is ${esc(where)}. Nothing is coming up it tonight.</p>`;
+  const can = s.res.essence + 1e-9 >= wardCost(s);
+  return `<div class="card warn"><h3>The Undergate</h3><p>Your Gatehouse's twin is ${esc(where)}, and ${k === 1 ? 'one Creeper comes' : `${k} Creepers come`} up it tonight instead of at the rifts. Light it and post a fighter there, or ward it.</p>
+    <div class="row"><button class="btn sm" id="btn-ward-undergate" data-act="ward-undergate"${can ? '' : ' disabled'}>Ward the Undergate: ${fmt(wardCost(s))} essence</button></div></div>`;
 }
 
 // Down into the Deep (round five): at dusk, send a shade down past the rifts for quicksilver instead of
@@ -880,6 +953,7 @@ function blackMirror() {
   const at = (t) => hhmm(18 + (12 * t) / N);
   const side = (x) => (x < MAP.W / 2 ? 'left' : 'right');
   const riftName = (id) => {
+    if (id === 'undergate') return 'the Undergate';
     const r = MAP.rifts.find((x) => x.id === id);
     return `the ${side(r.x)} rift`;
   };
@@ -925,7 +999,7 @@ function blackMirror() {
       same.from.push(e.rift);
     } else tides.push({ ...g, n, from: [e.rift] });
   }
-  for (const x of tides) lines.push({ bad: x.bad, text: `${x.from.length > 1 ? 'From both rifts' : `From ${riftName(x.from[0])}`}, ${plural(x.n, 'Creeper')} will ${x.text}.` });
+  for (const x of tides) lines.push({ bad: x.bad, text: `${x.from.length > 2 ? 'From both rifts and the Undergate' : x.from.length > 1 ? (x.from.includes('undergate') ? `From ${riftName(x.from.find((r) => r !== 'undergate'))} and the Undergate` : 'From both rifts') : `From ${riftName(x.from[0])}`}, ${plural(x.n, 'Creeper')} will ${x.text}.` });
   for (const e of th.rises) {
     if (!e.hunt || (e.way && goes(e.hunt).text === goes(e.way).text)) continue;
     const g = goes(e.hunt);
@@ -1138,10 +1212,11 @@ function askHTML(d) {
     remember: `${T.rememberCost} remembrance: +${T.rememberGain} memory, and it asks no more`,
   }[k];
   const left = T.refusals - (d.refused || 0);
-  const warn = left <= 1 ? 'Refused again, it turns Restless and leaves its mirror.' : `Refused ${T.refusals === 2 ? 'twice' : `${T.refusals} times`}, a shade turns Restless.`;
+  const heard = s.rite.heard === d.id;
+  const warn = heard ? 'Heard in the Court of Shades: granted, it costs nothing; refused, it isn\'t held against you.' : left <= 1 ? 'Refused again, it turns Restless and leaves its mirror.' : `Refused ${T.refusals === 2 ? 'twice' : `${T.refusals} times`}, a shade turns Restless.`;
   return `<div class="ask"><p><q>${esc(R.ask)}</q></p>
     <div class="row"><button class="btn sm" id="ask-yes-${d.id}" data-act="request" data-id="${d.id}" data-grant="1" aria-pressed="${granted}">Grant</button><button class="btn sm" id="ask-no-${d.id}" data-act="request" data-id="${d.id}" data-grant="" aria-pressed="${!granted}">Refuse</button></div>
-    <small>Granted, ${esc(cost)}. <span class="${left <= 1 ? 'bad' : ''}">${esc(warn)}</span></small></div>`;
+    <small>Granted, ${esc(heard && (k === 'name' || k === 'remember') ? cost.replace(/^\d+ remembrance/, 'free') : cost)}. <span class="${left <= 1 && !heard ? 'bad' : ''}">${esc(warn)}</span></small></div>`;
 }
 
 function riteRow(d) {
@@ -1569,6 +1644,15 @@ const TUNE = [
   ['visitorSecond', 'Chance, on a day one comes, that a second does too'],
   ['visitorWait', 'Share of the day a visitor waits for an answer'],
   ['charmBurn', "How fast candles burn the night of the hedge-witch's charm"],
+  ['library', 'The Library, its studies and the Archive of the Dead (1 on, 0 off)'],
+  ['lorePerSec', "Lore a shade reading in the Archive adds each second"],
+  ['hall', "The Hall's decrees and the Court of Shades (1 on, 0 off)"],
+  ['gatehouse', 'The Gatehouse, the Host’s ladders and the Undergate (1 on, 0 off)'],
+  ['laddersFrom', 'The season (of the keep) from which the Host brings ladders'],
+  ['ladderEvery', 'Seconds between ladders at the gate'],
+  ['ladderHost', 'What each ladder left standing adds to the Host'],
+  ['undergateFrom', 'The season (of the keep) from which the Undergate opens'],
+  ['undergateShare', "Share of the night's Creepers that come up the Undergate"],
 ];
 const KEYS = [
   ['Space', 'play or pause'], ['1, 2, 4', 'speed'], ['C, M, W, H', 'candle, move, ward, hush (at night)'], ['V', 'turn the Tain upright'],
@@ -2627,13 +2711,20 @@ function buildHTML() {
     })
     .join('');
   const masons = jobCount(s, 'yard');
-  const can = day && !!ui.buildAt && stone + 1e-9 >= T.roomStone;
-  const rows = BUILDABLE.map((type) => {
+  const spot = ui.buildAt ? buildSpot(s, ui.buildAt) : null;
+  const cost = raiseCost(s, spot);
+  const can = day && !!spot && stone + 1e-9 >= cost;
+  // The Gatehouse stands at the gate: the ground floor, or the one above it. A new floor on top is that only
+  // while the keep is one floor.
+  const atGateHere = spot && (spot.newFloor ? G.n : G.n - 1 - spot.f) <= 1;
+  const rows = BUILDABLE.filter((type) => !NEW_ROOMS.includes(type) || T[type]).map((type) => {
     const R = DAY_ROOMS[type];
     const tw = TWINS[type];
     const have = roomsOf(G, type).length;
-    return `<li class="build-row"><div><b>${esc(R.name)}</b>${have ? ` <small class="muted">you have ${have}</small>` : ''}<p class="note">${esc(R.job(R))} By night, the ${esc(tw.name)}: ${esc(tw.note)}</p></div>
-      <button class="btn sm" id="raise-${type}" data-act="raise" data-room="${type}"${can ? '' : ' disabled'}>Build, ${T.roomStone} stone</button></li>`;
+    const gate = type === 'gatehouse';
+    const why = gate && have ? 'The keep has its Gatehouse.' : gate && !atGateHere ? 'Only on the ground floor or the one above it: choose a bare hall there, or move a room up to make one.' : '';
+    return `<li class="build-row"><div><b>${esc(R.name)}</b>${have ? ` <small class="muted">you have ${have}</small>` : ''}<p class="note">${esc(R.job(R))} By night, the ${esc(tw.name)}: ${esc(tw.note)}</p>${why ? `<p class="note bad">${esc(why)}</p>` : ''}</div>
+      <button class="btn sm" id="raise-${type}" data-act="raise" data-room="${type}"${can && !why ? '' : ' disabled'}>Build, ${fmt(cost)} stone</button></li>`;
   }).join('');
   return `<section class="build">
     <p>Stone <b data-live="stone">${floor1(stone)}</b>. ${masons ? `${esc(plural(masons, 'mason'))} in the Yard quarry ${fmt(masons * DAY_ROOMS.yard.rate)} a day.` : 'Nobody is quarrying: put someone in the Yard, in People, for 2 stone a day.'}</p>
@@ -2719,6 +2810,7 @@ const LIVE = {
   't-ess': () => fmt(s.night?.stats.essence ?? 0),
   't-glass': () => fmt(s.night?.stats.glass ?? 0),
   mem: (id) => String(Math.max(0, Math.ceil(byId(s.shades, id)?.memory ?? 0))),
+  lore: () => fmt(s.study?.lore ?? 0),
   status: (id) => {
     const d = byId(s.shades, id);
     return d ? shadeStatus(d, lightMap(K(), s.tuning, s.night?.candles || [])) : '';
@@ -2869,6 +2961,30 @@ const GUIDE = [
     when: () => s.phase === 'day' && s.visitors?.some((v) => v.here && !v.done),
     done: () => ui.sheet === 'phase',
     text: 'Someone is at the gate. The Day panel shows what they want, what each answer costs and gives, and how long they will wait. Left waiting, they take the last answer.',
+  },
+  {
+    id: 'library', target: '#open-phase',
+    when: () => s.phase === 'day' && !!s.tuning.library && roomsOf(K(), 'library').length > 0 && !s.study && !s.learned.length,
+    done: () => ui.sheet === 'phase',
+    text: 'The Library studies one thing at a time. Begin a study in the Day panel with remembrance; its scholars by day, and a shade in the Archive of the Dead by night, finish it.',
+  },
+  {
+    id: 'hall', target: '#open-phase',
+    when: () => s.phase === 'day' && !!s.tuning.hall && roomsOf(K(), 'hall').length > 0 && !decreeOf(s),
+    done: () => ui.sheet === 'phase',
+    text: 'The Hall proclaims one decree a season: rationing, a curfew or a levy, each with its price, in the Day panel. By night a shade seated in the Court of Shades hears one of the dead’s requests for free.',
+  },
+  {
+    id: 'ladders', target: '#open-phase', pause: true,
+    when: () => s.phase === 'day' && laddersDue(s) && s.raid?.warned && s.raid.state === 'coming',
+    done: () => ui.sheet === 'phase',
+    text: () => (gatehouseOf(s) ? 'From this season the Host brings ladders. Each gate guard in the Gatehouse throws one down; each left standing adds to the Host. The Day panel has the numbers.' : 'From this season the Host brings ladders, and only a Gatehouse’s guards throw them down: each left standing adds to the Host. The Day panel has the numbers.'),
+  },
+  {
+    id: 'undergate', target: '#open-phase',
+    when: () => s.phase === 'dusk' && s.dusk?.step === 'place' && undergateOpen(s) && s.night?.spawns.some((sp) => sp.rift === 'undergate'),
+    done: () => ui.sheet === 'phase',
+    text: 'Your Gatehouse’s twin, the Undergate, faces the Deep: from this season some of the Creepers come up there instead of at the rifts. Light it and post a fighter, or ward it from the Dusk panel.',
   },
   {
     id: 'weepers', target: '#open-phase',
@@ -3862,6 +3978,12 @@ function onAct(name, el) {
     case 'sally': return game({ type: 'sally' });
     case 'donate': return game({ type: 'donate' });
     case 'visitor': return game({ type: 'visitor', id: el.dataset.id, answer: el.dataset.answer });
+    case 'rite-kind':
+      ui.riteKind = el.value;
+      return bump();
+    case 'study': return game({ type: 'study', id: el.dataset.id, ...(el.dataset.id === 'rites' ? { kind: document.getElementById('rite-kind')?.value } : {}) });
+    case 'decree': return game({ type: 'decree', id: el.dataset.id });
+    case 'ward-undergate': return game({ type: 'ward', target: 'undergate' });
     case 'shade-act': return game({ type: 'shadeAct', id: el.dataset.id });
     case 'lantern': return game({ type: 'lantern', id: el.dataset.id });
     case 'omen': return game({ type: 'omen', i: Number(el.dataset.i) });

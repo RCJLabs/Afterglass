@@ -1,7 +1,7 @@
 // How to play: every lesson of the tutorial and the guide, as a short manual the Menu keeps. Its numbers come
 // from the keep's own rules, so it stays true when they're changed in Settings. Pure.
 
-import { DAY_ROOMS, TWINS, KINDS, MIRRORS, TRAITS, SHADE_TRAITS, OMENS } from './data.js';
+import { DAY_ROOMS, TWINS, KINDS, MIRRORS, TRAITS, SHADE_TRAITS, OMENS, STUDIES, DECREES } from './data.js';
 import { actText, omenText } from './sim.js';
 
 const n1 = (x) => (Math.abs(x - Math.round(x)) < 0.05 ? String(Math.round(x)) : x.toFixed(1));
@@ -103,6 +103,19 @@ export function howTo(T) {
               `On about ${pct(T.visitorChance)} of days someone comes to the gate, and on some of those a second. The Day panel shows who, what each answer costs and gives, and the hour they stop waiting: left waiting past it, they take the last answer, whatever it costs.`,
               'Each comes only when there is a reason to: traders with glass, candles, grain or a hand mirror to sell, or a mason for hire; pilgrims running ahead of a raid, a burnt-out family and a plague cart asking to be taken in; a deserter from the Host; a knight asking after a brother serving in your glass; a grave-robber caught with the day\'s dead; a wedding, a bard, a wandering priest, a physician, a hedge-witch, the Church\'s almoner, the lord\'s reeve, a necromancer and a cooper.',
               'Turning away those who ask for shelter costs Dread. What an answer leaves behind, riders promised or a raid made harder or easier, shows in the Day panel until it comes.',
+            ],
+          },
+        ]
+      : []),
+    ...(T.library || T.hall || T.gatehouse
+      ? [
+          {
+            id: 'rooms6',
+            title: 'The Library, the Hall and the Gatehouse',
+            items: [
+              ...(T.library ? [`The Library: its scholars make ${DAY_ROOMS.library.rate} lore a day each toward one study at a time, begun in the Day panel with remembrance, and a lit shade in its twin, the Archive of the Dead, adds to it by night. A study finished is the keep's for good: ${Object.values(STUDIES).map((x) => `${x.name} (${x.rem} remembrance, ${x.lore} lore), ${x.text}`).join('; ')}.`] : []),
+              ...(T.hall ? [`The Hall: one decree a season, standing until the season ends. ${Object.values(DECREES).map((d) => `${d.name}: ${d.does}; the price, ${d.price}`).join('. ')}. By night a shade seated, lit, in its twin, the Court of Shades, through half the night has one of the dead's requests heard free at the next rite: granted, it costs nothing, and refused, it isn't held against you.`] : []),
+              ...(T.gatehouse ? [`The Gatehouse stands at the gate, on the ground floor or the one above it, and a keep has one. Its gate guards give ${DAY_ROOMS.gatehouse.rate} defense each, against a Barracks guard's ${DAY_ROOMS.barracks.rate}. From the keep's ${['', 'first', 'second', 'third', 'fourth'][T.laddersFrom] || `${T.laddersFrom}th`} season the Host brings ladders: one goes up every ${n1(T.ladderEvery)} seconds at the gate, and each left standing adds ${n1(T.ladderHost)} to its strength; each gate guard throws one down.`, `From the keep's ${['', 'first', 'second', 'third', 'fourth'][T.undergateFrom] || `${T.undergateFrom}th`} season the Gatehouse's twin, the Undergate, faces the Deep: about ${pct(T.undergateShare)} of each night's Creepers come up there instead of at the rifts. On the ground floor that's under the Veil, behind the line; on the floor above, on the line's floor. Light it and post a fighter there, or ward it (the Dusk panel has the button).`] : []),
             ],
           },
         ]

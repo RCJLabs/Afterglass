@@ -31,6 +31,7 @@ const TONES = {
   chapel: ['#4a3a52', P.grape], glazier: ['#39485a', P.indigo], chandlery: ['#5a4632', P.brown], infirmary: ['#4c5361', P.slate],
   barracks: ['#4a3e36', P.brown], granary: ['#5a4a38', P.brown], hearth: ['#5a4038', P.brown], crypt: ['#2a2430', P.soot],
   forge: ['#3e3436', P.soot], cellar: ['#3a3028', P.earth], empty: ['#55575f', P.slate], quarters: ['#4a4058', P.grape],
+  library: ['#3f3a58', P.indigo], hall: ['#5a3a3a', P.plum], gatehouse: ['#4c4e58', P.slate],
 };
 // The keep being drawn: its geometry, set at the start of every frame (it grows as rooms are built).
 let G = geoOf();
@@ -200,6 +201,50 @@ const FURNISH = {
     R(c, x + 4, y + 14, 14, 1, P.steel);
     if (f === G.veil) mirrorFrame(c, MAP.mirrors[1].x - 2, y + 4);
   },
+  // Round six's three. The Library: shelves of books, and a reading desk with an open book and a candle.
+  library(c, x, y) {
+    for (const sx of [3, 16]) {
+      R(c, x + sx, y + 4, 11, 13, P.brown);
+      for (let row = 0; row < 3; row++) {
+        R(c, x + sx, y + 8 + row * 4, 11, 1, P.clay);
+        for (let i = 0; i < 9; i++) if ((i + row * 2 + sx) % 5) R(c, x + sx + 1 + i, y + 5 + row * 4, 1, 2 + ((i + row) % 2), [P.red, P.navy, P.green, P.amber, P.bone, P.plum][(i + row + sx) % 6]);
+      }
+    }
+    R(c, x + 32, y + 13, 12, 1, P.clay);
+    R(c, x + 33, y + 14, 1, 4, P.brown);
+    R(c, x + 42, y + 14, 1, 4, P.brown);
+    R(c, x + 35, y + 12, 3, 1, P.bone);
+    R(c, x + 38, y + 12, 3, 1, P.white);
+    R(c, x + 43, y + 10, 1, 3, P.bone);
+    D(c, x + 43, y + 9, P.orange);
+  },
+  // The Hall: a banner, a long table set with cups, and the high seat at its head.
+  hall(c, x, y) {
+    R(c, x + 4, y + 3, 6, 9, P.crimson);
+    R(c, x + 4, y + 3, 6, 1, P.amber);
+    D(c, x + 7, y + 7, P.amber);
+    R(c, x + 12, y + 13, 22, 1, P.clay);
+    R(c, x + 13, y + 14, 1, 4, P.brown);
+    R(c, x + 32, y + 14, 1, 4, P.brown);
+    for (const dx of [16, 22, 28]) D(c, x + dx, y + 12, P.silver);
+    R(c, x + 38, y + 6, 6, 12, P.amber);
+    R(c, x + 39, y + 8, 4, 5, P.crimson);
+    R(c, x + 38, y + 5, 6, 1, P.ochre);
+  },
+  // The Gatehouse: the portcullis and its winch, and a rack of spears.
+  gatehouse(c, x, y) {
+    R(c, x + 28, y + 2, 16, 16, P.night);
+    for (let i = 0; i < 5; i++) R(c, x + 29 + i * 3, y + 2, 1, 15, P.steel);
+    for (let j = 0; j < 4; j++) R(c, x + 28, y + 4 + j * 4, 16, 1, P.slate);
+    ellipse(c, x + 8, y + 9, 3, 3, P.brown);
+    D(c, x + 8, y + 9, P.slate);
+    R(c, x + 7, y + 12, 3, 6, P.brown);
+    R(c, x + 14, y + 16, 9, 1, P.brown);
+    for (let i = 0; i < 3; i++) {
+      R(c, x + 15 + i * 3, y + 6, 1, 10, P.clay);
+      D(c, x + 15 + i * 3, y + 5, P.silver);
+    }
+  },
 };
 
 // Details only a room's twin has, for room types beyond the original eight (keyed by type).
@@ -221,6 +266,22 @@ const TWIN_ART = {
   cellar(c, x, y) {
     R(c, x + 2, y + 10, 32, 8, UMBRA[2]);
     for (let i = 0; i < 3; i++) R(c, x + 2 + i * 7, y + 11, 6, 7, UMBRA[3]);
+  },
+  // The Archive of the Dead: the old books' spines glow, and a page hangs in the air over the desk.
+  library(c, x, y) {
+    for (let i = 0; i < 6; i++) D(c, x + 5 + i * 4, y + 5 + (i % 3) * 4, UMBRA[7]);
+    R(c, x + 36, y + 7, 3, 2, UMBRA[6]);
+  },
+  // The Court of Shades: the high seat pale, as if someone sat in it.
+  hall(c, x, y) {
+    R(c, x + 39, y + 8, 4, 5, UMBRA[6]);
+    D(c, x + 40, y + 7, UMBRA[7]);
+    D(c, x + 41, y + 7, UMBRA[7]);
+  },
+  // The Undergate: the portcullis up, over a way down into the Deep.
+  gatehouse(c, x, y) {
+    R(c, x + 29, y + 15, 14, 3, UMBRA[0]);
+    R(c, x + 31, y + 16, 10, 2, '#000000');
   },
 };
 
@@ -463,7 +524,7 @@ function person(c, p, i, home, y, t, dim = 0) {
   const walkFrom = p.job ? 0.72 : 0.35;
   let face = i % 2 ? -1 : 1;
   let x = home;
-  let pose = p.job && p.job !== 'barracks' ? 'work' : 'stand';
+  let pose = p.job && p.job !== 'barracks' && p.job !== 'gatehouse' ? 'work' : 'stand';
   if (!(p.sick > 0) && cyc > walkFrom) {
     const k = (cyc - walkFrom) / (1 - walkFrom);
     x = home + (k < 0.5 ? k * 2 : (1 - k) * 2) * (p.job ? 5 : 9) * face;
@@ -532,8 +593,8 @@ function dayActors(c, s, t, dusk = 0) {
   masons.forEach((p, i) => person(c, { ...p, job: 'yard' }, i, [18, 90, 28, 100, 12, 82][i % 6], walk, t, Math.min(1, dusk * 1.6)));
   // While the Host is at the gate, the guards and whoever the bell brought stand the walk on the east side.
   const fight = s.raid?.state === 'assault';
-  const onWalk = fight ? s.living.filter((p) => (p.job === 'barracks' || p.walls) && p.job !== 'yard') : [];
-  onWalk.forEach((p, i) => person(c, { ...p, job: 'barracks' }, i, [98, 91, 84, 102, 77, 70, 63, 56, 49][i % 9], walk, t));
+  const onWalk = fight ? s.living.filter((p) => (p.job === 'barracks' || p.job === 'gatehouse' || p.walls) && p.job !== 'yard') : [];
+  onWalk.forEach((p, i) => person(c, { ...p, job: p.job === 'gatehouse' ? 'gatehouse' : 'barracks' }, i, [98, 91, 84, 102, 77, 70, 63, 56, 49][i % 9], walk, t));
   // Workers of a type fill its rooms in turn, as many as a room holds; the idle wait by the first hearth. A
   // shade stepped through a great glass works among them.
   const byType = {};
@@ -667,6 +728,15 @@ function assaultArt(c, s, r, t) {
   const ry = ground(gx + 6) - 4;
   R(c, gx + 1 + swing, ry, 8, 2, P.brown);
   D(c, gx + 1 + swing, ry, P.slate);
+  // Ladders set against the wall (from summer), those still standing.
+  for (let i = 0; i < Math.min(4, r.ladders?.up || 0); i++) {
+    const lx = gx + 2 + i * 4;
+    const top = roofY() + 20;
+    const y0 = ground(lx);
+    R(c, lx, top, 1, y0 - top, P.brown);
+    R(c, lx + 2, top, 1, y0 - top, P.brown);
+    for (let y = top + 1; y < y0; y += 3) R(c, lx, y, 3, 1, P.clay);
+  }
   // The gate gives: cracks up the wall as it weakens.
   const shown = Math.round((1 - Math.max(0, r.gate)) * CRACKS.length);
   for (const [dx, dy] of CRACKS.slice(0, shown)) D(c, gx - dx, base - dy, P.ink);
@@ -1066,6 +1136,9 @@ function composeTain(s, t, opts = {}) {
     glow(c, rf.x, y - 2, omen?.id === 'blood' ? 7 : 5, P.hot, omen?.id === 'blood' ? pulse + 0.15 : pulse);
   }
   if (skyOf(s) === 'rain' && n) moatWater(c, s, t);
+  // The Undergate, open from summer: a glow at its mouth, unless it's warded tonight.
+  const ug = s.tuning.gatehouse && s.season >= s.tuning.undergateFrom && roomsOf(G, 'gatehouse')[0];
+  if (ug && n && !n.wards.includes('undergate')) glow(c, (ug.x0 + ug.x1) / 2, feet(ug.f) - 2, 5, P.hot, 0.2 + 0.15 * Math.sin(t * 2 + 1));
   // A shade gone down into the Deep: a thread of silver glinting at the mouth of a rift until dawn.
   s.shades.filter((d) => d.deep).forEach((d, i) => {
     const rf = MAP.rifts[i % MAP.rifts.length];

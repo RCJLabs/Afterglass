@@ -421,6 +421,24 @@ export const TUNING = {
   visitorSecond: 0.2,
   visitorWait: 0.25,
   charmBurn: 0.75, // the hedge-witch's charm: tonight's candles burn at this rate
+  // The Library, the Hall and the Gatehouse (round six). library: scholars make lore by day toward one of the
+  // STUDIES at a time, begun with remembrance; a lit shade in its twin, the Archive of the Dead, adds
+  // lorePerSec of its work by night. hall: one standing decree a season (DECREES); a shade seated in its twin,
+  // the Court of Shades, through half the night has one request heard free at the next rite. gatehouse: gate
+  // guards (DAY_ROOMS), only on the ground floor or the one above it. From season laddersFrom the Host
+  // brings a ladder every ladderEvery seconds at the gate, each standing one adding ladderHost, and each gate
+  // guard throws one down as it goes up; from season undergateFrom, undergateShare of the night's Creepers
+  // come up at its twin, the Undergate, unless it's warded. 0 is none of that room (for gatehouse, nor the
+  // ladders).
+  library: 1,
+  lorePerSec: 0.01,
+  hall: 1,
+  gatehouse: 1,
+  laddersFrom: 2,
+  ladderEvery: 4,
+  ladderHost: 1.5,
+  undergateFrom: 2,
+  undergateShare: 0.25,
 };
 
 
@@ -514,11 +532,15 @@ export const DAY_ROOMS = {
   forge: { name: 'Forge', out: 'defense', rate: 1, role: 'smith', job: (R) => `Smiths: ${R.rate} defense each, arming the guards.` },
   cellar: { name: 'Cellar', out: null, job: () => 'Stores. Raiders who break in take half as many candles and half as much glass.' },
   quarters: { name: 'Quarters', out: null, beds: 4, job: () => 'Beds for four. With too few beds the living sleep crowded, and sickness comes more often.' },
+  // Round six's three.
+  library: { name: 'Library', out: 'lore', rate: 1, role: 'scholar', job: (R) => `Scholars: ${R.rate} lore a day each, toward what the Library is studying.` },
+  hall: { name: 'Hall', out: null, job: () => 'Decrees: one standing decree a season, proclaimed from here.' },
+  gatehouse: { name: 'Gatehouse', out: 'defense', rate: 3, role: 'gate guard', job: (R) => `Gate guards: ${R.rate} defense each against raids, and from summer they throw down the Host's ladders. It stands at the gate: on the ground floor, or the one above.` },
   empty: { name: 'Bare hall', out: null, job: () => 'Unfinished stone. The next room built goes here.' },
   yard: { name: 'Yard', out: 'stone', rate: 2, role: 'mason', outdoors: true, job: (R) => `Masons: ${R.rate} stone a day each, to build with. The Yard holds any number.` },
 };
 // What can be built on top of the keep, in the order the build list shows them.
-export const BUILDABLE = ['barracks', 'chandlery', 'hearth', 'forge', 'cellar', 'chapel', 'glazier', 'infirmary', 'granary', 'quarters'];
+export const BUILDABLE = ['barracks', 'chandlery', 'hearth', 'forge', 'cellar', 'chapel', 'glazier', 'infirmary', 'granary', 'quarters', 'library', 'hall', 'gatehouse'];
 export const WORK_ROOMS = Object.keys(DAY_ROOMS).filter((k) => DAY_ROOMS[k].out);
 
 // Each room's twin in the Tain, and what a lit shade standing there does.
@@ -534,6 +556,9 @@ export const TWINS = {
   forge: { name: 'Cold Forge', job: 'steel', note: 'Grave-steel: a shade who forges through half the night arms every shade the next night.' },
   cellar: { name: 'Hollow Cellar', job: null, note: 'Empty and dark: a weak spot.' },
   quarters: { name: 'Dreamwell', job: 'dreams', note: 'Dreams: a shade who dreams here through half the night rests the living for the day after. Weepers come here for the sleepers above.' },
+  library: { name: 'Archive of the Dead', job: 'lore', note: 'Old knowledge: a lit shade here reads for the Library, and speeds what it studies.' },
+  hall: { name: 'Court of Shades', job: 'court', note: "The dead's requests: a shade seated here through half the night hears one, and at the next rite it's answered free." },
+  gatehouse: { name: 'Undergate', job: null, note: 'The gate that faces the Deep. From summer a quarter of the Creepers come up here instead of at the rifts, unless it is warded.' },
   empty: { name: 'Hollow Hall', job: null, note: 'Bare and dark: a weak spot until something is built.' },
 };
 
@@ -714,6 +739,25 @@ export const VISITORS = {
     text: 'A cooper with water barrels, for a keep that burns.',
     answers: [{ id: 'buy', text: 'Buy his barrels', cost: { glass: 3 }, does: 'until the season ends, fire comes half as often' }, { id: 'no', text: 'Send him on' }],
   },
+};
+
+// The Library's studies (round six): remembrance to begin one, lore to finish it, and then the keep has it for
+// good. One at a time. The numbers each changes are here; sim.js applies them.
+export const STUDIES = {
+  tallow: { name: 'Tallow-craft', rem: 3, lore: 4, wax: 1.25, text: 'candles and lanterns burn ×1.25 as long' },
+  wards: { name: 'Ward-lore', rem: 3, lore: 4, less: 2, text: 'a ward costs 2 essence less' },
+  pitch: { name: 'Pitch-craft', rem: 2, lore: 3, mult: 2, text: 'pitch takes twice as much off the Host' },
+  rites: { name: 'The old rites', rem: 4, lore: 5, text: 'one kind of shade, chosen when you begin, can act twice a night' },
+  silvering: { name: 'Silvering', rem: 3, lore: 4, glass: 0.75, text: 'mirrors take a quarter less glass to build or upgrade' },
+  herbs: { name: 'Herb-lore', rem: 2, lore: 3, heal: 2, text: 'healers cure twice as many' },
+  masonry: { name: 'Masonry', rem: 3, lore: 4, less: 2, text: 'a room costs 2 stone less' },
+  hollow: { name: 'Hollow-lore', rem: 3, lore: 4, hold: 2, text: 'a ward holds the Hollow twice as long' },
+};
+// The Hall's decrees (round six): one a season, standing until it ends, each with its price.
+export const DECREES = {
+  rationing: { name: 'Rationing', does: 'everyone eats three-quarters as much', price: 'sickness comes half as often again', eat: 0.75, sick: 1.5 },
+  curfew: { name: 'A curfew', does: 'the living are barred in from dusk: nobody sleepwalks, and the Weepers give no nightmares', price: 'everyone works ×0.9', work: 0.9 },
+  levy: { name: 'A levy', does: 'men from the villages stand the gate at every raid, +3 defense', price: 'they eat 2 food a day', defense: 3, food: 2 },
 };
 
 export const CAUSES = {

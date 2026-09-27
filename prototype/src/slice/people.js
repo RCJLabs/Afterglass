@@ -84,6 +84,8 @@ export const OUTFITS = {
   hearth: { tunic: P.clay, legs: P.brown, belt: P.brown, shoes: P.earth, apron: P.bone, cap: P.bone },
   forge: { tunic: P.ink, legs: P.brown, belt: P.brown, shoes: P.earth, apron: P.brown, prop: 'hammer' },
   yard: { tunic: P.ochre, legs: P.brown, belt: P.earth, shoes: P.earth, prop: 'hammer' },
+  library: { tunic: P.navy, legs: P.ink, belt: P.bone, shoes: P.brown, robe: 1, prop: 'book' },
+  gatehouse: { tunic: P.steel, legs: P.ink, belt: P.brown, shoes: P.night, tabard: P.navy, helm: P.silver, prop: 'spear' },
   none: { tunic: P.slate, legs: P.brown, belt: P.earth, shoes: P.earth },
 };
 

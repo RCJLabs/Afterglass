@@ -73,7 +73,7 @@ test('a sally that wins breaks the camp and calls off its assault; one that lose
   for (let k = 0; k < 20 && !g; k++) {
     const t = JSON.parse(snap);
     t.rng = (t.rng + k * 7919) >>> 0;
-    if (!t.living.some((p) => p.job === 'barracks')) t.living[0].job = 'barracks';
+    if (!t.living.some((p) => p.job === 'barracks' && !(p.sick > 0))) t.living.find((p) => !(p.sick > 0)).job = 'barracks'; // the sick stay in
     ok(t, { type: 'sally' });
     if (t.siege.broken) g = t;
   }
