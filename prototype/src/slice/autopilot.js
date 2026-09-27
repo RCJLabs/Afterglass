@@ -9,15 +9,21 @@
 // All but double and idle react at night: a second fighter to each stair of the line for each tide, a ward
 // on the line for the biggest tides when the essence is there, and a fighter to meet a Maw.
 
-import { step, act, newSeason, ritePreview, crossingPreview, capacity, canWork, defense, funeralCap, choicesFor, jobCap, jobCount, eatRate, wardCost, livingTrait, shadeTrait, peopleIn, crowded, tradeOf, inGreatGlass, handsAt, seasonIndex, tributeOf, besieged, sallyOdds, embargoed, inquisition, crusadeDaysLeft } from './sim.js';
+import { step, act, newSeason, ritePreview, crossingPreview, capacity, canWork, defense, funeralCap, choicesFor, jobCap, jobCount, eatRate, wardCost, livingTrait, shadeTrait, peopleIn, crowded, tradeOf, inGreatGlass, handsAt, seasonIndex, tributeOf, besieged, sallyOdds, embargoed, inquisition, crusadeDaysLeft, canAct, actOf, actCost } from './sim.js';
 import { DAY_ROOMS, MIRRORS, KINDS, MAP, TICKS_PER_SEC } from './data.js';
-import { geo, roomSpan, roomAt, roomsOf, lineSpots } from './geo.js';
+import { geo, roomSpan, roomAt, roomsOf, lineSpots, lightMap, isLit } from './geo.js';
 
 export const PLANS = ['balanced', 'keeper', 'mourner', 'double', 'idle'];
 
 const doAct = (s, a) => act(s, a).ok;
 // AP_NOHIDE=1 never hides a mirror from a crusade (to measure whether hiding pays).
 const NOHIDE = !!globalThis.process?.env?.AP_NOHIDE;
+// AP_NOACTS=1 never uses the shades' acts; AP_DOUBLEACTS=1 lets Double use them too (it doesn't, as the
+// line that never reacts).
+const NOACTS = !!globalThis.process?.env?.AP_NOACTS;
+const DOUBLEACTS = !!globalThis.process?.env?.AP_DOUBLEACTS;
+// AP_ACTSONLY=stand,kindle uses only those acts (to measure what each is worth).
+const ACTSONLY = globalThis.process?.env?.AP_ACTSONLY?.split(',') || null;
 // Traits, as a player reads them. AP_BLIND=1 plays as if nobody had one (to measure what they're worth).
 const BLIND = !!globalThis.process?.env?.AP_BLIND;
 // AP_BELOW=1 also works the rooms below the line on the Choir's side of the keep, leaving the other side dark
@@ -405,11 +411,40 @@ const mirrorGuard = new WeakMap();
 
 /* ---------------------------------------------------------------- night */
 
+// The shades' acts, by rule. Each keeps 30 memory after paying, since memory is its strength. A Loyal shade
+// stands against a Maw or the Hollow at its light; a Serene one kindles its candle when it's low and the
+// store is nearly out, or a light wherever it stands in the dark; a Pale one slips a grip; a Stranger in light
+// lures when three or more of the Unlit are within reach and not at its light already.
+function actMoves(s, plan) {
+  if (NOACTS || !s.tuning.acts || (plan === 'double' && !DOUBLEACTS)) return;
+  const n = s.night;
+  const T = s.tuning;
+  const G = geo(s);
+  const L = lightMap(G, T, n.candles);
+  for (const d of s.shades) {
+    if (!canAct(s, d) || d.memory - actCost(s, d) < 30) continue;
+    const what = actOf(d);
+    if (ACTSONLY && !ACTSONLY.includes(what)) continue;
+    const lit = isLit(L, d.f, d.x);
+    const near = n.foes.filter((c) => c.hp > 0 && !c.climb && c.f === d.f);
+    let go = false;
+    if (what === 'pass') go = !!d.grabbedBy;
+    else if (what === 'stand') go = lit && near.some((c) => (c.type === 'maw' || c.type === 'hollow') && Math.abs(c.x - d.x) <= 10);
+    else if (what === 'kindle') {
+      const mine = n.candles.filter((k) => L.spans[d.f].some(([a, b, id]) => id === k.id && d.x >= a - 1e-6 && d.x <= b + 1e-6));
+      // In the dark anywhere it isn't caught, walking to a stair included: it lights its own way.
+      go = lit ? s.res.candles < 3 && mine.some((k) => k.wax < 0.3 * k.max) : !d.grabbedBy && !!roomAt(G, d.f, d.x);
+    } else if (what === 'lure') go = lit && near.filter((c) => c.type !== 'maw' && c.type !== 'hollow' && Math.abs(c.x - d.x) <= T.lureReach && Math.abs(c.x - d.x) > 8).length >= 3;
+    if (go) doAct(s, { type: 'shadeAct', id: d.id });
+  }
+}
+
 function tendNight(s, plan) {
   const n = s.night;
   const T = s.tuning;
   const G = geo(s);
   const LINE = lineOf(s);
+  actMoves(s, plan);
   // Relight the line first, then any post whose candle is going out.
   const lit = (f, x) => n.candles.some((c) => c.f === f && Math.abs(c.x - x) <= 6 && c.wax > 15);
   for (const st of LINE) if (!lit(st.f, st.x)) doAct(s, { type: 'candle', f: st.f, x: st.x });

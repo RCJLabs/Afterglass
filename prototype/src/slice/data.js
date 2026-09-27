@@ -358,6 +358,19 @@ export const TUNING = {
   crusade: 1,
   crusadeDays: 2,
   crusadeBase: 13,
+
+  // Shade acts (round six): each working kind has one act a night, paid in its own memory (half for the
+  // named, and bent by a trait that changes fading, as whispering is). Stand: for its seconds, the light it
+  // stands in can't be gnawed, smashed or eaten, and it strikes standFight times as hard. Kindle: adds
+  // kindleWax of a candle to the one it stands in, or lights that much of one at its feet in the dark, free.
+  // Pass unseen: for its seconds the Unlit pass it by, and it slips any grip. Lure: for its seconds the
+  // Unlit on its floor within lureReach come for it, into its light if it stands in one. acts 0 is none.
+  acts: 1,
+  actCost: { stand: 10, kindle: 15, pass: 8, lure: 12 },
+  kindleWax: 1,
+  actSecs: { stand: 10, pass: 15, lure: 8 },
+  standFight: 2,
+  lureReach: 40,
 };
 
 export const SEASONS = ['spring', 'summer', 'autumn', 'winter'];
@@ -523,6 +536,13 @@ export const KINDS = {
   wraith: { name: 'Wraith', work: 0, fight: 0, speed: 0, desc: 'Your own dead gone wrong. Hunts inside the Tain every night until banished.' },
 };
 export const WORKING = ['loyal', 'serene', 'pale', 'stranger'];
+// Each working kind's one act a night (TUNING.acts), by name; what each does is actText in sim.js.
+export const ACTS = {
+  stand: { kind: 'loyal', name: 'Stand' },
+  kindle: { kind: 'serene', name: 'Kindle' },
+  pass: { kind: 'pale', name: 'Pass unseen' },
+  lure: { kind: 'stranger', name: 'Lure' },
+};
 
 export const CAUSES = {
   duty: { name: 'Duty', kind: 'loyal', text: 'died on duty' },

@@ -994,6 +994,8 @@ function lightFor(s, hollow, ambient) {
 // ghost ({ f, x, tool }) for the candle or ward preview, marks (guide rings), threats (the black mirror at
 // dusk), cursor ({ f, x }, the keyboard's). t is 0 with less motion: nothing marches or blinks, and what
 // blinks stays on.
+// A shade's act as the Tain shows it: what it's doing now, if anything.
+const actNow = (s, d) => (d.act && s.phase === 'night' && s.t < d.act.until ? d.act.what : null);
 function composeTain(s, t, opts = {}) {
   const L = layers();
   const y0 = L.y0;
@@ -1011,7 +1013,8 @@ function composeTain(s, t, opts = {}) {
   if (opts.ghost?.tool === 'candle') R(c, Math.round(opts.ghost.x), feet(opts.ghost.f) - 3, 1, 3, UMBRA[7]);
   const shades = s.shades.filter((d) => d.mirror && d.kind !== 'wraith' && d.kind !== 'restless' && !d.deep);
   const shadePos = shades.map((d) => ({ d, ...unitAt(d, alpha) }));
-  for (const { d, x, y } of shadePos) shadeSprite(c, d, x, y, t);
+  const sprite = (d, x, y) => (actNow(s, d) === 'pass' ? A(c, 0.35, () => shadeSprite(c, d, x, y, t)) : shadeSprite(c, d, x, y, t));
+  for (const { d, x, y } of shadePos) sprite(d, x, y);
   const foes = (n?.foes || []).map((u) => ({ u, ...unitAt(u, alpha) }));
   for (const { u, x, y } of foes) {
     if (u.type === 'creeper') creeperSprite(c, u, x, y, t);
@@ -1085,7 +1088,7 @@ function composeTain(s, t, opts = {}) {
   // Every shade carries a faint glow of its own, so a silhouette in the dark can still be found.
   for (const { d, x, y } of shadePos) {
     glow(c, Math.round(x), Math.round(y) - 6, 6, '#7d6bd6', 0.3);
-    shadeSprite(c, d, x, y, t);
+    sprite(d, x, y);
   }
   for (const { d, x, y } of shadePos) {
     shadeEyes(c, d, x, y, t);
@@ -1111,6 +1114,19 @@ function composeTain(s, t, opts = {}) {
     else if (u.type === 'drowned') drownedEyes(c, u, x, y, t);
     else if (u.type === 'weeper') A(c, 0.85, () => weeperSprite(c, u, x, y, t));
     else hollowEyes(c, x, y, t);
+  }
+  // Tonight's acts: a Loyal shade standing its ground glows gold under a bar of light; a Stranger's lure
+  // rings out red; a kindling flares. One passing unseen is drawn faint, above.
+  for (const { d, x, y } of shadePos) {
+    const a = actNow(s, d);
+    if (!a || a === 'pass') continue;
+    const bx = Math.round(x);
+    const by = Math.round(y);
+    if (a === 'stand') {
+      glow(c, bx, by - 6, 9, P.amber, t ? 0.3 + 0.15 * Math.sin(t * 6) : 0.4);
+      R(c, bx - 3, by - FIG_H[shadeLook(d).age] - 4, 7, 1, P.amber);
+    } else if (a === 'lure') ring(c, bx, by - 6, 5 + (MF(t * 6) % 6), P.hot, (dx, dy) => (dx + dy) % 2 === 0);
+    else glow(c, bx, by - 8, 10, P.yellow, 0.6);
   }
   // Guide marks: pulsing rings on the spots a guide card is talking about.
   for (const m of opts.marks || []) {

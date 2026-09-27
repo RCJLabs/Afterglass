@@ -2,13 +2,14 @@
 // bar at the bottom, and everything else opens in a panel over the castle. Like the greyboxes it changes
 // the game only through act(), so every session replays from its seed and action log.
 
-import { TICKS_PER_SEC, DAY_ROOMS, WORK_ROOMS, TWINS, KINDS, MIRRORS, CAUSES, MAP, BOND_OTHER, TUNING, BUILDABLE, TRAITS, SHADE_TRAITS, SEASONS, TUTORIAL, REQUESTS, PRESETS } from './slice/data.js';
+import { TICKS_PER_SEC, DAY_ROOMS, WORK_ROOMS, TWINS, KINDS, MIRRORS, CAUSES, MAP, BOND_OTHER, TUNING, BUILDABLE, TRAITS, SHADE_TRAITS, SEASONS, TUTORIAL, REQUESTS, PRESETS, ACTS } from './slice/data.js';
 import {
   newSeason, step, act, retune, playerTuning, jobCap, jobCount, nextSlot, ritePreview, crossingPreview, capacity, canWork, defense, roomPower, bear, priests, funeralCap, eatRate,
   dayTicks, nightTicks, isNewMoon, choicesFor, byId, isTwinnedLiving, isTwinnedShade, lastSeason, SAVE_VERSION, fmt, mirrorCap, bareHalls, tainPlace,
   postRoom, wardCost, shadeTrait, peopleIn, beds, tradeOf, inGreatGlass, handsAt, whispers, stepsThrough, perf,
   seasonIndex, seasonName, yearOf, dayLength, isLongNight, tributeOf, besieged, sallyOdds, plagueSeason, atGate, gateGuard,
   weatherOf, forecastOf, raining, foggy, drownedDue, keepDefaults, embargoed, inquisition, churchDaysLeft, crusadeDay, crusadeDaysLeft,
+  actOf, actCost, canAct, acting, actText,
 } from './slice/sim.js';
 import { geo, feet, floorAtY, roomAt, typeAt, typeOf, roomSpan, roomsOf, lightMap, isLit, unitAt, DEEP_FLOOR, lineSpots as lineOf, guardLit, MAX_FLOORS } from './slice/geo.js';
 import { drawScene, drawMoment } from './slice/draw.js';
@@ -215,6 +216,9 @@ function shadeStatus(d, L) {
   const room = typeAt(K(), d.f, d.x) || postRoom(s, d);
   if (s.phase !== 'night') return `posted in the ${roomName(postRoom(s, d), true)}`;
   if (d.grabbedBy) return 'caught!';
+  if (acting(s, d, 'stand')) return 'standing its ground';
+  if (acting(s, d, 'pass')) return 'passing unseen';
+  if (acting(s, d, 'lure')) return 'luring the Unlit to it';
   if (d.climb) return 'on the stairs';
   if (d.path.length) return `walking to the ${roomName(postRoom(s, d), true)}`;
   if (s.night?.hush) return 'hushed';
@@ -292,6 +296,9 @@ function barHTML() {
   else if (place) {
     tools = `${tool('candle', `Candle ${floor1(s.res.candles)}`)}${tool('move', 'Move')}${tool('ward', `Ward ${fmt(wardCost(s))}`)}`;
     tools += s.phase === 'night' ? `<button class="btn sm" id="btn-hush" data-act="hush" aria-pressed="${!!s.night?.hush}">Hush</button>` : '';
+    const d = s.phase === 'night' && s.tuning.acts ? byId(s.shades, ui.selected) : null;
+    const a = d && canWork(d) && actOf(d);
+    if (a) tools += `<button class="btn sm act" id="btn-act" data-act="shade-act" data-id="${d.id}"${canAct(s, d) ? '' : ' disabled'} title="${ACTS[a].name} (A)">${ACTS[a].name}${d.acted ? ': spent' : ` −${fmt(actCost(s, d))}`}</button>`;
     tools += flip;
     if (s.phase === 'dusk') tools += `<button class="btn sm primary" id="bar-start" data-act="start">Begin the night</button>`;
   } else if (s.phase === 'dawn') {
@@ -324,7 +331,10 @@ function hintText() {
   }
   if (ui.tool === 'ward') return `Tap a stair or a rift${raining(s) ? ", or an end of the moat's twin under the Veil," : ''} to seal it until dawn (${fmt(wardCost(s))} essence${wardCost(s) < T.wardCost ? ', cheaper while a Bitter shade stays' : ''}). The Hollow breaks a ward in ${T.wardHold} s.`;
   if (!d) return 'Tap a shade to pick it, then tap where it should stand.';
-  return s.phase === 'dusk' ? `${d.name}: tap a spot to post ${d.name} there.` : `${d.name}: tap a spot to send ${d.name} there. The dark between is dangerous.`;
+  if (s.phase === 'dusk') return `${d.name}: tap a spot to post ${d.name} there.`;
+  const a = T.acts && actOf(d);
+  const act = !a ? '' : d.acted ? ` Its act is spent tonight.` : ` ${ACTS[a].name} (A, −${fmt(actCost(s, d))} memory): ${actText(T, a)}.`;
+  return `${d.name}: tap a spot to send ${d.name} there. The dark between is dangerous.${act}`;
 }
 
 function showHint() {
@@ -1372,11 +1382,15 @@ const TUNE = [
   ['crusade', 'The crusade: censured under the Inquisition, the keep faces a crusade at the gate (1 on, 0 off)'],
   ['crusadeDays', 'Days from the crusade being proclaimed to its coming'],
   ['crusadeBase', "The crusade's strength, as a raid's base (harder each season)"],
+  ['acts', "Shade acts: each shade's one act a night, paid in its memory (1 on, 0 off)"],
+  ['standFight', 'How much harder a Loyal shade strikes while it Stands'],
+  ['lureReach', "How far a Stranger's Lure reaches, in pixels"],
 ];
 const KEYS = [
   ['Space', 'play or pause'], ['1, 2, 4', 'speed'], ['C, M, W, H', 'candle, move, ward, hush (at night)'], ['V', 'turn the Tain upright'],
   ['+ and −, 0', 'zoom, and fit the castle again'], ['Arrows', 'pan by day; from dusk, move the cursor on the Tain (Shift and the arrows pan)'],
   ['Enter', 'at the cursor: set a candle, pick or send a shade, or ward, by the tool'], ['[ and ]', 'pick the previous or next shade'],
+  ['A', "the picked shade's act, at night"],
   ['K, P, R, B', 'this phase, People, Records, Build'], ['L', 'room names'],
   ['S', 'sound on or off'], ['Esc', 'the Menu, or close a panel'],
 ];
@@ -2360,6 +2374,11 @@ const GUIDE = [
     text: () => `The censure brought the Church's silver embargo: for ${s.tuning.embargoDays} days the Glazier makes no glass and no mirror can be built. A blessing lifts it, or a donation of ${s.tuning.donation} remembrance in the Day panel. Censured again while it stands, the keep is given to the Inquisition, which inspects every day.`,
   },
   {
+    id: 'acts', target: '#tool-move', pause: true,
+    when: () => first() && s.phase === 'night' && s.day >= 2 && !!s.tuning.acts && s.shades.some((d) => canAct(s, d)),
+    text: 'Each shade has one act a night, paid in its memory. A Loyal one Stands: its light can\'t be gnawed for a while, and it strikes twice as hard. A Serene one Kindles its candle, free. A Pale one Passes unseen, out of any grip. A Stranger Lures the Unlit to it. Pick a shade, and its act is on the bar (A).',
+  },
+  {
     id: 'crusade', target: '#open-phase', pause: true,
     when: () => s.phase === 'day' && crusadeDaysLeft(s) > 0,
     text: () => `The Lantern Church has proclaimed a crusade: it comes to the gate ${crusadeDaysLeft(s) === 1 ? 'tomorrow' : `in ${crusadeDaysLeft(s)} days`}, and if it breaks in it smashes every mirror it can find. A blessing before then calls it off, so bring Dread down. The Day panel can hide mirrors from it, at the cost of their shades until it's over.`,
@@ -3159,6 +3178,7 @@ function onAct(name, el) {
     case 'request': return game({ type: 'request', id: el.dataset.id, grant: !!el.dataset.grant });
     case 'sally': return game({ type: 'sally' });
     case 'donate': return game({ type: 'donate' });
+    case 'shade-act': return game({ type: 'shadeAct', id: el.dataset.id });
     case 'hide': return game({ type: 'hide', id: el.dataset.id, on: !!el.dataset.on });
     case 'vigil': return game({ type: 'vigil' });
     case 'build': return game({ type: 'build', mirror: el.dataset.mirror });
@@ -3384,6 +3404,10 @@ document.addEventListener('keydown', (e) => {
     showHint();
     bump();
   } else if (k === 'h' && s.phase === 'night') game({ type: 'hush', on: !s.night.hush });
+  else if (k === 'a' && s.phase === 'night' && s.tuning.acts) {
+    if (ui.selected) game({ type: 'shadeAct', id: ui.selected });
+    else toast('Pick a shade first: its act is on the bar.', 'bad');
+  }
   else if (k === 'v') onAct('flip', { dataset: {} });
   else if (k === 'l') onAct('labels', { dataset: {} });
   else if (k === 's') onAct('sound', { dataset: {} });

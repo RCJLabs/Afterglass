@@ -9,7 +9,7 @@
 import {
   TICKS_PER_SEC, TUNING, DAY_ROOMS, WORK_ROOMS, TWINS, MAP, KINDS, WORKING, CAUSES, GUIDE_UP,
   MIRRORS, START_MIRRORS, MIRROR_PLACES, CAST, BONDS, START_SHADES, BOND_OTHER, NAMES, RAIDER_NAMES, BUILDABLE, TRAITS, TRAIT_KEYS, SHADE_TRAITS, SEASONS,
-  TUTORIAL, REQUESTS,
+  TUTORIAL, REQUESTS, ACTS,
 } from './data.js';
 import {
   geo, FULL_KEEP, startKeep, lineSpots, MAX_FLOORS, roomsOf, roomAt, roomSpan, typeOf, typeAt, lightMap, isLit, spanAt, darkBetween, darkRooms, darkGaps, route, firstLight, fleePath, touching,
@@ -244,6 +244,26 @@ const freeMirror = (s) => s.mirrors.find((m) => !m.hidden && mirrorUse(s, m) < m
 // A shade down in the Deep (from dusk to dawn) is out of the Tain for the night, and one in a mirror hidden
 // from a crusade is out of everything until it's brought out.
 export const canWork = (d) => !!d.mirror && WORKING.includes(d.kind) && !d.deep && !d.hidden;
+// A shade's act (round six): which it has, whether it's at it now, and what it costs.
+export const actOf = (d) => Object.keys(ACTS).find((k) => ACTS[k].kind === d.kind) || null;
+export const acting = (s, d, what) => !!d.act && d.act.what === what && s.phase === 'night' && s.t < d.act.until;
+export const actCost = (s, d) => {
+  const a = actOf(d);
+  return a ? Math.round(s.tuning.actCost[a] * (d.named ? 0.5 : 1) * (shadeTrait(s, d)?.fade ?? 1) * 100) / 100 : 0;
+};
+// What an act does, in words, by this keep's numbers.
+export function actText(T, a) {
+  const times = (x) => (x === 2 ? 'twice' : `${x} times`);
+  const share = T.kindleWax === 1 ? 'a whole candle' : T.kindleWax === 0.5 ? 'half a candle' : `${Math.round(100 * T.kindleWax)}% of a candle`;
+  return {
+    stand: `for ${T.actSecs.stand} seconds the light it stands in can't be gnawed, smashed or eaten, and it strikes ${times(T.standFight)} as hard`,
+    kindle: T.kindleWax === 1 ? 'renews the candle it stands in, or lights one at its feet in the dark, free' : `adds ${share} to the candle it stands in, or lights that much of one at its feet in the dark, free`,
+    pass: `for ${T.actSecs.pass} seconds the Unlit pass it by, and it slips any grip`,
+    lure: `for ${T.actSecs.lure} seconds the Unlit on its floor nearby come for it, into its light if it stands in one`,
+  }[a];
+}
+// Whether a shade could act now: tonight's act unspent, and memory to pay for it.
+export const canAct = (s, d) => !!s.tuning.acts && s.phase === 'night' && canWork(d) && !!actOf(d) && !d.acted && !d.climb && d.memory > actCost(s, d) + EPS;
 // The type of room a shade is posted in (its twin's type), or null.
 export const postRoom = (s, d) => (d.post ? typeAt(geo(s), d.post.f, d.post.x) : null);
 export const griefMult = (s, p) => (p.grief ? p.grief.mult : 1);
@@ -1165,6 +1185,7 @@ function startNight(s) {
   s.dusk = null;
   for (const d of s.shades) {
     Object.assign(d, { path: [], climb: 0, grabbedBy: null, rest: 0, sang: 0, watch: 0, drained: 0, forged: 0 });
+    if (s.tuning.acts) Object.assign(d, { acted: false, act: null });
     if (d.dreamed) d.dreamed = 0;
     if (canWork(d)) Object.assign(d, { f: d.post.f, x: d.post.x, ox: d.post.x, of: d.post.f });
   }
@@ -1232,12 +1253,13 @@ function nightTick(s) {
   const T = s.tuning;
   s.t++;
   const L = lightMap(geo(s), T, n.candles);
+  L.stood = stood(s, L);
   spawnFoes(s, L);
   biggestTide(s);
   for (const c of n.candles) c.wax -= DT;
   for (const h of n.foes) {
     if (h.type !== 'hollow' || h.hp <= 0 || h.climb) continue;
-    for (const c of n.candles) if (c.f === h.f && Math.abs(c.x - h.x) <= T.hollowReach) c.wax -= T.hollowEat * DT;
+    for (const c of n.candles) if (c.f === h.f && Math.abs(c.x - h.x) <= T.hollowReach && !L.stood.has(c.id)) c.wax -= T.hollowEat * DT;
   }
   for (const d of [...s.shades]) if (canWork(d) && s.shades.includes(d)) shadeTick(s, L, d);
   for (const f of [...n.foes]) foeTick(s, L, f);
@@ -1247,6 +1269,16 @@ function nightTick(s) {
   for (const c of n.candles) if (c.wax <= 0) cue(s, 'snuff', c.f, c.x);
   n.candles = n.candles.filter((c) => c.wax > 0);
   if (s.t >= nightTicks(s)) endNight(s);
+}
+
+// The candles whose light a Loyal shade is standing in: nothing gnaws, smashes or eats them while it stands.
+function stood(s, L) {
+  const ids = new Set();
+  for (const d of s.shades) {
+    if (!acting(s, d, 'stand') || !canWork(d) || d.climb) continue;
+    for (const [a, b, id] of L.spans[d.f]) if (d.x >= a - EPS && d.x <= b + EPS) ids.add(id);
+  }
+  return ids;
 }
 
 function spawnFoes(s, L) {
@@ -1338,7 +1370,7 @@ function shadeTick(s, L, d) {
   const K = KINDS[d.kind];
   if (d.grabbedBy) {
     const f = byId(n.foes, d.grabbedBy);
-    if (!f || f.grab !== d.id || n.hush) {
+    if (!f || f.grab !== d.id || n.hush || acting(s, d, 'pass')) {
       d.grabbedBy = null;
       if (f && f.grab === d.id) f.grab = null;
     } else {
@@ -1372,7 +1404,7 @@ function shadeTick(s, L, d) {
     .filter((c) => c.f === d.f && !c.climb && c.hp > 0 && Math.abs(c.x - d.x) <= T.reach + (S?.reach || 0))
     .sort((a, b) => Math.abs(a.x - d.x) - Math.abs(b.x - d.x))[0];
   if (foe) {
-    foe.hp -= T.fightDps * K.fight * p * (n.steel ? T.steelFight : 1) * (S?.fight ?? 1) * DT;
+    foe.hp -= T.fightDps * K.fight * p * (n.steel ? T.steelFight : 1) * (S?.fight ?? 1) * (acting(s, d, 'stand') ? T.standFight : 1) * DT;
     foe.lastHit = d.id;
     return;
   }
@@ -1449,7 +1481,7 @@ function foeTick(s, L, c) {
   }
   if (c.mode === 'hunt' && !n.hush) {
     const d = byId(s.shades, c.prey);
-    if (d && canWork(d) && !d.grabbedBy && !d.climb && d.f === c.f && Math.abs(d.x - c.x) < 2.5 && !isLit(L, d.f, d.x)) {
+    if (d && canWork(d) && !d.grabbedBy && !d.climb && d.f === c.f && Math.abs(d.x - c.x) < 2.5 && !isLit(L, d.f, d.x) && !acting(s, d, 'pass')) {
       c.grab = d.id;
       c.path = [];
       d.grabbedBy = c.id;
@@ -1464,7 +1496,7 @@ function foeTick(s, L, c) {
   if (c.mode === 'gnaw' && !c.path.length) {
     const k = byId(n.candles, c.gnaw);
     if (k && touching(geo(s), L, c, k.id)) {
-      k.wax -= T.gnawRate * (c.type === 'wraith' ? 2 : 1) * DT;
+      if (!L.stood?.has(k.id)) k.wax -= T.gnawRate * (c.type === 'wraith' ? 2 : 1) * DT;
       c.gnawing = true;
     } else c.replan = 0;
   }
@@ -1480,6 +1512,9 @@ export function wayOf(s, L, c) {
   const T = s.tuning;
   const n = s.night;
   if (isLit(L, c.f, c.x)) return { mode: 'flee', path: fleePath(L, c) };
+  // A Stranger's Lure: everything on its floor within reach comes for it, into its light if it stands in one.
+  const lure = !n.hush && s.phase === 'night' && s.shades.find((d) => acting(s, d, 'lure') && canWork(d) && !d.climb && d.f === c.f && Math.abs(d.x - c.x) <= T.lureReach);
+  if (lure) return { mode: 'hunt', prey: lure.id, path: [{ f: c.f, x: lure.x }] };
   if (!n.hush) {
     const prey = preyNear(s, L, c, c.x, c.x);
     if (prey) return { mode: 'hunt', prey: prey.id, path: [{ f: c.f, x: prey.x }] };
@@ -1511,7 +1546,7 @@ export function preyNear(s, L, c, x0, x1) {
   const hi = Math.max(x0, x1);
   const from = (d) => clamp(d.x, lo, hi);
   return s.shades
-    .filter((d) => canWork(d) && !d.grabbedBy && !d.climb && d.f === c.f && Math.abs(d.x - from(d)) <= sense && !isLit(L, d.f, d.x) && darkBetween(L, c.f, from(d), d.x) && !shadeTrait(s, d)?.unseen)
+    .filter((d) => canWork(d) && !d.grabbedBy && !d.climb && d.f === c.f && Math.abs(d.x - from(d)) <= sense && !isLit(L, d.f, d.x) && darkBetween(L, c.f, from(d), d.x) && !shadeTrait(s, d)?.unseen && !acting(s, d, 'pass'))
     .sort((a, b) => Math.abs(a.x - from(a)) - Math.abs(b.x - from(b)))[0];
 }
 function plan(s, L, c) {
@@ -1581,7 +1616,7 @@ function drownedTick(s, L, c) {
   }
   if (c.mode === 'hunt' && !n.hush) {
     const d = byId(s.shades, c.prey);
-    if (d && canWork(d) && !d.grabbedBy && !d.climb && d.f === c.f && Math.abs(d.x - c.x) < 2.5 && !isLit(L, d.f, d.x)) {
+    if (d && canWork(d) && !d.grabbedBy && !d.climb && d.f === c.f && Math.abs(d.x - c.x) < 2.5 && !isLit(L, d.f, d.x) && !acting(s, d, 'pass')) {
       c.grab = d.id;
       c.path = [];
       d.grabbedBy = c.id;
@@ -1769,7 +1804,7 @@ function mawTick(s, L, m) {
         say(s, `A Maw is tearing down the candle in the ${TWINS[typeAt(G, k.f, k.x)].name}.`, 'bad', true);
         cue(s, 'smash', k.f, k.x);
       }
-      k.wax -= T.mawSmash * DT;
+      if (!L.stood?.has(k.id)) k.wax -= T.mawSmash * DT;
       m.gnawing = true;
       if (k.wax <= 0) {
         n.stats.smashed++;
@@ -2031,6 +2066,7 @@ function endNight(s) {
   const withdrew = n.foes.filter((f) => f.type !== 'wraith').length;
   n.foes = [];
   n.candles = [];
+  for (const d of s.shades) if (d.act) d.act = null;
   const wick = Math.floor(n.stats.wick + EPS);
   if (wick) s.res.candles += wick;
   const g = Math.floor(n.stats.guidance + EPS);
@@ -2644,6 +2680,62 @@ const ACTIONS = {
     say(s, `The masons swap ${named(a)} and ${named(b)}.${twin}`, 'good', true);
     cue(s, 'build');
   },
+  // A shade's one act a night (round six), paid in its memory. Stand, Pass unseen and Lure last their
+  // seconds; Kindle is done at once.
+  shadeAct(s, { id }) {
+    const T = s.tuning;
+    if (!T.acts) return 'The dead have no acts in this keep.';
+    if (s.phase !== 'night') return 'The dead act at night.';
+    const d = byId(s.shades, id);
+    if (!d || !canWork(d)) return 'That shade can do nothing tonight.';
+    const what = actOf(d);
+    if (!what) return `${d.name} has no act.`;
+    if (d.acted) return `${d.name} has acted once tonight already.`;
+    if (d.climb) return `${d.name} is on the stairs.`;
+    const cost = actCost(s, d);
+    if (d.memory <= cost + EPS) return `${ACTS[what].name} would cost ${d.name} ${fmt(cost)} memory, and it has ${fmt(d.memory)}.`;
+    const n = s.night;
+    const where = TWINS[typeAt(geo(s), d.f, d.x) || 'crypt'].name;
+    let text;
+    if (what === 'kindle') {
+      const L = lightMap(geo(s), T, n.candles);
+      const mine = n.candles.filter((k) => L.spans[d.f].some(([a, b, cid]) => cid === k.id && d.x >= a - EPS && d.x <= b + EPS));
+      const add = T.candleWax * T.kindleWax;
+      if (mine.length) {
+        for (const k of mine) k.wax = Math.min(k.max, k.wax + add);
+        text = `${d.name} kindles the candle in the ${where}.`;
+      } else {
+        if (!roomAt(geo(s), d.f, d.x)) return `${d.name} is inside a wall.`;
+        // kindleWax of a candle's burning, at a whole candle's light.
+        n.candles.push({ id: 'k' + s.nextId++, f: d.f, x: Math.round(d.x * 2) / 2, wax: add, max: add });
+        n.stats.candles++;
+        text = `${d.name} kindles a light in the dark of the ${where}.`;
+      }
+      d.act = { what, until: s.t + TICKS_PER_SEC };
+      cue(s, 'light', d.f, d.x);
+    } else {
+      d.act = { what, until: s.t + Math.round(T.actSecs[what] * TICKS_PER_SEC) };
+      const secs = `${T.actSecs[what]} seconds`;
+      if (what === 'stand') text = `${d.name} stands its ground in the ${where}: for ${secs} nothing gnaws its light.`;
+      else if (what === 'pass') {
+        const f = d.grabbedBy && byId(n.foes, d.grabbedBy);
+        if (f) f.grab = null;
+        d.grabbedBy = null;
+        text = `${d.name} passes unseen${f ? ", out of the Creeper's grip," : ''} for ${secs}.`;
+      } else {
+        for (const c of n.foes) if (c.f === d.f && Math.abs(c.x - d.x) <= T.lureReach) c.replan = 0;
+        text = `${d.name} calls to the Unlit in the ${where}: for ${secs} they come for it.`;
+      }
+      if (what === 'stand') cue(s, 'ward', d.f, d.x);
+      else if (what === 'pass') cue(s, 'hush', d.f, d.x);
+      else cue(s, 'horn', d.f, d.x);
+    }
+    d.memory = Math.round((d.memory - cost) * 100) / 100;
+    d.acted = true;
+    (n.stats.acts ||= []).push({ name: d.name, what, t: s.t });
+    say(s, `${text} −${fmt(cost)} memory.`, 'good');
+    return undefined;
+  },
   // Before the day a crusade comes, a mirror can be hidden from it: its shades sit out every day and night
   // until the crusade is over, and neither the crusaders nor the inquisitor can find it. It can be brought out
   // again at any time by day.
@@ -3151,6 +3243,7 @@ export function upgrade(g) {
   for (const t of [g.tuning, g.tuning0]) if (t && !('yearHardness' in t)) t.yearHardness = 0;
   for (const t of [g.tuning, g.tuning0]) if (t && !('church' in t)) t.church = 0;
   for (const t of [g.tuning, g.tuning0]) if (t && !('crusade' in t)) t.crusade = 0;
+  for (const t of [g.tuning, g.tuning0]) if (t && !('acts' in t)) t.acts = 0;
   for (const p of g.living || []) p.trait ??= traitFor(g, p.name);
   for (const b of g.bodies || []) if (b.was === undefined) b.was = b.from === 'raider' ? null : traitFor(g, b.name);
   for (const d of g.shades || []) {

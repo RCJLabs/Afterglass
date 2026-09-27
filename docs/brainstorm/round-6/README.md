@@ -10,16 +10,16 @@ Round five's queue is built, and so are the two follow-ups after it: the Lantern
 
 | # | Idea | Kind | Size | Status |
 |---|---|---|---|---|
-| 1 | Shade abilities: one act a night | The nights | M | Proposed |
-| 2 | Lanterns, and something worth fetching | The nights | M–L | Proposed |
-| 3 | Omens: each night its own shape, and a clock to read it by | The nights | M | Proposed |
-| 4 | The playtest kit, with the replay viewer | Enhancement | M–L | Proposed |
-| 5 | Onto Google Play | Shipping | M, plus your steps | Proposed |
-| 6 | A balance pass on what measured weak | Enhancement | M | Proposed |
-| 7 | Visitors at the gate: the day's choices | New | M–L | Proposed |
-| 8 | The Library, the Hall and the Gatehouse | New | L | Proposed |
-| 9 | The eclipse | New | L | Proposed |
-| 10 | A campaign: five years, five chapters | New | L | Proposed |
+| 1 | Shade abilities: one act a night | The nights | M | Built: Stand, Kindle, Pass unseen and Lure, paid in memory. They make the year easier for any plan that uses them, about 14 whole years in 200, and don't by themselves make reacting beat standing still: Double acting too gains as much ([problem 33](../../../prototype/README.md)) |
+| 2 | Lanterns, and something worth fetching | The nights | M–L | Building, 2nd |
+| 3 | Omens: each night its own shape, and a clock to read it by | The nights | M | Queued, 3rd |
+| 4 | The playtest kit, with the replay viewer | Enhancement | M–L | Queued, 5th |
+| 5 | Onto Google Play | Shipping | M, plus your steps | Queued, when you've settled the domain |
+| 6 | A balance pass on what measured weak | Enhancement | M | Queued, 4th |
+| 7 | Visitors at the gate: the day's choices | New | M–L | Queued, 6th |
+| 8 | The Library, the Hall and the Gatehouse | New | L | Queued, 7th |
+| 9 | The eclipse | New | L | Queued, 8th |
+| 10 | A campaign: five years, five chapters | New | L | Queued, 9th |
 
 ## The nights
 
