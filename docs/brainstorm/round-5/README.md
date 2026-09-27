@@ -10,7 +10,7 @@ Round four's queue is built except the replay viewer, which is parked ([`round-4
 |---|---|---|---|---|
 | 1 | A tutorial keep: the first three days, scripted | Enhancement (the guide) | L | Built: offered first in the intro, and in Saves and How to play, a new Menu tab. Untested with new players ([problem 21](../../../prototype/README.md)) |
 | 2 | Raids you fight | Enhancement (raids) | M–L | Built: pay them off or bar the stores; at the gate, pitch, stone and the bell; after a breach, go after them. The Host is as strong as before ([problem 20](../../../prototype/README.md)) |
-| 3 | Build where you choose, and tear down | Enhancement (building) | M | Queued, 4th |
+| 3 | Build where you choose, and tear down | Enhancement (building) | M | Built: any bare hall or a new floor, tear down for half, move (swap) for 2. Rearranged keeps unmeasured; a tall keep measured worse ([problem 23](../../../prototype/README.md)) |
 | 4 | A night review at dawn | Enhancement (the night report) | M | Built: up to three stills of the night at the rite, and at the season's end or a keep's fall ([problem 22](../../../prototype/README.md)) |
 | 5 | The dead ask for things | Enhancement (the rite) | M | Queued, 6th |
 | 6 | Each season its own trouble: plague summers, autumn sieges | New | M | Queued, 5th |

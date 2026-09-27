@@ -298,8 +298,29 @@ export const wardCost = (s) => s.tuning.wardCost * (s.shades.some((d) => canWork
 export function nextSlot(s) {
   const keep = s.keep || FULL_KEEP;
   const i = keep.floors[0].findIndex((r) => r.type === 'empty');
-  if (i >= 0) return { newFloor: false, slot: i };
-  return keep.floors.length >= MAX_FLOORS ? null : { newFloor: true, slot: 0 };
+  if (i >= 0) return { newFloor: false, f: 0, slot: i, id: keep.floors[0][i].id };
+  return keep.floors.length >= MAX_FLOORS ? null : { newFloor: true, f: 0, slot: 0 };
+}
+// Every bare hall in the keep, top floor first: where a room can be built besides a new floor on top.
+export const bareHalls = (s) => (s.keep || FULL_KEEP).floors.flatMap((fl, f) => fl.map((r, slot) => ({ ...r, f, slot })).filter((r) => r.type === 'empty'));
+// Where a room built at `at` goes: a bare hall's id, 'top' for a new floor, or nothing for the default.
+function buildSpot(s, at) {
+  const keep = s.keep || FULL_KEEP;
+  if (!at) return nextSlot(s);
+  if (at === 'top') return keep.floors.length >= MAX_FLOORS ? null : { newFloor: true, f: 0, slot: 0 };
+  const h = bareHalls(s).find((r) => r.id === at);
+  return h ? { newFloor: false, f: h.f, slot: h.slot, id: h.id } : null;
+}
+// Where a floor's twin stands in the Tain, for the player: the floor under the Veil (where the mirrors hang),
+// the line's floor (at the feet of the stairs up to it), the deepest (where the rifts open), or between. The
+// short form is for messages.
+export function tainPlace(G, f, short = false) {
+  const line = G.n > 1 && f === G.veil - 1;
+  if (short) return G.n === 1 ? 'on the only floor' : f === G.veil ? 'under the Veil' : f === 0 ? (line ? "by the rifts, on the line's floor" : 'by the rifts') : line ? "on the line's floor" : 'under the line';
+  if (G.n === 1) return 'the only floor, where the rifts and the mirrors both are';
+  if (f === G.veil) return 'the floor under the Veil, where the mirrors hang, above the line';
+  if (f === 0) return line ? 'the deepest floor, where the rifts open and the line is held' : 'the deepest floor, where the rifts open';
+  return line ? "the line's floor, one below the Veil's" : `${G.veil - f} floors below the Veil's, under the line`;
 }
 export const priests = (s) => s.living.filter((p) => p.job === 'chapel').length;
 export const funeralCap = priests;
@@ -2018,12 +2039,12 @@ const ACTIONS = {
   },
   // Raise a room on top of the keep: into the top floor's bare hall, or as a new floor with a bare hall
   // beside it. By day, for roomStone stone.
-  raise(s, { room }) {
+  raise(s, { room, at: where }) {
     if (s.phase !== 'day') return 'Masons build by day.';
     if (!BUILDABLE.includes(room)) return 'That cannot be built.';
     const T = s.tuning;
-    const at = nextSlot(s);
-    if (!at) return 'The keep can rise no higher.';
+    const at = buildSpot(s, where);
+    if (!at) return where && where !== 'top' ? 'There is no bare hall there.' : 'The keep can rise no higher.';
     if ((s.res.stone || 0) + EPS < T.roomStone) return `A room takes ${T.roomStone} stone.`;
     s.res.stone -= T.roomStone;
     const keep = s.keep || FULL_KEEP;
@@ -2045,9 +2066,70 @@ const ACTIONS = {
         d.path = (d.path || []).map((st) => ({ ...st, f: st.f + 1 }));
       }
     } else {
-      s.keep = { floors: [keep.floors[0].map((r, i) => (i === at.slot ? made : r)), ...keep.floors.slice(1)] };
+      s.keep = { floors: keep.floors.map((fl, f) => (f === at.f ? fl.map((r, i) => (i === at.slot ? made : r)) : fl)) };
     }
-    say(s, `The masons raise a ${DAY_ROOMS[room].name} on top of the keep. By night its twin, the ${TWINS[room].name}, is the Tain's deepest room.`, 'good', true);
+    const G = geo(s);
+    if (at.f === 0) say(s, `The masons raise a ${DAY_ROOMS[room].name} on top of the keep. By night its twin, the ${TWINS[room].name}, is the Tain's deepest room.`, 'good', true);
+    else say(s, `The masons raise a ${DAY_ROOMS[room].name} in the bare hall on floor ${G.n - at.f}. By night its twin, the ${TWINS[room].name}, is ${tainPlace(G, at.f, true)}.`, 'good', true);
+    cue(s, 'build');
+  },
+  // Tearing a room down leaves a bare hall and gives back part of its stone. The Crypt stays (the dead wake
+  // there), and so does the last Hearth. Whoever worked there beyond what the rest of its kind can hold goes
+  // to the Yard.
+  teardown(s, { id }) {
+    if (s.phase !== 'day') return 'Masons work by day.';
+    const G = geo(s);
+    const r = G.rooms[id];
+    if (!r || r.type === 'empty') return 'There is no room there to tear down.';
+    if (r.type === 'crypt') return 'The Crypt stays: the dead wake there.';
+    if (r.type === 'hearth' && roomsOf(G, 'hearth').length === 1) return 'The keep needs a Hearth.';
+    if (s.fires.some((f) => f.room === id)) return 'Not while it burns.';
+    const T = s.tuning;
+    const back = Math.floor(T.roomStone * T.teardownBack);
+    const keep = s.keep || FULL_KEEP;
+    const ids = new Set(keep.floors.flat().map((x) => x.id));
+    let k = 2;
+    while (ids.has(`empty${k}`)) k++;
+    s.keep = { floors: keep.floors.map((fl) => fl.map((x) => (x.id === id ? { id: `empty${k}`, type: 'empty' } : x))) };
+    s.res.stone = (s.res.stone || 0) + back;
+    s.haunted = (s.haunted || []).filter((x) => x !== id);
+    s.scorched = (s.scorched || []).filter((x) => x !== id);
+    const name = DAY_ROOMS[r.type].name;
+    const out = [];
+    if (DAY_ROOMS[r.type].out) {
+      const cap = jobCap(s, r.type);
+      const workers = s.living.filter((p) => p.job === r.type);
+      for (const p of workers.slice(cap)) {
+        p.job = 'yard';
+        out.push(p.name);
+      }
+      for (const d of s.shades) if (d.byDay?.how === 'step' && d.byDay.room === r.type && !jobCap(s, r.type)) d.byDay = null;
+    }
+    say(s, `The masons tear down the ${name}: ${back} stone back, and a bare hall.${out.length ? ` ${listNames(out)} ${out.length === 1 ? 'goes' : 'go'} to the Yard.` : ''}`, 'good', true);
+    cue(s, 'build');
+  },
+  // Moving a room swaps it with another room or a bare hall, anywhere in the keep, for stone. Its twin moves
+  // with it, and whoever works there keeps their job.
+  moveRoom(s, { id, to }) {
+    if (s.phase !== 'day') return 'Masons work by day.';
+    const G = geo(s);
+    const a = G.rooms[id];
+    const b = G.rooms[to];
+    if (!a || !b || a === b) return 'Choose two places.';
+    if (a.type === 'empty' && b.type === 'empty') return 'Both halls are bare.';
+    if (s.fires.some((f) => f.room === id || f.room === to)) return 'Not while it burns.';
+    const T = s.tuning;
+    if ((s.res.stone || 0) + EPS < T.moveStone) return `Moving a room takes ${T.moveStone} stone.`;
+    s.res.stone -= T.moveStone;
+    const keep = s.keep || FULL_KEEP;
+    const A = keep.floors[a.f].find((x) => x.id === id);
+    const B = keep.floors[b.f].find((x) => x.id === to);
+    s.keep = { floors: keep.floors.map((fl) => fl.map((x) => (x.id === id ? B : x.id === to ? A : x))) };
+    const H = geo(s);
+    const named = (r) => (r.type === 'empty' ? 'a bare hall' : `the ${DAY_ROOMS[r.type].name}`);
+    const moved = a.type === 'empty' ? b : a;
+    const twin = moved.type === 'empty' ? '' : ` By night the ${TWINS[moved.type].name} is ${tainPlace(H, H.rooms[moved.id].f, true)}.`;
+    say(s, `The masons swap ${named(a)} and ${named(b)}.${twin}`, 'good', true);
     cue(s, 'build');
   },
   build(s, { mirror }) {

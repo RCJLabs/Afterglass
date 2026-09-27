@@ -170,13 +170,16 @@ export const TUNING = {
 
   // Building. A season starts with startFloors floors of the original keep, counted from the ground: at 1,
   // only the Hearth and the Crypt stand, and whoever has no room to work in quarries stone in the Yard.
-  // A room costs roomStone and goes on top of the keep. Each room holds roomCap workers, so a job needs
-  // another room of its kind to grow. Grave-steel from the Cold Forge makes every shade fight steelFight
-  // times harder the next night.
+  // A room costs roomStone and goes on top of the keep, or into any bare hall you choose (round five). Each
+  // room holds roomCap workers, so a job needs another room of its kind to grow. Tearing one down leaves a
+  // bare hall and gives back teardownBack of its stone; moving one swaps it with another room or hall, for
+  // moveStone. Grave-steel from the Cold Forge makes every shade fight steelFight times harder the next night.
   startFloors: 1,
   startStone: 8,
   roomStone: 6,
   roomCap: 3,
+  teardownBack: 0.5,
+  moveStone: 2,
   steelFight: 1.25,
 
   // Traits (1 on, 0 off): everyone has one, and death turns it over (TRAITS below).

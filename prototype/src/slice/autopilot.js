@@ -60,6 +60,9 @@ const fit = (s, p, k) => {
 // Quarters (to measure whether they pay).
 const BUILD_ORDER = ['barracks', 'chapel', 'chandlery', 'glazier', 'infirmary', 'barracks', 'quarters', 'forge', 'granary', 'cellar'];
 const NOQUARTERS = !!globalThis.process?.env?.AP_NOQUARTERS;
+// AP_TALL=1 starts a new floor with every room, never filling a bare hall: the tallest keep its rooms can
+// make (to measure whether a taller Tain makes the night easier).
+const TALL = !!globalThis.process?.env?.AP_TALL;
 function nextBuild(s) {
   const want = {};
   for (const type of BUILD_ORDER) {
@@ -181,7 +184,7 @@ function deadByDay(s) {
 
 function dayMoves(s) {
   const b = nextBuild(s);
-  if (b && s.res.stone >= s.tuning.roomStone) doAct(s, { type: 'raise', room: b });
+  if (b && s.res.stone >= s.tuning.roomStone) doAct(s, { type: 'raise', room: b, ...(TALL ? { at: 'top' } : {}) });
   if (s.raid?.state !== 'assault') staff(s); // nobody leaves the walls while the Host is at the gate
   const r = s.raid;
   if (r && (r.state === 'coming' || r.state === 'assault') && r.warned && !r.ward && defense(s) < r.strength) doAct(s, { type: 'wardGate' });

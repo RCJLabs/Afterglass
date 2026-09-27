@@ -15,7 +15,7 @@ All four are live on GitHub Pages at https://rcjlabs.github.io/Base-Manager/ (ev
 
 ```sh
 cd prototype
-npm test                        # 178 tests: rules, replay, building, traits, the black mirror, breaking mirrors, fire, raids, the tutorial, the night review, the Weepers, whispers, the year, the recap card, today's keep, save and load, save slots, sound cues, soak runs, the pixel quiz, the people sprites, colour-blind eyes, the app's file list (Node 20+, no dependencies)
+npm test                        # 182 tests: rules, replay, building and rearranging, traits, the black mirror, breaking mirrors, fire, raids, the tutorial, the night review, the Weepers, whispers, the year, the recap card, today's keep, save and load, save slots, sound cues, soak runs, the pixel quiz, the people sprites, colour-blind eyes, the app's file list (Node 20+, no dependencies)
 npm run serve                   # then open http://localhost:8080, /night.html, /pixel.html or /season.html (any static server works)
 npm run bundle                  # dist/afterglass-greybox.html, -night, -pixel and -season.html: single files that open from disk
 npm run balance -- 20 40        # weeks 1-2 autopilot report: 40 seeds x 20 days per policy
@@ -39,7 +39,7 @@ The pages load ES modules, so they need a web server; GitHub Pages works as is. 
 | `src/slice/` | The season slice: `data.js` (content, tuning and the traits), `geo.js` (the geometry of any keep the player builds: floors, stairs, light, routes and cameras), `sim.js` (the whole season as one state), `autopilot.js`, `draw.js` (the art, built on `src/px/`), `people.js` (the living and the dead as pixel figures), `book.js` (the Book of the Dead's pages), `saves.js` (the save slots, and loading a keep from a file), `sound.js` (every sound, made with Web Audio as it plays), `threats.js` (the black mirror: tonight's threats, read at dusk), `recap.js` (what a season's recap card says), `card.js` (the card as an image), `daily.js` (today's keep: a seed from the date), `tutorial.js` (the tutorial keep) and `howto.js` (How to play, in the keep's own numbers) |
 | `src/slice-ui.js` | The season page |
 | `sw.js`, `season.webmanifest`, `icons/` | The installable season: the service worker that keeps it playable offline, the manifest, and the icons `tools/icons.mjs` draws |
-| `test/` | 16 weeks 1–2 tests, 15 night tests, 8 pixel tests, 39 season tests, 13 for traits, 11 for the save slots, 6 for sound, 10 for the black mirror, 7 for breaking mirrors, 7 for fire, 5 for raids, 7 for the tutorial, 3 for the night review, 6 for the Dreamwell and the Weepers, 6 for whispers and the great glass, 5 for the year, 4 for the recap card, 4 for today's keep, 3 for the people sprites, 1 for colour-blind eyes and 2 for the installable app, including soak runs |
+| `test/` | 16 weeks 1–2 tests, 15 night tests, 8 pixel tests, 39 season tests, 13 for traits, 11 for the save slots, 6 for sound, 10 for the black mirror, 7 for breaking mirrors, 7 for fire, 5 for raids, 7 for the tutorial, 3 for the night review, 4 for rearranging the keep, 6 for the Dreamwell and the Weepers, 6 for whispers and the great glass, 5 for the year, 4 for the recap card, 4 for today's keep, 3 for the people sprites, 1 for colour-blind eyes and 2 for the installable app, including soak runs |
 | `tools/` | Balance reports, the single-file bundler and the icon drawer |
 
 Everything is seeded and every action is logged, so `replay()` (in `src/sim.js` and `src/slice/sim.js`) and `replayNight()` rebuild any session exactly, including one from a playtester's export.
@@ -172,7 +172,7 @@ The vertical slice: seven days in one keep, ending on the night of the new moon,
     - **The numbers are guesses:** 6 stone a room, three workers a room, 2 stone a day from each mason, 8 to start, and one floor to start. All are in Settings.
     - **A small keep has a short Tain.** With one floor, the rifts and the mirrors share it and the line is two candles between them. With two, the line's stairs stand 4 pixels from the rifts. Each floor you build puts another floor between the rifts and the line.
     - **Stair placement nearly made building a trap.** My first stairs for a built floor came up mid-room, where the candle lighting that room also lights the stair's top. Creepers then gnaw that candle from the floor below, where no shade in the light can reach them. A built floor's stairs now come up by the walls. The rule underneath is old: a candle that lights any stair's top can be gnawed from below, and players can still walk into it with their own candles.
-    - **Rooms go up in order:** into the top floor's bare hall, else as a new floor. There's no choosing a slot and no tearing a room down, and the keep tops out at 11 floors.
+    - **Rooms go where you choose** since round five: any bare hall, or a new floor. A room can be torn down or moved. A floor left bare stays a floor, and the keep tops out at 11.
 20. **Raids you fight: acting has to cost less than it saves, and at first it didn't.** Balanced plan, 200 seeds, two seasons, two-room start:
 
     | | First seasons | Second seasons | Raids held | Deaths a keep (on duty) |
@@ -197,6 +197,10 @@ The vertical slice: seven days in one keep, ending on the night of the new moon,
     - **The weights are mine**, and a kind is kept only at its first: a second crack or a later catch never shows. A calm night may show only its biggest tide, and on the first nights that's two or three Creepers.
     - **On a phone the stills are 3× and dark, as the Tain is.** A shade standing on its candle hides the flame, as it does at night. They're easier to read on a wider screen.
     - **It's the parked replay viewer in miniature:** stills, not a replay, because replaying a whole season at every dawn would take seconds on a phone.
+23. **Building where you choose is unmeasured, except that a tall keep is a trap.** The autopilot still builds as it did, into the top floor's bare hall or else a new floor, so every figure here holds for keeps built that way. A rearranged keep, which the night's rules were never tuned for, is unmeasured. One test, 200 seeds, two seasons: always starting a new floor (`AP_TALL=1`) makes the keep twice as tall. It took the balanced plan from 190 first seasons to 159, and from 183 of 190 second seasons to 150 of 159; Double's second seasons went from 188 of 193 to 159 of 189. The longer climb doesn't help. I haven't traced why; my guess is that the autopilot works only rooms on or above the line, a tall keep puts more of them below it, and every floor adds a dark bare hall for the Unlit to seep up through.
+    - **The panel says where each place stands by night in words**, not as tonight's ways: round five's plan wanted the black mirror's preview for each place, which means predicting the night once for every place.
+    - **A floor left bare stays**, with its stairs, so tearing rooms down never lowers the keep.
+    - **On a phone, a build message can cover the panel's Close** for the five seconds its toast shows.
 
 **How a season plays**
 
@@ -222,12 +226,13 @@ The vertical slice: seven days in one keep, ending on the night of the new moon,
   - The named pay half, and a trait that changes fading changes this too. A shade spent to nothing fades at dusk.
   - People sets it for each shade, and it holds day after day until changed. The Day panel lists who helps and what it will cost them, and the castle shows them pale among the living.
   - Keeps from before this have it off (`whispers` in Settings, under Advanced).
-- **Building** (by day). The keep starts as its ground floor, the Hearth and the Crypt, with 8 stone. Masons in the Yard quarry 2 stone a day each; they work on the roof. The Build list (the bar's Build button, or B) shows what 6 stone raises and where it goes. A room goes into the top floor's bare hall, or starts a new floor on top with a bare hall beside it. Each room holds three workers, so a second Barracks lets more guards stand. You can build any of the original rooms but the Crypt, as many as you like, and three new ones:
+- **Building** (by day). The keep starts as its ground floor, the Hearth and the Crypt, with 8 stone. Masons in the Yard quarry 2 stone a day each; they work on the roof. The Build panel (the bar's Build button, or B) shows what 6 stone raises and where: into any bare hall, or as a new floor on top with a bare hall beside it, each place with where its twin will stand by night (under the Veil, on the line's floor, under the line, or by the rifts). With no choice made, a room goes into the top floor's bare hall, else starts a new floor. Each room holds three workers, so a second Barracks lets more guards stand. You can build any of the original rooms but the Crypt, as many as you like, and three new ones:
   - **the Forge.** Its smiths add 1 defense each. Its twin, the Cold Forge, makes grave-steel: a shade who forges through half the night makes every shade fight 25% harder the next night.
   - **the Cellar.** It keeps half the candles and glass from raiders who break in. Its twin, the Hollow Cellar, is a dark weak spot.
   - **the Quarters.** The keep sleeps 8, and each Quarters 4 more. With more living than beds the crowded fall sick more often (the day's chance ×1.5), and the Day panel says so. Nobody works there. Its twin, the Dreamwell: a shade who dreams there through half the night sends the living good dreams, and they work ×1.1 the next day.
 
-  By night, whatever was built last is the Tain's deepest room, beside the rifts, and the Creepers' climb is a floor longer. The camera fits the taller keep, down to 3× on a desktop; on a phone it stays at 3× and you pan up.
+  By night, whatever is on the top floor is the Tain's deepest room, beside the rifts, and each new floor makes the Creepers' climb a floor longer. The camera fits the taller keep, down to 3× on a desktop; on a phone it stays at 3× and you pan up.
+  - **Rearrange the keep**, in the Build panel: the keep floor by floor. Tear a room down for 3 of its 6 stone back, leaving a bare hall (the Crypt and your last Hearth stay; whoever works there beyond what the rest of its kind holds goes to the Yard). Or move it: it swaps places with any other room or bare hall, for 2 stone, its twin moving with it and its workers keeping their jobs. Both ask first, and both are by day.
 - **Dusk** (paused). The crossing:
   1. The sun sets over the keep and its lights go out.
   2. At the crypt you choose funerals, then wake the dead. Their souls sink through the Veil into the Waking Room of the Tain, or rise away for a funeral.
@@ -340,7 +345,7 @@ The vertical slice: seven days in one keep, ending on the night of the new moon,
    - starting from the ground floor alone, the Hearth and the Crypt;
    - stone and masons as the cost;
    - three workers a room;
-   - rooms going on top only;
+   - rooms going on top or into a bare hall, tearing down for half the stone and moving for 2 (round five's plan named the choices; the numbers are mine);
    - the Forge's defense and grave-steel as numbers (the doc's Cold Forge makes grave-steel "that harms the Unlit");
    - what the Cellar keeps.
 
@@ -495,5 +500,5 @@ From `npm run balance -- 20 40`, 40 seeds x 20 days per autopilot policy. The au
 - The earlier prototypes have no sound. The season has three save slots; the other prototypes save one game each. All save to this browser only, and on `rcjlabs.github.io` they share its storage (about 5 MB) with any other RCJLabs page. Only the season installs and plays offline.
 - A playtest export replays through the rules of the version that loads it. One from an older version can come out differently or fail to load (the page says why); a save file, from Export in Saves, loads as it was.
 - The earlier prototypes stay as they were: the weeks 1–2 night is abstract, the night greybox has no day, and the pixel pass draws generated scenes. The season slice is the only one that runs day and night together.
-- Not in the season: the Drowned, siege ladders, and the Library, Hall and Gatehouse. Rooms can't be torn down or placed in a slot of your choosing.
+- Not in the season: the Drowned, siege ladders, and the Library, Hall and Gatehouse.
 - Checked with the tests, the soak runs and scripted click-throughs in Chromium at desktop and phone widths, including the bundled season file, the guide, the installed app with its server gone, and saves from the previous version. Not tested on a real phone, in Safari, or with a screen reader. The night stages and the pixel test are pointer-only. The season's pinch zoom was tested with synthetic touch events, not real fingers, and the Install button with a synthetic install prompt.

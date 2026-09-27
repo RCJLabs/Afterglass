@@ -617,7 +617,7 @@ test('masons raise rooms on top of the keep: a floor with a bare hall, then the 
   assert.deepEqual(s.keep.floors[0].map((r) => r.id), ['barracks2', 'forge']);
   ok(s, { type: 'raise', room: 'cellar' });
   assert.equal(geo(s).n, 6);
-  assert.deepEqual(nextSlot(s), { newFloor: false, slot: 1 });
+  assert.deepEqual(nextSlot(s), { newFloor: false, f: 0, slot: 1, id: s.keep.floors[0][1].id });
   toDusk(s);
   assert.match(act(s, { type: 'raise', room: 'cellar' }).error, /by day/);
 });

@@ -5,11 +5,11 @@
 import { TICKS_PER_SEC, DAY_ROOMS, WORK_ROOMS, TWINS, KINDS, MIRRORS, CAUSES, MAP, BOND_OTHER, TUNING, BUILDABLE, TRAITS, SHADE_TRAITS, SEASONS, TUTORIAL } from './slice/data.js';
 import {
   newSeason, step, act, retune, playerTuning, jobCap, jobCount, nextSlot, ritePreview, crossingPreview, capacity, canWork, defense, roomPower, bear, priests, funeralCap, eatRate,
-  dayTicks, nightTicks, isNewMoon, choicesFor, byId, isTwinnedLiving, isTwinnedShade, lastSeason, SAVE_VERSION, fmt, mirrorCap,
+  dayTicks, nightTicks, isNewMoon, choicesFor, byId, isTwinnedLiving, isTwinnedShade, lastSeason, SAVE_VERSION, fmt, mirrorCap, bareHalls, tainPlace,
   postRoom, wardCost, shadeTrait, peopleIn, beds, tradeOf, inGreatGlass, handsAt, whispers, stepsThrough, perf,
   seasonIndex, seasonName, yearOf, dayLength, isLongNight, tributeOf,
 } from './slice/sim.js';
-import { geo, feet, floorAtY, roomAt, typeAt, typeOf, roomSpan, roomsOf, lightMap, isLit, unitAt, DEEP_FLOOR, lineSpots as lineOf, guardLit } from './slice/geo.js';
+import { geo, feet, floorAtY, roomAt, typeAt, typeOf, roomSpan, roomsOf, lightMap, isLit, unitAt, DEEP_FLOOR, lineSpots as lineOf, guardLit, MAX_FLOORS } from './slice/geo.js';
 import { drawScene, drawMoment } from './slice/draw.js';
 import { threats } from './slice/threats.js';
 import { recapOf } from './slice/recap.js';
@@ -272,7 +272,7 @@ function barHTML() {
   let tools = '';
   if (s.phase === 'day') {
     tools = `<button class="btn sm" id="btn-rush" data-act="rush" aria-pressed="${ui.rush}">${ui.rush ? 'Hurrying…' : 'Hurry to dusk'}</button>`;
-    tools += `<button class="btn sm" id="btn-build" data-act="sheet" data-sheet="build" aria-pressed="${ui.sheet === 'build'}" title="Raise a room on top of the keep (B)">Build</button>`;
+    tools += `<button class="btn sm" id="btn-build" data-act="sheet" data-sheet="build" aria-pressed="${ui.sheet === 'build'}" title="Raise, tear down or move a room (B)">Build</button>`;
   }
   else if (s.phase === 'dusk' && s.dusk.step === 'crypt') tools = `<button class="btn sm primary" id="bar-wake" data-act="wake">Let them wake</button>`;
   else if (place) {
@@ -1668,32 +1668,84 @@ function installHTML(where) {
 
 /* ---------------------------------------------------------------- the page */
 
-// Raising rooms on top of the keep: what stone buys, and where the next room goes.
+// Building: what stone buys, and where (round five): choose among the bare halls and a new floor on top,
+// then what; below, the keep floor by floor, where any room can be torn down or moved.
 function buildHTML() {
   const T = s.tuning;
+  const G = K();
   const stone = s.res.stone || 0;
-  const at = nextSlot(s);
-  const top = K().floors[0].rooms;
-  const where = !at
-    ? 'The keep can rise no higher.'
-    : at.newFloor
-      ? 'The next room starts a new floor on top of the keep, with a bare hall beside it.'
-      : `The next room goes into the bare hall beside the ${roomName(top[1 - at.slot][0])}.`;
+  const day = s.phase === 'day';
+  const halls = bareHalls(s);
+  const canTop = G.n < MAX_FLOORS;
+  const places = [...halls.map((h) => h.id), ...(canTop ? ['top'] : [])];
+  const def = nextSlot(s);
+  if (!places.includes(ui.buildAt)) ui.buildAt = def ? (def.newFloor ? 'top' : def.id) : null;
+  const floorNo = (f) => `floor ${G.n - f}${f === 0 ? ', the top' : f === G.veil ? ', the ground' : ''}`;
+  const beside = (h) => G.floors[h.f].rooms.find(([id]) => id !== h.id);
+  const place = (id) => {
+    if (id === 'top') return ['On top, a new floor', `By night, ${tainPlace({ ...G, n: G.n + 1, veil: G.n }, 0)}.`];
+    const h = halls.find((x) => x.id === id);
+    const b = beside(h);
+    return [`The bare hall on ${floorNo(h.f)}${b && b[3] !== 'empty' ? `, beside the ${DAY_ROOMS[b[3]].name}` : ''}`, `By night, ${tainPlace(G, h.f)}.`];
+  };
+  const radios = places
+    .map((id) => {
+      const [label, night] = place(id);
+      return `<label class="place"><input type="radio" name="build-at" id="at-${id}" data-act="build-at" data-at="${id}"${ui.buildAt === id ? ' checked' : ''}><span><b>${esc(label)}</b><small>${esc(night)}</small></span></label>`;
+    })
+    .join('');
   const masons = jobCount(s, 'yard');
-  const can = s.phase === 'day' && !!at && stone + 1e-9 >= T.roomStone;
+  const can = day && !!ui.buildAt && stone + 1e-9 >= T.roomStone;
   const rows = BUILDABLE.map((type) => {
     const R = DAY_ROOMS[type];
     const tw = TWINS[type];
-    const have = roomsOf(K(), type).length;
+    const have = roomsOf(G, type).length;
     return `<li class="build-row"><div><b>${esc(R.name)}</b>${have ? ` <small class="muted">you have ${have}</small>` : ''}<p class="note">${esc(R.job(R))} By night, the ${esc(tw.name)}: ${esc(tw.note)}</p></div>
       <button class="btn sm" id="raise-${type}" data-act="raise" data-room="${type}"${can ? '' : ' disabled'}>Build, ${T.roomStone} stone</button></li>`;
   }).join('');
   return `<section class="build">
     <p>Stone <b data-live="stone">${floor1(stone)}</b>. ${masons ? `${esc(plural(masons, 'mason'))} in the Yard quarry ${fmt(masons * DAY_ROOMS.yard.rate)} a day.` : 'Nobody is quarrying: put someone in the Yard, in People, for 2 stone a day.'}</p>
-    <p class="note">${esc(where)} Each room holds ${T.roomCap} workers, so another Barracks lets more guards stand. What you build on top by day is the Tain's deepest room by night, nearest the rifts.</p>
-    ${s.phase === 'day' ? '' : '<p class="note">Masons build by day.</p>'}
+    ${day ? '' : '<p class="note">Masons build by day.</p>'}
+    <div class="card"><h3>Where</h3>${places.length ? `<div class="places">${radios}</div>` : '<p class="note">The keep can rise no higher, and there is no bare hall. Tear a room down to make one.</p>'}
+      <p class="note">Each room holds ${T.roomCap} workers, so another Barracks lets more guards stand. By night each room is its twin in the Tain, upside down: the top floor is the deepest, where the rifts open, and the ground floor stands under the Veil. A room below the line is in the Unlit's way.</p></div>
     <ul class="build-list">${rows}</ul>
+    ${rearrangeHTML()}
   </section>`;
+}
+// The keep floor by floor: tear a room down for part of its stone back, or move it (a swap with any other room
+// or bare hall), both asked first.
+function rearrangeHTML() {
+  const T = s.tuning;
+  const G = K();
+  const day = s.phase === 'day';
+  const stone = s.res.stone || 0;
+  const back = Math.floor(T.roomStone * T.teardownBack);
+  const name = (type) => (type === 'empty' ? 'Bare hall' : DAY_ROOMS[type].name);
+  const burning = (id) => s.fires.some((f) => f.room === id);
+  const moving = ui.moving && G.rooms[ui.moving] ? G.rooms[ui.moving] : null;
+  const floors = G.floors
+    .map((fl, f) => {
+      const items = fl.rooms
+        .map(([id, , , type]) => {
+          let acts = '';
+          if (ui.tearAsk === id) {
+            acts = `<p class="note bad">Tear down the ${esc(name(type))}? ${back} stone comes back${DAY_ROOMS[type].out ? ', and whoever works there beyond what the rest can hold goes to the Yard' : ''}.</p><div class="row"><button class="btn sm primary" id="tear-yes-${id}" data-act="tear-yes" data-id="${id}">Tear it down</button><button class="btn sm" id="tear-no" data-act="tear-no">Cancel</button></div>`;
+          } else if (moving) {
+            if (moving.id !== id && !(moving.type === 'empty' && type === 'empty')) acts = `<button class="btn sm" id="move-to-${id}" data-act="move-to" data-id="${id}"${day && stone + 1e-9 >= T.moveStone && !burning(id) ? '' : ' disabled'}>${type === 'empty' ? 'Move it here' : 'Swap with this'}, ${T.moveStone} stone</button>`;
+            else if (moving.id === id) acts = '<button class="btn sm" id="move-cancel" data-act="move-cancel">Cancel the move</button>';
+          } else if (type !== 'empty') {
+            const lastHearth = type === 'hearth' && roomsOf(G, 'hearth').length === 1;
+            acts = `<button class="btn sm" id="move-${id}" data-act="move" data-id="${id}"${day && !burning(id) ? '' : ' disabled'}>Move</button>${type === 'crypt' || lastHearth ? '' : `<button class="btn sm" id="tear-${id}" data-act="tear" data-id="${id}"${day && !burning(id) ? '' : ' disabled'}>Tear down, +${back}</button>`}`;
+          }
+          return `<li class="kroom${moving?.id === id ? ' is-moving' : ''}"><span><b>${esc(name(type))}</b><small>${type === 'empty' ? 'Nothing yet' : `By night, the ${esc(TWINS[type].name)}`}</small></span><span class="row">${acts}</span></li>`;
+        })
+        .join('');
+      return `<li class="kfloor"><span class="eyebrow">Floor ${G.n - f}${f === 0 ? ', the top' : f === G.veil ? ', the ground' : ''} · by night ${esc(tainPlace(G, f).replace(/, where.*$|, one below.*$|, under the line$|, above the line$/, ''))}</span><ul>${items}</ul></li>`;
+    })
+    .join('');
+  return `<details class="card rearrange" data-keep="rearrange"${ui.open.rearrange || moving || ui.tearAsk ? ' open' : ''}><summary><b>Rearrange the keep</b></summary>
+    <p class="note">${moving ? `Moving the ${esc(name(moving.type))}: choose where it goes. It swaps places with what's there.` : `Tear a room down for ${back} of its ${T.roomStone} stone back, leaving a bare hall; the Crypt and your last Hearth stay. Or move it: it swaps places with any other room or bare hall, for ${T.moveStone} stone. Whoever works there keeps their job, and its twin moves with it.`}</p>
+    <ul class="kfloors">${floors}</ul></details>`;
 }
 
 const SHEETS = {
@@ -1822,6 +1874,8 @@ function closeSheet() {
   ui.sheet = null;
   ui.confirmSlot = null;
   ui.slotMsg = '';
+  ui.moving = null;
+  ui.tearAsk = null;
   if (ui.resume) {
     ui.resume = false;
     if (running()) ui.paused = false;
@@ -1916,7 +1970,7 @@ const GUIDE = [
     id: 'build', target: '#btn-build',
     when: () => first() && s.phase === 'day' && seen('jobs') && s.t > dayTicks(s) * 0.2,
     done: () => ui.sheet === 'build',
-    text: () => `Build raises a room on top of the keep for ${s.tuning.roomStone} stone; masons in the Yard quarry ${DAY_ROOMS.yard.rate} a day each. Raiders come on day 2, so a Barracks first, and a Chandlery before the candles run out. A room holds ${s.tuning.roomCap} workers. What you build on top by day is the Tain's deepest room by night, next to the rifts.`,
+    text: () => `Build raises a room for ${s.tuning.roomStone} stone, on top of the keep or in a bare hall; masons in the Yard quarry ${DAY_ROOMS.yard.rate} a day each. Raiders come on day 2, so a Barracks first, and a Chandlery before the candles run out. A room holds ${s.tuning.roomCap} workers. What you build on top by day is the Tain's deepest room by night, next to the rifts.`,
   },
   {
     id: 'whispers', target: '#open-people',
@@ -2014,7 +2068,7 @@ const TUT = [
     id: 't-build', covers: ['build'], target: '#btn-build',
     when: () => onDay(1) && tutHas('t-people'),
     done: () => built('barracks'),
-    text: () => `Raiders come tomorrow. Build a Barracks: tap Build. A room costs ${s.tuning.roomStone} stone (you have ${fmt(s.res.stone)}), and it goes on top of the keep.`,
+    text: () => `Raiders come tomorrow. Build a Barracks: tap Build. A room costs ${s.tuning.roomStone} stone (you have ${fmt(s.res.stone)}), and unless you choose a bare hall it goes on top of the keep.`,
   },
   {
     id: 't-guards', target: '#open-people',
@@ -2637,7 +2691,37 @@ function onAct(name, el) {
       const [how, room] = (el.value || '').split(':');
       return game({ type: 'byDay', id, how: how || null, room: room || undefined });
     }
-    case 'raise': return game({ type: 'raise', room: el.dataset.room });
+    case 'raise': {
+      const at = ui.buildAt;
+      const r = game({ type: 'raise', room: el.dataset.room, ...(at && at !== (nextSlot(s)?.newFloor ? 'top' : nextSlot(s)?.id) ? { at } : {}) });
+      ui.buildAt = null;
+      return r;
+    }
+    case 'build-at':
+      ui.buildAt = el.dataset.at;
+      return bump();
+    case 'tear':
+      ui.tearAsk = el.dataset.id;
+      ui.moving = null;
+      return bump();
+    case 'tear-no':
+      ui.tearAsk = null;
+      return bump();
+    case 'tear-yes':
+      ui.tearAsk = null;
+      return game({ type: 'teardown', id: el.dataset.id });
+    case 'move':
+      ui.moving = el.dataset.id;
+      ui.tearAsk = null;
+      return bump();
+    case 'move-cancel':
+      ui.moving = null;
+      return bump();
+    case 'move-to': {
+      const from = ui.moving;
+      ui.moving = null;
+      return game({ type: 'moveRoom', id: from, to: el.dataset.id });
+    }
     case 'wardgate': return game({ type: 'wardGate' });
     case 'payoff': return game({ type: 'payOff' });
     case 'bar-stores': return game({ type: 'barStores' });

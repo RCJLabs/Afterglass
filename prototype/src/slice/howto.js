@@ -49,7 +49,7 @@ export function howTo(T) {
       title: 'The day',
       items: [
         `Everyone has a job, and a job needs its room: ${rooms.join('; ')}. A room holds ${T.roomCap} workers; for more, build another of its kind.`,
-        `Whoever has no room quarries stone in the Yard, ${R.yard.rate} a day each. Build raises a room on top of the keep for ${T.roomStone} stone. What you build on top by day is the Tain's deepest room by night, next to the rifts.`,
+        `Whoever has no room quarries stone in the Yard, ${R.yard.rate} a day each. Build raises a room for ${T.roomStone} stone, on top of the keep as a new floor or in any bare hall. By night the keep hangs upside down under the Veil: the top floor is the Tain's deepest, next to the rifts, and a room below the line is in the Unlit's way. A room can be torn down for ${Math.floor(T.roomStone * T.teardownBack)} stone back, leaving a bare hall, or moved, swapping places with another room or hall, for ${T.moveStone}.`,
         `Everyone eats ${n1(T.eatPerDay)} food a day. With the larder empty they work at ${pct(T.hungryMult)}, and the weakest starve.`,
         `Someone new arrives at the gate every ${T.newcomerEvery === 2 ? 'second' : `${T.newcomerEvery}th`} day while there are fewer than ${T.maxLiving}. Give them a job.`,
         `Sickness comes on about ${pct(T.sickChance)} of days and kills in ${days(T.sickDays)} days unless a healer cures it first. The old can die in their sleep. Grief makes the living work at ${pct(T.griefMult)} until their dead are at rest; then they work at ${pct(T.peaceMult)} for ${T.peaceDays} days.`,

@@ -286,6 +286,21 @@ table.days { min-width: 680px; }
 @keyframes coach { 50% { outline-color: transparent; } }
 :root[data-motion="reduce"] .is-coached { animation: none; }
 
+/* Where to build: the bare halls and a new floor, each with where its twin stands by night. */
+.places { display: grid; gap: 6px; }
+.place { display: grid; grid-template-columns: auto 1fr; gap: 8px; align-items: start; padding: 6px 8px; border: 1px solid var(--line); border-radius: 4px; cursor: pointer; }
+.place:has(input:checked) { border-color: var(--day); background: rgb(201 138 28 / 0.08); }
+.place input { margin-top: 3px; }
+.place span { display: grid; gap: 2px; }
+.place small, .kroom small { color: var(--ink-2); font-size: 12px; line-height: 1.35; }
+/* Rearranging: the keep floor by floor, top first as the castle shows it. */
+.rearrange summary { cursor: pointer; }
+.kfloors, .kfloor ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.kfloors { margin-top: 8px; }
+.kroom { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 6px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 4px; }
+.kroom > span:first-child { display: grid; gap: 2px; }
+.kroom.is-moving { border-color: var(--day); }
+.kroom .row { gap: 6px; flex-wrap: wrap; }
 /* The build list: each room with what it does by day and by night, and its button. */
 .build-list { list-style: none; margin: 0.6rem 0 0; padding: 0; display: grid; gap: 0.5rem; }
 .build-row { display: flex; gap: 0.75rem; align-items: flex-start; justify-content: space-between; padding: 0.5rem 0.6rem; border: 1px solid var(--line, #2c2640); border-radius: 8px; }
