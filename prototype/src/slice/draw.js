@@ -1009,7 +1009,15 @@ function composeTain(s, t, opts = {}) {
   c.setTransform(1, 0, 0, 1, 0, -y0);
   for (const ch of every('chapel')) ring(c, ch.x0 + 29, G.floors[ch.f].y + 8, 4 + (MF(t * 3) % 3), UMBRA[5], (dx, dy) => dy < 0);
   const candles = n?.candles || [];
-  const flames = candles.map((k) => ({ k, y: candleStick(c, k) }));
+  // A candle stands on its stick; a lantern hangs from the hand of the shade carrying it.
+  const flames = candles.map((k) => {
+    if (!k.carrier) return { k, x: Math.round(k.x), y: candleStick(c, k) };
+    const x = Math.round(k.x) + 2;
+    const y = feet(k.f) - 6;
+    R(c, x - 1, y - 2, 3, 1, UMBRA[4]);
+    R(c, x - 1, y + 2, 3, 1, UMBRA[4]);
+    return { k, x, y: y + 1, lantern: true };
+  });
   if (opts.ghost?.tool === 'candle') R(c, Math.round(opts.ghost.x), feet(opts.ghost.f) - 3, 1, 3, UMBRA[7]);
   const shades = s.shades.filter((d) => d.mirror && d.kind !== 'wraith' && d.kind !== 'restless' && !d.deep);
   const shadePos = shades.map((d) => ({ d, ...unitAt(d, alpha) }));
@@ -1065,10 +1073,33 @@ function composeTain(s, t, opts = {}) {
     R(c, m.x - 1, my + 1, 3, 5, UMBRA[7]);
     D(c, m.x - 1, my + 1, P.white);
   }
-  flames.forEach(({ k, y }, i) => {
-    glow(c, Math.round(k.x), y - 1, 3, P.amber, 0.25);
-    flame(c, Math.round(k.x), y, t, i);
+  flames.forEach(({ x, y, lantern }, i) => {
+    glow(c, x, y - 1, 3, P.amber, 0.25);
+    if (lantern) D(c, x, y, !t || (MF(t * 8) + i) % 2 ? P.yellow : P.amber);
+    else flame(c, x, y, t, i);
   });
+  // Tonight's errands: an echo shimmers pale blue, a relic glints silver, and a sleepwalker walks pale, with
+  // their eyes shut.
+  for (const e of n?.errands || []) {
+    if (e.done) continue;
+    const x = Math.round(e.x);
+    const y = feet(e.f);
+    if (e.kind === 'echo') {
+      glow(c, x, y - 4, 4, P.cyan, 0.35);
+      D(c, x, y - 4, !t || MF(t * 3 + x) % 2 ? P.white : P.cyan);
+      D(c, x - 1, y - 5, P.cyan);
+      D(c, x + 1, y - 3, P.cyan);
+    } else if (e.kind === 'relic') {
+      R(c, x - 1, y - 2, 3, 2, P.steel);
+      D(c, x, y - 3, P.silver);
+      if (!t || MF(t * 2 + x) % 3 === 0) D(c, x + 1, y - 4, P.white);
+    } else if (e.out && !e.climb) {
+      const p = s.living.find((q) => q.id === e.who);
+      if (p) A(c, 0.55, () => figure(c, x, y, { ...livingLook(p), pose: 'walk', face: (e.path?.[0]?.x ?? x) >= x ? 1 : -1, ph: 3 }, t));
+      // Held by the Unlit: the same flashing bar as a caught shade.
+      if (p && e.held && (!t || MF(t * 4) % 2)) R(c, x - 3, y - 7, 6, 1, P.hot);
+    }
+  }
   for (const w of n?.wards || []) {
     const st = G.stairs.find((x) => x.id === w);
     if (st) {

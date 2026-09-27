@@ -24,6 +24,10 @@ const NOACTS = !!globalThis.process?.env?.AP_NOACTS;
 const DOUBLEACTS = !!globalThis.process?.env?.AP_DOUBLEACTS;
 // AP_ACTSONLY=stand,kindle uses only those acts (to measure what each is worth).
 const ACTSONLY = globalThis.process?.env?.AP_ACTSONLY?.split(',') || null;
+// AP_NOERRANDS=1 leaves the night's echoes and relics alone; AP_LANTERNS=1 sends shades to them with lanterns.
+const NOERRANDS = !!globalThis.process?.env?.AP_NOERRANDS;
+const LANTERNS = !!globalThis.process?.env?.AP_LANTERNS;
+const NOFREESLEEPER = !!globalThis.process?.env?.AP_NOFREESLEEPER; // no candle to wake a sleepwalker
 // Traits, as a player reads them. AP_BLIND=1 plays as if nobody had one (to measure what they're worth).
 const BLIND = !!globalThis.process?.env?.AP_BLIND;
 // AP_BELOW=1 also works the rooms below the line on the Choir's side of the keep, leaving the other side dark
@@ -366,6 +370,7 @@ function placeNight(s, plan) {
     const { f, x0 } = roomSpan(G, 'hearth');
     ds.forEach((d, i) => doAct(s, { type: 'move', id: d.id, f, x: x0 + 14 + (i % 4) * 5 }));
     if (ds.length && !lit.has(roomAt(G, f, x0 + 24))) doAct(s, { type: 'candle', f, x: x0 + 24 });
+    homes.set(s, new Map(s.shades.filter(canWork).map((d) => [d.id, { ...d.post }])));
     return;
   }
   for (const [room, group] of postings(s, ds)) {
@@ -439,22 +444,78 @@ function actMoves(s, plan) {
   }
 }
 
+// Echoes and relics, by rule; Double, which never moves anyone, leaves them. (Sleepwalkers get a candle, from
+// every plan: see tendNight.) Each waits for a lull: none of the Unlit that hunt (all but Weepers and
+// Wraiths) in the Tain, and none due before a shade could be there and back. Then it goes to the nearest free
+// shade off the line (not caught, not guarding a mirror, memory over 40), and that shade comes home once it's
+// taken, or the moment the lull ends. No lantern: in a lull there's nothing for one to keep off, and a candle
+// a trip cost the balanced plan 14 whole years in 200 (AP_LANTERNS=1 takes one when the store has 4).
+const runners = new WeakMap();
+const errandDist = (d, e) => Math.abs(d.f - e.f) * 60 + Math.abs(d.x - e.x);
+function errandMoves(s, plan) {
+  const n = s.night;
+  if (NOERRANDS || plan === 'double' || !n.errands?.length) return;
+  const T = s.tuning;
+  const LINE = lineOf(s);
+  const home = homes.get(s);
+  let run = runners.get(s);
+  if (!run || run.night !== n) {
+    run = { night: n, by: new Map(), home: new Set() };
+    runners.set(s, run);
+  }
+  // Those on their way home keep being sent until the move takes (it doesn't on a stair, or while held).
+  for (const id of run.home) {
+    const d = s.shades.find((x) => x.id === id);
+    const h = d && canWork(d) && home?.get(id);
+    if (!h || (!d.climb && !d.grabbedBy && doAct(s, { type: 'move', id, f: h.f, x: h.x }))) run.home.delete(id);
+  }
+  const busy = new Set([...run.by.values(), ...run.home]);
+  const onLine = (d) => LINE.some((st) => d.post.f === st.f && Math.abs(d.post.x - st.x) <= 3);
+  const hunts = (c) => c.type !== 'weeper' && c.type !== 'wraith';
+  const next = n.spawns.find(hunts);
+  const lull = (secs) => !n.foes.some((c) => c.hp > 0 && hunts(c)) && (!next || next.at - s.t > secs * TICKS_PER_SEC);
+  const back = (d) => {
+    const h = d && canWork(d) && home?.get(d.id);
+    if (h && (d.climb || d.grabbedBy || !doAct(s, { type: 'move', id: d.id, f: h.f, x: h.x }))) run.home.add(d.id);
+  };
+  for (const e of n.errands) {
+    if (e.kind === 'sleeper') continue;
+    const d = s.shades.find((x) => x.id === run.by.get(e.id));
+    if (e.done || (d && !lull(0))) {
+      back(d);
+      run.by.delete(e.id);
+      continue;
+    }
+    if (d) continue;
+    const go = s.shades.filter((x) => canWork(x) && !x.grabbedBy && !x.climb && x.memory > 40 && !onLine(x) && !busy.has(x.id) && mirrorGuard.get(s) !== x.id).sort((a, b) => errandDist(a, e) - errandDist(b, e))[0];
+    if (!go || !lull((2 * errandDist(go, e)) / T.shadeSpeed + 5)) continue;
+    if (LANTERNS && T.lanterns && s.res.candles >= 4 && !n.candles.some((k) => k.carrier === go.id)) doAct(s, { type: 'lantern', id: go.id });
+    doAct(s, { type: 'move', id: go.id, f: e.f, x: Math.round(e.x * 2) / 2 });
+    run.by.set(e.id, go.id);
+    busy.add(go.id);
+  }
+}
+
 function tendNight(s, plan) {
   const n = s.night;
   const T = s.tuning;
   const G = geo(s);
   const LINE = lineOf(s);
   actMoves(s, plan);
+  errandMoves(s, plan);
   // Relight the line first, then any post whose candle is going out.
   const lit = (f, x) => n.candles.some((c) => c.f === f && Math.abs(c.x - x) <= 6 && c.wax > 15);
   for (const st of LINE) if (!lit(st.f, st.x)) doAct(s, { type: 'candle', f: st.f, x: st.x });
   const inRoom = (f, x) => n.candles.some((c) => c.f === f && roomAt(G, c.f, c.x) === roomAt(G, f, x) && c.wax > 15);
+  const run = runners.get(s)?.night === n ? runners.get(s) : null;
+  const out = new Set(run ? [...run.by.values(), ...run.home] : []);
   for (const d of s.shades.filter(canWork)) {
     const { f, x } = d.post;
-    if (f !== LINE[0].f && !inRoom(f, x) && s.res.candles > 1) doAct(s, { type: 'candle', f, x });
+    if (!out.has(d.id) && f !== LINE[0].f && !inRoom(f, x) && s.res.candles > 1) doAct(s, { type: 'candle', f, x });
   }
-  // Free the caught.
+  // Free the caught. A sleepwalker gets a candle, which wakes them, once they're caught or on the Deep's floor.
   for (const d of s.shades) if (d.grabbedBy && s.res.candles > 0) doAct(s, { type: 'candle', f: d.f, x: d.x });
+  for (const e of n.errands || []) if (!NOFREESLEEPER && e.kind === 'sleeper' && e.out && !e.done && !e.climb && (e.held || e.f === G.deep) && s.res.candles > 0) doAct(s, { type: 'candle', f: e.f, x: e.x });
   // A Maw going for a candle or a room: send the best free fighter to stand with whoever holds it.
   for (const m of n.foes.filter((f) => plan !== 'double' && f.type === 'maw' && f.target)) {
     const t = m.target;

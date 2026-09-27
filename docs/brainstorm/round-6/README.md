@@ -10,9 +10,9 @@ Round five's queue is built, and so are the two follow-ups after it: the Lantern
 
 | # | Idea | Kind | Size | Status |
 |---|---|---|---|---|
-| 1 | Shade abilities: one act a night | The nights | M | Built: Stand, Kindle, Pass unseen and Lure, paid in memory. They make the year easier for any plan that uses them, about 14 whole years in 200, and don't by themselves make reacting beat standing still: Double acting too gains as much ([problem 33](../../../prototype/README.md)) |
-| 2 | Lanterns, and something worth fetching | The nights | M–L | Building, 2nd |
-| 3 | Omens: each night its own shape, and a clock to read it by | The nights | M | Queued, 3rd |
+| 1 | Shade abilities: one act a night | The nights | M | Built: Stand, Kindle, Pass unseen and Lure, paid in memory. They make the year easier for any plan that uses them, about 14 whole years in 200 over 400 seeds, and don't by themselves make reacting beat standing still: Double acting too gains more ([problem 33](../../../prototype/README.md)) |
+| 2 | Lanterns, and something worth fetching | The nights | M–L | Built: a lantern for a candle, echoes and relics below the line, and sleepwalkers that light wakes. Errands cost every plan a little, fetching in a lull about pays for itself, and a relic's glass costs the keeper, which never covers (51 whole years in 200 against 63). What a lantern is worth when the Unlit are about isn't measured ([problem 34](../../../prototype/README.md)) |
+| 3 | Omens: each night its own shape, and a clock to read it by | The nights | M | Building, 3rd |
 | 4 | The playtest kit, with the replay viewer | Enhancement | M–L | Queued, 5th |
 | 5 | Onto Google Play | Shipping | M, plus your steps | Queued, when you've settled the domain |
 | 6 | A balance pass on what measured weak | Enhancement | M | Queued, 4th |

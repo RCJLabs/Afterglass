@@ -1173,10 +1173,44 @@ function newNight(s) {
   }
   spawns.sort((a, b) => a.at - b.at);
   return {
+    ...(T.errands && !tut ? { errands: rollErrands(s, N) } : {}),
     candles: [], foes: [], spawns, tides: tides.map((x) => Math.round(x * N)).sort((a, b) => a - b), wards: [], wardHold: {}, hush: false, steel: !!s.steel,
     broken: [], // twin rooms (ids) a Maw has broken tonight
     stats: { spawned: 0, killed: 0, crossed: 0, cracks: 0, grabbed: 0, drained: 0, essence: 0, glass: 0, wick: 0, guidance: 0, candles: 0, wards: 0, lost: [], hollow: null, taken: null, wraiths: 0, maws: 0, smashed: 0, broken: [], drowned: 0, under: 0, pulled: 0, deep: [] },
   };
+}
+
+// Errands (round six): what turns up in the dark rooms below the line tonight, from night errandFrom, and a
+// sleepwalker from night sleepFrom on some nights. Rolled with the night at dusk, so the black mirror shows
+// them, from their own stream (the seed and the night) and with ids of their own, so a seed brings the same
+// raids, sickness and Unlit whether errands are on or off.
+function rollErrands(s, N) {
+  const T = s.tuning;
+  const G = geo(s);
+  let h = (2166136261 ^ s.seed) >>> 0;
+  for (const v of [s.season, s.day, 0xe44]) h = Math.imul(h ^ v, 16777619);
+  const r = { rng: h >>> 0 };
+  const out = [];
+  const eid = () => `e${s.season}.${s.day}.${out.length}`;
+  const below = G.floors.flatMap((fl, f) => (f < G.veil - 1 ? fl.rooms.map(([id]) => ({ f, id })) : []));
+  if (s.day >= T.errandFrom && below.length) {
+    const n = chance(r, 0.4) ? 2 : 1;
+    for (let i = 0; i < n; i++) {
+      const room = pick(r, below);
+      const { x0, x1 } = roomSpan(G, room.id);
+      out.push({ id: eid(), kind: chance(r, 0.5) ? 'echo' : 'relic', f: room.f, x: Math.round(x0 + (x1 - x0) * (0.3 + 0.4 * rand(r))), done: null });
+    }
+  }
+  const sleepers = s.living.filter((p) => p.age !== 'child' && !(p.sick > 0));
+  if (s.day >= T.sleepFrom && !isNewMoon(s) && sleepers.length && chance(r, T.sleepChance)) {
+    const p = pick(r, sleepers);
+    const room = weeperRooms(s)[0];
+    if (room) {
+      const { x0, x1 } = roomSpan(G, room.id);
+      out.push({ id: eid(), kind: 'sleeper', who: p.id, name: p.name, f: room.f, x: Math.round((x0 + x1) / 2), at: Math.round((0.3 + 0.4 * rand(r)) * N), done: null, out: false });
+    }
+  }
+  return out;
 }
 
 function startNight(s) {
@@ -1252,6 +1286,7 @@ function nightTick(s) {
   const n = s.night;
   const T = s.tuning;
   s.t++;
+  carryLanterns(s);
   const L = lightMap(geo(s), T, n.candles);
   L.stood = stood(s, L);
   spawnFoes(s, L);
@@ -1263,6 +1298,7 @@ function nightTick(s) {
   }
   for (const d of [...s.shades]) if (canWork(d) && s.shades.includes(d)) shadeTick(s, L, d);
   for (const f of [...n.foes]) foeTick(s, L, f);
+  if (n.errands?.length) errandTick(s, L);
   if (s.phase !== 'night') return;
   for (const f of n.foes) if (f.hp <= 0) foeDown(s, f);
   n.foes = n.foes.filter((f) => f.hp > 0);
@@ -1271,6 +1307,91 @@ function nightTick(s) {
   if (s.t >= nightTicks(s)) endNight(s);
 }
 
+// Lanterns go where their shades go; one whose shade can't carry it any more (caught, gone, faded) is left
+// where it is, burning as a candle.
+function carryLanterns(s) {
+  for (const k of s.night.candles) {
+    if (!k.carrier) continue;
+    const d = byId(s.shades, k.carrier);
+    if (!d || !canWork(d) || d.grabbedBy) {
+      delete k.carrier;
+      continue;
+    }
+    k.f = d.f;
+    k.x = d.x;
+  }
+}
+// Tonight's errands. An echo or a relic is taken by the first shade to reach it. A sleepwalker comes out of
+// the sleepers' twin at its hour and makes for the nearest rift. A shade that reaches them, or light, sends
+// them back to bed; the Unlit hold them in the dark, and held too long, or at the rift, they die in their
+// sleep.
+function errandTick(s, L) {
+  const T = s.tuning;
+  const n = s.night;
+  const G = geo(s);
+  const at = (e, u, r) => u.f === e.f && !u.climb && Math.abs(u.x - e.x) <= r;
+  for (const e of n.errands) {
+    if (e.done) continue;
+    if (e.kind === 'sleeper') {
+      const p = byId(s.living, e.who);
+      if (!p) {
+        e.done = 'gone';
+        continue;
+      }
+      if (!e.out) {
+        if (s.t < e.at) continue;
+        e.out = true;
+        Object.assign(e, { ox: e.x, of: e.f, path: [], climb: 0, climbTotal: 0 });
+        const r = route(G, L, e, MAP.rifts.map((rf) => ({ f: G.deep, x: rf.x })));
+        e.path = r ? r.path : [];
+        say(s, `${e.name} is sleepwalking in the Tain, out of the ${TWINS[typeAt(G, e.f, e.x) || 'hearth'].name}, making for the Deep. Send a shade, or light their way.`, 'bad', true);
+        cue(s, 'warn', e.f, e.x);
+      }
+      if (!e.held) advance(e, T.sleepSpeed, Math.round(T.shadeClimb * 2 * TICKS_PER_SEC));
+      if (e.climb) continue;
+      // A shade that reaches them walks them back; light wakes them.
+      const where = TWINS[typeAt(G, e.f, e.x) || 'hearth'].name;
+      const saver = s.shades.find((d) => canWork(d) && !d.grabbedBy && at(e, d, 3));
+      const lit = isLit(L, e.f, e.x);
+      if (saver || lit) {
+        e.done = 'saved';
+        e.by = saver ? saver.name : null;
+        say(s, saver ? `${saver.name} finds ${e.name} sleepwalking in the Tain and walks them back to bed.` : `${e.name} wakes in the light in the ${where} and finds their way back to bed.`, 'good', true);
+        cue(s, 'good', e.f, e.x);
+        continue;
+      }
+      // Caught in the dark, they're held, not taken at once: sleepHold seconds in all, while light or a shade
+      // can still reach them.
+      const holder = n.foes.find((c) => c.hp > 0 && (c.type === 'creeper' || c.type === 'wraith') && at(e, c, 2.5));
+      if (holder && !e.held) {
+        say(s, `A ${holder.type === 'wraith' ? 'Wraith' : 'Creeper'} has caught ${e.name}, sleepwalking in the dark of the ${where}. Light them or reach them within ${fmt(Math.max(0, T.sleepHold - (e.heldFor || 0)))} seconds.`, 'bad', true);
+        cue(s, 'caught', e.f, e.x);
+      }
+      e.held = holder ? holder.id : null;
+      if (holder) e.heldFor = (e.heldFor || 0) + DT;
+      const caught = holder && e.heldFor >= T.sleepHold - 1e-9;
+      const deep = !e.path.length && e.f === G.deep;
+      if (caught || deep) {
+        e.done = 'lost';
+        keepMoment(s, 'sleeper', e, `${e.name} died sleepwalking in the ${where}.`);
+        kill(s, p, 'sleep', caught ? 'was caught by the Unlit, sleepwalking in the Tain' : 'walked into the Deep in their sleep');
+      }
+      continue;
+    }
+    const d = s.shades.find((x) => canWork(x) && !x.grabbedBy && at(e, x, 3));
+    if (!d) continue;
+    e.done = 'taken';
+    e.by = d.name;
+    if (e.kind === 'echo') {
+      d.memory = Math.min(100, Math.round((d.memory + T.echoMemory) * 100) / 100);
+      say(s, `${d.name} finds an echo in the ${TWINS[typeAt(G, e.f, e.x)].name}, a memory come loose, and takes it in: +${fmt(T.echoMemory)} memory.`, 'good', true);
+    } else {
+      gain(s, 'glass', T.relicGlass);
+      say(s, `${d.name} brings back a relic from the dark of the ${TWINS[typeAt(G, e.f, e.x)].name}: ${fmt(T.relicGlass)} glass.`, 'good', true);
+    }
+    cue(s, 'good', e.f, e.x);
+  }
+}
 // The candles whose light a Loyal shade is standing in: nothing gnaws, smashes or eats them while it stands.
 function stood(s, L) {
   const ids = new Set();
@@ -1515,6 +1636,8 @@ export function wayOf(s, L, c) {
   // A Stranger's Lure: everything on its floor within reach comes for it, into its light if it stands in one.
   const lure = !n.hush && s.phase === 'night' && s.shades.find((d) => acting(s, d, 'lure') && canWork(d) && !d.climb && d.f === c.f && Math.abs(d.x - c.x) <= T.lureReach);
   if (lure) return { mode: 'hunt', prey: lure.id, path: [{ f: c.f, x: lure.x }] };
+  const sleeper = !n.hush && c.type !== 'drowned' && n.errands?.find((e) => e.kind === 'sleeper' && e.out && !e.done && !e.climb && e.f === c.f && Math.abs(e.x - c.x) <= T.senseRange && !isLit(L, e.f, e.x) && darkBetween(L, c.f, c.x, e.x));
+  if (sleeper) return { mode: 'hunt', prey: sleeper.id, path: [{ f: c.f, x: sleeper.x }] };
   if (!n.hush) {
     const prey = preyNear(s, L, c, c.x, c.x);
     if (prey) return { mode: 'hunt', prey: prey.id, path: [{ f: c.f, x: prey.x }] };
@@ -2146,7 +2269,7 @@ function endNight(s) {
     say(s, `Nightmares: ${bad}, in the ${where}. ${listNames(dreamers)} ${bad === 1 ? 'works' : 'work'} at ${Math.round(100 * T.nightmareMult)}% today.`, 'bad', true);
   }
   n.stats.nightmares = bad;
-  s.today.night = { ...n.stats, broken: [...n.broken], fading, withdrew, wick, guidance: g, watch: s.watchBonus };
+  s.today.night = { ...n.stats, broken: [...n.broken], fading, withdrew, wick, guidance: g, watch: s.watchBonus, ...(n.errands ? { errands: n.errands.map(({ kind, name, by, done }) => ({ kind, name, by, done })) } : {}) };
   const cracks = n.stats.cracks;
   review(s);
   s.night = null;
@@ -2679,6 +2802,31 @@ const ACTIONS = {
     const twin = moved.type === 'empty' ? '' : ` By night the ${TWINS[moved.type].name} is ${tainPlace(H, H.rooms[moved.id].f, true)}.`;
     say(s, `The masons swap ${named(a)} and ${named(b)}.${twin}`, 'good', true);
     cue(s, 'build');
+  },
+  // A lantern (round six): a candle from the store, carried by a shade; asked again, set down where it stands.
+  lantern(s, { id }) {
+    const T = s.tuning;
+    if (!T.lanterns) return 'There are no lanterns in this keep.';
+    if (!(s.phase === 'night' || (s.phase === 'dusk' && s.dusk.step === 'place'))) return 'Lanterns are for the night.';
+    const d = byId(s.shades, id);
+    if (!d || !canWork(d)) return 'That shade can carry nothing tonight.';
+    const n = s.night;
+    const held = n.candles.find((k) => k.carrier === d.id);
+    if (held) {
+      delete held.carrier;
+      held.x = Math.round(held.x * 2) / 2;
+      say(s, `${d.name} sets its lantern down.`);
+      cue(s, 'light', d.f, d.x);
+      return undefined;
+    }
+    if (d.grabbedBy) return `${d.name} is caught: it can't light a lantern now.`;
+    if (s.res.candles < 1) return 'A lantern takes a candle, and the store is empty.';
+    s.res.candles--;
+    n.candles.push({ id: 'k' + s.nextId++, f: d.f, x: d.x, wax: T.lanternWax, max: T.lanternWax, carrier: d.id });
+    n.stats.candles++;
+    say(s, `${d.name} takes up a lantern: its own light for ${fmt(T.lanternWax)} seconds, wherever it goes.`);
+    cue(s, 'light', d.f, d.x);
+    return undefined;
   },
   // A shade's one act a night (round six), paid in its memory. Stand, Pass unseen and Lure last their
   // seconds; Kindle is done at once.
@@ -3244,6 +3392,8 @@ export function upgrade(g) {
   for (const t of [g.tuning, g.tuning0]) if (t && !('church' in t)) t.church = 0;
   for (const t of [g.tuning, g.tuning0]) if (t && !('crusade' in t)) t.crusade = 0;
   for (const t of [g.tuning, g.tuning0]) if (t && !('acts' in t)) t.acts = 0;
+  for (const t of [g.tuning, g.tuning0]) if (t && !('lanterns' in t)) t.lanterns = 0;
+  for (const t of [g.tuning, g.tuning0]) if (t && !('errands' in t)) t.errands = 0;
   for (const p of g.living || []) p.trait ??= traitFor(g, p.name);
   for (const b of g.bodies || []) if (b.was === undefined) b.was = b.from === 'raider' ? null : traitFor(g, b.name);
   for (const d of g.shades || []) {

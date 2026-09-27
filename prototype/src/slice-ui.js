@@ -299,6 +299,11 @@ function barHTML() {
     const d = s.phase === 'night' && s.tuning.acts ? byId(s.shades, ui.selected) : null;
     const a = d && canWork(d) && actOf(d);
     if (a) tools += `<button class="btn sm act" id="btn-act" data-act="shade-act" data-id="${d.id}"${canAct(s, d) ? '' : ' disabled'} title="${ACTS[a].name} (A)">${ACTS[a].name}${d.acted ? ': spent' : ` −${fmt(actCost(s, d))}`}</button>`;
+    const lit = s.tuning.lanterns ? byId(s.shades, ui.selected) : null;
+    if (lit && canWork(lit)) {
+      const held = s.night?.candles.some((k) => k.carrier === lit.id);
+      tools += `<button class="btn sm" id="btn-lantern" data-act="lantern" data-id="${lit.id}"${held || s.res.candles >= 1 ? '' : ' disabled'} title="A lantern for ${esc(lit.name)} (T)">${held ? 'Set lantern down' : 'Lantern −1 candle'}</button>`;
+    }
     tools += flip;
     if (s.phase === 'dusk') tools += `<button class="btn sm primary" id="bar-start" data-act="start">Begin the night</button>`;
   } else if (s.phase === 'dawn') {
@@ -834,9 +839,39 @@ function blackMirror() {
       <p class="note">What tonight holds as the candles, posts and wards stand now. Candles burn down and shades move once it begins, so it can still turn out otherwise.</p>
       <ul class="ways">${lines.map((l) => `<li${l.bad ? ' class="bad"' : ''}>${l.text}</li>`).join('')}</ul>
       ${tideText.length ? `<p class="note">Tides at ${listOf(tideText)}${th.alone ? `; ${plural(th.alone, 'Creeper')} ${th.alone === 1 ? 'comes' : 'come'} alone` : ''}.</p>` : ''}
+      ${errandsAtDusk()}
       ${raidText}
       <label class="row" for="ways-on"><input type="checkbox" id="ways-on" data-act="ways"${prefs.ways !== false ? ' checked' : ''}>Show their ways on the Tain: dots march each rift's way up, ✕ where they'll gnaw, a ring on a mirror they'll reach, ! over a shade they'll catch</label>
     </details>`;
+}
+
+// What came of the night's errands, at the rite.
+function errandsAtDawn(r) {
+  const es = (r.errands || []).filter((e) => e.done && e.done !== 'gone');
+  const lost = (r.errands || []).filter((e) => !e.done && e.kind !== 'sleeper').length;
+  if (!es.length && !lost) return '';
+  const T = s.tuning;
+  const bits = es.map((e) => (e.kind === 'echo' ? `${esc(e.by)} found an echo (+${fmt(T.echoMemory)} memory)` : e.kind === 'relic' ? `${esc(e.by)} brought back a relic (${fmt(T.relicGlass)} glass)` : e.done === 'saved' ? (e.by ? `${esc(e.by)} walked ${esc(e.name)} back to bed` : `${esc(e.name)} woke in the light`) : `${esc(e.name)} died sleepwalking in the Tain`));
+  return `<p class="note${es.some((e) => e.done === 'lost') ? ' bad' : ''}">The errands: ${bits.length ? listOf(bits) : 'nothing fetched'}${lost ? `; ${plural(lost, 'thing')} left in the dark` : ''}.</p>`;
+}
+// Errands in words: what, and where.
+const errandWhere = (e) => roomName(roomAt(K(), e.f, e.x) || 'crypt', true);
+function errandsAtDusk() {
+  const es = s.night?.errands || [];
+  if (!es.length) return '';
+  const T = s.tuning;
+  const N = nightTicks(s);
+  const bits = es.map((e) => (e.kind === 'echo' ? `an echo in the ${esc(errandWhere(e))} (+${fmt(T.echoMemory)} memory to the shade that reaches it)` : e.kind === 'relic' ? `a relic in the ${esc(errandWhere(e))} (${fmt(T.relicGlass)} glass)` : `around ${hhmm(18 + (12 * e.at) / N)}, ${esc(e.name)} will sleepwalk out of the ${esc(errandWhere(e))} and make for the Deep: light in their way wakes them, and a shade that reaches them walks them back`));
+  return `<p class="note${es.some((e) => e.kind === 'sleeper') ? ' bad' : ''}">In the dark tonight: ${listOf(bits)}.${T.lanterns ? ' A lantern (T) carries its own light there.' : ''}</p>`;
+}
+// Out in the dark now, at night.
+function errandNote() {
+  const es = (s.night?.errands || []).filter((e) => !e.done && (e.kind !== 'sleeper' || e.out));
+  if (!es.length) return '';
+  const walker = es.find((e) => e.kind === 'sleeper');
+  const rest = es.filter((e) => e.kind !== 'sleeper').map((e) => `${e.kind === 'echo' ? 'an echo' : 'a relic'} in the ${esc(errandWhere(e))}`);
+  const held = walker?.held && `${esc(walker.name)} is held by the Unlit in the dark of the ${esc(errandWhere(walker))}: light the spot or reach them within ${fmt(Math.max(0, s.tuning.sleepHold - (walker.heldFor || 0)))} seconds.`;
+  return `${walker ? `<p class="note bad">${held || `${esc(walker.name)} is sleepwalking in the ${esc(errandWhere(walker))}, making for the Deep. Send a shade, or set a candle in their way, before the Unlit find them.`}</p>` : ''}${rest.length ? `<p class="note">Still out in the dark: ${listOf(rest)}.</p>` : ''}`;
 }
 
 // Two nights before the new moon, and the night before: wards on the stairs are what hold the Hollow, so the
@@ -890,6 +925,7 @@ function nightPanel() {
     }).join('')}
     ${weeperNote()}
     ${drownedNote()}
+    ${errandNote()}
     ${s.shades.some((d) => d.deep) ? `<p class="note">In the Deep until dawn: ${esc(listOf(s.shades.filter((d) => d.deep).map((d) => `${d.name} (${DEPTH_NAMES[d.deep].toLowerCase()})`)))}.</p>` : ''}
     ${n.hush ? '<p class="note">Hushed: no work, no fighting, and the Unlit pass the shades by.</p>' : ''}`;
 }
@@ -926,6 +962,7 @@ function nightReport() {
     ${r.broken?.length ? `<p class="note bad">The Maws broke the ${esc(listOf(r.broken.map((id) => roomName(id, true))))}. The living saw the dead walk there: Dread for each.</p>` : ''}
     <ul class="fadelist">${rows}</ul>
     ${r.nightmares ? `<p class="note bad">The Weepers gave ${plural(r.nightmares, 'nightmare')}.</p>` : ''}
+    ${errandsAtDawn(r)}
     ${(r.deep || []).map((x) => `<p class="note${x.caught ? ' bad' : ''}">${esc(x.name)} ${x.caught ? `was caught in the Deep: −${fmt(x.lost)} memory, and nothing to show for it.` : `came back up from the Deep with ${x.silver} quicksilver.`}</p>`).join('')}
     ${r.lost.length ? `<p class="note bad">Lost: ${esc(listOf(r.lost))}.</p>` : ''}</div>`;
 }
@@ -1385,12 +1422,19 @@ const TUNE = [
   ['acts', "Shade acts: each shade's one act a night, paid in its memory (1 on, 0 off)"],
   ['standFight', 'How much harder a Loyal shade strikes while it Stands'],
   ['lureReach', "How far a Stranger's Lure reaches, in pixels"],
+  ['lanterns', 'Lanterns: a shade carries a light of its own, for a candle (1 on, 0 off)'],
+  ['lanternWax', 'Seconds a lantern burns'],
+  ['errands', 'Errands: echoes, relics and sleepwalkers in the dark below the line (1 on, 0 off)'],
+  ['echoMemory', 'Memory an echo gives the shade that finds it'],
+  ['relicGlass', 'Glass a relic brings'],
+  ['sleepChance', 'Chance a night brings a sleepwalker, from night 3 (not the new moon)'],
+  ['sleepHold', 'Seconds the Unlit hold a sleepwalker before they die'],
 ];
 const KEYS = [
   ['Space', 'play or pause'], ['1, 2, 4', 'speed'], ['C, M, W, H', 'candle, move, ward, hush (at night)'], ['V', 'turn the Tain upright'],
   ['+ and −, 0', 'zoom, and fit the castle again'], ['Arrows', 'pan by day; from dusk, move the cursor on the Tain (Shift and the arrows pan)'],
   ['Enter', 'at the cursor: set a candle, pick or send a shade, or ward, by the tool'], ['[ and ]', 'pick the previous or next shade'],
-  ['A', "the picked shade's act, at night"],
+  ['A', "the picked shade's act, at night"], ['T', "the picked shade's lantern: light it, or set it down"],
   ['K, P, R, B', 'this phase, People, Records, Build'], ['L', 'room names'],
   ['S', 'sound on or off'], ['Esc', 'the Menu, or close a panel'],
 ];
@@ -2374,6 +2418,11 @@ const GUIDE = [
     text: () => `The censure brought the Church's silver embargo: for ${s.tuning.embargoDays} days the Glazier makes no glass and no mirror can be built. A blessing lifts it, or a donation of ${s.tuning.donation} remembrance in the Day panel. Censured again while it stands, the keep is given to the Inquisition, which inspects every day.`,
   },
   {
+    id: 'errands', target: '#open-phase',
+    when: () => s.phase === 'dusk' && s.dusk?.step === 'place' && !!s.night?.errands?.length,
+    text: () => `Something has turned up in the dark tonight: the black mirror in the Dusk panel says what and where. A shade that reaches it takes it${s.tuning.lanterns ? ', and a lantern (pick the shade, then T) lets it carry its own light there' : ''}. The Unlit hunt the dark, so choose who goes, and when. A sleepwalker is saved by a shade that reaches them, or by light.`,
+  },
+  {
     id: 'acts', target: '#tool-move', pause: true,
     when: () => first() && s.phase === 'night' && s.day >= 2 && !!s.tuning.acts && s.shades.some((d) => canAct(s, d)),
     text: 'Each shade has one act a night, paid in its memory. A Loyal one Stands: its light can\'t be gnawed for a while, and it strikes twice as hard. A Serene one Kindles its candle, free. A Pale one Passes unseen, out of any grip. A Stranger Lures the Unlit to it. Pick a shade, and its act is on the bar (A).',
@@ -3179,6 +3228,7 @@ function onAct(name, el) {
     case 'sally': return game({ type: 'sally' });
     case 'donate': return game({ type: 'donate' });
     case 'shade-act': return game({ type: 'shadeAct', id: el.dataset.id });
+    case 'lantern': return game({ type: 'lantern', id: el.dataset.id });
     case 'hide': return game({ type: 'hide', id: el.dataset.id, on: !!el.dataset.on });
     case 'vigil': return game({ type: 'vigil' });
     case 'build': return game({ type: 'build', mirror: el.dataset.mirror });
@@ -3407,6 +3457,9 @@ document.addEventListener('keydown', (e) => {
   else if (k === 'a' && s.phase === 'night' && s.tuning.acts) {
     if (ui.selected) game({ type: 'shadeAct', id: ui.selected });
     else toast('Pick a shade first: its act is on the bar.', 'bad');
+  } else if (k === 't' && placing() && s.tuning.lanterns) {
+    if (ui.selected) game({ type: 'lantern', id: ui.selected });
+    else toast('Pick a shade first: its lantern is on the bar.', 'bad');
   }
   else if (k === 'v') onAct('flip', { dataset: {} });
   else if (k === 'l') onAct('labels', { dataset: {} });

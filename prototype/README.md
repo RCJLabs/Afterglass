@@ -148,12 +148,12 @@ The vertical slice: seven days in one keep, ending on the night of the new moon,
 
     | | Spring | Summer | Autumn | Winter | Whole years | With every season a spring (`year` 0) |
     |---|---|---|---|---|---|---|
-    | Balanced | 195 of 200 | 188 of 195 | 170 of 188 | 105 of 170 | 105 | 106 |
-    | Keeper | 193 of 200 | 180 of 193 | 153 of 180 | 63 of 153 | 63 | 81 |
-    | Mourner | 190 of 200 | 179 of 190 | 119 of 179 | 17 of 119 | 17 | 43 |
-    | Double | 192 of 200 | 188 of 192 | 169 of 188 | 97 of 169 | 97 | 115 |
+    | Balanced | 195 of 200 | 187 of 195 | 176 of 187 | 88 of 176 | 88 | 117 |
+    | Keeper | 192 of 200 | 179 of 192 | 152 of 179 | 51 of 152 | 51 | 75 |
+    | Mourner | 192 of 200 | 181 of 192 | 120 of 181 | 18 of 120 | 18 | 41 |
+    | Double | 192 of 200 | 188 of 192 | 169 of 188 | 96 of 169 | 96 | 110 |
 
-    Before raids were fought (problem 20), whole years were 72, 50, 46 and 89; before summer's plague and autumn's siege (problem 24), 83, 52, 52 and 116; before the dead's requests (problem 25), 83, 42, 54 and 103; before the weather (problem 27), 86, 61, 24 and 110. Before the Church's escalation (problem 31), the keeper's were 53 and 83. Before shade acts (problem 33), the balanced plan's, the keeper's and the mourner's were 82, 48 and 27, and with every season a spring 96, 75 and 34; Double doesn't act. With every season a spring, every season now rains as often as spring does.
+    Before raids were fought (problem 20), whole years were 72, 50, 46 and 89; before summer's plague and autumn's siege (problem 24), 83, 52, 52 and 116; before the dead's requests (problem 25), 83, 42, 54 and 103; before the weather (problem 27), 86, 61, 24 and 110. Before the Church's escalation (problem 31), the keeper's were 53 and 83. Before shade acts (problem 33), the balanced plan's, the keeper's and the mourner's were 82, 48 and 27, and with every season a spring 96, 75 and 34; Double doesn't act. Before lanterns and errands (problem 34), all four were 91, 63, 17 and 97, and with every season a spring 106, 81, 43 and 115. With every season a spring, every season now rains as often as spring does.
 
     - **Summer's long days put by, and autumn runs on it.** Both do better than a spring at the same hardness: with every season a spring, the balanced plan finished 153 of 194 second seasons and 117 of 153 third ones.
     - **Winter takes 30–59% of the keeps that reach it before the Long Night** (measured before shade acts). The Long Night then takes a sixth to nearly half of the rest: the balanced plan wins 82 of 115, the keeper 53 of 82, the mourner 27 of 50 and Double 97 of 117. With every season a spring, the seventh night of the fourth was won 99–100% of the time.
@@ -272,14 +272,14 @@ The vertical slice: seven days in one keep, ending on the night of the new moon,
 
     | | First seasons finished | Whole years |
     |---|---|---|
-    | Balanced: Gentle, Standard, Hard | 198, 195, 176 | 165, 105, 39 |
-    | Keeper: Gentle, Standard, Hard | 196, 193, 173 | 143, 63, 23 |
+    | Balanced: Gentle, Standard, Hard | 199, 195, 182 | 168, 88, 47 |
+    | Keeper: Gentle, Standard, Hard | 196, 192, 174 | 133, 51, 29 |
 
-    Before shade acts (problem 33) they were 159, 82 and 35 for the balanced plan, and 133, 48 and 28 for the keeper.
+    Before lanterns and errands (problem 34), whole years were 165, 91 and 39 for the balanced plan, and 143, 63 and 23 for the keeper; before shade acts (problem 33), 159, 82 and 35, and 133, 48 and 28.
 
     - **Gentle** breaks the Veil at six cracks, adds 1.8 Creepers a night rather than 2.2, sends raids at 0.85 of their strength, starts with 18 food and 12 candles, and grows each season ×1.1 and each year ×1.15. **Hard** breaks it at four, adds 2.6, raids at ×1.15, starts with 6 candles, and grows as Standard does, ×1.2 a season and ×1.3 a year.
     - **Hard was too hard for a year, and is softer now.** It first grew ×1.3 a season and ×1.45 a year, which left the balanced plan 18 whole years in 200 and the keeper 9, and won no second winter (0 of 24). A season's growth doesn't touch the first season, so easing it keeps that season's risk: at ×1.25 the balanced plan came through 25 years, at ×1.2 35 (39 on seeds 201–400), at ×1.15 57. At ×1.2, with ×1.3 a year, it wins 2 of 26 second winters. A Hard keep made before this keeps the old numbers, as every keep keeps what it was made with; Settings can change them.
-    - **Hard answers problem 6 for the first season:** it loses 1 in 8 of them, against 1 in 30. Whether that's harder but fair, or only harder, is for people to say.
+    - **Hard answers problem 6 for the first season:** the balanced plan loses 1 in 11 of them, against 1 in 40 on Standard. Whether that's harder but fair, or only harder, is for people to say.
     - **The second year** (problem 29): hardness now compounds through a year's seasons, and each year starts `yearHardness` (1.3 on Standard) above the last, rather than carrying on from its winter. The first year is as it was. Over two years the balanced plan now wins 23 of 68 second winters, against none of 37 on the old curve, and 1 of 12 third ones. `yearHardness` 0 is the old curve.
     - **A keep keeps the numbers it was made with.** A new keep took your own Settings numbers from the keep before, then lost them on its next load: the page moves every number you haven't set to the build's, and said it had kept yours. A keep now remembers what it was made with, a preset or your numbers, and a newer build moves only the rest.
     - Measured with the autopilot only; nobody has played a preset.
@@ -304,18 +304,36 @@ The vertical slice: seven days in one keep, ending on the night of the new moon,
 
     | | Seeds 1–200, no acts | With acts | Seeds 201–400, no acts | With acts |
     |---|---|---|---|---|
-    | Balanced | 82 | 105 | 86 | 91 |
+    | Balanced | 82 | 91 | 86 | 105 |
     | Keeper | 48 | 63 | 56 | 70 |
     | Mourner | 27 | 17 | 21 | 23 |
     | Double, which never acts | 97 | 97 | – | – |
     | Double, acting too | – | 116 | – | – |
 
-    - **Round six's test for the night items was whether the reacting plans gain on Double, not whether everyone does better.** Acts fail it. Over 400 seeds the balanced plan came through 196 whole years with them against 168 without, level with Double's 97 in 200 where it had been 15 behind. But Double, acting too, came through 116. Acts are power in the moment for any plan; items 2 and 3 are the ones aimed at standing still.
-    - **Kindle does most of it.** On its own it took the balanced plan from 82 to 105. The autopilot kindles a candle that's burning low when its store is nearly out, and lights a candle wherever a Serene shade stands in the dark, walking to a stair included. Candles are what decide winters, so a candle for memory is worth a lot. My first Kindle, a whole candle for 10 memory whenever one ran low, took the balanced plan to 108 at 1.4 acts a night. At half a candle for 20 memory, it gained nothing.
+    - **Round six's test for the night items was whether the reacting plans gain on Double, not whether everyone does better.** Acts fail it. Over 400 seeds the balanced plan came through 196 whole years with them against 168 without; on seeds 1–200, 91 against 82, still behind Double's 97. Double, acting too, came through 116. Acts are power in the moment for any plan; items 2 and 3 are the ones aimed at standing still.
+    - **Corrected:** my first write-up of this table swapped the balanced plan's two seed ranges, giving it 105 with acts on seeds 1–200 (and in the year and preset tables). It's 91 there, and 105 on seeds 201–400.
+    - **Kindle does most of it.** My first acts were cheaper: a whole candle for 10 memory, used whenever one ran low. At those prices all four took the balanced plan from 82 to 108 at 1.4 acts a night, and Kindle alone to 105. The autopilot now kindles a candle that's burning low when its store is nearly out, and lights a candle wherever a Serene shade stands in the dark, walking to a stair included. Candles are what decide winters, so a candle for memory is worth a lot. At half a candle for 20 memory, it gained nothing.
     - **Memory is a shade's strength** (it fights and works at 0.4 + 0.6 × memory/100), so every act weakens the shade for good. Stand, as I first had the autopilot use it (whenever two Creepers gnawed at its light), cost the balanced plan 6 whole years: the best fighters spent their strength on what a relit candle already covered. It now stands only against a Maw or the Hollow.
     - **The mourner pays.** Its dawn rite covers the shades worth least, and worth is strength and memory, so a shade that acted is the next one let go. Over 400 seeds it lost 8 whole years; on seeds 1–200 alone it lost 10, on 201–400 it gained 2.
     - **Kindle's price is the knob** if this is too easy: at half a candle for 20 memory the balanced plan was back to 82.
     - Untested with people: whether one act for each shade each night is a choice or one more thing to watch. On a phone the act's button wraps the night's bar onto a second row.
+34. **Errands tax every plan a little, and fetching in a lull about pays for itself; what a lantern is worth isn't measured.** From night 2 echoes and relics turn up in the dark below the line, and from night 3, on a fifth of nights, a sleepwalker (below). Errands draw from their own random stream, so a keep with them and without meets the same raids, sickness and Unlit until an errand changes something, and each keep can be compared with its twin. The whole year, seeds 1–200, whole years:
+
+    | | Errands off | On, echoes and relics left | On, fetched in a lull |
+    |---|---|---|---|
+    | Balanced | 91 | 85 | 88 |
+    | Keeper | 63 | – | 51 |
+    | Mourner | 17 | – | 18 |
+    | Double, which never fetches | 97 | 96 | – |
+
+    - **A sleepwalker costs about a candle.** Light wakes them, so every plan drops a candle on one who's caught, or who's reached the Deep's floor. Where the sleepers' twin is above the line, the line's own light wakes them on the way down, for nothing. With the Quarters on top of the keep, the Dreamwell is the Tain's deepest room, and each sleepwalker needs a candle as they come out. 1–2% still die. With no candle for them, half died, and the balanced plan came through 60 whole years (on 30% of nights).
+    - **My first sleepwalkers were a tax on every keep.** They walked at 2 pixels a second, died the moment a Creeper touched them in the dark, and came on 30% of nights. Once the Quarters stood low in the keep, they came out beside the rifts and died in 7 to 10 seconds, too fast to answer: Double came through 58 whole years against 97. Holding them 8 seconds, with light only freeing them to walk on, made it worse (47): the autopilot spent a candle each time one was caught, and they were caught again further on. Now light wakes them, they walk at 1.2, and they come on a fifth of nights.
+    - **Fetching in a lull about pays for itself.** The autopilot fetches an echo or a relic only when none of the Unlit that hunt are in the Tain and none are due before its shade could be there and back, which mostly means before the first tide. It took 1,758 in the 200 years, about 9 a year, and came through 88 whole years against 85 leaving them, inside the noise.
+    - **A relic costs the keeper.** The keeper plan never covers a mirror, and it spends relic glass on more of them, so it holds more shades and its Dread climbs. In its first season: 39 censures in 100 against 24, and 3.4 mirrors at the end against 2.8. With relics worth no glass it's back to 24. Over the year, 51 whole years against 63, and on Gentle 133 against 143.
+    - **The autopilot's lantern was a pure loss.** Taking one on those trips, a candle each whenever the store had 4, cost it 14 whole years (74 against 88): in a lull there's nothing for a lantern to keep off. It fetches without one now, so nothing here measures a lantern where the Unlit are about. That's for people.
+    - **Two autopilot bugs first made fetching ruinous,** 9 whole years in 100 against 31 leaving everything: a shade sent home from a stair never went, since a move is refused mid-climb, and the rule that lights every shade's post dropped a candle at each errand. Fixed, fetching with nothing to fetch cost nothing measurable (138 against 144 whole years over 300 seeds).
+    - **Round six's test fails again, if narrowly.** Fetching is a reaction, and it gains the balanced plan 3 whole years, inside the noise; the sleepwalkers cost Double 1.
+    - Untested with people: whether a sleepwalker reads as a choice or a chore, and whether a lantern is worth a candle to fetch something mid-night.
 
 **How a season plays**
 
@@ -388,6 +406,14 @@ The vertical slice: seven days in one keep, ending on the night of the new moon,
   - a Stranger Lures: for 8 seconds the Unlit on its floor within 40 pixels come for it, into its light if it stands in one (12).
 
   Pick the shade and its act is on the bar, or press A; the Tain shows a Stand as a gold glow, a Lure as red rings, and a shade passing unseen drawn faint. Keeps from before this have none (`acts` in Settings, under Advanced).
+
+  **Lanterns** (round six). A shade can carry a lantern, for a candle from the store: a light of its own for 60 seconds, wherever it goes, so the Unlit can't catch it while it burns. Asked again, it sets the lantern down where it stands, as a candle. Pick the shade and press Lantern on the bar, or T.
+
+  **Errands** (round six). The black mirror names each night's at dusk, and the Night panel says what's still out:
+  - from night 2, one or two things turn up in the dark rooms below the line: an echo, a memory come loose (+20 memory to the shade that reaches it), or a relic (3 glass);
+  - from night 3, on a fifth of nights (never the new moon), one of the living sleepwalks into the Tain at an hour the black mirror gives, out of the sleepers' twin, and makes for a rift at 1.2 pixels a second. A shade that reaches them walks them back to bed, and light wakes them: a candle where they are, or in their way. The Unlit that catch them in the dark hold them; held 8 seconds in all, or at a rift, they die in their sleep and wake Pale.
+
+  The Tain shows an echo as a pale-blue shimmer, a relic as a silver glint, and a sleepwalker drawn faint, with a caught shade's bar while they're held. Keeps from before this have neither lanterns nor errands (`lanterns` and `errands` in Settings, under Advanced).
 
   **Weepers** come the night after a death: one for each of the day's dead, up to 3, at some hour of the night. Each seeps up in the dark of the sleepers' twin, the Dreamwell, or the Cold Hearth before there are Quarters. One that weeps there 15 seconds gives one of the living a nightmare and sinks away, and they work at 60% the next day. A Weeper catches no one and gnaws nothing:
   - light burns it and turns it back, so a room lit wall to wall leaves it nowhere to weep;
@@ -516,18 +542,19 @@ The vertical slice: seven days in one keep, ending on the night of the new moon,
 27. **The presets are mine.** Round five's plan asked for named sets of the Settings numbers, chosen for a new keep. Which numbers, their values, and each year starting from its own spring are mine.
 28. **The Church's escalation is mostly mine.** Round three's Lantern Church comes "when dread is high" with inspections, "a silver embargo, then a crusade", answered by "release souls, donate, hide mirrors", and its campaign lists "inspections, an embargo, an inquisition". What the embargo stops (glass and mirrors), its days, the donation, the Inquisition as an inspection every noon, the crusade as a raid on the mirrors at the third censure, hiding a mirror at the cost of its shades, and all the numbers are mine.
 29. **Shade acts are mine.** Round six's plan asked for one act a night for each kind, paid in its own memory. The four acts, what each does, their costs and seconds, and the autopilot's rules for them are mine.
+30. **Lanterns and errands are mostly mine.** Round three answered the Hollow with "lanterns, the whole Watch, the hush", and round six's plan made a lantern a light a shade carries, and gave it echoes, relics and sleepwalkers to carry it to. A lantern for a candle, its minute of light, setting it down, what an echo and a relic give, the sleepwalker's hour, pace and hold, light waking them, and all the numbers are mine. The plan also had the Hollow go for lanterns first; that isn't built.
 
-**What the numbers say so far.** From `npm run balance:season -- 100 1`, on the two-room start. Every plan but Idle builds in the same order (a Barracks, a Chapel, a Chandlery, a Glazier, an Infirmary, a second Barracks, a Quarters once the keep is crowded, a Forge, a Granary, a Cellar), stands guards only on raid days, holds the stairs to the Veil, relights candles, and posts nobody below the line's floor at night except in the Choir, and never has the dead help by day. All but Double and Idle pull a second fighter to each stair for each tide from that stair's own room, ward the line for the last tide of nights 5 and 6 when the essence is there, send help against a Maw, and use the shades' acts by rule (problem 33). The first three differ in how they treat the dead; Double treats them like Balanced.
+**What the numbers say so far.** From `npm run balance:season -- 100 1`, on the two-room start. Every plan but Idle builds in the same order (a Barracks, a Chapel, a Chandlery, a Glazier, an Infirmary, a second Barracks, a Quarters once the keep is crowded, a Forge, a Granary, a Cellar), stands guards only on raid days, holds the stairs to the Veil, relights candles, and posts nobody below the line's floor at night except in the Choir, and never has the dead help by day. All but Double and Idle pull a second fighter to each stair for each tide from that stair's own room, ward the line for the last tide of nights 5 and 6 when the essence is there, send help against a Maw, use the shades' acts by rule (problem 33), and fetch echoes and relics in a lull (problem 34). Every plan but Idle drops a candle on a sleepwalker who's caught or has reached the Deep's floor. The first three differ in how they treat the dead; Double treats them like Balanced.
 
 | | Balanced | Keeper (never covers) | Mourner (every funeral, covers to keep Dread at 1) | Double (two fighters per stair on Maw nights, never moves anyone) | Idle (no candles, no posts) |
 |---|---|---|---|---|---|
-| Seasons finished | 99% | 97% | 94% | 94% | 0% |
-| Lost on night 6 / 7 (and earlier) | 0 / 1 | 1 / 2 | 2 / 4 | 1 / 5 | all on night 1 |
-| Your deaths per season | 3.7 | 3.8 | 4.1 | 3.7 | – |
+| Seasons finished | 97% | 96% | 95% | 94% | 0% |
+| Lost on night 6 / 7 (and earlier) | 0 / 3 | 1 / 3 | 1 / 4 | 1 / 5 | all on night 1 |
+| Your deaths per season | 3.8 | 3.8 | 4.1 | 3.7 | – |
 | Raids held | 99% | 99% | 100% | 100% | – |
-| Church: blessed / warned / censured | 100 / 0 / 0 | 81 / 6 / 24 (111 visits) | 100 / 0 / 0 | 100 / 0 / 0 | – |
-| Shades lost at night per season | 1.3 | 1.4 | 1.1 | 1.1 | – |
-| The Hollow, in finished seasons: reached the Veil / driven back / withdrew | 8 / 27 / 64 | 9 / 22 / 66 | 52 / 10 / 32 | 14 / 17 / 63 | – |
+| Church: blessed / warned / censured | 100 / 0 / 0 | 69 / 15 / 39 (123 visits) | 100 / 0 / 0 | 100 / 0 / 0 | – |
+| Shades lost at night per season | 1.1 | 1.3 | 1.1 | 1.1 | – |
+| The Hollow, in finished seasons: reached the Veil / driven back / withdrew | 9 / 29 / 59 | 13 / 24 / 59 | 49 / 13 / 33 | 14 / 17 / 63 | – |
 
 - **Raids with traits** (before raids were fought): when traits went in, 86% held for the balanced plan, against 90% without them (and 58% before the two-room start). Traits first cut it to 75%. No one trait did it: Wil (a Coward) and Nell (Gentle) guarded at half strength, Tam (Devout) at ×0.8 off the Chapel, Ada (Brave) fell twice as often, which thinned the gate for the next raid, and the Greedy ate double. The Gentle's and the Greedy's costs now fall elsewhere: the Gentle grieve harder, and the Greedy work ×0.8 away from the Glazier and the Chandlery. The Coward and the Brave keep theirs, since the gate is what they're about. Guards stand only on raid days, when every free hand goes to the Barracks.
 - **Season 2, a summer** (200 seeds, two seasons): the balanced plan finishes 184 of the 194 second seasons it reaches (95%), the keeper 181 of 193 (94%), the mourner 177 of 190 (93%) and Double 188 of 192 (98%).

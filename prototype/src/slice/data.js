@@ -371,6 +371,27 @@ export const TUNING = {
   actSecs: { stand: 10, pass: 15, lure: 8 },
   standFight: 2,
   lureReach: 40,
+
+  // Lanterns (round six): a shade can carry light. Lighting one takes a candle from the store; it burns
+  // lanternWax seconds at a candle's light, moving with the shade. Set down, it stays where it is, as a
+  // candle. lanterns 0 is none.
+  lanterns: 1,
+  lanternWax: 60,
+  // Errands (round six): from night errandFrom, one or two things turn up in the dark rooms below the line
+  // each night, shown by the black mirror at dusk: an echo (echoMemory to the shade that reaches it) or a
+  // relic (relicGlass glass). From night sleepFrom, on sleepChance of nights, a sleepwalker: one of the
+  // living wanders into the Tain from the sleepers' twin at some hour and makes for a rift at sleepSpeed. A
+  // shade that reaches them walks them back to bed, and light wakes them. The Unlit that catch them in the
+  // dark hold them; held sleepHold seconds in all, or at the rift, they die in their sleep and wake Pale.
+  // errands 0 is none.
+  errands: 1,
+  errandFrom: 2,
+  echoMemory: 20,
+  relicGlass: 3,
+  sleepFrom: 3,
+  sleepChance: 0.2,
+  sleepSpeed: 1.2,
+  sleepHold: 8,
 };
 
 export const SEASONS = ['spring', 'summer', 'autumn', 'winter'];
@@ -552,6 +573,7 @@ export const CAUSES = {
   yours: { name: 'Your order', kind: 'wraith', text: 'was killed on your order' },
   raider: { name: 'Raider', kind: 'stranger', text: 'fell raiding the keep' },
   hollow: { name: 'The Hollow', kind: null, text: 'was taken by the Hollow' },
+  sleep: { name: 'Sleepwalking', kind: 'pale', text: 'died sleepwalking in the Tain' },
 };
 export const GUIDE_UP = { pale: 'serene', restless: 'pale' };
 
