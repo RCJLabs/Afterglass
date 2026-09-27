@@ -704,6 +704,7 @@ function restFor(s, deadId, peace) {
   }
 }
 function lose(s, reason, text) {
+  if (s.phase === 'night') review(s);
   s.phase = 'over';
   s.over = { reason, season: s.season, day: s.day };
   closeSeason(s, s.night ? s.night.stats.cracks : 0, reason);
@@ -1016,6 +1017,7 @@ function nightTick(s) {
   s.t++;
   const L = lightMap(geo(s), T, n.candles);
   spawnFoes(s, L);
+  biggestTide(s);
   for (const c of n.candles) c.wax -= DT;
   for (const h of n.foes) {
     if (h.type !== 'hollow' || h.hp <= 0 || h.climb) continue;
@@ -1038,6 +1040,7 @@ function spawnFoes(s, L) {
     const open = MAP.rifts.filter((r) => !n.wards.includes(r.id));
     const rift = open.find((r) => r.id === sp.rift) || open[0] || null;
     let at = null;
+    let seeped = null;
     if (sp.type === 'creeper' && (sp.seep || !rift)) {
       const dark = darkRooms(geo(s), L);
       if (dark.length) {
@@ -1045,6 +1048,7 @@ function spawnFoes(s, L) {
         at = { f, x: a + (b - a) * (0.25 + 0.5 * rand(s)) };
         say(s, `The Unlit seep up in the ${TWINS[typeOf(geo(s), id)].name}. It has no candle.`, 'bad', n.foes.length < 3);
         cue(s, 'seep', at.f, at.x);
+        seeped = { at, text: `The Unlit seeped up in the dark of the ${TWINS[typeOf(geo(s), id)].name}.` };
       } else if (!rift) {
         // Every rift warded and every room lit: they come up wherever the light doesn't reach.
         const gaps = darkGaps(geo(s), L);
@@ -1065,6 +1069,7 @@ function spawnFoes(s, L) {
     if (!at) at = { f: DEEP_FLOOR, x: (rift || byId(MAP.rifts, sp.rift)).x };
     const foe = addFoe(s, sp.type, at.f, at.x, { temper: sp.snuff ? 'snuff' : 'climb' });
     if (sp.weak) foe.hp = foe.max = foe.hp * sp.weak; // the tutorial's Maw
+    if (seeped) keepMoment(s, 'seep', seeped.at, seeped.text);
     n.stats.spawned++;
     if (sp.type === 'maw') {
       n.stats.maws++;
@@ -1202,7 +1207,9 @@ function foeTick(s, L, c) {
       d.grabbedBy = c.id;
       d.path = [];
       n.stats.grabbed++;
-      say(s, `${c.type === 'wraith' ? 'A Wraith' : 'A Creeper'} has caught ${d.name} in the dark of the ${TWINS[typeAt(geo(s), d.f, d.x) || 'crypt'].name}.`, 'bad', true);
+      const caught = `${c.type === 'wraith' ? 'A Wraith' : 'A Creeper'} has caught ${d.name} in the dark of the ${TWINS[typeAt(geo(s), d.f, d.x) || 'crypt'].name}.`;
+      keepMoment(s, 'caught', d, caught);
+      say(s, caught, 'bad', true);
       cue(s, 'caught', d.f, d.x);
     }
   }
@@ -1392,6 +1399,7 @@ function breakRoom(s, m, id) {
   const G = geo(s);
   const type = typeOf(G, id);
   n.broken.push(id);
+  keepMoment(s, 'broken', m, `A Maw broke the ${TWINS[type].name}.`);
   say(s, `A Maw has broken the ${TWINS[type].name}. Nobody works there tonight, and the ${DAY_ROOMS[type].name} is haunted: ${hauntCost(s)}.`, 'bad', true);
   cue(s, 'broken', m.f, m.x);
   m.target = null;
@@ -1430,6 +1438,7 @@ function mawTick(s, L, m) {
     if (k && Math.abs(k.x - m.x) <= 2) {
       if (!m.smashing) {
         m.smashing = true;
+        keepMoment(s, 'smash', k, `A Maw is tearing down the candle in the ${TWINS[typeAt(G, k.f, k.x)].name}.`);
         say(s, `A Maw is tearing down the candle in the ${TWINS[typeAt(G, k.f, k.x)].name}.`, 'bad', true);
         cue(s, 'smash', k.f, k.x);
       }
@@ -1505,11 +1514,13 @@ function hollowTick(s, L, h) {
 
 function cross(s, c, m, cracks) {
   const n = s.night;
+  const where = TWINS[typeAt(geo(s), geo(s).veil, m.x)].name;
+  if (!veilKept(s) && s.cracks + cracks >= s.tuning.cracksMax) keepMoment(s, 'broke', { f: c.f, x: m.x }, `${c.type === 'hollow' ? 'The Hollow' : 'A Creeper'} broke the Veil at the mirror in the ${where}.`);
+  else keepMoment(s, c.type === 'hollow' ? 'torn' : 'crack', { f: c.f, x: m.x }, c.type === 'hollow' ? `The Hollow reached the mirror in the ${where}.` : `A Creeper slipped through the Veil at the mirror in the ${where}.`);
   n.foes = n.foes.filter((x) => x !== c);
   s.cracks += cracks;
   n.stats.crossed++;
   n.stats.cracks += cracks;
-  const where = TWINS[typeAt(geo(s), geo(s).veil, m.x)].name;
   if (c.type === 'hollow') {
     n.stats.hollow = 'crossed';
     say(s, `The Hollow reached the mirror in the ${where} and tore through the Veil: ${cracks} cracks.`, 'bad', true);
@@ -1528,6 +1539,64 @@ function cross(s, c, m, cracks) {
     if (veilKept(s)) s.cracks = s.tuning.cracksMax - 1;
     else lose(s, 'veil', 'The Veil has broken. The Unlit are loose in the keep above.');
   }
+}
+
+/* ---------------------------------------------------------------- the night in moments */
+
+// The night review at dawn (round five): the three moments that most decided the night, each with the Tain
+// as it stood, for the page to draw. A record like the log; the rules never read it. Each kind has a weight,
+// the Veil breaking the most and the biggest tide the least. A kind is kept once, at its
+// first, except a shade lost (each one) and the biggest tide, which moves to each new height.
+const MOMENTS = { broke: 11, torn: 10, lost: 9, crack: 8, broken: 7, 'hollow-down': 6, smash: 6, caught: 5, 'maw-down': 4, seep: 3, tide: 2 };
+const SHADE_KEYS = ['id', 'name', 'kind', 'climb', 'climbTotal', 'grabbedBy', 'named', 'memory', 'mirror'];
+const FOE_KEYS = ['id', 'type', 'climb', 'climbTotal', 'gnawing', 'temper', 'mode', 'quiet', 'rising', 'smashing', 'target', 'grab', 'hp', 'max'];
+function frameOf(s) {
+  const n = s.night;
+  const unit = (u, keys) => {
+    const x = Math.round(u.x * 10) / 10;
+    const o = { f: u.f, x, of: u.f, ox: x };
+    for (const k of keys) if (u[k] !== undefined && u[k] !== null && u[k] !== false && u[k] !== 0) o[k] = u[k];
+    o.path = u.climb > 0 && u.path?.[0] ? [u.path[0]] : [];
+    return o;
+  };
+  return {
+    candles: n.candles.map((k) => ({ id: k.id, f: k.f, x: k.x, wax: Math.round(k.wax * 10) / 10, max: k.max })),
+    foes: n.foes.map((u) => unit(u, FOE_KEYS)),
+    shades: s.shades.filter(canWork).map((d) => unit(d, SHADE_KEYS)),
+    broken: [...n.broken],
+    wards: [...n.wards],
+    wardHold: { ...n.wardHold },
+    hush: !!n.hush,
+  };
+}
+function keepMoment(s, kind, at, text, key = kind) {
+  const n = s.night;
+  if (!n || s.phase !== 'night') return;
+  n.moments ||= [];
+  const i = n.moments.findIndex((m) => m.key === key);
+  if (i >= 0 && kind !== 'tide') return;
+  const m = { key, kind, weight: MOMENTS[kind], t: s.t, f: at.f, x: Math.round(at.x), text, frame: frameOf(s) };
+  if (i >= 0) n.moments[i] = m;
+  else n.moments.push(m);
+  n.moments.sort((a, b) => b.weight - a.weight || a.t - b.t);
+  if (n.moments.length > 3) n.moments.length = 3;
+}
+// The most Creepers in the Tain at once, where most of them are.
+function biggestTide(s) {
+  const n = s.night;
+  const cs = n.foes.filter((u) => u.type === 'creeper');
+  if (cs.length < 2 || cs.length <= (n.peak || 0)) return;
+  n.peak = cs.length;
+  const by = {};
+  for (const u of cs) by[u.f] = (by[u.f] || 0) + 1;
+  const f = Number(Object.entries(by).sort((a, b) => b[1] - a[1] || a[0] - b[0])[0][0]);
+  const on = cs.filter((u) => u.f === f);
+  keepMoment(s, 'tide', { f, x: on.reduce((a, u) => a + u.x, 0) / on.length }, `The biggest tide: ${cs.length} of the Unlit in the Tain at once.`);
+}
+// What the page shows at dawn: the moments of the night just ended, in the order they came.
+function review(s) {
+  const n = s.night;
+  s.review = { season: s.season, day: s.day, ticks: nightTicks(s), moments: [...(n?.moments || [])].sort((a, b) => a.t - b.t) };
 }
 
 // The Hollow, loose above the Veil, takes one of the living. No body is left to wake.
@@ -1568,7 +1637,9 @@ function foeDown(s, f) {
       cue(s, 'wraith-down', f.f, f.x);
     }
   }
+  if (f.type === 'maw') keepMoment(s, 'maw-down', f, 'A Maw was cut down.');
   if (f.type === 'hollow') {
+    keepMoment(s, 'hollow-down', f, 'The Hollow was driven back into the Deep.');
     n.stats.hollow = 'driven back';
     gain(s, 'remembrance', s.tuning.hollowReward);
     say(s, `The Hollow is driven back into the Deep. The keep will tell of it: +${s.tuning.hollowReward} remembrance.`, 'good', true);
@@ -1577,6 +1648,7 @@ function foeDown(s, f) {
 }
 
 function fadeAway(s, d, text, how = 'faded', tonight = true) {
+  if (tonight && s.phase === 'night') keepMoment(s, 'lost', d, text, `lost:${d.id}`);
   s.shades = s.shades.filter((x) => x !== d);
   for (const c of s.night?.foes || []) {
     if (c.grab === d.id) c.grab = null;
@@ -1681,6 +1753,7 @@ function endNight(s) {
   n.stats.nightmares = bad;
   s.today.night = { ...n.stats, broken: [...n.broken], fading, withdrew, wick, guidance: g, watch: s.watchBonus };
   const cracks = n.stats.cracks;
+  review(s);
   s.night = null;
   if (s.cracks > 0) s.cracks--;
   if (s.phase === 'over') return;

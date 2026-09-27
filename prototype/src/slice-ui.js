@@ -10,7 +10,7 @@ import {
   seasonIndex, seasonName, yearOf, dayLength, isLongNight, tributeOf,
 } from './slice/sim.js';
 import { geo, feet, floorAtY, roomAt, typeAt, typeOf, roomSpan, roomsOf, lightMap, isLit, unitAt, DEEP_FLOOR, lineSpots as lineOf, guardLit } from './slice/geo.js';
-import { drawScene } from './slice/draw.js';
+import { drawScene, drawMoment } from './slice/draw.js';
 import { threats } from './slice/threats.js';
 import { recapOf } from './slice/recap.js';
 import { newDaily, dayKey, dayText } from './slice/daily.js';
@@ -753,6 +753,33 @@ function nightReport() {
     ${r.lost.length ? `<p class="note bad">Lost: ${esc(listOf(r.lost))}.</p>` : ''}</div>`;
 }
 
+// The night review (round five): the moments that most decided the night just ended, as stills of the Tain
+// the sim kept (sim.js, keepMoment), in the order they came. Drawn once each, as the player views the Tain.
+function reviewHTML(title) {
+  const R = s.review;
+  const day = s.phase === 'over' ? s.over?.day : s.day;
+  if (!R?.moments?.length || R.season !== s.season || R.day !== day) return '';
+  const flip = prefs.mode === 'flipped';
+  const key = `${R.season}/${R.day}/${flip}/${R.moments.length}`;
+  if (ui.stills?.key !== key) {
+    ui.stills = {
+      key,
+      imgs: R.moments.map((m) => {
+        const cv = document.createElement('canvas');
+        drawMoment(cv, s, m, { flip });
+        return { url: cv.toDataURL('image/png'), w: cv.width, h: cv.height };
+      }),
+    };
+  }
+  const figs = R.moments
+    .map((m, i) => {
+      const im = ui.stills.imgs[i];
+      return `<figure class="moment is-${m.kind}"><img src="${im.url}" width="${im.w}" height="${im.h}" alt="The Tain at ${hhmm(18 + (12 * m.t) / R.ticks)}: ${esc(m.text)}"><figcaption><b>${hhmm(18 + (12 * m.t) / R.ticks)}</b> ${esc(m.text)}</figcaption></figure>`;
+    })
+    .join('');
+  return `<details class="card review" data-keep="review"${ui.open.review !== false ? ' open' : ''}><summary><b>${title}</b></summary><div class="moments">${figs}</div><p class="hint">A ring marks where it happened.</p></details>`;
+}
+
 function riteRow(d) {
   const T = s.tuning;
   const c = s.rite.choice[d.id];
@@ -795,6 +822,7 @@ function dawnPanel() {
   ].filter(Boolean).join(', ');
   return `<header class="ph-head"><h2>${s.day === 0 ? `Season ${s.season}: the first dawn` : 'Dawn: the Rite'}</h2><p>The Unlit withdraw and the shades go back into the glass. Choose who stays. Each shade kept adds Dread; ${bear(s)} ${bear(s) === 1 ? 'is' : 'are'} borne by the living (one per ${T.dreadLivingPer} living, one per priest).</p></header>
     ${nightReport()}
+    ${reviewHTML('The night in moments')}
     ${s.dreamt ? `<p class="note">Good dreams from the night: the living work ×${fmt(s.dreamt)} today.</p>` : ''}
     ${sleepNotes()}
     <div class="rite-list">${s.shades.map(riteRow).join('') || '<p class="empty">The glass is empty.</p>'}</div>
@@ -845,6 +873,7 @@ function endPanel() {
   const next = T.year ? `Begin ${SEASONS[e.season % SEASONS.length]}${yearEnd ? `, year ${yearOf(s) + 1}` : ''}` : `Begin season ${e.season + 1}`;
   return `<header class="ph-head"><h2>${yearEnd ? `Year ${yearOf(s)} is over` : T.year ? `${seasonWord()} is over` : `Season ${e.season} is over`}</h2><p>${yearEnd ? 'The Long Night has passed. The keep has stood a whole year.' : 'The new moon has passed. The keep stands.'}</p></header>
     ${questionHTML(e)}
+    ${reviewHTML(isLongNight(s) ? 'The Long Night in moments' : 'The new moon in moments')}
     <div class="card"><h3>The season</h3>${summaryHTML(e)}<div class="row"><button class="btn sm" id="end-book" data-act="book">Read the Book of the Dead</button></div></div>
     ${recapHTML(e)}
     <div class="row"><button class="btn primary" id="btn-next-season" data-act="next-season">${next}</button><span class="hint">Raids and the Unlit come ×${T.hardness} harder.</span></div>`;
@@ -907,6 +936,7 @@ function overPanel() {
   const why = s.over?.reason === 'veil' ? 'The Veil broke and the Unlit came through into the keep.' : 'No one living was left.';
   return `<header class="ph-head"><h2>The keep is lost</h2><p>${why} Season ${s.season}, ${s.phase === 'over' && s.over.day ? `day ${s.over.day}` : ''}.</p></header>
     ${e ? questionHTML(e) : ''}
+    ${reviewHTML('How the last night went')}
     ${e ? `<div class="card"><h3>The season</h3>${summaryHTML(e)}</div>` : ''}
     ${e ? recapHTML(e) : ''}
     ${newKeepControls()}`;

@@ -272,6 +272,13 @@ table.days { min-width: 680px; }
 .gcoach.is-tutorial { border-color: var(--dusk, #c98bff); }
 .gcoach .eyebrow { color: var(--day); }
 .gcoach.is-tutorial .eyebrow { color: var(--dusk, #c98bff); }
+/* The night review at dawn: stills of the Tain, one above another, at up to 3x. */
+.review summary { cursor: pointer; }
+.review .moments { display: grid; gap: 10px; margin-top: 8px; }
+.moment { margin: 0; display: grid; gap: 4px; }
+.moment img { width: 100%; max-width: 336px; height: auto; image-rendering: pixelated; border-radius: 3px; background: #0b0816; }
+.moment figcaption { font-size: 13px; line-height: 1.4; color: var(--ink-2); }
+.moment figcaption b { font-variant-numeric: tabular-nums; color: var(--ink); margin-right: 4px; }
 /* How to play: the manual in the Menu. */
 .howto { display: grid; gap: 10px; }
 .howto .card p { margin: 0; font-size: 14px; line-height: 1.55; color: var(--ink-2); max-width: 68ch; }

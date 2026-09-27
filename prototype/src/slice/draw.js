@@ -1178,3 +1178,23 @@ export function drawScene(out, s, v) {
     o.setTransform(1, 0, 0, 1, 0, 0);
   }
 }
+
+// A still of the Tain for the night review at dawn: the night as it stood at a moment the sim kept
+// (sim.js, keepMoment), cropped to the floors around where it happened and ringed there (a tide has no one
+// spot), reflected or upright as the player views it. One canvas pixel per world pixel.
+export function drawMoment(out, s, m, v = {}) {
+  G = geo(s);
+  const L = layers();
+  const ghost = { ...s, night: { ...m.frame, spawns: [] }, shades: m.frame.shades };
+  const tain = composeTain(ghost, 0, { ambient: 0.22, marks: m.kind === 'tide' ? [] : [{ f: m.f, x: m.x }] });
+  const f = Math.max(0, Math.min(G.n - 1, m.f));
+  const top = G.floors[Math.max(0, f - 1)].y - 2;
+  const h = G.floors[Math.min(G.n - 1, f + 1)].y + ROOM_H + 2 - top;
+  out.width = W;
+  out.height = h;
+  const c = ctxOf(out);
+  c.setTransform(1, 0, 0, v.flip ? 1 : -1, 0, v.flip ? 0 : h);
+  c.clearRect(0, 0, W, h);
+  c.drawImage(tain, 0, top - L.y0, W, h, 0, 0, W, h);
+  c.setTransform(1, 0, 0, 1, 0, 0);
+}
