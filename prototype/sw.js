@@ -31,6 +31,8 @@ const CORE = [
   'src/slice/recap.js',
   'src/slice/card.js',
   'src/slice/daily.js',
+  'src/slice/tutorial.js',
+  'src/slice/howto.js',
   'icons/icon-192.png',
   'icons/icon-512.png',
   'icons/icon-maskable-512.png',

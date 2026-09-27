@@ -252,6 +252,30 @@ export const TUNING = {
 
 export const SEASONS = ['spring', 'summer', 'autumn', 'winter'];
 
+// The tutorial keep (round five): an ordinary keep whose first three days and nights go by a script, so each
+// lesson comes in its order. By day the script's events stand in for the day's rolls: no sickness and no
+// other deaths. A raid's strength is exact, nobody falls on the walls, and one raider always falls inside;
+// the fire kills no one. By night, this many Creepers come in this many tides (shares of stragglers, candle
+// hunters and seepers as given, else the usual), no Weepers where it says so, and a Maw at maw times its
+// strength. Before night safeUntil the Veil can't break (it holds at one crack short) and Dread stops one short
+// of bringing the Church. Maud, an old servant, joins the cast to die at noon on day 1. Its tuning carries
+// tutorial: 1, so it replays.
+export const TUTORIAL = {
+  seed: 20260927,
+  servant: { name: 'Maud', age: 'old', trait: 'stubborn' },
+  days: {
+    1: { events: [{ at: 0.5, type: 'oldage', who: 'Maud' }] },
+    2: { raid: 5, events: [{ at: 0.15, type: 'fire', room: 'hearth' }] },
+    3: { events: [{ at: 0.12, type: 'notice' }] },
+  },
+  nights: {
+    1: { creepers: 3, tides: 1, stragglers: 0, snuff: 0, seep: 0, weepers: 0 },
+    2: { creepers: 6, tides: 1, seep: 0 },
+    3: { creepers: 8, tides: 2, seep: 0, maw: 0.5 },
+  },
+  safeUntil: 4,
+};
+
 // Traits, from round three: each of the living has one, which helps or hinders at a job, and death turns it
 // over into what the shade does at night. Some change what keeping the shade costs at the rite. Costs that
 // fell on the gate or the larder cost too many raids (held 75% against 92% without traits), so Gentle's and

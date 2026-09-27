@@ -2,7 +2,7 @@
 // bar at the bottom, and everything else opens in a panel over the castle. Like the greyboxes it changes
 // the game only through act(), so every session replays from its seed and action log.
 
-import { TICKS_PER_SEC, DAY_ROOMS, WORK_ROOMS, TWINS, KINDS, MIRRORS, CAUSES, MAP, BOND_OTHER, TUNING, BUILDABLE, TRAITS, SHADE_TRAITS, SEASONS } from './slice/data.js';
+import { TICKS_PER_SEC, DAY_ROOMS, WORK_ROOMS, TWINS, KINDS, MIRRORS, CAUSES, MAP, BOND_OTHER, TUNING, BUILDABLE, TRAITS, SHADE_TRAITS, SEASONS, TUTORIAL } from './slice/data.js';
 import {
   newSeason, step, act, retune, playerTuning, jobCap, jobCount, nextSlot, ritePreview, crossingPreview, capacity, canWork, defense, roomPower, bear, priests, funeralCap, eatRate,
   dayTicks, nightTicks, isNewMoon, choicesFor, byId, isTwinnedLiving, isTwinnedShade, lastSeason, SAVE_VERSION, fmt, mirrorCap,
@@ -14,6 +14,8 @@ import { drawScene } from './slice/draw.js';
 import { threats } from './slice/threats.js';
 import { recapOf } from './slice/recap.js';
 import { newDaily, dayKey, dayText } from './slice/daily.js';
+import { newTutorial, isTutorial } from './slice/tutorial.js';
+import { howTo } from './slice/howto.js';
 import { drawCard, cardFonts } from './slice/card.js';
 import { epitaph, ordinal, RESTING, LOST } from './slice/book.js';
 import { SLOTS, slotKey, openIndex, loadSlot, saveSlot, useSlot, deleteSlot, keepFromFile, summary, mergeIndex, isIndexKey } from './slice/saves.js';
@@ -324,8 +326,8 @@ function introHTML() {
       <li><b>The Lantern Church</b> inspects on day 5, and again whenever Dread reaches 5. Low Dread is blessed; high Dread costs you a mirror and the shades in it.</li>
     </ul>
     <p class="note">The castle is the screen. The bar at the bottom holds the tools for the moment and opens the panels: this phase, the people, and the records. Pause any time.</p>
-    <div class="row"><button class="btn primary" id="btn-intro-guide" data-act="intro-guide">Begin with a guide</button><button class="btn" id="btn-intro" data-act="intro-close">Begin without</button></div>
-    <p class="hint">The guide shows a short card the first time each thing happens: the jobs, a raid, the Crossing, the Tain, the Maws, the Church and the new moon. You can switch it off in Settings.</p>
+    <div class="row"><button class="btn primary" id="btn-intro-tutorial" data-act="intro-tutorial">Play the tutorial</button><button class="btn" id="btn-intro-guide" data-act="intro-guide">Begin with a guide</button><button class="btn" id="btn-intro" data-act="intro-close">Begin without</button></div>
+    <p class="hint">The tutorial is a keep whose first three days are set out to teach: one thing at a time, in order, and the Veil can't break before night 4. From day 4 it's an ordinary season. The guide instead shows a short card the first time each thing happens in any keep; you can switch it off in Settings. Every lesson is kept in Menu, under How to play.</p>
     ${installHTML('intro')}
   </div>`;
 }
@@ -1179,6 +1181,34 @@ function dailyHTML() {
   return `<div class="card daily"><h3>Today's keep: ${esc(dayText(key))}</h3>
     <p class="note">Everyone who plays on this date, wherever they are, gets this same keep, on the rules as they ship: your own numbers from Settings are set aside, and can't be changed in it. Its recap card names the day, so you can compare how it went. A new one comes at your midnight.</p>${acts}</div>`;
 }
+// The tutorial keep: continue it where a slot holds one still in its first season, else start it in an empty
+// slot, else offer to put it in place of the keep being played.
+function tutorialHTML() {
+  const nums = Array.from({ length: SLOTS }, (_, i) => i + 1);
+  const holds = nums.find((n) => (n === saves.current ? isTutorial(s) && s.season === 1 && !s.tut?.over : saves.slots[n]?.tutorial && saves.slots[n].season === 1 && !saves.slots[n].tutorialOver));
+  const empty = nums.find((n) => n !== saves.current && !saves.slots[n]);
+  let acts;
+  if (holds === saves.current) acts = "<p class=\"hint\">It's the keep you're playing.</p>";
+  else if (holds) acts = `<div class="row"><button class="btn sm primary" id="tutorial-go" data-act="slot-play" data-n="${holds}">Continue it, in keep ${holds}</button></div>`;
+  else if (ui.confirmSlot?.kind === 'tutorial') {
+    acts = `<p class="note bad">Put the tutorial in keep ${saves.current}, in place of the one you're playing? That one is lost unless you exported it.</p><div class="row"><button class="btn sm primary" id="tutorial-yes" data-act="slot-yes" data-n="${saves.current}">Play the tutorial</button><button class="btn sm" id="tutorial-no" data-act="slot-no">Cancel</button></div>`;
+  } else if (empty) acts = `<div class="row"><button class="btn sm primary" id="tutorial-go" data-act="tutorial" data-n="${empty}">Play it, in keep ${empty}</button></div>`;
+  else acts = `<div class="row"><button class="btn sm" id="tutorial-go" data-act="tutorial-ask">Play it in keep ${saves.current}</button></div>`;
+  return `<div class="card daily"><h3>The tutorial</h3>
+    <p class="note">A keep whose first three days are set out to teach, one thing at a time: jobs and building, the dead and the night, a raid and a fire, the rite, mirrors and the Church. The Veil can't break before night ${TUTORIAL.safeUntil}, and from day ${TUTORIAL.safeUntil} it's an ordinary season.</p>${acts}</div>`;
+}
+function startTutorial(n) {
+  retuned = 0;
+  prefs.guide = true;
+  savePrefs();
+  return playKeep(n, newTutorial(playerTuning(s)), `The tutorial, in slot ${n}.`);
+}
+// How to play: the tutorial, and every lesson as a short manual, in this keep's numbers.
+function howtoTab() {
+  return `<section class="howto">${tutorialHTML()}${howTo(s.tuning)
+    .map((sec) => `<div class="card" id="howto-${sec.id}"><h3>${esc(sec.title)}</h3>${sec.items.map((t) => `<p>${esc(t)}</p>`).join('')}</div>`)
+    .join('')}</section>`;
+}
 function startDaily(n) {
   retuned = 0;
   const key = dayKey();
@@ -1188,7 +1218,7 @@ function savesTab() {
   const slots = Array.from({ length: SLOTS }, (_, i) => i + 1).map((n) => {
     const here = n === saves.current;
     const m = here ? summary(s, Date.now()) : saves.slots[n];
-    const ask = ui.confirmSlot?.n === n && ui.confirmSlot.kind !== 'daily' ? ui.confirmSlot : null;
+    const ask = ui.confirmSlot?.n === n && ui.confirmSlot.kind !== 'daily' && ui.confirmSlot.kind !== 'tutorial' ? ui.confirmSlot : null;
     const file = `<input type="file" id="import-${n}" class="visually-hidden" data-act="import" data-n="${n}" accept=".json,application/json"><label class="btn sm" for="import-${n}">Load a file</label>`;
     let acts;
     if (ask) {
@@ -1198,22 +1228,24 @@ function savesTab() {
     else if (m) acts = `<div class="row"><button class="btn sm primary" id="slot-play-${n}" data-act="slot-play" data-n="${n}">Continue</button><button class="btn sm" id="slot-export-${n}" data-act="slot-export" data-n="${n}">Export</button>${file}<button class="btn sm" id="slot-delete-${n}" data-act="slot-delete" data-n="${n}">Delete</button></div>`;
     else acts = `<div class="row"><button class="btn sm primary" id="slot-new-${n}" data-act="slot-new" data-n="${n}">New keep</button>${file}</div>`;
     const what = m
-      ? `<p><b>${m.daily ? `The keep of ${esc(dayText(m.daily))}. ` : ''}Season ${m.season}, ${esc(whereText(m))}</b></p><p class="hint">${plural(m.rooms, 'room')} · ${m.living} living · ${plural(m.shades, 'shade')}${here ? '' : ` · played ${esc(agoText(m.saved))}`}</p>`
+      ? `<p><b>${m.daily ? `The keep of ${esc(dayText(m.daily))}. ` : m.tutorial ? 'The tutorial keep. ' : ''}Season ${m.season}, ${esc(whereText(m))}</b></p><p class="hint">${plural(m.rooms, 'room')} · ${m.living} living · ${plural(m.shades, 'shade')}${here ? '' : ` · played ${esc(agoText(m.saved))}`}</p>`
       : '<p class="hint">Empty.</p>';
     return `<div class="kslot${here ? ' is-here' : ''}" id="slot-${n}"><div class="kslot-head"><span class="eyebrow">Keep ${n}</span>${here ? '<span class="tag">Playing</span>' : ''}</div>${what}${acts}</div>`;
   }).join('');
   return `<section class="saves">
     ${dailyHTML()}
+    ${tutorialHTML()}
     <p class="note">Each keep saves itself as you play. Export writes a keep to a file you can keep or send; Load a file takes that file back, or a tester's playtest export, which is replayed into the keep it came from.</p>
     <div class="kslots">${slots}</div>
     ${ui.slotMsg ? `<p class="note bad" role="alert">${esc(ui.slotMsg)}</p>` : ''}
   </section>`;
 }
-const MENU_TABS = [['settings', 'Settings'], ['saves', 'Saves']];
+const MENU_TABS = [['settings', 'Settings'], ['saves', 'Saves'], ['howto', 'How to play']];
 function menuHTML() {
-  const tab = ui.menuTab === 'saves' ? 'saves' : 'settings';
+  const tab = MENU_TABS.some(([k]) => k === ui.menuTab) ? ui.menuTab : 'settings';
+  const body = { settings: settingsTab, saves: savesTab, howto: howtoTab }[tab]();
   return `<div class="tabs" role="tablist" aria-label="Menu">${MENU_TABS.map(([k, l]) => `<button class="tab" role="tab" id="menu-tab-${k}" data-act="menu-tab" data-tab="${k}" aria-selected="${k === tab}" aria-controls="menupanel">${l}</button>`).join('')}</div>
-    <div class="tabpanel" role="tabpanel" id="menupanel" aria-labelledby="menu-tab-${tab}">${tab === 'saves' ? savesTab() : settingsTab()}</div>`;
+    <div class="tabpanel" role="tabpanel" id="menupanel" aria-labelledby="menu-tab-${tab}">${body}</div>`;
 }
 const TABS = [['book', 'Book of the Dead'], ['log', 'Log'], ['days', 'Days'], ['playtest', 'Playtest']];
 function recordsHTML() {
@@ -1561,6 +1593,13 @@ window.__season = {
   },
   get crossing() { return !!ui.cross; },
   get sound() { return { state: sound.state, bed: sound.bed, heard: [...heard] }; },
+  // For scripted checks: the keep as it stands (read only), the line's spots, and the middle of a room.
+  get keep() { return s; },
+  get line() { return lineSpots(); },
+  room(type) {
+    const r = roomSpan(K(), type);
+    return r ? { f: r.f, x: Math.round((r.x0 + r.x1) / 2) } : null;
+  },
 };
 
 /* ---------------------------------------------------------------- the installed app */
@@ -1871,34 +1910,291 @@ const GUIDE = [
     text: 'Tonight is the new moon. The Hollow walks to the mirrors whatever the light. A ward on a stair holds it a while; shades fighting it drive it back. If it reaches the Veil, it takes one of the living.',
   },
 ];
+
+/* ---------------------------------------------------------------- the tutorial keep */
+
+// The tutorial keep's lessons. Its first three days go by a script in the sim (TUTORIAL in data.js); these
+// teach them, one at a time. A lesson with done() waits until you've done it, or skipped it; one without
+// waits for Got it. The list's order is its priority: what's happening now (a death, a fire, the Host at the
+// gate) comes before the day's next task. Progress is kept in the keep (s.tut), so a new tutorial keep
+// teaches again. The guide holds its own cards back until the tutorial is over, and a lesson counts the
+// guide's cards it covers as read.
+const tutOn = () => isTutorial(s) && s.season === 1 && !s.tut?.off && !s.tut?.over;
+const tutHas = (id) => !!s.tut?.done?.[id];
+const onDay = (d, phase = 'day') => s.day === d && s.phase === phase;
+const built = (type) => roomsOf(K(), type).length > 0;
+const maud = () => s.shades.find((d) => d.name === TUTORIAL.servant.name && canWork(d)) || null;
+const newcomer = () => s.today.arrivals.map((id) => byId(s.living, id)).find(Boolean) || null;
+// A spot on the line is held when a shade stands in its light.
+const guarded = (p) => litAt(p.f, p.x) && s.shades.some((d) => canWork(d) && d.post?.f === p.f && Math.abs(d.post.x - p.x) <= 8 && litAt(d.post.f, d.post.x));
+const churchWord = () => s.log.some((l) => l.season === 1 && l.day === 3 && /^Word comes from the Lantern Church: its inspector/.test(l.text));
+const TUT = [
+  // What's happening now.
+  {
+    id: 't-maud', pause: true,
+    when: () => onDay(1) && s.today.deaths.some((id) => s.ledger.find((e) => e.id === id)?.name === TUTORIAL.servant.name),
+    text: () => `${TUTORIAL.servant.name}, the old servant, has died. Anyone who dies inside the walls lies in the crypt until dusk, then wakes as a shade, and how they died decides what kind. Old age makes the Serene, who work best of all the dead.`,
+  },
+  {
+    id: 't-fire', covers: ['fire'], target: '#open-phase', pause: true,
+    when: () => onDay(2) && s.fires.length > 0,
+    done: () => !s.fires.length,
+    text: "Fire in the Hearth! Its cooks fight it, but a Hearth fire outgrows two pairs of hands. Open the Day panel and send the Yard's masons. Left alone it spreads, and fighting it at full heat kills; still burning at dusk, the room is lost for tomorrow.",
+  },
+  {
+    id: 't-assault', target: '#open-phase', pause: true,
+    when: () => onDay(2) && s.raid?.state === 'assault',
+    done: () => s.raid?.state !== 'assault',
+    text: () => `The Host is at the gate. Each second they're stronger than your defense, the gate gives; if it still stands when their time is up, they fall back. In the Day panel: pour pitch (${s.tuning.raidPitchCost} candles) to weaken them, shore the gate with stone, or ring the bell to bring everyone to the walls. Candles poured are candles you won't have tonight.`,
+  },
+  {
+    id: 't-raid', covers: ['raid'], target: '#open-phase', pause: true,
+    when: () => onDay(2) && s.raid?.warned && s.raid.state === 'coming',
+    text: () => `Raiders on the road: strength ${fmt(s.raid.strength)}, against your defense of ${fmt(defense(s))} (2 for each guard; a Brave one counts 3, a Coward 1). They reach the gate a little after noon. Before then: more guards, a ward on the gate if you have the essence, or, in the Day panel, bar the stores or pay them off.`,
+  },
+  {
+    id: 't-church', target: '#open-phase', pause: true,
+    when: () => onDay(3) && churchWord(),
+    text: () => `The Lantern Church judges how a keep keeps its dead, by its Dread: on day ${s.tuning.firstInspection}, and whenever Dread reaches ${s.tuning.dreadMax}. At 0–1 it blesses the keep; at 4–5 it takes your fullest mirror and the shades in it. Dread is now ${s.dread}. Priests bear Dread, 1 each, and a vigil in the Day panel lowers it for ${s.tuning.vigilCost} remembrance.`,
+  },
+  {
+    id: 't-crack', pause: true,
+    when: () => s.phase === 'night' && s.day < TUTORIAL.safeUntil && s.night.stats.cracks > 0,
+    text: () => `A Creeper reached a mirror and the Veil cracked. Each crack costs 1 Dread at dawn, and one heals each dawn; ${s.tuning.cracksMax} at once break the Veil and the keep is lost. Here it can't break before night ${TUTORIAL.safeUntil}. Light the way it came.`,
+  },
+  {
+    id: 't-maw', covers: ['maw'], target: '#tool-move', pause: true,
+    when: () => s.phase === 'night' && s.day < TUTORIAL.safeUntil && s.night.foes.some((f) => f.type === 'maw'),
+    text: () => `A Maw, weakened for the tutorial. It walks through light to whatever is worth most for the least fight: the candle holding the way up, or a room where the dead work, and it counts every fighter on its way. A room it stands in for ${s.tuning.mawBreak} seconds breaks. Watch where it heads, and move a fighter there with a candle.`,
+  },
+  // Day 1: jobs, the Yard, building.
+  {
+    id: 't-play', covers: ['welcome'], target: '#btn-play',
+    when: () => onDay(1),
+    done: () => running() && !ui.paused,
+    text: 'This is the tutorial keep: three days and nights, one thing at a time. The keep is what there is of it, a Hearth and a Crypt. Press Play to start the day, and pause whenever you like.',
+  },
+  {
+    id: 't-people', covers: ['jobs'], target: '#open-people',
+    when: () => onDay(1) && tutHas('t-play'),
+    done: () => ui.sheet === 'people',
+    text: 'Open People. Everyone has a job, and a job needs its room: cooks in the Hearth, guards in a Barracks, chandlers in a Chandlery. Anyone without one quarries stone in the Yard.',
+  },
+  {
+    id: 't-build', covers: ['build'], target: '#btn-build',
+    when: () => onDay(1) && tutHas('t-people'),
+    done: () => built('barracks'),
+    text: () => `Raiders come tomorrow. Build a Barracks: tap Build. A room costs ${s.tuning.roomStone} stone (you have ${fmt(s.res.stone)}), and it goes on top of the keep.`,
+  },
+  {
+    id: 't-guards', target: '#open-people',
+    when: () => (onDay(1) || onDay(2)) && built('barracks') && tutHas('t-build'),
+    done: () => jobCount(s, 'barracks') >= 2,
+    text: 'Put two people in the Barracks: in People, set their job, or pick a name and tap the room. Each guard is 2 defense. Everyone has a trait, under their name: Ada is Brave, ×1.5 at the gate but likelier to fall; her brother Wil is a Coward, ×0.5.',
+  },
+  {
+    id: 't-chandlery', target: '#btn-build',
+    when: () => (onDay(1) || onDay(2)) && tutHas('t-guards'),
+    done: () => built('chandlery') && jobCount(s, 'chandlery') >= 1,
+    text: () => `The masons quarry ${DAY_ROOMS.yard.rate} stone a day each. Next a Chandlery, with someone in it: candles are what the night runs on, and you have ${fmt(s.res.candles)}. Osk is Greedy, ×1.25 there. After that, every room is in Build, with what it does by day and by night.`,
+  },
+  // Dusk 1: the Crossing, the Tain, candles, posts, the black mirror.
+  {
+    id: 't-crypt', covers: ['crypt'], target: '#bar-wake',
+    when: () => onDay(1, 'dusk') && s.dusk.step === 'crypt' && !ui.cross,
+    done: () => s.dusk?.step !== 'crypt',
+    text: () => `Dusk: the Crossing. ${TUTORIAL.servant.name}'s body lies in the crypt. ${priests(s) ? 'Your priest could give her a funeral: she would rest, and you would gain remembrance.' : 'A priest in a Chapel could give her a funeral, and you have none yet.'} Otherwise she wakes tonight as a shade in a mirror. Let her wake.`,
+  },
+  {
+    id: 't-tain', covers: ['tain'],
+    when: () => onDay(1, 'dusk') && s.dusk.step === 'place' && nightView(),
+    marks: () => [...MAP.rifts.map((r) => ({ f: DEEP_FLOOR, x: r.x })), ...MAP.mirrors.map((m) => ({ f: K().veil, x: m.x }))],
+    text: 'This is the Tain, the keep reflected under the Veil, where the night happens. The Unlit climb from the red rifts in the Deep to the two mirrors under the Veil. They can’t cross candlelight.',
+  },
+  {
+    id: 't-line', covers: ['line'], target: '#tool-candle',
+    when: () => onDay(1, 'dusk') && s.dusk.step === 'place' && tutHas('t-tain'),
+    marks: () => lineSpots().filter((p) => !litAt(p.f, p.x)),
+    done: () => lineSpots().every((p) => litAt(p.f, p.x)),
+    text: () => `${K().n === 1 ? 'Light the two marked spots between each rift and its mirror' : 'Light the feet of the two stairs up to the Veil (marked)'}: choose Candle, then tap each. That's the line: to reach the mirrors, the Unlit have to get past it.`,
+  },
+  {
+    id: 't-guard', target: '#tool-move',
+    when: () => onDay(1, 'dusk') && s.dusk.step === 'place' && tutHas('t-line'),
+    marks: () => lineSpots().filter((p) => !guarded(p)),
+    done: () => lineSpots().every(guarded),
+    text: 'Now a shade in each light. Choose Move, tap one of the dark figures with glowing eyes, then a spot inside one of the lights; then the other, into the other light. They are Garrick and Hesper, the last keeper’s dead. Creepers stopped at the light gnaw its edge, and a shade standing in it cuts them down.',
+  },
+  {
+    id: 't-post', target: '#tool-move',
+    when: () => onDay(1, 'dusk') && s.dusk.step === 'place' && tutHas('t-guard') && !!maud(),
+    done: () => {
+      const d = maud();
+      return !!d && !!TWINS[postRoom(s, d)]?.job && litAt(d.post.f, d.post.x);
+    },
+    text: () => `Now ${TUTORIAL.servant.name}. Each room's twin has a night job, which a shade works only in the light: ${built('chandlery') ? 'the Wick Room saves candles, ' : ''}${built('barracks') ? 'the Watch adds to tomorrow’s defense, ' : ''}the Cold Hearth rests a shade. Choose Move, tap her in the Waking Room, then a spot in a room, and set a candle there.`,
+  },
+  {
+    id: 't-mirror', target: '#open-phase',
+    when: () => onDay(1, 'dusk') && s.dusk.step === 'place' && (tutHas('t-post') || !maud()) && tutHas('t-guard'),
+    done: () => ui.sheet === 'phase',
+    text: 'Open the Dusk panel. Its black mirror reads tonight’s threats: how many come and when, from which rift, and where each tide will get past your candles. The red chevrons on the Tain are their ways.',
+  },
+  {
+    id: 't-begin', covers: ['begin'], target: '#bar-start',
+    when: () => onDay(1, 'dusk') && s.dusk.step === 'place' && tutHas('t-mirror'),
+    text: 'Candles you keep carry over to tomorrow. Begin the night when you are ready.',
+  },
+  {
+    id: 't-night', covers: ['night'], target: '#btn-hush', pause: true,
+    when: () => onDay(1, 'night') && s.t > 30,
+    text: 'One small tide tonight. Watch the edges of the light: a shade standing in it cuts down what comes. If a shade is caught in the dark, drop a candle on it. Hush makes the Unlit pass the shades by, but stops all work.',
+  },
+  // Dawn 1: the rite.
+  {
+    id: 't-rite', covers: ['rite'],
+    when: () => onDay(1, 'dawn'),
+    text: () => {
+      const P = ritePreview(s);
+      return `Dawn: the rite. Each shade you keep works again tonight but adds ${s.tuning.dreadPerKeep} Dread; the living bear 1 for every ${s.tuning.dreadLivingPer} of them, and priests 1 each. Cover a shade’s mirror and it rests, for 1 remembrance. As you have it, Dread goes ${P.dread.from} → ${P.dread.to}.`;
+    },
+  },
+  {
+    id: 't-traits', covers: ['traits'], target: '.rite-list',
+    when: () => onDay(1, 'dawn') && tutHas('t-rite') && traitsOn() && s.shades.some((d) => SHADE_TRAITS[d.trait]),
+    text: () => `Death turns a trait over: Garrick, Brave in life, is Reckless, and ${maud() ? TUTORIAL.servant.name : 'Hesper'}, Stubborn, is Anchored: she fades half as fast. Every shade fades a little each night, and naming one (${s.tuning.nameCost} remembrance) halves that. Read each line before you choose.`,
+  },
+  {
+    id: 't-day2', target: '#bar-day',
+    when: () => onDay(1, 'dawn') && (tutHas('t-traits') || !traitsOn()) && tutHas('t-rite'),
+    text: 'Begin day 2 when you are ready. Raiders are expected.',
+  },
+  // Day 2: a newcomer, a fire, the raid.
+  {
+    id: 't-newcomer', target: '#open-people',
+    when: () => onDay(2) && !!newcomer(),
+    done: () => !!newcomer()?.job,
+    text: () => `${newcomer().name} has come to the gate and asks to stay. Someone new arrives every second day while there's room. Give ${newcomer().name} a job in People.`,
+  },
+  {
+    id: 't-after',
+    when: () => onDay(2) && ['held', 'breached', 'paid'].includes(s.raid?.state),
+    text: () => (s.raid.state === 'paid'
+      ? "They took the tribute and turned back. The season's next raid will come harder for it."
+      : `${s.raid.state === 'held' ? 'The gate held.' : 'The gate gave way. After a breach, the Day panel lets your guards go after what was taken, at a risk.'} One raider fell inside, and lies in the crypt: a raider who dies inside the walls wakes as a Stranger, a fighter with no bonds.`),
+  },
+  // Dusk and dawn 2: full mirrors and the Restless.
+  {
+    id: 't-full', target: '#bar-wake',
+    when: () => onDay(2, 'dusk') && s.dusk.step === 'crypt' && !ui.cross && s.bodies.length > 0,
+    done: () => s.dusk?.step !== 'crypt',
+    text: () => {
+      const over = crossingPreview(s).some((x) => x.to === 'overflow');
+      return `${over ? 'Every mirror is full, and a shade needs a place in one. With no room, the raider wakes Restless at the edge of the Deep: it does no work, costs Dread, and turns Wraith after three nights unless you release it.' : 'There is room in the mirrors, so the raider wakes as a Stranger.'}${priests(s) ? ' Or give it a funeral: raiders are burned with the Host’s dead.' : ''} Let them wake.`;
+    },
+  },
+  ...[2, 3].map((d) => ({
+    id: `t-relight${d}`, target: '#tool-candle',
+    when: () => onDay(d, 'dusk') && s.dusk.step === 'place',
+    marks: () => lineSpots().filter((p) => !guarded(p)),
+    done: () => lineSpots().every(guarded),
+    text: 'Last night’s candles are gone: every dusk, the line is set again. Light the marked spots and put a shade in each light. The shades stay where you last posted them.',
+  })),
+  {
+    id: 't-hunters',
+    when: () => onDay(2, 'dusk') && s.dusk.step === 'place' && tutHas('t-relight2'),
+    text: () => `Tonight some of the Creepers hunt candles instead of the mirrors. A candle burns ${fmt(s.tuning.candleWax / 60)} minutes; relight what goes out. Essence, sung in the Choir under a Chapel, buys wards: one seals a rift or holds a stair for the night.`,
+  },
+  {
+    id: 't-release', target: '.rite-list',
+    when: () => onDay(2, 'dawn') && s.shades.some((d) => d.kind === 'restless'),
+    text: () => `Release the Restless shade: it goes to rest, for 1 remembrance. Or bind it into a free mirror for ${s.tuning.bindCost} essence, and it settles as what it would have been. Left alone it costs Dread every dawn.`,
+  },
+  // Day 3: glass and mirrors, the Chapel.
+  {
+    id: 't-glazier', target: '#btn-build',
+    when: () => onDay(3),
+    done: () => built('glazier') && jobCount(s, 'glazier') >= 1,
+    text: () => `Mirrors hold the dead, and glass makes mirrors: a hand mirror is ${MIRRORS.hand.glass} glass for one shade, a pier glass ${MIRRORS.pier.glass} for two, built from the Day panel. Build a Glazier and put someone in it, ${DAY_ROOMS.glazier.rate} glass a day each. Sabe is Diligent, ×1.15 at anything.`,
+  },
+  {
+    id: 't-chapel', target: '#btn-build',
+    when: () => onDay(3) && tutHas('t-church'),
+    done: () => built('chapel') && priests(s) >= 1,
+    text: 'Build a Chapel and put Tam in it: he’s Devout, ×1.5 there. A priest bears Dread, holds a funeral each dusk, and makes remembrance, which pays for vigils and for naming the dead.',
+  },
+  // The end.
+  {
+    id: 't-done',
+    when: () => onDay(3, 'dawn') || s.day >= TUTORIAL.safeUntil,
+    text: () => `That's the tutorial. From here it's an ordinary season: raids on days 4 and 6, the Church on day ${s.tuning.firstInspection}, and on the seventh night the new moon, when the Hollow rises. From night ${TUTORIAL.safeUntil} the Unlit also seep up through dark rooms, and the Veil can break. The guide shows a card the first time anything new happens, and Menu, How to play, has every lesson.`,
+  },
+];
+function tutStep() {
+  return TUT.find((g) => !tutHas(g.id) && g.when()) || null;
+}
+function tutMark(id) {
+  s.tut = { ...(s.tut || {}), done: { ...(s.tut?.done || {}), [id]: true } };
+  const g = TUT.find((x) => x.id === id);
+  if (g?.covers) prefs.guideSeen = { ...(prefs.guideSeen || {}), ...Object.fromEntries(g.covers.map((c) => [c, true])) };
+  if (id === 't-done') s.tut.over = true;
+  savePrefs();
+  saveGame();
+}
 let coachId = null;
 const coachEl = document.getElementById('coach');
 function guideStep() {
-  if (!prefs.guide || ui.sheet === 'intro') return null;
+  if (ui.sheet === 'intro') return null;
+  if (tutOn()) return tutStep();
+  if (!prefs.guide) return null;
   return GUIDE.find((g) => !seen(g.id) && g.when()) || null;
 }
+const isTut = (id) => id?.startsWith('t-');
 function markSeen(id) {
-  prefs.guideSeen = { ...(prefs.guideSeen || {}), [id]: true };
-  savePrefs();
+  if (isTut(id)) tutMark(id);
+  else {
+    prefs.guideSeen = { ...(prefs.guideSeen || {}), [id]: true };
+    savePrefs();
+  }
   bump();
 }
 function showCoach(step) {
   const id = step?.id || null;
   if (id === coachId) return;
   // A card the player has moved past (the moment it was about is over) counts as read.
-  const was = GUIDE.find((g) => g.id === coachId);
-  if (was && !seen(was.id) && !was.when()) prefs.guideSeen = { ...(prefs.guideSeen || {}), [was.id]: true };
+  const was = [...TUT, ...GUIDE].find((g) => g.id === coachId);
+  if (was && !was.when()) {
+    if (isTut(was.id)) {
+      if (isTutorial(s) && !tutHas(was.id)) tutMark(was.id);
+    } else if (!seen(was.id)) prefs.guideSeen = { ...(prefs.guideSeen || {}), [was.id]: true };
+  }
   coachId = id;
   bump();
   coachEl.hidden = !step;
-  coachEl.innerHTML = step
-    ? `<p>${esc(typeof step.text === 'function' ? step.text() : step.text)}</p><div class="row"><button class="btn sm primary" id="coach-ok" data-act="guide-ok" data-id="${step.id}">Got it</button><button class="btn sm" id="coach-off" data-act="guide-off">Skip the guide</button></div>`
-    : '';
+  const tut = isTut(id);
+  coachEl.classList.toggle('is-tutorial', tut);
+  if (!step) {
+    coachEl.innerHTML = '';
+    coachRoom();
+    return;
+  }
+  const buttons = tut
+    ? `<button class="btn sm${step.done ? '' : ' primary'}" id="coach-ok" data-act="guide-ok" data-id="${step.id}">${step.done ? 'Skip this' : 'Got it'}</button>${step.id === 't-done' ? '' : '<button class="btn sm" id="coach-off" data-act="tut-end">End the tutorial</button>'}`
+    : `<button class="btn sm primary" id="coach-ok" data-act="guide-ok" data-id="${step.id}">Got it</button><button class="btn sm" id="coach-off" data-act="guide-off">Skip the guide</button>`;
+  const label = step.id === 't-done' ? 'The tutorial is over' : `Tutorial, day ${s.phase === 'dawn' ? s.day + 1 : s.day}`; // as the HUD counts
+  coachEl.innerHTML = `${tut ? `<span class="eyebrow">${label}</span>` : ''}<p>${esc(typeof step.text === 'function' ? step.text() : step.text)}</p><div class="row">${buttons}</div>`;
+  coachRoom();
   if (step?.pause && running() && !ui.paused) {
     ui.paused = true;
     bump();
   }
 }
+// How much room the card needs above a phone's panel (season.css keeps the panel below it).
+function coachRoom() {
+  const h = coachEl.hidden ? '0px' : `${coachEl.offsetHeight + 10}px`;
+  if (gameEl.style.getPropertyValue('--coach-h') !== h) gameEl.style.setProperty('--coach-h', h);
+}
+window.addEventListener('resize', coachRoom);
 function tickGuide() {
   let step = guideStep();
   if (step?.done?.()) {
@@ -2152,6 +2448,7 @@ function confirmSlot(n) {
   if (!ask || ask.n !== n) return bump();
   if (ask.kind === 'over') return newKeep(n);
   if (ask.kind === 'daily') return startDaily(n);
+  if (ask.kind === 'tutorial') return startTutorial(n);
   if (ask.kind === 'import') {
     retuned = retune(ask.g, TUNING);
     return playKeep(n, ask.g, `Keep ${n}, from ${ask.name}.`);
@@ -2283,6 +2580,10 @@ function onAct(name, el) {
     case 'daily-ask':
       ui.confirmSlot = { n: saves.current, kind: 'daily' };
       return bump();
+    case 'tutorial': return startTutorial(Number(el.dataset.n));
+    case 'tutorial-ask':
+      ui.confirmSlot = { n: saves.current, kind: 'tutorial' };
+      return bump();
     case 'slot-over':
     case 'slot-delete':
       ui.confirmSlot = { n: Number(el.dataset.n), kind: name === 'slot-over' ? 'over' : 'delete' };
@@ -2392,6 +2693,15 @@ function onAct(name, el) {
       prefs.guide = true;
       prefs.guideSeen = {};
       return closeSheet();
+    case 'intro-tutorial':
+      prefs.guideSeen = {};
+      return startTutorial(saves.current);
+    case 'tut-end':
+      s.tut = { ...(s.tut || {}), off: true };
+      saveGame();
+      showCoach(null);
+      toast('The tutorial is over, and the keep plays on. Every lesson is in the Menu, under How to play.', 'rite');
+      return bump();
     case 'guide-ok':
       markSeen(el.dataset.id);
       return undefined;

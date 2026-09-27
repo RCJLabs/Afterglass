@@ -20,6 +20,8 @@ export function summary(s, now) {
     shades: s.shades.filter(canWork).length,
     lost: s.phase === 'over',
     daily: s.daily || null,
+    tutorial: !!s.tuning?.tutorial,
+    tutorialOver: !!(s.tut?.over || s.tut?.off),
     saved: now,
   };
 }

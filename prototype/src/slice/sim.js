@@ -9,6 +9,7 @@
 import {
   TICKS_PER_SEC, TUNING, DAY_ROOMS, WORK_ROOMS, TWINS, MAP, KINDS, WORKING, CAUSES, GUIDE_UP,
   MIRRORS, START_MIRRORS, MIRROR_PLACES, CAST, BONDS, START_SHADES, BOND_OTHER, NAMES, RAIDER_NAMES, BUILDABLE, TRAITS, TRAIT_KEYS, SHADE_TRAITS, SEASONS,
+  TUTORIAL,
 } from './data.js';
 import {
   geo, FULL_KEEP, startKeep, lineSpots, MAX_FLOORS, roomsOf, roomAt, roomSpan, typeOf, typeAt, lightMap, isLit, spanAt, darkBetween, darkRooms, darkGaps, route, firstLight, fleePath, touching,
@@ -37,6 +38,11 @@ export const dayTicks = (s) => Math.round(s.tuning.daySecs * dayLength(s) * TICK
 export const nightTicks = (s) => Math.round(s.tuning.nightSecs * nightLength(s) * TICKS_PER_SEC);
 export const perf = (d) => 0.4 + (0.6 * Math.max(0, d.memory)) / 100;
 export const hard = (s, k = 'hardness') => Math.pow(s.tuning[k], s.season - 1);
+// The tutorial keep's script for today and tonight, while it lasts (its first three days), and whether the
+// Veil is still kept from breaking.
+export const tutorialDay = (s) => (s.tuning.tutorial && s.season === 1 ? TUTORIAL.days[s.day] || null : null);
+export const tutorialNight = (s) => (s.tuning.tutorial && s.season === 1 ? TUTORIAL.nights[s.day] || null : null);
+export const veilKept = (s) => !!s.tuning.tutorial && s.season === 1 && s.day < TUTORIAL.safeUntil;
 // Traits (data.js): what a living one's trait does by day, and a shade's by night, while traits are on.
 export const livingTrait = (s, p) => (s.tuning.traits && p.trait ? TRAITS[p.trait] : null);
 export const shadeTrait = (s, d) => (s.tuning.traits && d.trait ? SHADE_TRAITS[d.trait] : null);
@@ -109,6 +115,10 @@ export function newSeason(seed = Date.now() >>> 0, overrides = {}) {
     cast[c.name] = p;
   }
   for (const [a, b, rel] of BONDS) bond(cast[a], cast[b], rel);
+  if (tuning.tutorial) {
+    const m = TUTORIAL.servant;
+    s.living.push(newPerson(s, m.name, m.age, 'yard', m.trait));
+  }
   for (const [type, place] of START_MIRRORS) addMirror(s, type, place);
   const line = lineSpots(geo(s));
   for (const [i, x] of START_SHADES.entries()) {
@@ -378,11 +388,28 @@ function rollDay(s) {
   const D = dayTicks(s);
   s.events = [];
   s.raid = null;
-  const base = T.raidDays[s.day];
-  if (base) s.raid = newRaid(s, raidStrength(s, base), Math.round(T.raidWarnAt * D), Math.round(T.raidHitAt * D));
+  const tut = tutorialDay(s);
+  const base = tut ? tut.raid : T.raidDays[s.day];
+  if (base) s.raid = newRaid(s, raidStrength(s, base), Math.round(T.raidWarnAt * D), Math.round(T.raidHitAt * D), !!tut);
   // A broken mirror's bad luck: sickness more likely, from the same one throw of the dice.
   const luck = s.badLuck > 0 ? T.badLuck : 1;
   if (s.badLuck > 0) s.badLuck--;
+  // The tutorial's days: its events, and nothing else.
+  if (tut) {
+    for (const e of tut.events) {
+      const at = Math.round(e.at * D);
+      if (e.type === 'oldage') {
+        const p = s.living.find((x) => x.name === e.who);
+        if (p) s.events.push({ at, type: 'oldage', id: p.id });
+      } else if (e.type === 'fire') {
+        const r = roomsOf(geo(s), e.room)[0];
+        if (r) s.events.push({ at, type: 'fire', room: r.id, safe: true });
+      } else s.events.push({ at, type: e.type });
+    }
+    if (s.inspection && !s.inspection.done && s.inspection.day === s.day) s.events.push({ at: Math.round(T.inspectAt * D), type: 'inspect' });
+    s.events.sort((a, b) => a.at - b.at);
+    return;
+  }
   if (chance(s, Math.min(1, T.sickChance * luck * (crowded(s) ? T.crowdSick : 1)))) s.events.push({ at: Math.round((0.1 + rand(s) * 0.5) * D), type: 'sick' });
   for (const p of s.living) {
     if (p.age === 'old' && chance(s, T.oldAgeChance)) s.events.push({ at: Math.round((0.15 + rand(s) * 0.8) * D), type: 'oldage', id: p.id });
@@ -399,10 +426,13 @@ function rollDay(s) {
 // for a Host you can fight back if raidFightStrength says so.
 export const raidStrength = (s, base) => base * hard(s) * (s.embolden || 1) * (s.tuning.raidFight ? s.tuning.raidFightStrength : 1);
 
-function newRaid(s, base, warnAt, hitAt) {
+// A scripted raid (the tutorial's) comes at its exact strength, kills no one on the walls, and always leaves
+// one raider dead inside.
+function newRaid(s, base, warnAt, hitAt, scripted = false) {
   const T = s.tuning;
-  const strength = r1(Math.max(2, base + (rand(s) * 2 - 1) * T.raidSpread));
+  const strength = scripted ? r1(base) : r1(Math.max(2, base + (rand(s) * 2 - 1) * T.raidSpread));
   const raid = { strength, count: Math.max(2, Math.round(strength / 2)), ward: 0, state: 'coming', warned: false, warnAt, hitAt };
+  if (scripted) raid.safe = true;
   s.events.push({ at: warnAt, type: 'raidWarn' }, { at: hitAt, type: 'raidHit' });
   s.events.sort((a, b) => a.at - b.at);
   return raid;
@@ -430,9 +460,13 @@ function fire(s, e) {
     if (s.tuning.raidFight) startAssault(s);
     else resolveRaid(s);
   } else if (e.type === 'fire') {
-    ignite(s, e.room);
+    ignite(s, e.room, !!e.safe);
   } else if (e.type === 'inspect') {
     inspect(s);
+  } else if (e.type === 'notice') {
+    const T = s.tuning;
+    say(s, `Word comes from the Lantern Church: its inspector will visit on day ${T.firstInspection}, at noon, to judge how the keep keeps its dead. The less Dread, the better it goes.`, 'rite', true);
+    cue(s, 'warn');
   }
 }
 
@@ -448,13 +482,13 @@ function resolveRaid(s) {
     // The Brave fall twice as often; a Coward never does, though the dice are still thrown, so the random
     // stream doesn't shift with traits.
     const fall = livingTrait(s, g)?.fall ?? 1;
-    if (chance(s, clamp((held ? T.raidRiskHeld : T.raidRiskBreach) * ratio * fall, 0.02, T.raidRiskMax)) && fall > 0) fallen.push({ p: g, how: 'died holding the gate' });
+    if (chance(s, clamp((held ? T.raidRiskHeld : T.raidRiskBreach) * ratio * fall, 0.02, T.raidRiskMax)) && fall > 0 && !r.safe) fallen.push({ p: g, how: 'died holding the gate' });
   }
-  const raiders = held ? (chance(s, T.raidInsideHeld) ? 1 : 0) : 1 + randInt(s, Math.ceil(r.count / 2));
+  const raiders = r.safe ? 1 : held ? (chance(s, T.raidInsideHeld) ? 1 : 0) : 1 + randInt(s, Math.ceil(r.count / 2));
   let loot = '';
   if (!held) {
     const civ = s.living.filter((p) => p.job !== 'barracks');
-    if (civ.length) fallen.push({ p: pick(s, civ), how: 'was cut down in the yard' });
+    if (civ.length && !r.safe) fallen.push({ p: pick(s, civ), how: 'was cut down in the yard' });
     const food = Math.floor(s.res.food * T.raidLoot * 0.5); // the Granary keeps half the food out of their hands
     const kept = roomsOf(geo(s), 'cellar').length ? 0.5 : 1; // a Cellar keeps half the candles and glass out of their hands
     const glass = Math.floor(s.res.glass * T.raidLoot * kept);
@@ -514,13 +548,13 @@ function endAssault(s, held) {
   const share = Math.min(1, T.raidShare / Math.max(1, walls.length));
   for (const g of walls) {
     const fall = (livingTrait(s, g)?.fall ?? 1) * (g.walls ? T.raidBellRisk : 1) * share;
-    if (chance(s, clamp((held ? T.raidRiskHeld : T.raidRiskBreach) * ratio * fall, 0.02, T.raidRiskMax)) && fall > 0) fallen.push({ p: g, how: g.job === 'barracks' ? 'died holding the gate' : 'died on the walls' });
+    if (chance(s, clamp((held ? T.raidRiskHeld : T.raidRiskBreach) * ratio * fall, 0.02, T.raidRiskMax)) && fall > 0 && !r.safe) fallen.push({ p: g, how: g.job === 'barracks' ? 'died holding the gate' : 'died on the walls' });
   }
-  const raiders = held ? (chance(s, T.raidInsideHeld) ? 1 : 0) : 1 + randInt(s, Math.ceil(r.count / 2));
+  const raiders = r.safe ? 1 : held ? (chance(s, T.raidInsideHeld) ? 1 : 0) : 1 + randInt(s, Math.ceil(r.count / 2));
   let loot = '';
   if (!held) {
     const civ = s.living.filter((p) => p.job !== 'barracks' && !p.walls);
-    if (civ.length) fallen.push({ p: pick(s, civ), how: 'was cut down in the yard' });
+    if (civ.length && !r.safe) fallen.push({ p: pick(s, civ), how: 'was cut down in the yard' });
     const barred = r.barred ? 0.5 : 1;
     const food = Math.floor(s.res.food * T.raidLoot * 0.5 * barred);
     const kept = (roomsOf(geo(s), 'cellar').length ? 0.5 : 1) * barred;
@@ -695,9 +729,9 @@ export function peopleIn(s, id) {
   const mine = i === rooms.length - 1 ? workers.slice(i * cap) : workers.slice(i * cap, (i + 1) * cap);
   return [...mine, ...s.living.filter((p) => p.fighting === id)];
 }
-function ignite(s, id) {
+function ignite(s, id, safe = false) {
   if (!id || s.fires.some((f) => f.room === id) || !typeOf(geo(s), id)) return;
-  s.fires.push({ room: id, heat: s.tuning.fireStart, full: 0 });
+  s.fires.push({ room: id, heat: s.tuning.fireStart, full: 0, ...(safe ? { safe } : {}) });
   const R = geo(s).rooms[id];
   say(s, `Fire in the ${DAY_ROOMS[R.type].name}! Everyone in it fights it; send the Yard to help, or it will spread and kill.`, 'bad', true);
   cue(s, 'fire', R.f, (R.x0 + R.x1) / 2);
@@ -723,7 +757,7 @@ function burn(s) {
     }
     // Fighting it is dangerous, the more so the hotter it burns.
     for (const p of inside) {
-      if (s.phase === 'day' && s.living.includes(p) && chance(s, T.fireDeath * f.heat * f.heat * DT)) kill(s, p, 'duty', `died fighting the fire in the ${name}`);
+      if (s.phase === 'day' && s.living.includes(p) && chance(s, T.fireDeath * f.heat * f.heat * DT) && !f.safe) kill(s, p, 'duty', `died fighting the fire in the ${name}`);
     }
     if (f.heat < 1) continue;
     f.full += DT;
@@ -875,18 +909,19 @@ function newNight(s) {
   const T = s.tuning;
   const N = nightTicks(s);
   const long = isLongNight(s);
-  const count = Math.round((T.creepersBase + T.creepersPerNight * Math.min(s.day, T.seasonDays - 1)) * (long ? T.longNightCreepers : isNewMoon(s) ? T.newMoonCreepers : 1) * hard(s));
+  const tut = tutorialNight(s); // the tutorial's first nights: its numbers
+  const count = tut ? tut.creepers : Math.round((T.creepersBase + T.creepersPerNight * Math.min(s.day, T.seasonDays - 1)) * (long ? T.longNightCreepers : isNewMoon(s) ? T.newMoonCreepers : 1) * hard(s));
   // The Unlit come in tides: a few stragglers, and the rest in waves that can swamp one candle. The Long
   // Night has one tide more.
-  const waves = 1 + Math.floor(s.day / T.tideEvery) + (long ? 1 : 0);
+  const waves = tut ? tut.tides : 1 + Math.floor(s.day / T.tideEvery) + (long ? 1 : 0);
   const tides = Array.from({ length: waves }, (_, w) => 0.12 + (0.7 * (w + 0.2 + 0.6 * rand(s))) / waves);
   const spawns = [];
   for (let i = 0; i < count; i++) {
-    const straggler = chance(s, T.stragglers);
+    const straggler = chance(s, tut?.stragglers ?? T.stragglers);
     const at = straggler ? 0.05 + 0.85 * rand(s) : tides[i % waves] + (rand(s) - 0.5) * T.tideSpread;
     spawns.push({
-      at: Math.round(clamp(at, 0.02, 0.92) * N), type: 'creeper', seep: s.day >= T.seepFrom && chance(s, T.seepShare),
-      snuff: chance(s, T.snuffShare), rift: pick(s, MAP.rifts).id,
+      at: Math.round(clamp(at, 0.02, 0.92) * N), type: 'creeper', seep: s.day >= T.seepFrom && chance(s, tut?.seep ?? T.seepShare),
+      snuff: chance(s, tut?.snuff ?? T.snuffShare), rift: tut ? MAP.rifts[i % MAP.rifts.length].id : pick(s, MAP.rifts).id,
     });
   }
   // Maws rise just ahead of the last tide, to open a way for the Creepers behind them, from night mawFrom.
@@ -894,12 +929,12 @@ function newNight(s) {
   if (s.day >= T.mawFrom && (!isNewMoon(s) || long)) {
     const maws = Math.round(T.mawsPerNight);
     const order = [...tides].sort((a, b) => b - a);
-    for (let i = 0; i < maws; i++) spawns.push({ at: Math.round(clamp(order[i % order.length] - 0.03, 0.02, 0.9) * N), type: 'maw', seep: false, snuff: false, rift: pick(s, MAP.rifts).id });
+    for (let i = 0; i < maws; i++) spawns.push({ at: Math.round(clamp(order[i % order.length] - 0.03, 0.02, 0.9) * N), type: 'maw', seep: false, snuff: false, rift: pick(s, MAP.rifts).id, ...(tut?.maw ? { weak: tut.maw } : {}) });
   }
   if (isNewMoon(s)) spawns.push({ at: Math.round(T.hollowAt * N), type: 'hollow', seep: false, snuff: false, rift: pick(s, MAP.rifts).id });
   // The night after a death, the Weepers: one for each of the day's dead.
   if (T.dreamwell) {
-    for (let i = 0; i < Math.min(T.weepersMax, s.today.deaths.length); i++) spawns.push({ at: Math.round((0.1 + 0.6 * rand(s)) * N), type: 'weeper', seep: true, snuff: false, rift: pick(s, MAP.rifts).id });
+    for (let i = 0; i < Math.min(tut?.weepers ?? T.weepersMax, s.today.deaths.length); i++) spawns.push({ at: Math.round((0.1 + 0.6 * rand(s)) * N), type: 'weeper', seep: true, snuff: false, rift: pick(s, MAP.rifts).id });
   }
   spawns.sort((a, b) => a.at - b.at);
   return {
@@ -1028,7 +1063,8 @@ function spawnFoes(s, L) {
     }
     // Wards can't hold the new moon or a Maw: they break up through their rift whatever seals it.
     if (!at) at = { f: DEEP_FLOOR, x: (rift || byId(MAP.rifts, sp.rift)).x };
-    addFoe(s, sp.type, at.f, at.x, { temper: sp.snuff ? 'snuff' : 'climb' });
+    const foe = addFoe(s, sp.type, at.f, at.x, { temper: sp.snuff ? 'snuff' : 'climb' });
+    if (sp.weak) foe.hp = foe.max = foe.hp * sp.weak; // the tutorial's Maw
     n.stats.spawned++;
     if (sp.type === 'maw') {
       n.stats.maws++;
@@ -1479,11 +1515,19 @@ function cross(s, c, m, cracks) {
     say(s, `The Hollow reached the mirror in the ${where} and tore through the Veil: ${cracks} cracks.`, 'bad', true);
     cue(s, 'torn', c.f, m.x);
     if (s.cracks < s.tuning.cracksMax && s.living.length) takeLiving(s, pick(s, s.living));
+  } else if (veilKept(s) && s.cracks >= s.tuning.cracksMax) {
+    // The tutorial's first nights: the Veil holds by a thread.
+    s.cracks = s.tuning.cracksMax - 1;
+    say(s, `A Creeper slipped through the Veil at the mirror in the ${where}. The Veil holds by a thread; from night ${TUTORIAL.safeUntil}, that would break it and lose the keep.`, 'bad', true);
+    cue(s, 'crack', c.f, m.x);
   } else {
     say(s, `A Creeper slipped through the Veil at the mirror in the ${where}. The Veil cracks: ${s.cracks} of ${s.tuning.cracksMax}.`, 'bad', true);
     cue(s, 'crack', c.f, m.x);
   }
-  if (s.phase === 'night' && s.cracks >= s.tuning.cracksMax) lose(s, 'veil', 'The Veil has broken. The Unlit are loose in the keep above.');
+  if (s.phase === 'night' && s.cracks >= s.tuning.cracksMax) {
+    if (veilKept(s)) s.cracks = s.tuning.cracksMax - 1;
+    else lose(s, 'veil', 'The Veil has broken. The Unlit are loose in the keep above.');
+  }
 }
 
 // The Hollow, loose above the Veil, takes one of the living. No body is left to wake.
@@ -1707,7 +1751,9 @@ export function ritePreview(s) {
   const brokenD = (R.broken || 0) * T.dreadPerBroken; // the living saw what the Maws broke walk their rooms
   const bears = bear(s);
   const delta = keepD + restD + wraithD + crackD + brokenD - bears - R.vigils;
-  P.dread = { from: s.dread, keep: keepD, restless: restD, wraith: wraithD, cracks: crackD, broken: brokenD, bear: bears, vigils: R.vigils, delta, to: clamp(s.dread + delta, 0, T.dreadMax) };
+  // In the tutorial's first days Dread stops one short of bringing the Church.
+  const top = veilKept(s) ? T.dreadMax - 1 : T.dreadMax;
+  P.dread = { from: s.dread, keep: keepD, restless: restD, wraith: wraithD, cracks: crackD, broken: brokenD, bear: bears, vigils: R.vigils, delta, to: clamp(s.dread + delta, 0, Math.max(top, s.dread)) };
   P.inspector = P.dread.to >= T.dreadMax;
   P.remCost = R.vigils * T.vigilCost;
   if (P.remCost > s.res.remembrance + P.rem + EPS) P.errors.push('Not enough remembrance for that many vigils.');
@@ -2252,10 +2298,12 @@ export function retune(s, defaults) {
   const mine = playerTuning(s);
   let n = 0;
   for (const [k, v] of Object.entries(defaults)) {
+    if (KINDS_OF_KEEP.includes(k)) continue; // what kind of keep it is, not a number to follow
     if (typeof v === 'number' && s.tuning[k] !== v && !(k in mine) && act(s, { type: 'tune', key: k, value: v, build: true }).ok) n++;
   }
   return n;
 }
+const KINDS_OF_KEEP = ['tutorial'];
 
 // A save from an older build, brought up to this one: what it predates gets what it would have had. Saves
 // from before seasons started from two rooms had the whole original keep.

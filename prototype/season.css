@@ -168,7 +168,8 @@ body.game-page {
     left: 0;
     right: 0;
     bottom: var(--bar-h);
-    max-height: min(66vh, calc(100% - var(--hud-h) - var(--bar-h) - 48px));
+    /* Room above it for a guide or tutorial card, so the card never covers the panel's Close. */
+    max-height: min(66vh, calc(100% - var(--hud-h) - var(--bar-h) - var(--coach-h, 0px) - 48px));
     border-radius: 12px 12px 0 0;
     border-top: 1px solid var(--line-2);
   }
@@ -267,6 +268,13 @@ table.days { min-width: 680px; }
   box-shadow: 0 8px 30px rgb(0 0 0 / 0.45);
 }
 .gcoach .row { gap: 6px; }
+/* The tutorial's lessons: the same card, labelled, in the dusk colour. */
+.gcoach.is-tutorial { border-color: var(--dusk, #c98bff); }
+.gcoach .eyebrow { color: var(--day); }
+.gcoach.is-tutorial .eyebrow { color: var(--dusk, #c98bff); }
+/* How to play: the manual in the Menu. */
+.howto { display: grid; gap: 10px; }
+.howto .card p { margin: 0; font-size: 14px; line-height: 1.55; color: var(--ink-2); max-width: 68ch; }
 .is-coached { outline: 3px solid var(--day); outline-offset: 2px; animation: coach 1.2s ease-in-out infinite; }
 @keyframes coach { 50% { outline-color: transparent; } }
 :root[data-motion="reduce"] .is-coached { animation: none; }

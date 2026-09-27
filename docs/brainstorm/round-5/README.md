@@ -8,7 +8,7 @@ Round four's queue is built except the replay viewer, which is parked ([`round-4
 
 | # | Idea | Kind | Size | Status |
 |---|---|---|---|---|
-| 1 | A tutorial keep: the first three days, scripted | Enhancement (the guide) | L | Queued, 2nd |
+| 1 | A tutorial keep: the first three days, scripted | Enhancement (the guide) | L | Built: offered first in the intro, and in Saves and How to play, a new Menu tab. Untested with new players ([problem 21](../../../prototype/README.md)) |
 | 2 | Raids you fight | Enhancement (raids) | M–L | Built: pay them off or bar the stores; at the gate, pitch, stone and the bell; after a breach, go after them. The Host is as strong as before ([problem 20](../../../prototype/README.md)) |
 | 3 | Build where you choose, and tear down | Enhancement (building) | M | Queued, 4th |
 | 4 | A night review at dawn | Enhancement (the night report) | M | Queued, 3rd |
