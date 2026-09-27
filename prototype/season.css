@@ -445,6 +445,7 @@ label.btn { display: inline-flex; align-items: center; }
 .wm-death, .wm-fell { background: #ff5a5f; width: 4px; }
 .wm-crack { background: #ff8a8a; }
 .wm-caught { background: #f0a040; }
+.wm-visit { background: #e8c060; }
 .wm-bad { background: rgb(240 160 64 / 0.35); width: 2px; }
 .wm-good { background: rgb(140 220 140 / 0.3); width: 2px; }
 .wm-pause { background: #6fb6ff; }
@@ -462,6 +463,7 @@ label.btn { display: inline-flex; align-items: center; }
 .wk-death, .wk-fell { background: #ff5a5f; }
 .wk-crack { background: #ff8a8a; }
 .wk-caught { background: #f0a040; }
+.wk-visit { background: #e8c060; }
 .wk-pause { background: #6fb6ff; }
 .wk-idle, .wk-away { background: #b98cff; }
 .wk-refused { background: #ffd0d8; }
@@ -472,3 +474,16 @@ label.btn { display: inline-flex; align-items: center; }
   .wctl { width: 100%; }
   .wbar .gmenu { width: 100%; }
 }
+
+/* Visitors at the gate (round six): the answers, each with what it costs, and the time left to answer. */
+.card.visit { border-color: var(--day); }
+.card.visit .answers { list-style: none; margin: 8px 0; padding: 0; display: grid; gap: 6px; }
+.card.visit .answers li { display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; align-items: center; }
+.card.visit .answers small { color: var(--ink-2); line-height: 1.3; }
+.card.visit .answers small .why { display: block; color: var(--bad); }
+.card.visit .note { margin-bottom: 4px; }
+.card.visit .waitbar { display: block; width: 100%; height: 4px; border-radius: 2px; background: var(--line); overflow: hidden; }
+.card.visit .waitbar i { display: block; height: 100%; background: var(--day); }
+.toast.visit { --tone: var(--day); }
+.log .visit { color: var(--day-ink); }
+@media (max-width: 420px) { .card.visit .answers li { grid-template-columns: 1fr; } }

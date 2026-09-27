@@ -11,7 +11,7 @@
 // shade only along a lit floor; where its way is dark it stays.
 
 import { bareHalls, buildSpot, raiseCost, step, act, newSeason, ritePreview, crossingPreview, capacity, canWork, defense, funeralCap, choicesFor, jobCap, jobCount, eatRate, wardCost, livingTrait, shadeTrait, peopleIn, crowded, tradeOf, inGreatGlass, handsAt, seasonIndex, tributeOf, besieged, sallyOdds, embargoed, inquisition, crusadeDaysLeft, canAct, actOf, actCost } from './sim.js';
-import { DAY_ROOMS, MIRRORS, KINDS, MAP, TICKS_PER_SEC } from './data.js';
+import { DAY_ROOMS, MIRRORS, KINDS, MAP, TICKS_PER_SEC, VISITORS } from './data.js';
 import { geo, roomSpan, roomAt, roomsOf, lineSpots, lightMap, isLit } from './geo.js';
 
 export const PLANS = ['balanced', 'keeper', 'mourner', 'double', 'idle'];
@@ -292,6 +292,53 @@ function dayMoves(s) {
     // What the censure would carry off: the fullest mirror.
     const taken = Math.max(0, ...all.map((e) => e.n));
     if (m && (BREAK !== 'smart' || taken - m.n >= 2)) doAct(s, { type: 'break', id: m.x.id });
+  }
+}
+
+/* ---------------------------------------------------------------- visitors */
+
+// Visitors at the gate (round six), answered by rule the moment they arrive: what a careful keeper would say,
+// from what the keep has and what the day holds. Two days' food stays in the larder whatever is bought.
+// AP_VISIT=default leaves every one waiting, to take the last answer; AP_VISIT=first gives each the first;
+// AP_VISIT=kind:answer gives that kind that answer and the rest their rule: to measure what an answer costs.
+const VISIT = globalThis.process?.env?.AP_VISIT || null;
+function visitorAnswer(s, v, plan) {
+  const T = s.tuning;
+  const food = s.res.food;
+  const larder = 2 * eatRate(s);
+  const spare = (n) => food - n >= larder;
+  const r = s.raid;
+  const fighters = s.shades.filter((d) => canWork(d) && fighter(d)).length;
+  switch (v.kind) {
+    case 'peddler': return spare(6) && s.res.glass < MIRRORS.pier.glass ? 'buy' : 'no';
+    case 'chandler': return spare(6) && s.res.candles < candleTarget(s) ? 'buy' : 'no';
+    case 'grain': return food < 1.5 * larder && s.res.glass >= 4 ? 'buy' : 'no';
+    case 'mason': return spare(4) && nextBuild(s) && s.res.stone < T.roomStone ? 'hire' : 'no';
+    case 'mirrors': return spare(8) && capacity(s).free <= 1 ? 'buy' : 'no';
+    case 'pilgrims': return spare(0) || (r?.state === 'coming' && defense(s) < r.strength) ? 'take' : 'no';
+    case 'refugees': return spare(3) ? 'take' : 'no';
+    case 'graverobber': return plan === 'mourner' ? 'go' : 'hang'; // the mourner has funerals enough to give
+    case 'knight': return fighters > 2 ? 'free' : 'keep';
+    case 'plague': return spare(2) && jobCap(s, 'infirmary') > 0 ? 'take' : 'no';
+    case 'wedding': return spare(4) ? 'feast' : 'no';
+    case 'bard': return spare(2) ? 'sing' : 'no';
+    case 'deserter': return spare(1) ? 'take' : 'no';
+    case 'almoner': return s.dread >= 2 && spare(5) ? 'give' : 'no';
+    case 'witch': return s.dread >= 3 ? 'church' : s.res.candles < candleTarget(s) && s.res.glass >= 3 + MIRRORS.hand.glass ? 'charm' : 'no';
+    case 'physician': return s.res.glass >= 4 && (s.living.filter((p) => p.sick > 0).length >= 2 || !jobCount(s, 'infirmary')) ? 'pay' : 'no';
+    case 'priest': return spare(2) ? 'feed' : 'no';
+    case 'reeve': return spare(6) ? 'pay' : 'no';
+    case 'necromancer': return plan !== 'mourner' && s.dread <= 2 ? 'bind' : 'no';
+    case 'cooper': return s.res.glass >= 3 + MIRRORS.hand.glass ? 'buy' : 'no';
+    default: return VISITORS[v.kind].answers.at(-1).id;
+  }
+}
+function visitorMoves(s, plan) {
+  if (VISIT === 'default') return;
+  const [kind, forced] = VISIT?.includes(':') ? VISIT.split(':') : [];
+  for (const v of s.visitors.filter((x) => x.here && !x.done)) {
+    const answer = v.kind === kind ? forced : VISIT === 'first' ? VISITORS[v.kind].answers[0].id : visitorAnswer(s, v, plan);
+    doAct(s, { type: 'visitor', id: v.id, answer });
   }
 }
 
@@ -707,6 +754,7 @@ export function autoStep(s, plan = 'balanced') {
   if (s.phase === 'day') {
     if (s.t % 50 === 0 || (s.raid?.warned && s.raid.state === 'coming' && !s.raid.ward)) dayMoves(s);
     if (s.raid && s.t % 5 === 0) raidMoves(s);
+    if (s.visitors?.some((v) => v.here && !v.done)) visitorMoves(s, way);
     step(s);
   } else if (s.phase === 'dusk') {
     if (s.dusk.step === 'crypt') {

@@ -2,14 +2,14 @@
 // bar at the bottom, and everything else opens in a panel over the castle. Like the greyboxes it changes
 // the game only through act(), so every session replays from its seed and action log.
 
-import { TICKS_PER_SEC, DAY_ROOMS, WORK_ROOMS, TWINS, KINDS, MIRRORS, CAUSES, MAP, BOND_OTHER, TUNING, BUILDABLE, TRAITS, SHADE_TRAITS, SEASONS, TUTORIAL, REQUESTS, PRESETS, ACTS, OMENS } from './slice/data.js';
+import { TICKS_PER_SEC, DAY_ROOMS, WORK_ROOMS, TWINS, KINDS, MIRRORS, CAUSES, MAP, BOND_OTHER, TUNING, BUILDABLE, TRAITS, SHADE_TRAITS, SEASONS, TUTORIAL, REQUESTS, PRESETS, ACTS, OMENS, VISITORS } from './slice/data.js';
 import {
   newSeason, step, act, retune, playerTuning, jobCap, jobCount, nextSlot, ritePreview, crossingPreview, capacity, canWork, defense, roomPower, bear, priests, funeralCap, eatRate,
   dayTicks, nightTicks, isNewMoon, choicesFor, byId, isTwinnedLiving, isTwinnedShade, lastSeason, SAVE_VERSION, fmt, mirrorCap, bareHalls, tainPlace,
   postRoom, wardCost, shadeTrait, peopleIn, beds, tradeOf, inGreatGlass, handsAt, whispers, stepsThrough, perf,
   seasonIndex, seasonName, yearOf, dayLength, isLongNight, tributeOf, besieged, sallyOdds, plagueSeason, atGate, gateGuard,
   weatherOf, forecastOf, raining, foggy, drownedDue, keepDefaults, embargoed, inquisition, churchDaysLeft, crusadeDay, crusadeDaysLeft,
-  actOf, actCost, canAct, acting, actText, omenText, nextMark, SKIP_LEAD,
+  actOf, actCost, canAct, acting, actText, omenText, nextMark, SKIP_LEAD, visitorBlock,
 } from './slice/sim.js';
 import { geo, feet, floorAtY, roomAt, typeAt, typeOf, roomSpan, roomsOf, lightMap, isLit, unitAt, DEEP_FLOOR, lineSpots as lineOf, guardLit, MAX_FLOORS } from './slice/geo.js';
 import { drawScene, drawMoment } from './slice/draw.js';
@@ -307,7 +307,7 @@ function skyHUD() {
 // What needs the player now, for a dot on the panel button.
 function attention() {
   const r = s.raid;
-  if (s.phase === 'day') return !!((r && r.warned && r.state === 'coming' && defense(s) < r.strength) || (s.inspection && !s.inspection.done && s.inspection.day === s.day) || s.hungry);
+  if (s.phase === 'day') return !!((r && r.warned && r.state === 'coming' && defense(s) < r.strength) || (s.inspection && !s.inspection.done && s.inspection.day === s.day) || s.hungry || s.visitors?.some((v) => v.here && !v.done));
   if (s.phase === 'dusk') return s.dusk.step === 'crypt';
   return s.phase === 'dawn' || s.phase === 'end' || s.phase === 'over';
 }
@@ -501,6 +501,77 @@ function inspectionCard() {
   return '';
 }
 
+// Visitors at the gate (round six): whoever is waiting, what each answer costs and gives, and the hour they
+// stop waiting and the last answer is taken for you. Then what came of the day's other visitors, and what
+// their answers left behind: riders promised, a raid made harder or easier, barrels, a charm, a curse.
+const amounts = (o) => listOf(Object.entries(o).map(([k, n]) => `${fmt(n)} ${k}`));
+function answerTerms(A) {
+  return [A.cost && `costs ${amounts(A.cost)}`, A.gain && `gives ${amounts(A.gain)}`, A.dread && `Dread ${A.dread > 0 ? '+' : '−'}${Math.abs(A.dread)}`, A.does].filter(Boolean).join('; ');
+}
+// Who a visitor has come about, by name.
+function visitorAbout(v) {
+  const glassOf = (d) => s.mirrors.find((m) => m.id === d.mirror)?.name;
+  if (v.kind === 'wedding') return `${listOf(v.who.map((id) => byId(s.living, id)?.name || 'someone'))} ask to be wed.`;
+  if (v.kind === 'knight') {
+    const d = byId(s.shades, v.shade);
+    return d ? `His brother is ${d.name}, in the ${glassOf(d) || 'glass'}.` : 'His brother is gone from the glass.';
+  }
+  if (v.kind === 'graverobber') {
+    const b = byId(s.bodies, v.body);
+    return b ? `The body in his sack is ${b.name}'s.` : '';
+  }
+  if (v.kind === 'necromancer') {
+    const d = byId(s.shades, v.shade);
+    return d ? `${d.name} waits Restless at the edge of the Deep.` : '';
+  }
+  if (v.kind === 'physician') {
+    const sick = s.living.filter((p) => p.sick > 0);
+    return sick.length ? `Sick now: ${listOf(sick.map((p) => p.name))}.` : 'Nobody is sick now.';
+  }
+  if (v.kind === 'priest') return `The crypt holds ${plural(s.bodies.length, 'body', 'bodies')}, and the Chapel can give ${plural(funeralCap(s), 'funeral')} tonight.`;
+  return '';
+}
+const untilText = (v) => hhmm(6 + (12 * v.until) / dayTicks(s));
+function visitorCards() {
+  if (!s.tuning.visitors || !s.visitors) return '';
+  const cards = s.visitors
+    .filter((v) => v.here && !v.done)
+    .map((v) => {
+      const V = VISITORS[v.kind];
+      const rows = V.answers
+        .map((A) => {
+          const why = visitorBlock(s, v, A.id);
+          const terms = answerTerms(A);
+          return `<li><button class="btn sm" id="visit-${v.id}-${A.id}" data-act="visitor" data-id="${v.id}" data-answer="${A.id}"${why ? ' disabled' : ''}>${esc(A.text)}</button>${terms || why ? `<small>${esc(terms)}${why ? `<span class="why">${esc(why)}</span>` : ''}</small>` : ''}</li>`;
+        })
+        .join('');
+      return `<div class="card visit"><h3>At the gate</h3><p><b>${esc(V.name)}.</b> ${esc(V.text)} ${esc(visitorAbout(v))}</p>
+        <ul class="answers">${rows}</ul>
+        <p class="note">${esc(V.answers.at(-1).text)} unless you answer by ${untilText(v)}.</p><span class="waitbar" aria-hidden="true"><i data-bar="visit" data-arg="${v.id}"></i></span></div>`;
+    })
+    .join('');
+  const past = s.visitors
+    .filter((v) => v.done)
+    .map((v) => {
+      const V = VISITORS[v.kind];
+      const A = V.answers.find((a) => a.id === v.done);
+      return `${V.name.toLowerCase()} (${v.late ? 'left waiting: ' : ''}${A.text.toLowerCase()})`;
+    });
+  return `${cards}${past.length ? `<p class="note">Earlier at the gate today: ${esc(listOf(past))}.</p>` : ''}${gateNotes()}`;
+}
+function gateNotes() {
+  const T = s.tuning;
+  const out = [];
+  const today = s.raid && s.raid.state === 'coming' && !s.raid.crusade;
+  if (s.gateHelp) out.push(`The pilgrims stand the gate with you today: +${fmt(s.gateHelp)} defense.`);
+  if (s.riders) out.push(today ? `The lord's riders stand with you against today's raid: +${fmt(s.riders)} defense.` : `The lord's riders will stand with you when the Host next comes: +${fmt(s.riders)} defense.`);
+  if (s.raidEdge && Math.abs(s.raidEdge - 1) > 1e-9) out.push(`Word from the gate: the Host's next raid comes ×${mult(s.raidEdge)} ${s.raidEdge > 1 ? 'harder' : 'as hard'}.`);
+  if (s.barrels) out.push('Water barrels stand ready: until the season ends, fire comes half as often.');
+  if (s.charm) out.push(`The hedge-witch's charm: tonight the candles burn ×${mult(T.charmBurn)} as fast.`);
+  if (s.curse) out.push("The hedge-witch's curse: a Weeper comes tonight.");
+  return out.map((x) => `<p class="note">${esc(x)}</p>`).join('');
+}
+
 // The Lantern Church's escalation: its silver embargo, and the Inquisition.
 function churchCard() {
   const T = s.tuning;
@@ -629,6 +700,7 @@ function dayPanel() {
     ${s.daily && s.season === 1 && s.day === 1 ? `<p class="note">This is the keep of ${esc(dayText(s.daily))}: everyone who plays it gets this same keep, on the same rules.</p>` : ''}
     ${weatherNotes()}
     ${fireCards()}
+    ${visitorCards()}
     ${siegeCard()}
     ${gateGuard(s) ? `<p class="note">${esc(listOf(s.shades.filter((d) => atGate(s, d)).map((d) => d.name)))} ${s.shades.filter((d) => atGate(s, d)).length === 1 ? 'stands' : 'stand'} at the gate today, as asked: +${fmt(gateGuard(s))} defense.</p>` : ''}
     ${raidCard()}
@@ -734,6 +806,8 @@ function duskPlace() {
     </ul>
     ${dark.length ? `<p class="note">${esc(listOf(dark.map((d) => d.name)))} ${dark.length === 1 ? 'stands' : 'stand'} in the dark, where Creepers catch and drain shades. A shade works only in light.</p>` : ''}
     ${wraiths.length ? `<p class="note bad">${esc(listOf(wraiths.map((d) => d.name)))} will rise as ${wraiths.length === 1 ? 'a Wraith' : 'Wraiths'} in the Waking Room. Cut ${wraiths.length === 1 ? 'it' : 'them'} down to banish for good.</p>` : ''}
+    ${s.charm ? `<p class="note">The hedge-witch's charm: tonight the candles burn ×${mult(T.charmBurn)} as fast.</p>` : ''}
+    ${n.spawns.some((sp) => sp.curse) ? '<p class="note bad">On the hedge-witch\'s curse, a Weeper comes tonight.</p>' : ''}
     ${omenCard()}
     ${drownedDusk()}
     ${moonNote()}
@@ -868,7 +942,8 @@ function blackMirror() {
   }
   if (th.weepers) {
     const W = th.weepers;
-    lines.push({ bad: W.dark, text: `${plural(W.count, 'Weeper')} will rise for the day's dead and make for the dark of the ${roomName(W.rooms[0], true)}. ${W.dark ? `It has dark to weep in: each one that weeps there ${fmt(T.nightmareSecs)} seconds gives someone a nightmare. A shade in its light cuts them down, and a Keening shade on its floor sings them quiet.` : "It's lit wall to wall: they can't weep there while the candles last."}` });
+    const why = !W.curse ? `${plural(W.count, 'Weeper')} will rise for the day's dead` : W.curse === W.count ? `${W.count === 1 ? 'A Weeper' : plural(W.count, 'Weeper')} will rise on the hedge-witch's curse` : `${plural(W.count, 'Weeper')} will rise, for the day's dead and on the hedge-witch's curse,`;
+    lines.push({ bad: W.dark, text: `${why} and make for the dark of the ${roomName(W.rooms[0], true)}. ${W.dark ? `It has dark to weep in: each one that weeps there ${fmt(T.nightmareSecs)} seconds gives someone a nightmare. A shade in its light cuts them down, and a Keening shade on its floor sings them quiet.` : "It's lit wall to wall: they can't weep there while the candles last."}` });
   }
   if (th.hollow) {
     const held = th.hollow.held.length;
@@ -1489,6 +1564,11 @@ const TUNE = [
   ['omenChoice', 'Chance an omen night offers two to choose between'],
   ['huntEssence', 'Essence for each Maw cut down under the Hunt'],
   ['bloodEssence', 'Essence for each Creeper cut down under a blood moon'],
+  ['visitors', 'Visitors at the gate, each with answers to choose between (1 on, 0 off)'],
+  ['visitorChance', 'Chance a visitor comes on a day'],
+  ['visitorSecond', 'Chance, on a day one comes, that a second does too'],
+  ['visitorWait', 'Share of the day a visitor waits for an answer'],
+  ['charmBurn', "How fast candles burn the night of the hedge-witch's charm"],
 ];
 const KEYS = [
   ['Space', 'play or pause'], ['1, 2, 4', 'speed'], ['C, M, W, H', 'candle, move, ward, hush (at night)'], ['V', 'turn the Tain upright'],
@@ -1826,7 +1906,7 @@ const ACT_HOLD = 0.35; // seconds at 1× on each of the tester's actions while t
 const MARK_HOLD = 1.2; // and on a pause of theirs, an idle stretch or a time away
 const HOLDS = { pause: 1, idle: 1, away: 1 };
 // The marks Next and Back stop at, and the session's list shows: all but the lesser alerts.
-const STOPS_AT = { death: 1, crack: 1, caught: 1, fell: 1, pause: 1, idle: 1, away: 1, refused: 1, lesson: 1, panel: 1, skip: 1 };
+const STOPS_AT = { death: 1, crack: 1, caught: 1, fell: 1, visit: 1, pause: 1, idle: 1, away: 1, refused: 1, lesson: 1, panel: 1, skip: 1 };
 const LEAD = 20; // Next and Back land this many units (2 s at 1×) before a mark, to see it come
 // Where in the game a moment was, in words: "Night 2, 21:40", "Season 2, dawn, day 3".
 function whenText(at) {
@@ -2650,6 +2730,10 @@ const BARS = {
   gate: () => Math.max(0, s.raid?.gate ?? 0),
   clock: () => (s.phase === 'day' ? s.t / dayTicks(s) : s.phase === 'night' ? s.t / nightTicks(s) : s.phase === 'dusk' ? 0 : 1),
   mem: (id) => (byId(s.shades, id)?.memory ?? 0) / 100,
+  visit: (id) => {
+    const v = s.visitors?.find((x) => x.id === id);
+    return v && !v.done ? (v.until - s.t) / Math.max(1, v.until - v.at) : 0;
+  },
 };
 
 function render(alpha, now) {
@@ -2781,10 +2865,16 @@ const GUIDE = [
     text: "Fire! Everyone in the room fights it, but a Hearth or Forge fire outgrows a room's own hands. Send the Yard's masons from the Day panel, or at full heat it kills and spreads.",
   },
   {
+    id: 'visitor', target: '#open-phase', pause: true,
+    when: () => s.phase === 'day' && s.visitors?.some((v) => v.here && !v.done),
+    done: () => ui.sheet === 'phase',
+    text: 'Someone is at the gate. The Day panel shows what they want, what each answer costs and gives, and how long they will wait. Left waiting, they take the last answer.',
+  },
+  {
     id: 'weepers', target: '#open-phase',
     when: () => first() && s.phase === 'dusk' && s.dusk?.step === 'place' && s.night?.spawns.some((sp) => sp.type === 'weeper'),
     done: () => ui.sheet === 'phase',
-    text: () => `Someone died today, so tonight the Weepers come for the sleepers: they make for the dark of the ${roomsOf(K(), 'quarters').length ? 'Dreamwell' : 'Cold Hearth'}. One that weeps there long enough gives someone a nightmare, and they work poorly tomorrow. Light it, post a shade there, or a Keening shade on its floor.`,
+    text: () => `${s.night.spawns.some((sp) => sp.type === 'weeper' && !sp.curse) ? 'Someone died today, so tonight the Weepers come' : "On the hedge-witch's curse, a Weeper comes tonight"} for the sleepers: they make for the dark of the ${roomsOf(K(), 'quarters').length ? 'Dreamwell' : 'Cold Hearth'}. One that weeps there long enough gives someone a nightmare, and they work poorly tomorrow. Light it, post a shade there, or a Keening shade on its floor.`,
   },
   {
     id: 'rain-coming', target: '#open-phase',
@@ -3236,8 +3326,8 @@ function toast(text, tone = '', open = null) {
   if (ui.toasts.length > room) ui.toasts.splice(0, ui.toasts.length - room);
   ui.toastRev++;
 }
-const STOPS = /has caught|The Hollow rises|Raiders on the road|The camp outside stirs|has made camp|The Host is at the gate|inspector|has turned Wraith|A Maw is tearing|A Maw is breaking|^Fire in the|The fire spreads|^Plague/;
-const OPENS = /Raiders on the road|The camp outside stirs|has made camp|The Host is at the gate|The gate gave way|inspector|fallen sick|larder is empty|arrives at the gate|^Fire in the/;
+const STOPS = /has caught|The Hollow rises|Raiders on the road|^At the gate:|The camp outside stirs|has made camp|The Host is at the gate|inspector|has turned Wraith|A Maw is tearing|A Maw is breaking|^Fire in the|The fire spreads|^Plague/;
+const OPENS = /Raiders on the road|The camp outside stirs|has made camp|The Host is at the gate|The gate gave way|inspector|fallen sick|larder is empty|arrives at the gate|^At the gate:|^Fire in the/;
 function takeAlerts(fromClock) {
   let stop = false;
   if (ui.skip && s.alerts.length) endSkip(); // something happened: back to the clock's own pace
@@ -3771,6 +3861,7 @@ function onAct(name, el) {
     case 'request': return game({ type: 'request', id: el.dataset.id, grant: !!el.dataset.grant });
     case 'sally': return game({ type: 'sally' });
     case 'donate': return game({ type: 'donate' });
+    case 'visitor': return game({ type: 'visitor', id: el.dataset.id, answer: el.dataset.answer });
     case 'shade-act': return game({ type: 'shadeAct', id: el.dataset.id });
     case 'lantern': return game({ type: 'lantern', id: el.dataset.id });
     case 'omen': return game({ type: 'omen', i: Number(el.dataset.i) });

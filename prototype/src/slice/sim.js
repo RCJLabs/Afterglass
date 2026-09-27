@@ -567,7 +567,8 @@ function visitorCan(s, k, now) {
     case 'physician': return s.living.some((p) => p.sick > 0);
     case 'reeve': return raidsLeft(s) && !s.riders;
     case 'necromancer': return !!restlessOf(s) && !!freeMirror(s);
-    case 'cooper': return !s.barrels && roomsOf(geo(s), 'hearth').length + roomsOf(geo(s), 'forge').length > 0;
+    case 'cooper': return !!s.tuning.fire && !s.barrels && roomsOf(geo(s), 'hearth').length + roomsOf(geo(s), 'forge').length > 0;
+    case 'witch': return !!s.tuning.dreamwell; // her curse is a Weeper
     default: return true;
   }
 }
@@ -609,7 +610,6 @@ function visitorTick(s) {
     if (v.here && !v.done && s.t >= v.until) answerVisitor(s, v, VISITORS[v.kind].answers.at(-1).id, true);
   }
 }
-// The hour of a tick of the day, as the page's clock shows it.
 // The Host's next raid made harder or easier: today's, while it is still coming, or else the next one rolled.
 // Returns whether it was today's.
 function edgeRaid(s, m) {
@@ -622,6 +622,7 @@ function edgeRaid(s, m) {
   s.raidEdge = (s.raidEdge || 1) * m;
   return false;
 }
+// The hour of a tick of the day, as the page's clock shows it.
 function hourOf(s, t) {
   const h = 6 + (12 * t) / dayTicks(s);
   return `${String(Math.floor(h)).padStart(2, '0')}:${String(Math.floor((h % 1) * 6) * 10).padStart(2, '0')}`;
@@ -745,7 +746,8 @@ function answerVisitor(s, v, id, late = false) {
   v.late = late;
   s.today.visitors = [...(s.today.visitors || []), { kind: v.kind, answer: id, late }];
   say(s, `${V.name}: ${late ? `left waiting, ${A.text.toLowerCase()}` : A.text.toLowerCase()}. ${what}`.trim(), A.dread > 0 ? 'bad' : 'visit', !late || A.dread > 0);
-  cue(s, late ? 'nope' : 'good');
+  if (A.dread > 0) cue(s, 'warn');
+  else if (!late) cue(s, 'good');
 }
 const costText = (o) => Object.entries(o).map(([k, n]) => `${n} ${k}`).join(', ');
 
@@ -762,7 +764,7 @@ const fmix = (h) => {
   h = Math.imul(h ^ (h >>> 13), 0xc2b2ae35);
   return (h ^ (h >>> 16)) >>> 0;
 };
-function sideStream(s, tag) {
+export function sideStream(s, tag) {
   if (s.tuning.streamHash) {
     let h = fmix((2166136261 ^ s.seed) >>> 0);
     for (const v of [s.season, s.day, tag]) h = fmix((h ^ v) >>> 0);

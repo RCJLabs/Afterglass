@@ -101,16 +101,19 @@ export function threats(s) {
   }
 
   // Tomorrow's raid, rolled when the day begins: its range, against the gate as it's manned now (tonight's
-  // Watch adds to it, and so do guards set tomorrow).
+  // Watch adds to it, and so do guards set tomorrow). A visitor's answer can have made it harder or easier,
+  // and the lord's riders, paid for, stand with the gate against it.
   const base = !isNewMoon(s) && T.raidDays[s.day + 1];
-  const mid = base ? raidStrength(s, base) : 0;
+  const mid = base ? raidStrength(s, base) * (s.raidEdge || 1) : 0;
+  const counted = s.raid && (s.raid.state === 'coming' || s.raid.state === 'assault') && !s.raid.crusade;
   const raid = base
-    ? { day: s.day + 1, lo: Math.max(2, mid - T.raidSpread), hi: Math.max(2, mid + T.raidSpread), defense: defense(s) - (s.raid?.ward || 0) - (s.watchBonus || 0) }
+    ? { day: s.day + 1, lo: Math.max(2, mid - T.raidSpread), hi: Math.max(2, mid + T.raidSpread), defense: defense(s) - (s.raid?.ward || 0) - (s.watchBonus || 0) - (s.gateHelp || 0) + (counted ? 0 : s.riders || 0) }
     : null;
 
   // The Weepers, the night after a death: how many, the room they make for, and whether it has dark to weep in.
   const w = n.spawns.filter((sp) => sp.type === 'weeper').length;
-  const weepers = w ? { count: w, rooms: weeperRooms(s).map((r) => r.id), dark: weeperSpots(s, L).length > 0 } : null;
+  const cursed = n.spawns.filter((sp) => sp.type === 'weeper' && sp.curse).length; // the hedge-witch's, not the day's dead
+  const weepers = w ? { count: w, curse: cursed, rooms: weeperRooms(s).map((r) => r.id), dark: weeperSpots(s, L).length > 0 } : null;
 
   // The Drowned, on a rainy night: how many and when, the end of the moat's twin they come up at, and the way
   // they'd go from it as things stand, unless a ward keeps them under.

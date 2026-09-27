@@ -94,6 +94,19 @@ export function howTo(T) {
         `On about ${pct(T.fireChance)} of days a Hearth or a Forge catches fire. Its heat grows ${pct(T.fireGrow)} a second and everyone in the room fights it, ${pct(T.fireFight)} each, so a room's own hands usually lose. Send the Yard's masons, or ring the bell for everyone. Fighting it can kill, the hotter the likelier; at full heat it catches a room beside it every ${T.fireSpread} seconds. A room still burning at dusk is scorched: nobody works there the next day.`,
       ],
     },
+    ...(T.visitors
+      ? [
+          {
+            id: 'visitors',
+            title: 'Visitors at the gate',
+            items: [
+              `On about ${pct(T.visitorChance)} of days someone comes to the gate, and on some of those a second. The Day panel shows who, what each answer costs and gives, and the hour they stop waiting: left waiting past it, they take the last answer, whatever it costs.`,
+              'Each comes only when there is a reason to: traders with glass, candles, grain or a hand mirror to sell, or a mason for hire; pilgrims running ahead of a raid, a burnt-out family and a plague cart asking to be taken in; a deserter from the Host; a knight asking after a brother serving in your glass; a grave-robber caught with the day\'s dead; a wedding, a bard, a wandering priest, a physician, a hedge-witch, the Church\'s almoner, the lord\'s reeve, a necromancer and a cooper.',
+              'Turning away those who ask for shelter costs Dread. What an answer leaves behind, riders promised or a raid made harder or easier, shows in the Day panel until it comes.',
+            ],
+          },
+        ]
+      : []),
     {
       id: 'dusk',
       title: 'Dusk',

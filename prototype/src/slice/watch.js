@@ -128,6 +128,7 @@ function momentOf(al) {
   if (al.tone === 'death') return 'death';
   if (/slipped through the Veil|tore through the Veil/.test(al.text)) return 'crack';
   if (/has caught/.test(al.text)) return 'caught';
+  if (al.tone === 'visit') return 'visit'; // a visitor at the gate, and what was answered
   if (al.tone === 'bad') return 'bad';
   if (al.tone === 'good') return 'good';
   return null;
