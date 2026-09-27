@@ -25,7 +25,7 @@ const ok = (s, a) => {
 };
 // Most of these tests are about the rules on the original four-floor keep; seasons now start from two rooms.
 const FULL = { startFloors: 4 };
-const quiet = { ...FULL, sickChance: 0, oldAgeChance: 0, raidDays: { 2: 0, 4: 0, 6: 0 } };
+const quiet = { ...FULL, sickChance: 0, oldAgeChance: 0, raidDays: { 2: 0, 4: 0, 6: 0 }, fire: 0 };
 function toDusk(s) {
   while (s.phase === 'day') step(s);
   assert.equal(s.phase, 'dusk');
@@ -223,7 +223,7 @@ test('twin rooms work only for a lit shade at its post: Choir, Wick Room, Watch 
 test('with lineGuard on, a shade in the light at the foot of a stair up to the Veil guards the line: it fights and keeps the Watch, but does no other work', () => {
   // Two rooms built on the ground floor's keep, a Barracks and a Chapel: that floor is the line's, and the Choir is on it.
   const night = (x, over = {}) => {
-    const s = newSeason(30, { sickChance: 0, oldAgeChance: 0, raidDays: { 2: 0, 4: 0, 6: 0 }, lineGuard: 1, ...over });
+    const s = newSeason(30, { sickChance: 0, oldAgeChance: 0, raidDays: { 2: 0, 4: 0, 6: 0 }, fire: 0, lineGuard: 1, ...over });
     s.res.stone = 2 * s.tuning.roomStone;
     ok(s, { type: 'raise', room: 'barracks' });
     ok(s, { type: 'raise', room: 'chapel' });

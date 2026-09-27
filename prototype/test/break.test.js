@@ -4,7 +4,7 @@ import { newSeason, step, act, addFoe, replay, upgrade, byId, ritePreview } from
 import { epitaph, RESTING } from '../src/slice/book.js';
 
 // The original four-floor keep, nothing by day to get in the way.
-const quiet = { startFloors: 4, sickChance: 0, oldAgeChance: 0, raidDays: { 2: 0, 4: 0, 6: 0 } };
+const quiet = { startFloors: 4, sickChance: 0, oldAgeChance: 0, raidDays: { 2: 0, 4: 0, 6: 0 }, fire: 0 };
 const ok = (s, a) => {
   const r = act(s, a);
   assert.ok(r.ok, `${a.type}: ${r.error}`);

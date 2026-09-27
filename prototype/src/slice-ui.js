@@ -6,7 +6,7 @@ import { TICKS_PER_SEC, DAY_ROOMS, WORK_ROOMS, TWINS, KINDS, MIRRORS, CAUSES, MA
 import {
   newSeason, step, act, retune, playerTuning, jobCap, jobCount, nextSlot, ritePreview, crossingPreview, capacity, canWork, defense, roomPower, bear, priests, funeralCap, eatRate,
   dayTicks, nightTicks, isNewMoon, choicesFor, byId, isTwinnedLiving, isTwinnedShade, lastSeason, SAVE_VERSION, fmt, mirrorCap,
-  postRoom, wardCost, shadeTrait,
+  postRoom, wardCost, shadeTrait, peopleIn,
 } from './slice/sim.js';
 import { geo, feet, floorAtY, roomAt, typeAt, typeOf, roomSpan, roomsOf, lightMap, isLit, unitAt, DEEP_FLOOR, lineSpots as lineOf, guardLit } from './slice/geo.js';
 import { drawScene } from './slice/draw.js';
@@ -338,6 +338,33 @@ function inspectionCard() {
   return '';
 }
 
+// A fire by day: how hot, who fights it, whether they're winning, and the Yard to send.
+function fireTrend(id) {
+  const T = s.tuning;
+  const f = s.fires?.find((x) => x.room === id);
+  if (!f) return 'Out.';
+  const n = peopleIn(s, id).length;
+  const net = T.fireGrow - T.fireFight * n;
+  if (f.heat >= 1) return `Full heat: it can kill whoever fights it, and in ${fmt(Math.max(0, T.fireSpread - f.full))} seconds it catches the room beside it.`;
+  return net > 0 ? `${Math.round(f.heat * 100)}% and gaining: full heat in about ${fmt((1 - f.heat) / net)} seconds.` : `${Math.round(f.heat * 100)}% and falling: they're winning.`;
+}
+function fireCards() {
+  const cards = (s.fires || []).map((f) => {
+    const inside = peopleIn(s, f.room);
+    const yard = s.living.filter((p) => p.job === 'yard' && !p.fighting).length;
+    const burning = s.fires.flatMap((x) => peopleIn(s, x.room));
+    const all = s.living.filter((p) => !p.fighting && !(p.sick > 0) && !burning.includes(p)).length;
+    return `<div class="card warn fire"><h3>Fire in the ${esc(roomName(f.room))}</h3>
+      <div class="heat"><span data-bar="heat" data-arg="${f.room}"></span></div>
+      <p><span data-live="heat" data-arg="${f.room}">${esc(fireTrend(f.room))}</span> ${inside.length ? `${esc(listOf(inside.map((p) => p.name)))} ${inside.length === 1 ? 'fights' : 'fight'} it.` : 'Nobody is fighting it.'}</p>
+      <div class="row"><button class="btn sm primary" id="fire-${f.room}" data-act="fight-fire" data-room="${f.room}"${yard ? '' : ' disabled'}>${yard ? `Send the Yard (${yard})` : 'Nobody left in the Yard'}</button>
+        <button class="btn sm" id="bell-${f.room}" data-act="fight-fire" data-room="${f.room}" data-bell="1"${all ? '' : ' disabled'}>Ring the bell: everyone (${all})</button></div>
+      <p class="note">The masons only lose a day's stone; the bell stops all work while it burns. Fighting it can kill, the more the hotter it is.</p></div>`;
+  });
+  const scorched = s.scorched?.length ? `<p class="note bad">Scorched in last night's fire: the ${esc(listOf(s.scorched.map((id) => roomName(id))))}. Nobody works there today.</p>` : '';
+  return cards.join('') + scorched;
+}
+
 function buildRow() {
   return `<div class="build"><span>Build a mirror</span>${Object.entries(MIRRORS)
     .map(([k, M]) => `<button class="btn sm" id="build-${k}" data-act="build" data-mirror="${k}"${s.res.glass + 1e-9 < M.glass ? ' disabled' : ''}>${M.name}, room for ${M.cap}: ${M.glass} glass</button>`)
@@ -375,6 +402,7 @@ function dayPanel() {
     return `<li><span>${R.name} <small class="muted">${plural(n, R.role)}${Number.isFinite(cap) ? ` of ${cap}` : ''}</small></span><span class="num">${out}</span></li>`;
   }).join('');
   return `<header class="ph-head"><h2>Day ${s.day}</h2><p>${moon > 0 ? `The new moon is ${plural(moon, 'night')} off.` : 'Tonight is the new moon. The Hollow will rise.'} The living work; anyone who dies inside the walls wakes at dusk.</p></header>
+    ${fireCards()}
     ${raidCard()}
     ${inspectionCard()}
     ${sick.length ? `<p class="note bad">Sick: ${esc(listOf(sick.map((p) => p.name)))}. A healer in the Infirmary cures one a day; untreated, the sickness kills.</p>` : ''}
@@ -870,6 +898,7 @@ const TUNE = [
   ['steelFight', 'How much harder shades fight with grave-steel'],
   ['lineGuard', 'Shades in the light at the stairs up to the Veil only guard and keep the Watch (1 on, 0 off)'],
   ['goAround', 'The Unlit take any dark way up and gnaw only a light that bars every way (1 on, 0 off)'],
+  ['fire', 'Fire by day in Hearths and Forges (1 on, 0 off)'],
 ];
 const KEYS = [
   ['Space', 'play or pause'], ['1, 2, 4', 'speed'], ['C, M, W, H', 'candle, move, ward, hush (at night)'], ['V', 'turn the Tain upright'],
@@ -881,7 +910,7 @@ function settingsTab() {
   const motion = prefs.motion || 'system';
   return `<section class="settings">
     <h3>Play</h3>
-    <label class="row" for="autopause"><input type="checkbox" id="autopause" data-act="autopause"${prefs.autoPause ? ' checked' : ''}>Pause for raids, catches and the Hollow</label>
+    <label class="row" for="autopause"><input type="checkbox" id="autopause" data-act="autopause"${prefs.autoPause ? ' checked' : ''}>Pause for raids, fires, catches and the Hollow</label>
     <label class="row" for="guide-on"><input type="checkbox" id="guide-on" data-act="guide-toggle"${prefs.guide ? ' checked' : ''}>Guide me through the first season (turning it on starts it over)</label>
     <h3>The castle</h3>
     <fieldset><legend>The Tain at night</legend>${radio('camera', 'reflection', 'Reflected, upside down, as the lake shows it', prefs.mode)}${radio('camera', 'flipped', 'Turned upright', prefs.mode)}</fieldset>
@@ -1387,6 +1416,7 @@ let barEls = [];
 let drawnToasts = -1;
 
 const LIVE = {
+  heat: (id) => fireTrend(id),
   clock: () => clockText(),
   food: () => floor1(s.res.food),
   candles: () => floor1(s.res.candles),
@@ -1407,6 +1437,7 @@ const LIVE = {
   },
 };
 const BARS = {
+  heat: (id) => s.fires?.find((f) => f.room === id)?.heat ?? 0,
   clock: () => (s.phase === 'day' ? s.t / dayTicks(s) : s.phase === 'night' ? s.t / nightTicks(s) : s.phase === 'dusk' ? 0 : 1),
   mem: (id) => (byId(s.shades, id)?.memory ?? 0) / 100,
 };
@@ -1528,6 +1559,12 @@ const GUIDE = [
     text: 'Raiders on the road. Your defense (two for each guard) has to match their strength. The Day panel has the numbers: move people to the Barracks, or ward the gate with essence.',
   },
   {
+    id: 'fire', target: '#open-phase', pause: true,
+    when: () => first() && s.phase === 'day' && s.fires?.length > 0,
+    done: () => ui.sheet === 'phase',
+    text: "Fire! Everyone in the room fights it, but a Hearth or Forge fire outgrows a room's own hands. Send the Yard's masons from the Day panel, or at full heat it kills and spreads.",
+  },
+  {
     id: 'crypt', target: '#bar-wake',
     when: () => first() && s.phase === 'dusk' && s.dusk.step === 'crypt' && !ui.cross,
     text: 'Dusk. Whoever died today wakes tonight as a shade, and how they died decides what kind. A priest can give one a funeral instead: they rest, and you gain remembrance.',
@@ -1637,8 +1674,8 @@ function toast(text, tone = '', open = null) {
   if (ui.toasts.length > room) ui.toasts.splice(0, ui.toasts.length - room);
   ui.toastRev++;
 }
-const STOPS = /has caught|The Hollow rises|Raiders on the road|inspector|has turned Wraith|A Maw is tearing|A Maw is breaking/;
-const OPENS = /Raiders on the road|inspector|fallen sick|larder is empty|arrives at the gate/;
+const STOPS = /has caught|The Hollow rises|Raiders on the road|inspector|has turned Wraith|A Maw is tearing|A Maw is breaking|^Fire in the|The fire spreads/;
+const OPENS = /Raiders on the road|inspector|fallen sick|larder is empty|arrives at the gate|^Fire in the/;
 function takeAlerts(fromClock) {
   let stop = false;
   for (const a of s.alerts.splice(0)) {
@@ -2018,6 +2055,7 @@ function onAct(name, el) {
     case 'wardgate': return game({ type: 'wardGate' });
     case 'vigil': return game({ type: 'vigil' });
     case 'build': return game({ type: 'build', mirror: el.dataset.mirror });
+    case 'fight-fire': return game({ type: 'fightFire', room: el.dataset.room, bell: !!el.dataset.bell });
     case 'break-ask':
       ui.breakAsk = el.dataset.id;
       return bump();

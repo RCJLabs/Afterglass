@@ -11,7 +11,7 @@ const ok = (s, a) => {
   assert.ok(r.ok, `${a.type}: ${r.error}`);
 };
 // The original four-floor keep, with no sickness, old age or raids unless a test asks for them.
-const FULL = { startFloors: 4, sickChance: 0, oldAgeChance: 0, raidDays: { 2: 0, 4: 0, 6: 0 } };
+const FULL = { startFloors: 4, sickChance: 0, oldAgeChance: 0, raidDays: { 2: 0, 4: 0, 6: 0 }, fire: 0 };
 const person = (s, name) => s.living.find((p) => p.name === name);
 const near = (a, b) => Math.abs(a - b) < 1e-9;
 function toDusk(s) {

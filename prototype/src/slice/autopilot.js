@@ -9,7 +9,7 @@
 // All but double and idle react at night: a second fighter to each stair of the line for each tide, a ward
 // on the line for the biggest tides when the essence is there, and a fighter to meet a Maw.
 
-import { step, act, newSeason, ritePreview, crossingPreview, capacity, canWork, defense, funeralCap, choicesFor, jobCap, jobCount, eatRate, wardCost, livingTrait, shadeTrait } from './sim.js';
+import { step, act, newSeason, ritePreview, crossingPreview, capacity, canWork, defense, funeralCap, choicesFor, jobCap, jobCount, eatRate, wardCost, livingTrait, shadeTrait, peopleIn } from './sim.js';
 import { DAY_ROOMS, MIRRORS, KINDS, MAP } from './data.js';
 import { geo, roomSpan, roomAt, roomsOf, lineSpots } from './geo.js';
 
@@ -106,6 +106,11 @@ function dayMoves(s) {
   if (free <= 0 || (free <= 1 && s.bodies.length)) {
     const kind = s.res.glass >= MIRRORS.pier.glass ? 'pier' : s.res.glass >= MIRRORS.hand.glass ? 'hand' : null;
     if (kind) doAct(s, { type: 'build', mirror: kind });
+  }
+  // A fire: send the Yard at once, and ring the bell if the fire is still gaining on them.
+  for (const f of s.fires || []) {
+    doAct(s, { type: 'fightFire', room: f.room });
+    if (s.tuning.fireGrow - s.tuning.fireFight * peopleIn(s, f.room).length > 0) doAct(s, { type: 'fightFire', room: f.room, bell: true });
   }
   const I = s.inspection;
   if (I && !I.done && I.day === s.day) while (s.dread >= 2 && doAct(s, { type: 'vigil' }));

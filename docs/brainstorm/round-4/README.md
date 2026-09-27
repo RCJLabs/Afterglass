@@ -6,7 +6,7 @@ Round three's ten-week plan is built: four prototypes, ending in a one-season ve
 
 - **Nobody has played it yet.** The slice's question, *do people want to play a second season?*, is unanswered. Everything below comes from autopilot runs (a scripted player, 40 to 200 seeds a result) and scripted runs in Chromium.
 - **The night no longer has to collapse onto the line's floor, but working below it doesn't pay.** The static defense no longer wins: over 1,000 seeds the reacting plan and a doubled line tie on the two-room start. The best play kept nearly everyone on the line's floor, because a room lit below it took a whole tide alone. The Unlit now take any dark way up and gnaw only a light that bars every way. Working the rooms below the line on one side of the keep now costs about 2 points of second seasons on either keep, against 10.6 on the two-room start before: a near-even trade, not a mistake, and not a gain.
-- **Both seasons may be too easy.** The autopilot finishes 98–100% of first seasons and 85–95% of the second seasons it reaches. People will do worse than a script that knows the rules, but by how much is unknown.
+- **Both seasons may be too easy.** The autopilot finishes 95–100% of first seasons and 80–92% of the second seasons it reaches, fire by day included. People will do worse than a script that knows the rules, but by how much is unknown.
 - **Keep or cover at dawn is still not shown to be a choice.** Traits make each shade different, but an autopilot that reads them does no better than one blind to them. The rite is meant to be the game's best decision; whether it feels like one needs people.
 - **The new moon turns on a couple of candles.** When a room a Maw broke also lost its day's work, the balanced plan fell from 95% to 67% of first seasons on the four-floor keep, almost all of it through the Chandlery broken the night before the new moon.
 - **Colour blindness is checked only in simulation.** Red eyes on a dark night all but vanished for anyone who can't see red; each Unlit eye now has a pale glint that stays bright.
@@ -19,7 +19,7 @@ Sizes were my estimates when the list was made: S, M, L.
 |---|---|---|---|
 | | **Fixes for problems already measured** | | |
 | 1 | Break the fixed stair setup that won nights 1–5 | M | Built. The static line no longer wins. The Unlit now go around lights, so the rooms below the line can be worked at about even odds (below) |
-| 2 | Make the rite bite: traits such as Devout turning Bitter, and fire by day | M | Part built: traits, with a Bitter shade costing 3 Dread. Fire by day is queued, 6th |
+| 2 | Make the rite bite: traits such as Devout turning Bitter, and fire by day | M | Built: traits, with a Bitter shade costing 3 Dread, and fire by day. Fought at once, fire adds few deaths but costs 5–14 second seasons in 200 |
 | 3 | Colour-blind-safe eyes: Creepers and Strangers told apart by shape | S | Built. The real problem was red eyes vanishing in the dark; each eye now has a pale glint |
 | | **Designed in round three, not built yet** | | |
 | 4 | Traits that invert at death: 8 pairs, each with a night effect | M | Built. Reading them made no measurable difference to the autopilot |
@@ -93,7 +93,7 @@ The candidates not built yet when the queue was made, in the order I'd build the
 3. **A season recap card (13).** S. One image per season to share, drawn from the season summary and the Book of the Dead.
 4. **A daily seed (14).** S. Everyone plays the same keep each day. Worth it once there are players to compare.
 5. **Break a mirror in an emergency (8).** S. Done. Everyone in it goes free at once and Dread falls 1 for each, so it can turn a censure into a warning, or free a caught shade at night. The mirror is lost and 7 days of bad luck follow (sickness twice as often). The keeper plan breaking one to stop every censure finished 80 second seasons in 99 against 86 without; without the bad luck it's about even.
-6. **Fire by day (the rest of 2).** M. More deaths by day, so the rite has more shades to decide on. If testers find the rite a formality, this moves to the top.
+6. **Fire by day (the rest of 2).** M. Done. About 2 fires a season in a Hearth or a Forge. The room's own workers fight each one, the Yard or the bell can be sent, and fighting it can kill, more so the hotter it is. Fought at once it adds few deaths (0.14–0.18 per two seasons for the autopilot) but costs 5–14 second seasons in 200. Whether it gives a slower player more choices at the rite is for the playtest.
 7. **Quarters and the Dreamwell; Weepers (5).** M. Where the living sleep, and a night threat that reaches them. A second thing to defend at night would also pull the night further from the line.
 8. **Whispers and the great glass (7).** M. Shades coach the living, or step through by day: day work for the dead.
 9. **A full year (10).** L. Shifting days and nights, the Long Night; the eclipse stays cut. Only if the playtest says people want a second season, since a year is that answer built out.

@@ -62,6 +62,8 @@ export function newSeason(seed = Date.now() >>> 0, overrides = {}) {
     steel: false,
     haunted: [], // rooms (ids) a Maw broke last night, haunted until dusk
     badLuck: 0, // unlucky days to come, from a broken mirror
+    fires: [], // rooms burning today: { room, heat, full }
+    scorched: [], // rooms (ids) burned out yesterday, dead until dusk
     dreamt: 0, // a Wistful shade's good dreams: what the living work at the day after, or 0
     dread: 0,
     cracks: 0,
@@ -219,10 +221,10 @@ export function livingMult(s, p) {
 export function roomPower(s) {
   const out = Object.fromEntries(Object.keys(DAY_ROOMS).map((r) => [r, 0]));
   const by = {};
-  for (const p of s.living) if (p.job) (by[p.job] ||= []).push(livingMult(s, p));
+  for (const p of s.living) if (p.job && !p.fighting) (by[p.job] ||= []).push(livingMult(s, p));
   for (const [job, ms] of Object.entries(by)) {
     const free = workCap(s, job);
-    const all = jobCap(s, job);
+    const all = jobCap(s, job) - (DAY_ROOMS[job]?.outdoors ? 0 : roomsOf(geo(s), job).filter((r) => isAblaze(s, r.id)).length * s.tuning.roomCap);
     if (ms.length > free) ms.sort((a, b) => b - a);
     for (let i = 0; i < ms.length && i < all; i++) out[job] += i < free ? ms[i] : ms[i] * s.tuning.hauntWork;
   }
@@ -241,8 +243,10 @@ export const isHaunted = (s, id) => !!s.haunted?.includes(id);
 // How many can work a job today in its rooms that aren't haunted.
 export function workCap(s, type) {
   if (DAY_ROOMS[type]?.outdoors) return Infinity;
-  return roomsOf(geo(s), type).filter((r) => !isHaunted(s, r.id)).length * s.tuning.roomCap;
+  return roomsOf(geo(s), type).filter((r) => !isHaunted(s, r.id) && !isAblaze(s, r.id)).length * s.tuning.roomCap;
 }
+// A room burning today, or burned out yesterday: nobody works in it.
+export const isAblaze = (s, id) => !!(s.fires?.some((f) => f.room === id) || s.scorched?.includes(id));
 export const jobCount = (s, type) => s.living.filter((p) => p.job === type).length;
 // A ward's price tonight: half while a Bitter shade stays in the glass.
 export const wardCost = (s) => s.tuning.wardCost * (s.shades.some((d) => canWork(d) && shadeTrait(s, d)?.wards) ? SHADE_TRAITS.bitter.wards : 1);
@@ -275,6 +279,8 @@ function dayTick(s) {
   }
   heal(s, (pw.infirmary * DAY_ROOMS.infirmary.rate) / D);
   eat(s, D);
+  if (s.fires?.length) burn(s);
+  if (s.phase !== 'day') return;
   for (const p of [...s.living]) {
     if (s.phase !== 'day') return;
     if (p.peace > 0 && --p.peace === 0) s.rev++;
@@ -345,6 +351,10 @@ function rollDay(s) {
   for (const p of s.living) {
     if (p.age === 'old' && chance(s, T.oldAgeChance)) s.events.push({ at: Math.round((0.15 + rand(s) * 0.8) * D), type: 'oldage', id: p.id });
   }
+  if (T.fire) {
+    const hot = [...roomsOf(geo(s), 'hearth'), ...roomsOf(geo(s), 'forge')];
+    if (chance(s, Math.min(1, T.fireChance * luck)) && hot.length) s.events.push({ at: Math.round((0.1 + 0.6 * rand(s)) * D), type: 'fire', room: pick(s, hot).id });
+  }
   if (s.inspection && !s.inspection.done && s.inspection.day === s.day) s.events.push({ at: Math.round(T.inspectAt * D), type: 'inspect' });
   s.events.sort((a, b) => a.at - b.at);
 }
@@ -378,6 +388,8 @@ function fire(s, e) {
     cue(s, 'horn');
   } else if (e.type === 'raidHit') {
     resolveRaid(s);
+  } else if (e.type === 'fire') {
+    ignite(s, e.room);
   } else if (e.type === 'inspect') {
     inspect(s);
   }
@@ -562,12 +574,77 @@ function lose(s, reason, text) {
 
 /* ---------------------------------------------------------------- dusk: the Crossing */
 
+/* ---------------------------------------------------------------- fire */
+
+// Who is in a room by day: its share of the workers of its type, in the order the living are listed (as the
+// page draws them, the last room taking any overflow; anyone idle sits in the first Hearth), and whoever
+// was sent there to fight a fire.
+export function peopleIn(s, id) {
+  const G = geo(s);
+  const type = typeOf(G, id);
+  const rooms = roomsOf(G, type);
+  const i = rooms.findIndex((r) => r.id === id);
+  if (i < 0) return [];
+  const cap = s.tuning.roomCap;
+  const workers = s.living.filter((p) => !p.fighting && (p.job || 'hearth') === type);
+  const mine = i === rooms.length - 1 ? workers.slice(i * cap) : workers.slice(i * cap, (i + 1) * cap);
+  return [...mine, ...s.living.filter((p) => p.fighting === id)];
+}
+function ignite(s, id) {
+  if (!id || s.fires.some((f) => f.room === id) || !typeOf(geo(s), id)) return;
+  s.fires.push({ room: id, heat: s.tuning.fireStart, full: 0 });
+  const R = geo(s).rooms[id];
+  say(s, `Fire in the ${DAY_ROOMS[R.type].name}! Everyone in it fights it; send the Yard to help, or it will spread and kill.`, 'bad', true);
+  cue(s, 'fire', R.f, (R.x0 + R.x1) / 2);
+}
+// The rooms a fire can catch from this one: beside it on its floor, and over or under it.
+function besideRoom(G, id) {
+  const r = G.rooms[id];
+  return Object.values(G.rooms).filter((o) => o.id !== id && ((o.f === r.f && (Math.abs(o.x0 - r.x1) <= 6 || Math.abs(r.x0 - o.x1) <= 6)) || (Math.abs(o.f - r.f) === 1 && o.x0 < r.x1 && r.x0 < o.x1)));
+}
+function burn(s) {
+  const T = s.tuning;
+  const G = geo(s);
+  for (const f of [...s.fires]) {
+    const inside = peopleIn(s, f.room);
+    f.heat = Math.min(1, f.heat + (T.fireGrow - T.fireFight * inside.length) * DT);
+    const name = DAY_ROOMS[typeOf(G, f.room)].name;
+    if (f.heat <= 0) {
+      s.fires.splice(s.fires.indexOf(f), 1);
+      for (const p of s.living) if (p.fighting === f.room) p.fighting = null;
+      say(s, `The fire in the ${name} is out.`, 'good', true);
+      cue(s, 'fire-out');
+      continue;
+    }
+    // Fighting it is dangerous, the more so the hotter it burns.
+    for (const p of inside) {
+      if (s.phase === 'day' && s.living.includes(p) && chance(s, T.fireDeath * f.heat * f.heat * DT)) kill(s, p, 'duty', `died fighting the fire in the ${name}`);
+    }
+    if (f.heat < 1) continue;
+    f.full += DT;
+    if (f.full >= T.fireSpread) {
+      f.full = 0;
+      const next = besideRoom(G, f.room).filter((o) => !s.fires.some((x) => x.room === o.id));
+      if (next.length) {
+        const o = pick(s, next);
+        say(s, `The fire spreads from the ${name} to the ${DAY_ROOMS[o.type].name}.`, 'bad', true);
+        ignite(s, o.id);
+      }
+    }
+  }
+}
+
 function endDay(s) {
   s.phase = 'dusk';
   s.t = 0;
   s.events = [];
   s.watchBonus = 0;
   s.haunted = [];
+  // A fire still burning at dusk burns the night through: its room is dead tomorrow.
+  s.scorched = (s.fires || []).map((f) => f.room);
+  for (const id of s.scorched) say(s, `The fire in the ${DAY_ROOMS[typeOf(geo(s), id)].name} burns into the night. Nobody can work there tomorrow.`, 'bad', true);
+  s.fires = [];
+  for (const p of s.living) if (p.fighting) p.fighting = null;
   s.dusk = { step: s.bodies.length ? 'crypt' : 'place' };
   s.night = newNight(s);
   s.dreamt = 0;
@@ -1599,6 +1676,19 @@ const ACTIONS = {
     say(s, `The ${m.name} is finished: room for ${M.cap} more ${M.cap === 1 ? 'shade' : 'shades'}.`, 'good');
     cue(s, 'mirror');
   },
+  // Send the Yard's masons to a fire, or ring the bell: everyone well and not already fighting a fire drops
+  // their work and runs to it.
+  fightFire(s, { room, bell }) {
+    if (s.phase !== 'day') return 'Fires burn by day.';
+    if (!s.fires.some((f) => f.room === room)) return 'Nothing is burning there.';
+    const burning = s.fires.flatMap((f) => peopleIn(s, f.room));
+    const hands = s.living.filter((p) => !p.fighting && !(p.sick > 0) && (bell ? !burning.includes(p) : p.job === 'yard'));
+    if (!hands.length) return bell ? 'Everyone who can is already fighting.' : 'Nobody is in the Yard to send.';
+    for (const p of hands) p.fighting = room;
+    const name = DAY_ROOMS[typeOf(geo(s), room)].name;
+    say(s, bell ? `The bell rings: ${listNames(hands.map((p) => p.name))} drop their work and run to the fire in the ${name}.` : `${listNames(hands.map((p) => p.name))} run from the Yard to fight the fire in the ${name}.`);
+    if (bell) cue(s, 'bell');
+  },
   wardGate(s) {
     const r = s.raid;
     if (s.phase !== 'day' || !r || r.state !== 'coming' || !r.warned) return 'No raid to ward against.';
@@ -1839,8 +1929,9 @@ export function upgrade(g) {
   // into this build, its numbers move to the build's, which turns them on. Everyone gets the trait their name
   // would have drawn.
   for (const t of [g.tuning, g.tuning0]) if (t && !('traits' in t)) t.traits = 0;
-  // Likewise a keep from before the Unlit went around lights.
+  // Likewise a keep from before the Unlit went around lights, or before fire.
   for (const t of [g.tuning, g.tuning0]) if (t && !('goAround' in t)) t.goAround = 0;
+  for (const t of [g.tuning, g.tuning0]) if (t && !('fire' in t)) t.fire = 0;
   for (const p of g.living || []) p.trait ??= traitFor(g, p.name);
   for (const b of g.bodies || []) if (b.was === undefined) b.was = b.from === 'raider' ? null : traitFor(g, b.name);
   for (const d of g.shades || []) {
@@ -1852,6 +1943,8 @@ export function upgrade(g) {
   g.res.stone ??= 0;
   g.haunted ??= [];
   g.badLuck ??= 0;
+  g.fires ??= [];
+  g.scorched ??= [];
   if (g.night) g.night.broken ??= [];
   return g;
 }

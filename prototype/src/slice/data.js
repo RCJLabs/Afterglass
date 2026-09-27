@@ -164,7 +164,20 @@ export const TUNING = {
   // breakDread for each, and the next badLuckDays days are unlucky: sickness comes badLuck times as often.
   breakDread: 1,
   badLuckDays: 7,
-  badLuck: 2,
+  badLuck: 2, // also makes fire that much likelier
+
+  // Fire by day (1 on, 0 off; keeps from before it play on without it). On fireChance of days a Hearth or a
+  // Forge catches fire at some hour, at fireStart heat. The heat grows fireGrow a second and everyone in the
+  // room fights it, fireFight each; masons sent from the Yard join them, or everyone, when the bell rings.
+  // Each fighter may die, fireDeath a second times the heat squared; at full heat, every fireSpread seconds it
+  // catches a room beside it. A fire still burning at dusk scorches its room: nobody works there the next day.
+  fire: 1,
+  fireChance: 0.3,
+  fireStart: 0.25,
+  fireGrow: 0.1,
+  fireFight: 0.04,
+  fireDeath: 0.02,
+  fireSpread: 10,
 };
 
 // Traits, from round three: each of the living has one, which helps or hinders at a job, and death turns it

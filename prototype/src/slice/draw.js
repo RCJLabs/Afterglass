@@ -413,7 +413,39 @@ function person(c, p, i, home, y, t, dim = 0) {
 
 // Everything alive in the keep by day, in world coordinates: fires, the living at work, the dead in the
 // crypt, the Church's inspector, and a raid coming over the hills.
+// Fire by day: a scorched room stands black; a burning one has flames across its floor, more and taller as
+// it heats, smoke under its ceiling, and whoever was sent to fight it.
+function fires(c, s, t) {
+  for (const id of s.scorched || []) {
+    const r = G.rooms[id];
+    if (r) A(c, 0.55, () => R(c, r.x0, G.floors[r.f].y, r.x1 - r.x0, ROOM_H - 2, P.soot));
+  }
+  for (const f of s.fires || []) {
+    const r = G.rooms[f.room];
+    if (!r) continue;
+    const y = feet(r.f);
+    const n = 2 + Math.round(f.heat * 7);
+    for (let i = 0; i < n; i++) {
+      const x = Math.round(r.x0 + 4 + ((i + 0.5) * (r.x1 - r.x0 - 8)) / n);
+      glow(c, x, y - 4, 5, P.orange, 0.2 + 0.25 * f.heat);
+      flame(c, x, y - 1, t + i * 0.37, i + 7);
+      if (f.heat > 0.6) flame(c, x + 1, y - 5, t + i * 0.61, i + 3);
+    }
+    for (let i = 0; i < 4; i++) {
+      const k = (t * 0.6 + i * 0.25) % 1;
+      A(c, 0.4 * (1 - k), () => R(c, Math.round(r.x0 + 10 + (i * (r.x1 - r.x0 - 20)) / 3 + Math.sin(t + i) * 2), Math.round(G.floors[r.f].y + 7 - k * 6), 3, 2, P.steel));
+    }
+  }
+}
+function fireFighters(c, s, t) {
+  for (const f of s.fires || []) {
+    const r = G.rooms[f.room];
+    const ps = s.living.filter((p) => p.fighting === f.room);
+    if (r) ps.forEach((p, i) => person(c, { ...p, job: 'yard' }, i, r.x0 + 8 + ((i + 0.5) * (r.x1 - r.x0 - 16)) / ps.length, feet(r.f), t, 0));
+  }
+}
 function dayActors(c, s, t, dusk = 0) {
+  fires(c, s, t);
   for (const h of every('hearth')) {
     const hy = feet(h.f);
     glow(c, h.x0 + 38, hy - 3, 6, P.orange, 0.25);
@@ -426,7 +458,7 @@ function dayActors(c, s, t, dusk = 0) {
     flame(c, g.x0 + 8, feet(g.f) - 3, t, 4);
   }
   // Masons work the wall walk on the roof, either side of the tower, among their cut stone.
-  const masons = s.living.filter((p) => p.job === 'yard');
+  const masons = s.living.filter((p) => p.job === 'yard' && !p.fighting);
   const walk = roofY() + 20;
   if (masons.length) {
     for (const [dx, dy] of [[34, -2], [38, -2], [36, -4], [76, -2]]) {
@@ -455,6 +487,7 @@ function dayActors(c, s, t, dusk = 0) {
       person(c, p, i, home, feet(r.f), t, Math.min(1, dusk * 1.6));
     });
   }
+  fireFighters(c, s, t);
   const cr = span('crypt');
   // At dusk the dead on the slab glow faintly, the only light left in the crypt.
   if (dusk > 0 && s.bodies.length) glow(c, cr.x0 + 11, top('crypt') + 12, 7, '#cfe0ff', 0.25 * dusk);

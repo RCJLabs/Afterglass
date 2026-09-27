@@ -212,6 +212,8 @@ details.card .facts li { display: block; }
 .scry .ways li.bad { color: var(--bad); font-weight: 700; }
 .scry .row { align-items: flex-start; font-size: 14px; }
 .break-ask { display: grid; gap: 4px; max-width: 34rem; }
+.fire .heat { height: 8px; border-radius: 4px; background: var(--line); overflow: hidden; margin: 4px 0 8px; }
+.fire .heat span { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--bad), #ffb14a); }
 .break-ask .note { margin: 0; }
 table.days { min-width: 680px; }
 
