@@ -8,6 +8,8 @@ Open [`index.html`](index.html) in a browser for the full version: animated pixe
 
 **Round four:** **After the Slice**, what to build once round three's plan was playable: nineteen candidates, what got built, what it showed, and the queue: [`round-4/`](round-4/README.md).
 
+**Round five:** five enhancements, five new features and three smaller ones, queued after round four's was built: [`round-5/`](round-5/README.md).
+
 ## The problem with the pitch
 
 "Fallout Shelter–style side view, Elder Scrolls–style fantasy, build and defend a castle" already exists twice on Google Play:
