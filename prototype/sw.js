@@ -28,6 +28,8 @@ const CORE = [
   'src/slice/saves.js',
   'src/slice/sound.js',
   'src/slice/threats.js',
+  'src/slice/recap.js',
+  'src/slice/card.js',
   'icons/icon-192.png',
   'icons/icon-512.png',
   'icons/icon-maskable-512.png',

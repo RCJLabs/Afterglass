@@ -32,7 +32,7 @@ Sizes were my estimates when the list was made: S, M, L.
 | 11 | The dusk crossing in the season | S | Built |
 | | **New ideas** | | |
 | 12 | The Book of the Dead: each shade's story | S | Built |
-| 13 | A season recap card to share | S | Queued, 3rd |
+| 13 | A season recap card to share | S | Built. One image of the season to share or save, at its end; sharing is untested on phones |
 | 14 | A daily seed everyone plays | S | Queued, 4th; replays are already exact from a seed |
 | 15 | Watch a replay of a season or a tester's export | S–M | Parked for later, your call |
 | 16 | A threat preview at dusk: likely Creeper routes and the Hollow's path | M | Built, as the black mirror: the Dusk panel says where each rift's tide will go, and the Tain shows the ways |
@@ -90,7 +90,7 @@ The candidates not built yet when the queue was made, in the order I'd build the
 
 1. **A threat preview at dusk (16), with the black mirror (6) in it.** M. Done. The Dusk panel's black mirror says where each rift's tide will go past the candles set so far: the light it will gnaw, a mirror left open, or a shade it will catch. It also names where candle hunters go, what a Maw would make for, the Hollow's way, each tide's size, and tomorrow's raid as a range. The Tain shows the same ways as marching chevrons. It asks the Creepers' own planner, so it's exact until the night begins and candles burn down.
 2. **Watch a replay (15).** S–M. Parked for later, your call. A tester's export already replays exactly. A viewer that plays it back lets you see where they struggled, which is most of what a playtest can tell beyond its one question.
-3. **A season recap card (13).** S. One image per season to share, drawn from the season summary and the Book of the Dead.
+3. **A season recap card (13).** S. Done. At a season's end, or when the keep falls, Make the card draws a 1080 by 1350 image. It shows the keep as it stands in the game's own pixels, how the season went, six numbers, and up to three of the season's dead from the Book. Share uses the phone's share sheet where the browser can share images; Save image downloads it. Only the download is tested (desktop Chromium has no share sheet), and nobody has shared one yet.
 4. **A daily seed (14).** S. Everyone plays the same keep each day. Worth it once there are players to compare.
 5. **Break a mirror in an emergency (8).** S. Done. Everyone in it goes free at once and Dread falls 1 for each, so it can turn a censure into a warning, or free a caught shade at night. The mirror is lost and 7 days of bad luck follow (sickness twice as often). The keeper plan breaking one to stop every censure finished 80 second seasons in 99 against 86 without; without the bad luck it's about even.
 6. **Fire by day (the rest of 2).** M. Done. About 2 fires a season in a Hearth or a Forge. The room's own workers fight each one, the Yard or the bell can be sent, and fighting it can kill, more so the hotter it is. Fought at once it adds few deaths (0.14–0.18 per two seasons for the autopilot) but costs 5–14 second seasons in 200. Whether it gives a slower player more choices at the rite is for the playtest.

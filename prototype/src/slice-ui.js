@@ -12,6 +12,8 @@ import {
 import { geo, feet, floorAtY, roomAt, typeAt, typeOf, roomSpan, roomsOf, lightMap, isLit, unitAt, DEEP_FLOOR, lineSpots as lineOf, guardLit } from './slice/geo.js';
 import { drawScene } from './slice/draw.js';
 import { threats } from './slice/threats.js';
+import { recapOf } from './slice/recap.js';
+import { drawCard, cardFonts } from './slice/card.js';
 import { epitaph, ordinal, RESTING, LOST } from './slice/book.js';
 import { SLOTS, slotKey, openIndex, loadSlot, saveSlot, useSlot, deleteSlot, keepFromFile, summary, mergeIndex, isIndexKey } from './slice/saves.js';
 import { createSound, SOUNDS } from './slice/sound.js';
@@ -806,6 +808,7 @@ function endPanel() {
   return `<header class="ph-head"><h2>${yearEnd ? `Year ${yearOf(s)} is over` : T.year ? `${seasonWord()} is over` : `Season ${e.season} is over`}</h2><p>${yearEnd ? 'The Long Night has passed. The keep has stood a whole year.' : 'The new moon has passed. The keep stands.'}</p></header>
     ${questionHTML(e)}
     <div class="card"><h3>The season</h3>${summaryHTML(e)}<div class="row"><button class="btn sm" id="end-book" data-act="book">Read the Book of the Dead</button></div></div>
+    ${recapHTML(e)}
     <div class="row"><button class="btn primary" id="btn-next-season" data-act="next-season">${next}</button><span class="hint">Raids and the Unlit come ×${T.hardness} harder.</span></div>`;
 }
 
@@ -815,12 +818,59 @@ function newKeepControls() {
     <div class="row"><button class="btn primary" id="btn-new-yes" data-act="new-yes">Start over</button><button class="btn" id="btn-new-no" data-act="new-no">Cancel</button></div></div>`;
 }
 
+// The recap card (recap.js says what, card.js draws it): made on request, shown, then shared or saved.
+function recapHTML(e) {
+  const k = ui.card?.season === e.season && ui.card.keep === s.seed ? ui.card : null;
+  if (!k) {
+    return `<div class="card"><h3>Recap card</h3><p class="note">One image of the season to share: the keep as it stands, how it went, and who is remembered.</p>
+      <div class="row"><button class="btn" id="card-make" data-act="card-make"${ui.card?.making ? ' disabled' : ''}>${ui.card?.making ? 'Drawing…' : 'Make the card'}</button></div></div>`;
+  }
+  return `<div class="card"><h3>Recap card</h3><img class="recap" id="recap-img" src="${k.url}" alt="${esc(k.alt)}" width="1080" height="1350">
+    <div class="row">${navigator.share ? '<button class="btn primary" id="card-share" data-act="card-share">Share</button>' : ''}<button class="btn" id="card-save" data-act="card-save">Save image</button></div></div>`;
+}
+async function makeCard() {
+  const r = recapOf(s);
+  if (!r || ui.card?.making) return;
+  if (ui.card?.url) URL.revokeObjectURL(ui.card.url);
+  ui.card = { making: true };
+  bump();
+  await cardFonts();
+  const cv = document.createElement('canvas');
+  drawCard(cv, s, r);
+  const blob = await new Promise((done) => cv.toBlob(done, 'image/png'));
+  const name = `afterglass-${(r.daily ? `daily-${r.daily}-` : '') + r.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.png`;
+  const alt = `The recap card for ${r.title}: ${r.head}. ${r.sub} ${r.stats.map(([l, v]) => `${l}: ${v}`).join('; ')}.${r.remembered.length ? ` Remembered: ${r.remembered.map((m) => `${m.name}, ${m.line}`).join('; ')}.` : ''}`;
+  ui.card = { season: r.season, keep: s.seed, url: URL.createObjectURL(blob), blob, name, text: r.text, alt };
+  bump();
+}
+function saveCard() {
+  const a = document.createElement('a');
+  a.href = ui.card.url;
+  a.download = ui.card.name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+async function shareCard() {
+  const file = new File([ui.card.blob], ui.card.name, { type: 'image/png' });
+  if (navigator.canShare?.({ files: [file] })) {
+    try {
+      await navigator.share({ files: [file], text: ui.card.text });
+      return;
+    } catch (err) {
+      if (err?.name === 'AbortError') return;
+    }
+  }
+  saveCard(); // this browser can't share an image: save it instead
+}
+
 function overPanel() {
   const e = lastSeason(s);
   const why = s.over?.reason === 'veil' ? 'The Veil broke and the Unlit came through into the keep.' : 'No one living was left.';
   return `<header class="ph-head"><h2>The keep is lost</h2><p>${why} Season ${s.season}, ${s.phase === 'over' && s.over.day ? `day ${s.over.day}` : ''}.</p></header>
     ${e ? questionHTML(e) : ''}
     ${e ? `<div class="card"><h3>The season</h3>${summaryHTML(e)}</div>` : ''}
+    ${e ? recapHTML(e) : ''}
     ${newKeepControls()}`;
 }
 
@@ -2240,6 +2290,9 @@ function onAct(name, el) {
       game({ type: 'answer', answer: e?.answer === el.dataset.v ? null : el.dataset.v });
       return saveGame();
     }
+    case 'card-make': return makeCard();
+    case 'card-save': return ui.card?.url && saveCard();
+    case 'card-share': return ui.card?.url && shareCard();
     case 'next-season':
       if (game({ type: 'nextSeason' })) saveGame();
       return undefined;
