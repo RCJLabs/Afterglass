@@ -1727,7 +1727,7 @@ function settingsTab() {
   return `<section class="settings">
     <h3>Play</h3>
     <p class="note">This keep is ${PRESETS[s.preset]?.name.toLowerCase() || 'standard'}${s.daily ? ", as today's keep is for everyone" : ''}. A new keep's difficulty is chosen in Saves.</p>
-    <label class="row" for="autopause"><input type="checkbox" id="autopause" data-act="autopause"${prefs.autoPause ? ' checked' : ''}>Pause for raids, fires, catches and the Hollow</label>
+    <label class="row" for="autopause"><input type="checkbox" id="autopause" data-act="autopause"${prefs.autoPause ? ' checked' : ''}>Pause for raids, fires, catches, the Hollow and the eclipse</label>
     <label class="row" for="guide-on"><input type="checkbox" id="guide-on" data-act="guide-toggle"${prefs.guide ? ' checked' : ''}>Guide me through the first season (turning it on starts it over)</label>
     <h3>The castle</h3>
     <fieldset><legend>The Tain at night</legend>${radio('camera', 'reflection', 'Reflected, upside down, as the lake shows it', prefs.mode)}${radio('camera', 'flipped', 'Turned upright', prefs.mode)}</fieldset>
