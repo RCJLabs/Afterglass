@@ -20,6 +20,8 @@ export function summary(s, now) {
     shades: s.shades.filter((d) => canWork(d) || d.deep || d.hidden).length, // one down in the Deep, or hidden away, is still one of them
     lost: s.phase === 'over',
     sealed: !!s.sealed,
+    opened: !!s.opened,
+    chapter: s.tuning?.campaign && s.tuning?.year && !s.campaign?.ending ? Math.min(5, Math.floor((s.season - 1) / 4) + 1) : 0,
     daily: s.daily || null,
     preset: s.preset || null,
     tutorial: !!s.tuning?.tutorial,

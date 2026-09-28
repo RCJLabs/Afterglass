@@ -2,7 +2,7 @@
 // bar at the bottom, and everything else opens in a panel over the castle. Like the greyboxes it changes
 // the game only through act(), so every session replays from its seed and action log.
 
-import { TICKS_PER_SEC, DAY_ROOMS, WORK_ROOMS, TWINS, KINDS, MIRRORS, CAUSES, MAP, BOND_OTHER, TUNING, BUILDABLE, TRAITS, SHADE_TRAITS, SEASONS, TUTORIAL, REQUESTS, PRESETS, ACTS, OMENS, VISITORS, STUDIES, DECREES, decreeDoes } from './slice/data.js';
+import { TICKS_PER_SEC, DAY_ROOMS, WORK_ROOMS, TWINS, KINDS, MIRRORS, CAUSES, MAP, BOND_OTHER, TUNING, BUILDABLE, TRAITS, SHADE_TRAITS, SEASONS, TUTORIAL, REQUESTS, PRESETS, ACTS, OMENS, VISITORS, STUDIES, DECREES, decreeDoes, CHAPTERS, ENDINGS } from './slice/data.js';
 import {
   newSeason, step, act, retune, playerTuning, jobCap, jobCount, nextSlot, ritePreview, crossingPreview, capacity, canWork, defense, roomPower, bear, priests, funeralCap, eatRate,
   dayTicks, nightTicks, isNewMoon, choicesFor, byId, isTwinnedLiving, isTwinnedShade, lastSeason, SAVE_VERSION, fmt, mirrorCap, bareHalls, tainPlace,
@@ -11,7 +11,7 @@ import {
   weatherOf, forecastOf, raining, foggy, drownedDue, keepDefaults, embargoed, inquisition, churchDaysLeft, crusadeDay, crusadeDaysLeft,
   actOf, actCost, canAct, acting, actText, omenText, nextMark, SKIP_LEAD, visitorBlock,
   raiseCost, buildSpot, NEW_ROOMS, learned, decreeOf, gatehouseOf, undergateOpen, laddersDue, actsFor, mirrorGlass, pitchOf,
-  eclipseDue, eclipseSpan, bondedShade,
+  eclipseDue, eclipseSpan, bondedShade, chapterOf, campaignOn, chapterAgain, boonNow, arrived,
 } from './slice/sim.js';
 import { geo, feet, floorAtY, roomAt, typeAt, typeOf, roomSpan, roomsOf, lightMap, isLit, unitAt, DEEP_FLOOR, lineSpots as lineOf, guardLit, MAX_FLOORS } from './slice/geo.js';
 import { drawScene, drawMoment } from './slice/draw.js';
@@ -200,7 +200,7 @@ function phaseLabel() {
     dusk: `Dusk, day ${s.day}`,
     night: isLongNight(s) ? 'The Long Night' : isNewMoon(s) ? 'New moon' : `Night ${s.day}`,
     dawn: s.day === 0 ? (S ? `${S}, year ${yearOf(s)}` : `Season ${s.season}`) : `Dawn, day ${s.day + 1}`,
-    end: S ? (seasonIndex(s) === 3 ? 'The year is over' : `${S} is over`) : `Season ${s.season} over`,
+    end: s.opened ? 'The Veil is open' : s.sealed ? 'The Veil is sealed' : S ? (seasonIndex(s) === 3 ? 'The year is over' : `${S} is over`) : `Season ${s.season} over`,
     over: 'Keep lost',
   }[s.phase];
 }
@@ -414,6 +414,7 @@ function introHTML() {
     </ul>
     <p class="note">The castle is the screen. The bar at the bottom holds the tools for the moment and opens the panels: this phase, the people, and the records. Pause any time.</p>
     ${presetPicker('intro')}
+    ${campaignPicker('intro')}
     <div class="row"><button class="btn primary" id="btn-intro-tutorial" data-act="intro-tutorial">Play the tutorial</button><button class="btn" id="btn-intro-guide" data-act="intro-guide">Begin with a guide</button><button class="btn" id="btn-intro" data-act="intro-close">Begin without</button></div>
     <p class="hint">The tutorial is a keep whose first three days are set out to teach: one thing at a time, in order, and the Veil can't break before night 4. From day 4 it's an ordinary season. The guide instead shows a short card the first time each thing happens in any keep; you can switch it off in Settings. Every lesson is kept in Menu, under How to play.</p>
     ${installHTML('intro')}
@@ -771,6 +772,7 @@ function dayPanel() {
   return `<header class="ph-head"><h2>${seasonWord() ? `${seasonWord()}, day ${s.day}` : `Day ${s.day}`}</h2><p>${lunar} The living work; anyone who dies inside the walls wakes at dusk.</p></header>
     ${s.day === 1 ? seasonNote() : ''}
     ${s.daily && s.season === 1 && s.day === 1 ? `<p class="note">This is the keep of ${esc(dayText(s.daily))}: everyone who plays it gets this same keep, on the same rules.</p>` : ''}
+    ${chapterCard(false)}
     ${weatherNotes()}
     ${eclipseCard()}
     ${fireCards()}
@@ -790,6 +792,54 @@ function dayPanel() {
     <div class="card"><h3>Work today</h3><ul class="facts">${rows}</ul></div>
     ${deadByDay()}
     <div class="card"><h3>The mirrors</h3><p class="note">Each shade needs a place in a mirror. With no room, the dead wake Restless. Breaking one, in an emergency, frees everyone in it at once and lowers Dread, at the price of the mirror and ${s.tuning.badLuckDays} days of bad luck.</p>${mirrorsHTML()}${buildRow()}</div>`;
+}
+
+// The campaign (round six): the chapter this year is, what it brings, its goal and how it's going. Told in full
+// at the chapter's first dawn; by day a line.
+function goalSoFar(k) {
+  const g = CHAPTERS[k].goal;
+  const y = (season) => Math.floor((season - 1) / SEASONS.length) + 1;
+  const days = [...s.days.filter((d) => y(d.season) === k), s.today];
+  if (s.campaign.goals[k] !== undefined) return s.campaign.goals[k] ? 'Met.' : 'Not met.';
+  if (g.id === 'candles') return `${floor1(s.res.candles)} candles in the store now; it counts as winter begins.`;
+  if (g.id === 'gate') {
+    const raids = days.map((d) => d.raid).filter((r) => r && !r.crusade && !r.paid);
+    const lost = raids.filter((r) => !r.held).length;
+    return lost ? `The gate gave way ${plural(lost, 'time')} this year: not met.` : `${plural(raids.length, 'raid')} held so far.`;
+  }
+  if (g.id === 'church') return s.inspections.some((i) => y(i.season) === k && i.verdict === 'censured') ? 'Censured this year: not met.' : `No censure so far.`;
+  if (g.id === 'hollow') return days.some((d) => d.night?.hollow === 'driven back') ? 'The Hollow was driven back: met at the year\'s end.' : 'Not yet: it withdraws at dawn if it isn\'t met on its way. Send fighters down to it.';
+  return 'At the year\'s end.';
+}
+function chapterCard(full) {
+  const k = chapterOf(s);
+  if (!k) return '';
+  const C = CHAPTERS[k];
+  const reward = `worth ${s.tuning.goalReward} remembrance`;
+  if (!full) return `<p class="note chapter">Year ${k} of the campaign, <b>${esc(C.name)}</b>. The goal: to ${esc(C.goal.text)} (${reward}). ${esc(goalSoFar(k))}</p>`;
+  const help = Object.entries(s.campaign.boons || {}).filter(([id]) => boonNow(s, id)).map(([id]) => CHAPTERS[k - 1].close.find((c) => c.id === id)).filter(Boolean);
+  return `<div class="card chapter"><span class="eyebrow">The campaign, year ${k} of 5</span><h3>${esc(C.name)}</h3><p>${esc(C.text)}</p><p class="note">The goal: to ${esc(C.goal.text)}, ${reward}.${help.length ? ` From last year's close: ${esc(help.map((c) => `${c.name.charAt(0).toLowerCase()}${c.name.slice(1)}, ${c.text}`).join('; '))}.` : ''}</p></div>`;
+}
+// A chapter's close (years 1 to 4): its goal, and the choice for the next; after the fifth, the three endings.
+function chapterCloseHTML() {
+  const k = chapterOf(s);
+  const C = CHAPTERS[k];
+  const met = s.campaign.goals[k];
+  const goal = `<p class="note${met ? ' good' : ''}">The goal, to ${esc(C.goal.text)}, was ${met ? `met: +${s.tuning.goalReward} remembrance` : 'not met'}.</p>`;
+  if (C.close) {
+    const next = CHAPTERS[k + 1];
+    return `<div class="card ending"><h3>${esc(C.name)} closes</h3>${goal}<p>Next comes year ${k + 1}, ${esc(next.name)}. How does this chapter close?</p>
+      <div class="endings">${C.close.map((c) => `<div><button class="btn${c.gain ? '' : ' primary'}" id="close-${c.id}" data-act="close-chapter" data-id="${c.id}">${esc(c.name)}</button><p class="note">${esc(upper(c.text))}.</p></div>`).join('')}</div></div>`;
+  }
+  const n = s.shades.length;
+  const ask = ui.endAsk;
+  const confirm = ask ? `<p class="note bad">${esc(ENDINGS[ask].name)}? The keep's story ends here${ask === 'seal' && n ? `, and ${n === 1 ? 'the last shade goes' : `all ${n} shades go`} free` : ''}, and it can't be played on.</p><div class="row"><button class="btn sm primary" id="end-yes" data-act="end-yes">${esc(ENDINGS[ask].name)}</button><button class="btn sm" id="end-no" data-act="end-no">Cancel</button></div>` : '';
+  return `<div class="card ending"><h3>The campaign's end</h3>${goal}<p>Five years, and the last Long Night, are behind the keep. How does its story end?</p>
+    <div class="endings">
+      <div><button class="btn" id="end-seal" data-act="end-ask" data-id="seal">${ENDINGS.seal.name}</button><p class="note">${esc(ENDINGS.seal.text)}</p></div>
+      <div><button class="btn" id="end-open" data-act="end-ask" data-id="open">${ENDINGS.open.name}</button><p class="note">${esc(ENDINGS.open.text)}</p></div>
+      <div><button class="btn primary" id="end-watch" data-act="take-glass">${ENDINGS.watch.name}</button><p class="note">${esc(ENDINGS.watch.text)}</p></div>
+    </div>${confirm}</div>`;
 }
 
 // The eclipse (round six): midsummer's morning, the dark itself, and what it left.
@@ -1311,6 +1361,7 @@ function dawnPanel() {
     D.vigils ? `−${D.vigils} vigils` : '',
   ].filter(Boolean).join(', ');
   return `<header class="ph-head"><h2>${s.day === 0 ? `Season ${s.season}: the first dawn` : 'Dawn: the Rite'}</h2><p>The Unlit withdraw and the shades go back into the glass. Choose who stays. Each shade kept adds Dread; ${bear(s)} ${bear(s) === 1 ? 'is' : 'are'} borne by the living (one per ${T.dreadLivingPer} living, one per priest).</p></header>
+    ${s.day === 0 && seasonIndex(s) === 0 ? chapterCard(true) : ''}
     ${nightReport()}
     ${reviewHTML('The night in moments')}
     ${s.dreamt ? `<p class="note">Good dreams from the night: the living work ×${fmt(s.dreamt)} today.</p>` : ''}
@@ -1362,16 +1413,19 @@ function endPanel() {
   const T = s.tuning;
   const yearEnd = T.year && seasonIndex(s) === 3;
   const next = T.year ? `Begin ${SEASONS[e.season % SEASONS.length]}${yearEnd ? `, year ${yearOf(s) + 1}` : ''}` : `Begin season ${e.season + 1}`;
-  const head = s.sealed
-    ? `<header class="ph-head"><h2>The Veil is sealed</h2><p>After a whole year, ${s.sealed.freed ? `${plural(s.sealed.freed, 'shade')} went free` : 'the glass stood empty'}, and the Book of the Dead is closed. This keep's story is over.</p></header>`
+  const head = s.opened
+    ? `<header class="ph-head"><h2>The Veil is open</h2><p>After five years, ${s.opened.shades ? `${plural(s.opened.shades, 'shade')} walked out of the glass into the keep` : 'with the glass empty'}, the living went down into the Tain, and the keep became a crossing between the two. This keep's story is over.</p></header>`
+    : s.sealed
+    ? `<header class="ph-head"><h2>The Veil is sealed</h2><p>After ${s.campaign?.ending === 'seal' ? 'five years' : 'a whole year'}, ${s.sealed.freed ? `${plural(s.sealed.freed, 'shade')} went free` : 'the glass stood empty'}, and the Book of the Dead is closed. This keep's story is over.</p></header>`
     : `<header class="ph-head"><h2>${yearEnd ? `Year ${yearOf(s)} is over` : T.year ? `${seasonWord()} is over` : `Season ${e.season} is over`}</h2><p>${yearEnd ? 'The Long Night has passed. The keep has stood a whole year.' : 'The new moon has passed. The keep stands.'}</p></header>`;
-  const go = s.sealed
+  const go = s.sealed || s.opened
     ? newKeepControls()
+    : yearEnd && chapterOf(s) ? chapterCloseHTML()
     : yearEnd ? endingsHTML(next)
       : `<div class="row"><button class="btn primary" id="btn-next-season" data-act="next-season">${next}</button><span class="hint">Raids and the Unlit come ×${T.hardness} harder.</span></div>`;
   return `${head}
     ${questionHTML(e)}
-    ${s.sealed ? '' : reviewHTML(isLongNight(s) ? 'The Long Night in moments' : 'The new moon in moments')}
+    ${s.sealed || s.opened ? '' : reviewHTML(isLongNight(s) ? 'The Long Night in moments' : 'The new moon in moments')}
     <div class="card"><h3>The season</h3>${summaryHTML(e)}<div class="row"><button class="btn sm" id="end-book" data-act="book">Read the Book of the Dead</button></div></div>
     ${recapHTML(e)}
     ${go}`;
@@ -1452,6 +1506,7 @@ function overPanel() {
     ${reviewHTML('How the last night went')}
     ${e ? `<div class="card"><h3>The season</h3>${summaryHTML(e)}</div>` : ''}
     ${e ? recapHTML(e) : ''}
+    ${campaignOn(s) && s.campaign && !s.campaign.ending ? `<div class="card chapter"><h3>Begin the chapter again</h3><p class="note">The keep as it stood at the first dawn of year ${chapterOf(s)}, ${esc(CHAPTERS[chapterOf(s)].name)}${chapterOf(s) === 1 ? ' (its first morning)' : ''}, with everything since undone. It plays the same until you choose otherwise.</p><div class="row"><button class="btn primary" id="btn-chapter-again" data-act="chapter-again">Begin ${esc(CHAPTERS[chapterOf(s)].name)} again</button></div></div>` : ''}
     ${newKeepControls()}`;
 }
 
@@ -1766,6 +1821,7 @@ const agoText = (ms) => {
 function whereText(m) {
   if (m.lost) return `fallen on day ${m.day}`;
   if (m.sealed) return 'the Veil is sealed';
+  if (m.opened) return 'the Veil is open';
   if (m.phase === 'end') return 'the season is over';
   if (m.phase === 'night') return `night ${m.day}`;
   if (m.phase === 'dusk') return `dusk, day ${m.day}`;
@@ -1839,7 +1895,7 @@ function savesTab() {
     else if (m) acts = `<div class="row"><button class="btn sm primary" id="slot-play-${n}" data-act="slot-play" data-n="${n}">Continue</button><button class="btn sm" id="slot-export-${n}" data-act="slot-export" data-n="${n}">Export</button>${file}<button class="btn sm" id="slot-delete-${n}" data-act="slot-delete" data-n="${n}">Delete</button></div>`;
     else acts = `<div class="row"><button class="btn sm primary" id="slot-new-${n}" data-act="slot-new" data-n="${n}">New keep</button>${file}</div>`;
     const what = m
-      ? `<p><b>${m.daily ? `The keep of ${esc(dayText(m.daily))}. ` : m.tutorial ? 'The tutorial keep. ' : m.preset && PRESETS[m.preset] ? `${PRESETS[m.preset].name}. ` : ''}Season ${m.season}, ${esc(whereText(m))}</b></p><p class="hint">${plural(m.rooms, 'room')} · ${m.living} living · ${plural(m.shades, 'shade')}${here ? '' : ` · played ${esc(agoText(m.saved))}`}</p>`
+      ? `<p><b>${m.daily ? `The keep of ${esc(dayText(m.daily))}. ` : m.tutorial ? 'The tutorial keep. ' : m.preset && PRESETS[m.preset] ? `${PRESETS[m.preset].name}. ` : ''}${m.chapter ? `Campaign, ${esc(CHAPTERS[m.chapter].name)}. ` : ''}Season ${m.season}, ${esc(whereText(m))}</b></p><p class="hint">${plural(m.rooms, 'room')} · ${m.living} living · ${plural(m.shades, 'shade')}${here ? '' : ` · played ${esc(agoText(m.saved))}`}</p>`
       : '<p class="hint">Empty.</p>';
     return `<div class="kslot${here ? ' is-here' : ''}" id="slot-${n}"><div class="kslot-head"><span class="eyebrow">Keep ${n}</span>${here ? '<span class="tag">Playing</span>' : ''}</div>${what}${acts}</div>`;
   }).join('');
@@ -1848,6 +1904,7 @@ function savesTab() {
     ${tutorialHTML()}
     <p class="note">Each keep saves itself as you play. Export writes a keep to a file you can keep or send; Load a file takes that file back, or a tester's playtest export, which is replayed into the keep it came from.</p>
     ${presetPicker('saves')}
+    ${campaignPicker('saves')}
     <div class="kslots">${slots}</div>
     ${ui.slotMsg ? `<p class="note bad" role="alert">${esc(ui.slotMsg)}</p>` : ''}
     ${watchCard()}
@@ -2790,7 +2847,7 @@ function buildHTML() {
     const tw = TWINS[type];
     const have = roomsOf(G, type).length;
     const gate = type === 'gatehouse';
-    const why = gate && have ? 'The keep has its Gatehouse.' : gate && !atGateHere ? 'Only on the ground floor, where the gate is: move a room up to make a bare hall there (Rearrange, below), then choose it.' : '';
+    const why = gate && !arrived(s, 2) ? 'It comes with the Ashen Host, in the campaign\'s second year.' : gate && have ? 'The keep has its Gatehouse.' : gate && !atGateHere ? 'Only on the ground floor, where the gate is: move a room up to make a bare hall there (Rearrange, below), then choose it.' : '';
     return `<li class="build-row"><div><b>${esc(R.name)}</b>${have ? ` <small class="muted">you have ${have}</small>` : ''}<p class="note">${esc(R.job(R))} By night, the ${esc(tw.name)}: ${esc(tw.note)}</p>${why ? `<p class="note bad">${esc(why)}</p>` : ''}</div>
       <button class="btn sm" id="raise-${type}" data-act="raise" data-room="${type}"${can && !why ? '' : ' disabled'}>Build, ${fmt(cost)} stone</button></li>`;
   }).join('');
@@ -3807,6 +3864,19 @@ function freshKeep(g) {
   view.panY = 0;
   view.snap = true;
 }
+// A lost campaign's chapter begun again from its first dawn (round six): the keep rebuilt by replaying what
+// came before it.
+function chapterAgainNow() {
+  const g = chapterAgain(s);
+  if (!g) return toast("This chapter can't be begun again: the keep was begun on an older build, and its record no longer replays.", 'bad');
+  g.alerts = []; // the replay's news is old news, as for a keep loaded
+  freshKeep(g);
+  saveGame();
+  closeSheet();
+  if (waiting()) openSheet('phase', 'game');
+  toast(`${CHAPTERS[chapterOf(s)].name}, begun again from ${chapterOf(s) === 1 ? 'the keep\'s first morning' : 'its first dawn'}.`, 'rite');
+  return bump();
+}
 function playKeep(n, g, lead) {
   if (ui.watch) {
     // Never let the session being watched stand in for a keep: the one in play comes back first.
@@ -3841,11 +3911,18 @@ function newKeep(n) {
 // numbers from the keep before where the preset has none. The keep keeps them as its own defaults.
 const presetNow = () => (PRESETS[prefs.preset] ? prefs.preset : 'standard');
 function keepWith(p) {
-  const defaults = { ...playerTuning(s), ...PRESETS[p].tuning };
+  const defaults = { ...playerTuning(s), ...PRESETS[p].tuning, campaign: prefs.campaign ? 1 : 0 };
   const k = newSeason(Date.now() >>> 0, defaults);
   k.defaults = defaults;
   if (p !== 'standard') k.preset = p;
   return k;
+}
+// A campaign (round six) or the open year, for a new keep.
+function campaignPicker(where) {
+  const radio = (v, label) => `<input type="radio" class="visually-hidden" name="kind-${where}" id="kind-${where}-${v}" data-act="keep-kind" value="${v}"${(v === 'campaign') === !!prefs.campaign ? ' checked' : ''}><label class="btn sm" for="kind-${where}-${v}">${label}</label>`;
+  return `<fieldset class="presets" id="kinds-${where}"><legend>What kind of keep${where === 'saves' ? ', for a new one' : ''}</legend>
+      <div class="seg">${radio('open', 'The open year')}${radio('campaign', 'Campaign')}</div>
+      <p class="hint">${prefs.campaign ? 'Five years, five chapters: each brings a new pressure and a goal, and closes on a choice; the fifth ends in one of three endings. The Host\'s sieges, the Church\'s wrath and the Hollow\'s growth come a year at a time, and a lost chapter can be begun again.' : 'Every year the same, a little harder, and a choice at each year\'s end: keep the watch, take your place in the glass, or seal the Veil.'}</p></fieldset>`;
 }
 function presetPicker(where) {
   const cur = presetNow();
@@ -3857,7 +3934,7 @@ function presetPicker(where) {
 const untouched = () => !s.actions.length && s.season === 1 && s.day === 1 && s.phase === 'day' && s.t === 0 && !s.daily && !s.tuning.tutorial;
 function takePreset() {
   const p = presetNow();
-  if (!untouched() || (s.preset || 'standard') === p) return;
+  if (!untouched() || ((s.preset || 'standard') === p && !!s.tuning.campaign === !!prefs.campaign)) return;
   s = listen(keepWith(p));
   saveGame();
 }
@@ -4075,6 +4152,22 @@ function onAct(name, el) {
     case 'take-glass':
       if (game({ type: 'takeGlass' })) saveGame();
       return undefined;
+    case 'close-chapter':
+      if (game({ type: 'closeChapter', id: el.dataset.id })) saveGame();
+      return undefined;
+    case 'end-ask':
+      ui.endAsk = el.dataset.id;
+      return bump();
+    case 'end-no':
+      ui.endAsk = null;
+      return bump();
+    case 'end-yes': {
+      const k = ui.endAsk;
+      ui.endAsk = null;
+      if (game({ type: k === 'seal' ? 'sealVeil' : 'openVeil' })) saveGame();
+      return undefined;
+    }
+    case 'chapter-again': return chapterAgainNow();
     case 'seal-ask':
       ui.sealAsk = true;
       return bump();
@@ -4185,6 +4278,10 @@ function onAct(name, el) {
       return closeSheet();
     case 'preset':
       prefs.preset = el.value;
+      savePrefs();
+      return bump();
+    case 'keep-kind':
+      prefs.campaign = el.value === 'campaign';
       savePrefs();
       return bump();
     case 'intro-tutorial':

@@ -1,7 +1,7 @@
 // How to play: every lesson of the tutorial and the guide, as a short manual the Menu keeps. Its numbers come
 // from the keep's own rules, so it stays true when they're changed in Settings. Pure.
 
-import { DAY_ROOMS, TWINS, KINDS, MIRRORS, TRAITS, SHADE_TRAITS, OMENS, STUDIES, DECREES, decreeDoes } from './data.js';
+import { DAY_ROOMS, TWINS, KINDS, MIRRORS, TRAITS, SHADE_TRAITS, OMENS, STUDIES, DECREES, decreeDoes, CHAPTERS, ENDINGS } from './data.js';
 import { actText, omenText } from './sim.js';
 
 const n1 = (x) => (Math.abs(x - Math.round(x)) < 0.05 ? String(Math.round(x)) : x.toFixed(1));
@@ -60,7 +60,25 @@ export function howTo(T) {
     `a shade who forges in the ${TWINS.forge.name} through half the night makes every shade fight ×${mult(T.steelFight)} the next`,
     `one who dreams in the ${TWINS.quarters.name} (the Quarters) rests the living: ×${mult(T.dreamWork)} the next day`,
   ];
+  const chapters = [1, 2, 3, 4, 5].map((k) => CHAPTERS[k]);
+  const campaign = T.campaign && T.year
+    ? [
+        {
+          id: 'campaign',
+          title: 'The campaign',
+          items: [
+            `A campaign is five years, each a chapter: ${chapters.map((C, i) => `year ${i + 1}, ${C.name}`).join('; ')}. It sits beside the open year, chosen for a new keep, and after its fifth year it plays on as the open year if you keep the watch.`,
+            "Each chapter brings its pressure. The first has none of these: from year 2 the Host lays siege in autumn and brings ladders to the gate, and a Gatehouse can be raised against it, with its Undergate below; from year 3 a censure brings the Church's embargo, then its Inquisition, then its crusade (before, it covers a mirror and nothing more); from year 4 the Hollow is half again as hard to drive back and eats the light as fast again, and the new moon brings half again as many Creepers.",
+            `Each chapter has a goal, worth ${T.goalReward} remembrance when it's met: ${chapters.map((C) => `to ${C.goal.text}`).join('; ')}. The Day panel says how it's going.`,
+            `Years 1 to 4 close on a choice of two, goods now or a help for the next year: ${[1, 2, 3, 4].map((k) => `${CHAPTERS[k].close.map((c) => `${c.name.charAt(0).toLowerCase()}${c.name.slice(1)} (${c.text})`).join(' or ')}`).join('; ')}.`,
+            `The fifth year ends in one of three endings: ${Object.values(ENDINGS).map((E) => `${E.name}: ${E.text.charAt(0).toLowerCase()}${E.text.slice(1)}`).join(' ')}`,
+            `A campaign's years harden ×${mult(T.campaignHardness)} each, not the open year's ×${mult(T.yearHardness)}. When a campaign's keep is lost, its chapter can be begun again from its first dawn, as the keep stood then.`,
+          ],
+        },
+      ]
+    : [];
   return [
+    ...campaign,
     {
       id: 'keep',
       title: 'The keep',

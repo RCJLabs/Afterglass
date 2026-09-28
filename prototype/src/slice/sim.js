@@ -4096,6 +4096,7 @@ const ACTIONS = {
     const v = Number(value);
     if (!Number.isFinite(v) || v < 0) return 'Needs a number.';
     if (typeof s.tuning[key] !== 'number') return 'No such setting.';
+    if (KINDS_OF_KEEP.includes(key)) return 'That is what kind of keep this is, chosen when it was made.';
     if ((key === 'daySecs' || key === 'nightSecs') && v < 10) return 'At least 10 seconds.';
     s.tuning[key] = v;
   },
@@ -4154,7 +4155,7 @@ export function retune(s, defaults) {
   }
   return n;
 }
-const KINDS_OF_KEEP = ['tutorial'];
+const KINDS_OF_KEEP = ['tutorial', 'campaign'];
 // A keep's own defaults: the build's numbers, with the ones it was made with (a difficulty preset, or the
 // player's own from the keep before) standing in for them, so a newer build doesn't move those.
 export const keepDefaults = (s) => ({ ...TUNING, ...(s.defaults || {}) });
