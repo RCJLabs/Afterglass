@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { newSeason, step, act, upgrade, hard, hollowGrowth, wardDrawOf, hollowNeed, wardCost } from '../src/slice/sim.js';
+import { newSeason, step, act, upgrade, hollowGrowth, wardDrawOf, hollowNeed, wardCost } from '../src/slice/sim.js';
 import { geo, roomSpan } from '../src/slice/geo.js';
 import { TUNING, STUDIES } from '../src/slice/data.js';
 
@@ -81,17 +81,19 @@ test('a ward draws on the essence to hold the Hollow, and with the store empty g
   assert.ok(s.log.some((l) => /The essence is spent/.test(l.text)));
 });
 
-test('the draw grows with the Hollow, Hollow-lore halves it, and the Deep grows it in a campaign', () => {
+test('the draw grows with the Hollow a year at a time, Hollow-lore halves it, and the Deep grows it in a campaign', () => {
   const s = newSeason(3, { wardDraw: 0.3 });
+  s.season = 4; // year 1's winter: the Long Night draws no faster than spring
+  assert.ok(Math.abs(wardDrawOf(s) - 0.3) < 1e-9);
   s.season = 7; // year 2's autumn
-  assert.ok(Math.abs(wardDrawOf(s) - 0.3 * hard(s)) < 1e-9);
+  assert.ok(Math.abs(wardDrawOf(s) - 0.3 * TUNING.yearHardness) < 1e-9);
   s.learned = ['hollow'];
-  assert.ok(Math.abs(wardDrawOf(s) - (0.3 * hard(s)) / STUDIES.hollow.hold) < 1e-9);
+  assert.ok(Math.abs(wardDrawOf(s) - (0.3 * TUNING.yearHardness) / STUDIES.hollow.hold) < 1e-9);
   const c = newSeason(5, { campaign: 1, wardDraw: 0.3 });
   c.season = 13;
-  assert.ok(Math.abs(hollowGrowth(c) - hard(c) * TUNING.hollowRises) < 1e-9);
+  assert.ok(Math.abs(hollowGrowth(c) - Math.pow(TUNING.campaignHardness, 3) * TUNING.hollowRises) < 1e-9);
   c.season = 12;
-  assert.ok(Math.abs(hollowGrowth(c) - hard(c)) < 1e-9);
+  assert.ok(Math.abs(hollowGrowth(c) - Math.pow(TUNING.campaignHardness, 2)) < 1e-9);
 });
 
 test('what holding it off until dawn takes, and the Long Night most of all', () => {
@@ -102,7 +104,7 @@ test('what holding it off until dawn takes, and the Long Night most of all', () 
   s.season = 4;
   const long = hollowNeed(s);
   assert.ok(Math.abs(long.secs - TUNING.nightSecs * TUNING.seasonNight[3] * TUNING.longNight * (1 - TUNING.hollowAt)) < 1e-9);
-  assert.ok(long.essence > 2 * spring.essence);
+  assert.ok(long.secs > 2 * spring.secs && long.essence > spring.essence, 'the Long Night takes more: it is longer, at the same draw');
 });
 
 test('a keep from before has neither: its wards hold wardHold seconds and draw nothing, and its store has no limit', () => {

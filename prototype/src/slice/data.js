@@ -116,11 +116,12 @@ export const TUNING = {
   hollowReward: 3,
   wardHold: 20, // seconds a ward on a stair holds the Hollow back once the store has no essence to draw on
   // While the Hollow batters a ward on a stair, the ward draws wardDraw essence a second to hold it, times as
-  // much as the Hollow has grown (the season's hardness, and the campaign's Deep); Hollow-lore halves it. With
-  // the store empty it holds wardHold seconds. And the store holds essenceCap at most: the Choir's singing
-  // beyond it is lost. Together, essence stops piling up past the first spring, and holding the Hollow off
-  // until dawn takes a good part of a full store, most of it on the Long Night. 0 turns either off (as before).
-  wardDraw: 0.3,
+  // much as the Hollow has grown year on year (and the campaign's Deep); Hollow-lore halves it. With the store
+  // empty it holds wardHold seconds. And the store holds essenceCap at most: the Choir's singing beyond it is
+  // lost. Together, essence stops piling up past the first spring, and holding the Hollow off until dawn takes
+  // a good part of a full store, most of it on the Long Night. 0.25 is what warding its stair again every
+  // wardHold seconds cost before, so the first year costs what it did. 0 turns either off (as before).
+  wardDraw: 0.25,
   essenceCap: 100,
   // Maws, the round-three brutes: they walk through light to whatever is worth most for the least fight,
   // the candle holding the way up or a room where the living or the dead work, hitting any shade in their

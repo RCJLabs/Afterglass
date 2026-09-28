@@ -405,8 +405,9 @@ export const tainAwake = (s) => s.phase === 'night' || eclipsing(s);
 export const twinMultOf = (s) => (eclipsing(s) ? s.tuning.eclipseTwin : s.tuning.twinMult);
 // How long a ward holds the Hollow once the store has no essence to draw on.
 export const wardHoldOf = (s) => s.tuning.wardHold * (learned(s, 'hollow') ? STUDIES.hollow.hold : 1);
-// How much the Hollow has grown: as its strength, the season's hardness (and the campaign's Deep).
-export const hollowGrowth = (s) => hard(s) * (hollowRisen(s) ? s.tuning.hollowRises : 1);
+// How much the Hollow has grown, a year at a time: the year's hardness without the season's part, so a year's
+// Long Night draws no faster than its spring (it's longer, and dearer for that); and the campaign's Deep.
+export const hollowGrowth = (s) => (s.tuning.year ? hard(s) / Math.pow(s.tuning.hardness, seasonIndex(s)) : hard(s)) * (hollowRisen(s) ? s.tuning.hollowRises : 1);
 // The essence a second a ward on a stair draws to hold the Hollow while it batters it: wardDraw at first,
 // times its growth, Hollow-lore halving it. 0 where wards don't draw (keeps from before).
 export const wardDrawOf = (s) => ((s.tuning.wardDraw || 0) * hollowGrowth(s) * s.tuning.wardHold) / wardHoldOf(s);
