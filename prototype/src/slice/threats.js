@@ -4,9 +4,9 @@
 // starts, candles burn down and shades move, so it can still turn out otherwise. Tomorrow's raid is rolled
 // when the day begins, so the mirror shows its range.
 
-import { wayOf, preyNear, mawPick, defense, byId, nightTicks, isNewMoon, weeperRooms, weeperSpots, raidStrength, foggy, gatehouseOf } from './sim.js';
+import { wayOf, preyNear, mawPick, defense, byId, nightTicks, isNewMoon, weeperRooms, weeperSpots, raidStrength, foggy, gatehouseOf, undergateMouth } from './sim.js';
 import { MAP } from './data.js';
-import { geo, lightMap, darkRooms, DEEP_FLOOR, route, mirrorGoals } from './geo.js';
+import { geo, lightMap, darkRooms, DEEP_FLOOR, route, mirrorGoals, isLit } from './geo.js';
 
 // A path as points to draw: where it starts, then each step; a step onto another floor is a climb.
 function points(from, path) {
@@ -43,7 +43,8 @@ function follow(s, L, c) {
 // up through their own rift whatever seals it; Creepers with nowhere open seep up instead.
 function riftFor(n, sp) {
   const open = MAP.rifts.filter((r) => !n.wards.includes(r.id));
-  return open.find((r) => r.id === sp.rift) || open[0] || (sp.type === 'creeper' ? null : byId(MAP.rifts, sp.rift));
+  const own = sp.rift === 'undergate' ? sp.from : sp.rift; // one kept from the Undergate comes up its own rift
+  return open.find((r) => r.id === own) || open[0] || (sp.type === 'creeper' ? null : byId(MAP.rifts, own));
 }
 
 export function threats(s) {
@@ -58,8 +59,9 @@ export function threats(s) {
   // Tonight's Creepers: which rift, which temper, which tide. From summer some come up the Undergate, the
   // Gatehouse's twin, on its own floor, unless it's warded.
   const rises = MAP.rifts.map((r) => ({ rift: r.id, f: DEEP_FLOOR, x: r.x, climb: 0, snuff: 0 }));
-  const gh = !n.wards.includes('undergate') && gatehouseOf(s);
-  if (gh) rises.push({ rift: 'undergate', f: gh.f, x: (gh.x0 + gh.x1) / 2, climb: 0, snuff: 0 });
+  const gate = !n.wards.includes('undergate') && gatehouseOf(s);
+  const gh = gate && !isLit(L, gate.f, undergateMouth(gate).x) ? gate : null; // a lit mouth keeps it shut
+  if (gh) rises.push({ rift: 'undergate', ...undergateMouth(gh), climb: 0, snuff: 0 });
   const tides = n.tides.map((at) => ({ at, count: 0 }));
   let seep = 0;
   let alone = 0;

@@ -117,7 +117,7 @@ test('a tutorial keep replays exactly, keeps its flag through a new build, and a
 
 test('How to play covers every part of a season, in the keep\'s own numbers', () => {
   const secs = howTo(TUNING);
-  assert.deepEqual(secs.map((x) => x.id), ['keep', 'day', 'raids', 'fire', 'visitors', 'dusk', 'night', 'weather', 'dawn', 'church', 'mirrors', 'moon']);
+  assert.deepEqual(secs.map((x) => x.id), ['keep', 'day', 'raids', 'fire', 'visitors', 'rooms6', 'dusk', 'night', 'weather', 'dawn', 'church', 'mirrors', 'moon']);
   const all = secs.flatMap((x) => x.items).join(' ');
   assert.match(all, new RegExp(`for ${TUNING.roomStone} stone`));
   assert.match(all, /days 2, 4 and 6/);

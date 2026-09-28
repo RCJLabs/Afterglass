@@ -36,7 +36,7 @@ test('every living figure stands on its row inside its footprint, with a face, w
           const what = `${job} ${age} ${pose} ${name}`;
           assert.equal(b.y1, 39, `${what}: feet on the row above y`);
           assert.ok(b.x0 >= 47 && b.x1 <= 54, `${what}: inside x-3..x+3 (and one for a prop): ${b.x0}..${b.x1}`);
-          assert.ok(b.y0 >= 40 - FIG_H[look.age] - (job === 'barracks' ? 4 : 3), `${what}: nothing far above the head: ${b.y0}`);
+          assert.ok(b.y0 >= 40 - FIG_H[look.age] - (OUTFITS[job]?.prop === 'spear' ? 4 : 3), `${what}: nothing far above the head: ${b.y0}`);
           assert.ok([...px.values()].includes(look.skin), `${what}: a face`);
           assert.ok([...px.values()].includes('#181425'), `${what}: an eye`);
         }

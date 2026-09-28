@@ -425,20 +425,21 @@ export const TUNING = {
   // STUDIES at a time, begun with remembrance; a lit shade in its twin, the Archive of the Dead, adds
   // lorePerSec of its work by night. hall: one standing decree a season (DECREES); a shade seated in its twin,
   // the Court of Shades, through half the night has one request heard free at the next rite. gatehouse: gate
-  // guards (DAY_ROOMS), only on the ground floor or the one above it. From season laddersFrom the Host
-  // brings a ladder every ladderEvery seconds at the gate, each standing one adding ladderHost, and each gate
-  // guard throws one down as it goes up; from season undergateFrom, undergateShare of the night's Creepers
-  // come up at its twin, the Undergate, unless it's warded. 0 is none of that room (for gatehouse, nor the
-  // ladders).
+  // guards (DAY_ROOMS), only on the ground floor, where the gate is. From season laddersFrom the Host
+  // brings a ladder every ladderEvery seconds at the gate, each standing one adding ladderHost, unless a gate
+  // guard is on the Gatehouse's walls to throw them down; from season undergateFrom its twin, the Undergate,
+  // under the Veil, stirs on undergateChance of nights, and undergatePerTide of each tide come up it then,
+  // unless a candle burns at its mouth or it's warded. 0 is none of that room (for gatehouse, nor the ladders).
   library: 1,
   lorePerSec: 0.01,
   hall: 1,
   gatehouse: 1,
   laddersFrom: 2,
   ladderEvery: 4,
-  ladderHost: 1.5,
+  ladderHost: 0.5,
   undergateFrom: 2,
-  undergateShare: 0.25,
+  undergateChance: 0.25,
+  undergatePerTide: 1,
 };
 
 
@@ -535,7 +536,7 @@ export const DAY_ROOMS = {
   // Round six's three.
   library: { name: 'Library', out: 'lore', rate: 1, role: 'scholar', job: (R) => `Scholars: ${R.rate} lore a day each, toward what the Library is studying.` },
   hall: { name: 'Hall', out: null, job: () => 'Decrees: one standing decree a season, proclaimed from here.' },
-  gatehouse: { name: 'Gatehouse', out: 'defense', rate: 3, role: 'gate guard', job: (R) => `Gate guards: ${R.rate} defense each against raids, and from summer they throw down the Host's ladders. It stands at the gate: on the ground floor, or the one above.` },
+  gatehouse: { name: 'Gatehouse', out: 'defense', rate: 3, role: 'gate guard', job: (R) => `Gate guards: ${R.rate} defense each against raids, and from summer, with one on its walls, every ladder the Host sets up is thrown down. It stands at the gate, on the ground floor: move a room up to make it room.` },
   empty: { name: 'Bare hall', out: null, job: () => 'Unfinished stone. The next room built goes here.' },
   yard: { name: 'Yard', out: 'stone', rate: 2, role: 'mason', outdoors: true, job: (R) => `Masons: ${R.rate} stone a day each, to build with. The Yard holds any number.` },
 };
@@ -558,7 +559,7 @@ export const TWINS = {
   quarters: { name: 'Dreamwell', job: 'dreams', note: 'Dreams: a shade who dreams here through half the night rests the living for the day after. Weepers come here for the sleepers above.' },
   library: { name: 'Archive of the Dead', job: 'lore', note: 'Old knowledge: a lit shade here reads for the Library, and speeds what it studies.' },
   hall: { name: 'Court of Shades', job: 'court', note: "The dead's requests: a shade seated here through half the night hears one, and at the next rite it's answered free." },
-  gatehouse: { name: 'Undergate', job: null, note: 'The gate that faces the Deep. From summer a quarter of the Creepers come up here instead of at the rifts, unless it is warded.' },
+  gatehouse: { name: 'Undergate', job: null, note: 'The gate that faces the Deep, under the Veil, behind the line. From summer it stirs on some nights, and then one Creeper of every tide comes up here instead of at a rift, unless a candle burns at its mouth or it is warded.' },
   empty: { name: 'Hollow Hall', job: null, note: 'Bare and dark: a weak spot until something is built.' },
 };
 
@@ -756,9 +757,11 @@ export const STUDIES = {
 // The Hall's decrees (round six): one a season, standing until it ends, each with its price.
 export const DECREES = {
   rationing: { name: 'Rationing', does: 'everyone eats three-quarters as much', price: 'sickness comes half as often again', eat: 0.75, sick: 1.5 },
-  curfew: { name: 'A curfew', does: 'the living are barred in from dusk: nobody sleepwalks, and the Weepers give no nightmares', price: 'everyone works ×0.9', work: 0.9 },
+  curfew: { name: 'A curfew', does: 'the living are barred in from dusk: the Weepers give no nightmares', asleep: 'the living are barred in from dusk: nobody sleepwalks, and the Weepers give no nightmares', price: 'everyone works ×0.9', work: 0.9 },
   levy: { name: 'A levy', does: 'men from the villages stand the gate at every raid, +3 defense', price: 'they eat 2 food a day', defense: 3, food: 2 },
 };
+// What a decree does in this keep: the curfew keeps sleepwalkers in only where the living sleepwalk.
+export const decreeDoes = (T, D) => (T.errands && D.asleep) || D.does;
 
 export const CAUSES = {
   duty: { name: 'Duty', kind: 'loyal', text: 'died on duty' },

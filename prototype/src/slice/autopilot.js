@@ -10,8 +10,8 @@
 // on the line for the biggest tides when the essence is there, and a fighter to meet a Maw. They move a
 // shade only along a lit floor; where its way is dark it stays.
 
-import { bareHalls, buildSpot, raiseCost, step, act, newSeason, ritePreview, crossingPreview, capacity, canWork, defense, funeralCap, choicesFor, jobCap, jobCount, eatRate, wardCost, livingTrait, shadeTrait, peopleIn, crowded, tradeOf, inGreatGlass, handsAt, seasonIndex, tributeOf, besieged, sallyOdds, embargoed, inquisition, crusadeDaysLeft, canAct, actOf, actCost } from './sim.js';
-import { DAY_ROOMS, MIRRORS, KINDS, MAP, TICKS_PER_SEC, VISITORS } from './data.js';
+import { bareHalls, buildSpot, raiseCost, step, act, newSeason, ritePreview, crossingPreview, capacity, canWork, defense, funeralCap, choicesFor, jobCap, jobCount, eatRate, wardCost, livingTrait, shadeTrait, peopleIn, crowded, tradeOf, inGreatGlass, handsAt, seasonIndex, tributeOf, besieged, sallyOdds, embargoed, inquisition, crusadeDaysLeft, canAct, actOf, actCost, NEW_ROOMS, atTheGate, gatehouseOf, decreeOf, undergateMouth } from './sim.js';
+import { DAY_ROOMS, MIRRORS, KINDS, MAP, TICKS_PER_SEC, VISITORS, STUDIES } from './data.js';
 import { geo, roomSpan, roomAt, roomsOf, lineSpots, lightMap, isLit } from './geo.js';
 
 export const PLANS = ['balanced', 'keeper', 'mourner', 'double', 'idle'];
@@ -85,7 +85,14 @@ const fit = (s, p, k) => {
 // an Infirmary, a second Barracks (one holds only three guards), Quarters once the keep is crowded, a Forge
 // for grave-steel, a Granary and a Cellar. A crude player: nothing past that. AP_NOQUARTERS=1 never builds
 // Quarters (to measure whether they pay).
-const BUILD_ORDER = ['barracks', 'chapel', 'chandlery', 'glazier', 'infirmary', 'barracks', 'quarters', 'forge', 'granary', 'cellar'];
+// Round six's rooms go in last, once the keep's own stand: the Hall, then the Library, then the Gatehouse (for a
+// keep that holds its raids, what they cost in stone came to more than they gave while the keep's own rooms
+// waited: problem 39). AP_GATEEARLY=1 builds the Gatehouse before the ladders come instead, fifth. AP_NO<ROOM>=1
+// leaves one out (AP_NOGATEHOUSE, AP_NOLIBRARY, AP_NOHALL).
+const GATEEARLY = !!globalThis.process?.env?.AP_GATEEARLY;
+const BUILD_ORDER = GATEEARLY
+  ? ['barracks', 'chapel', 'chandlery', 'glazier', 'gatehouse', 'infirmary', 'barracks', 'quarters', 'forge', 'granary', 'cellar', 'hall', 'library']
+  : ['barracks', 'chapel', 'chandlery', 'glazier', 'infirmary', 'barracks', 'quarters', 'forge', 'granary', 'cellar', 'hall', 'library', 'gatehouse'];
 const NOQUARTERS = !!globalThis.process?.env?.AP_NOQUARTERS;
 // AP_TALL=1 starts a new floor with every room, never filling a bare hall: the tallest keep its rooms can
 // make (to measure whether a taller Tain makes the night easier).
@@ -126,6 +133,9 @@ function nextBuild(s) {
   const want = {};
   for (const type of BUILD_ORDER) {
     if (type === 'quarters' && (NOQUARTERS || !crowded(s))) continue;
+    if (NEW_ROOMS.includes(type) && (!s.tuning[type] || NO(type.toUpperCase()))) continue;
+    // The Gatehouse waits until there's a bare hall to move a room into, to make it room at the gate.
+    if (type === 'gatehouse' && !gatehouseOf(s) && !gateSpot(s) && !bareHalls(s).length) continue;
     want[type] = (want[type] || 0) + 1;
     if (roomsOf(geo(s), type).length < want[type]) return type;
   }
@@ -148,6 +158,7 @@ function wantedJobs(s) {
     infirmary: s.living.some((p) => p.sick > 0) ? 1 : 0,
     chandlery: threat ? 0 : s.res.candles < candleTarget(s) ? 2 : 1,
     glazier: threat || n < 6 ? 0 : 1,
+    library: !threat && s.study && s.res.food >= n ? 2 : 0,
     yard: !threat && nextBuild(s) && s.res.stone < s.tuning.roomStone ? 1 : 0,
   };
   // Nobody can work a room that isn't built.
@@ -157,7 +168,7 @@ function wantedJobs(s) {
 
 function staff(s) {
   const want = wantedJobs(s);
-  const order = ['hearth', 'chapel', 'infirmary', 'chandlery', 'glazier', 'yard'];
+  const order = ['hearth', 'chapel', 'infirmary', 'chandlery', 'glazier', 'library', 'yard'];
   const count = Object.fromEntries(order.map((k) => [k, 0]));
   const free = [];
   for (const p of s.living) {
@@ -180,9 +191,10 @@ function staff(s) {
   free.sort((a, b) => fit(s, b, 'barracks') - fit(s, a, 'barracks')); // the Brave to the gate first, Cowards last
   // The rest hold the gate on a raid day, or when there's nothing to build, as many as the barracks hold;
   // everyone else quarries stone.
+  // The Gatehouse first: its guards count for more, and throw down the ladders.
   const gate = !!s.raid || !nextBuild(s);
   for (const p of free) {
-    const room = gate && (p.job === 'barracks' || jobCount(s, 'barracks') < jobCap(s, 'barracks')) ? 'barracks' : 'yard';
+    const room = !gate ? 'yard' : p.job === 'gatehouse' || jobCount(s, 'gatehouse') < jobCap(s, 'gatehouse') ? 'gatehouse' : p.job === 'barracks' || jobCount(s, 'barracks') < jobCap(s, 'barracks') ? 'barracks' : 'yard';
     if (p.job !== room) doAct(s, { type: 'assign', id: p.id, room });
   }
 }
@@ -242,11 +254,50 @@ function deadByDay(s) {
   }
 }
 
+// Where the Gatehouse can go now: a bare hall on the ground floor, where the gate is.
+function gateSpot(s) {
+  const G = geo(s);
+  return bareHalls(s).find((h) => h.f === G.veil)?.id || null;
+}
+// Building the Gatehouse: at the gate, moving the Hearth up into a bare hall first to make it room.
+function raiseGatehouse(s) {
+  const G = geo(s);
+  const T = s.tuning;
+  let at = gateSpot(s);
+  if (!at) {
+    const up = bareHalls(s).find((h) => !atTheGate(G, h.f));
+    const ground = G.floors[G.veil].rooms.map(([id, , , type]) => ({ id, type }));
+    const move = ground.find((r) => r.type === 'hearth') || ground.find((r) => r.type !== 'crypt' && r.type !== 'empty');
+    if (!up || !move || s.res.stone < T.moveStone + raiseCost(s, { newFloor: false })) return;
+    if (!doAct(s, { type: 'moveRoom', id: move.id, to: up.id })) return;
+    at = gateSpot(s);
+  }
+  if (at && s.res.stone >= raiseCost(s, buildSpot(s, at))) doAct(s, { type: 'raise', room: 'gatehouse', at });
+}
+// The Library: begin the next study when the remembrance is there, keeping a vigil's worth back.
+const STUDY_ORDER = ['masonry', 'tallow', 'wards', 'hollow', 'pitch', 'herbs', 'silvering', 'rites'];
+function libraryMoves(s) {
+  if (!s.tuning.library || s.study || !roomsOf(geo(s), 'library').length) return;
+  const id = STUDY_ORDER.find((k) => !s.learned.includes(k));
+  if (id && s.res.remembrance >= STUDIES[id].rem + s.tuning.vigilCost) doAct(s, { type: 'study', id, ...(id === 'rites' ? { kind: 'loyal' } : {}) });
+}
+// The Hall: a levy while raids are still to come this season and there's food for it; rationing when the larder
+// runs low; else nothing, and no price.
+function hallMoves(s) {
+  if (!s.tuning.hall || decreeOf(s) || s.decree?.season === s.season || !roomsOf(geo(s), 'hall').length) return;
+  const raids = Object.entries(s.tuning.raidDays).some(([d, b]) => Number(d) >= s.day && b);
+  if (s.res.food < eatRate(s)) doAct(s, { type: 'decree', id: 'rationing' });
+  else if (raids && s.res.food >= 3 * eatRate(s)) doAct(s, { type: 'decree', id: 'levy' });
+}
+
 function dayMoves(s) {
   const b = nextBuild(s);
   const lineHall = TALLLINE && b === 'chapel' && bareHalls(s).find((h) => h.f === geo(s).veil - 1);
   const at = TALL ? (lineHall ? lineHall.id : 'top') : undefined;
-  if (b && s.res.stone >= raiseCost(s, buildSpot(s, at))) doAct(s, { type: 'raise', room: b, ...(at ? { at } : {}) });
+  if (b === 'gatehouse') raiseGatehouse(s);
+  else if (b && s.res.stone >= raiseCost(s, buildSpot(s, at))) doAct(s, { type: 'raise', room: b, ...(at ? { at } : {}) });
+  libraryMoves(s);
+  hallMoves(s);
   if (s.raid?.state !== 'assault') staff(s); // nobody leaves the walls while the Host is at the gate
   if (!NOSALLY && besieged(s) && s.raid?.state !== 'assault' && sallyOdds(s) >= SALLY_AT && s.living.filter((p) => p.job === 'barracks' && !(p.sick > 0)).length >= 2) doAct(s, { type: 'sally' });
   const r = s.raid;
@@ -432,6 +483,7 @@ function placeNight(s, plan) {
     }
   }
   const lit = meetDrowned(s, ds);
+  meetUndergate(s, ds, lit);
   if (DEEP && s.tuning.deep && s.day < T.seasonDays && ds.length >= 2) {
     const d = ds[ds.length - 1];
     if (d.memory > s.tuning.deepDrain + 10 && doAct(s, { type: 'descend', id: d.id, depth: DEEP })) ds.pop();
@@ -484,6 +536,28 @@ function meetDrowned(s, ds) {
 }
 // Tonight's guard at the mirror, kept there: nobody sends it off to a Maw.
 const mirrorGuard = new WeakMap();
+// The Undergate (round six), under the Veil behind the line: a candle at its mouth keeps it shut; with no
+// candle to spare, a ward if the essence is there (keeping the new moon's back late in the season); else light
+// the mirror nearest it and post a fighter there, as for the Drowned.
+function meetUndergate(s, ds, lit) {
+  const T = s.tuning;
+  const G = geo(s);
+  const g = gatehouseOf(s);
+  if (!g || G.n === 1 || !s.night.spawns.some((x) => x.rift === 'undergate')) return;
+  const { x } = undergateMouth(g);
+  if (globalThis.process?.env?.AP_UGFREE) doAct(s, { type: 'debug', what: 'give', res: 'candles', n: 1 }); // measuring only: the candle free
+  if (s.res.candles >= 1 + (NO('UGCANDLE') ? Infinity : 0) && doAct(s, { type: 'candle', f: g.f, x })) {
+    lit.add(roomAt(G, g.f, x));
+    return;
+  }
+  const reserve = s.day < T.seasonDays - 2 ? 0 : G.stairs.length * wardCost(s);
+  if (s.res.essence >= wardCost(s) + reserve && doAct(s, { type: 'ward', target: 'undergate' })) return;
+  const m = MAP.mirrors.reduce((a, b) => (Math.abs(b.x - x) < Math.abs(a.x - x) ? b : a));
+  if (!lit.has(roomAt(G, G.veil, m.x)) && doAct(s, { type: 'candle', f: G.veil, x: m.x })) lit.add(roomAt(G, G.veil, m.x));
+  if (mirrorGuard.has(s)) return;
+  const d = ds.shift();
+  if (d && doAct(s, { type: 'move', id: d.id, f: G.veil, x: m.x })) mirrorGuard.set(s, d.id);
+}
 
 /* ---------------------------------------------------------------- night */
 

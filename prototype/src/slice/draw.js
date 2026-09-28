@@ -278,10 +278,11 @@ const TWIN_ART = {
     D(c, x + 40, y + 7, UMBRA[7]);
     D(c, x + 41, y + 7, UMBRA[7]);
   },
-  // The Undergate: the portcullis up, over a way down into the Deep.
+  // The Undergate: a way down into the Deep at the room's outer end, where the Unlit come up.
   gatehouse(c, x, y) {
-    R(c, x + 29, y + 15, 14, 3, UMBRA[0]);
-    R(c, x + 31, y + 16, 10, 2, '#000000');
+    const px = x < MAP.W / 2 ? x + 1 : x + 39;
+    R(c, px, y + 15, 8, 3, UMBRA[0]);
+    R(c, px + 1, y + 16, 6, 2, '#000000');
   },
 };
 
@@ -1138,7 +1139,7 @@ function composeTain(s, t, opts = {}) {
   if (skyOf(s) === 'rain' && n) moatWater(c, s, t);
   // The Undergate, open from summer: a glow at its mouth, unless it's warded tonight.
   const ug = s.tuning.gatehouse && s.season >= s.tuning.undergateFrom && roomsOf(G, 'gatehouse')[0];
-  if (ug && n && !n.wards.includes('undergate')) glow(c, (ug.x0 + ug.x1) / 2, feet(ug.f) - 2, 5, P.hot, 0.2 + 0.15 * Math.sin(t * 2 + 1));
+  if (ug && n && !n.wards.includes('undergate')) glow(c, ug.x0 < MAP.W / 2 ? ug.x0 + 4 : ug.x1 - 4, feet(ug.f) - 2, 5, P.hot, 0.2 + 0.15 * Math.sin(t * 2 + 1));
   // A shade gone down into the Deep: a thread of silver glinting at the mouth of a rift until dawn.
   s.shades.filter((d) => d.deep).forEach((d, i) => {
     const rf = MAP.rifts[i % MAP.rifts.length];

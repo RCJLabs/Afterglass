@@ -9,7 +9,7 @@
 import {
   TICKS_PER_SEC, TUNING, DAY_ROOMS, WORK_ROOMS, TWINS, MAP, KINDS, WORKING, CAUSES, GUIDE_UP,
   MIRRORS, START_MIRRORS, MIRROR_PLACES, CAST, BONDS, START_SHADES, BOND_OTHER, NAMES, RAIDER_NAMES, BUILDABLE, TRAITS, TRAIT_KEYS, SHADE_TRAITS, SEASONS,
-  TUTORIAL, REQUESTS, ACTS, OMENS, VISITORS, STUDIES, DECREES,
+  TUTORIAL, REQUESTS, ACTS, OMENS, VISITORS, STUDIES, DECREES, decreeDoes,
 } from './data.js';
 import {
   geo, FULL_KEEP, startKeep, lineSpots, MAX_FLOORS, roomsOf, roomAt, roomSpan, typeOf, typeAt, lightMap, isLit, spanAt, darkBetween, darkRooms, darkGaps, route, firstLight, fleePath, touching,
@@ -339,14 +339,18 @@ export const gatehouseOf = (s) => (s.tuning.gatehouse ? roomsOf(geo(s), 'gatehou
 // From summer the Host brings ladders to the gate, and the Gatehouse's twin opens a way up from the Deep.
 export const laddersDue = (s) => !!s.tuning.gatehouse && !!s.tuning.raidFight && s.season >= s.tuning.laddersFrom;
 export const undergateOpen = (s) => s.season >= s.tuning.undergateFrom && !!gatehouseOf(s);
+// Where the Undergate opens: at its room's outer end, away from the mirror hanging there, as the Drowned come
+// up at the ends of the moat's twin.
+export const undergateMouth = (g) => ({ f: g.f, x: g.x0 < MAP.W / 2 ? g.x0 + 4 : g.x1 - 4 });
 // How long a ward holds the Hollow.
 export const wardHoldOf = (s) => s.tuning.wardHold * (learned(s, 'hollow') ? STUDIES.hollow.hold : 1);
 // What a pour of pitch takes off the Host.
 export const pitchOf = (s) => s.tuning.raidPitch * (learned(s, 'pitch') ? STUDIES.pitch.mult : 1);
 // Round six's rooms, each with its own switch in the tuning (a keep from before has none of them).
 export const NEW_ROOMS = ['library', 'hall', 'gatehouse'];
-// Where the Gatehouse may stand: at the gate, on the ground floor or the one above it (floor f of G).
-export const atTheGate = (G, f) => G.n - 1 - f <= 1;
+// Where the Gatehouse may stand: at the gate, on the ground floor (floor f of G). Its twin, the Undergate, is
+// then under the Veil, behind the line.
+export const atTheGate = (G, f) => f === G.veil;
 // How many acts a night a shade has: two for the kind the old rites were learned for.
 export const actsFor = (s, d) => 1 + (learned(s, 'rites') && s.riteKind === d.kind ? 1 : 0);
 export const gateGuard = (s) => s.shades.filter((d) => atGate(s, d)).reduce((a, d) => a + KINDS[d.kind].fight * perf(d) * DAY_ROOMS.barracks.rate, 0);
@@ -993,13 +997,14 @@ function assaultTick(s) {
   if (r.gate <= 0) endAssault(s, false);
   else if (r.host <= EPS || r.left <= 0) endAssault(s, true);
 }
-// From summer a ladder goes up against the wall every ladderEvery seconds of the assault. Each gate guard
-// throws one down as it goes up; the rest stand, and the raiders coming over them add to the Host.
+// From summer a ladder goes up against the wall every ladderEvery seconds of the assault. A Gatehouse with a
+// gate guard on its walls throws every one down; without, they stand, and the raiders coming over them add to
+// the Host.
+export const gateManned = (s) => !!gatehouseOf(s) && s.living.some((p) => p.job === 'gatehouse' && !(p.sick > 0) && !p.fighting);
 function ladder(s, r) {
   const T = s.tuning;
   r.ladders.next = Math.round(T.ladderEvery * TICKS_PER_SEC);
-  const guards = Math.min(jobCap(s, 'gatehouse'), s.living.filter((p) => p.job === 'gatehouse' && !(p.sick > 0) && !p.fighting).length);
-  if (r.ladders.down < guards) {
+  if (gateManned(s)) {
     r.ladders.down++;
     say(s, 'A ladder goes up against the wall, and a gate guard throws it down.', 'good');
   } else {
@@ -1515,11 +1520,20 @@ function newNight(s) {
     const end = pick(r, MAP.moat).id;
     for (let i = 0; i < drownedCount(s); i++) spawns.push({ at: Math.round((0.08 + 0.8 * rand(r)) * N), type: 'drowned', seep: false, snuff: false, rift: end });
   }
-  // From summer, a share of the Creepers come up the Gatehouse's twin, the Undergate, drawn from a stream of
-  // its own (not the seepers, who come up in the dark wherever it is).
-  if (undergateOpen(s) && !tut) {
-    const r = sideStream(s, 0x9a7);
-    for (const sp of spawns) if (sp.type === 'creeper' && !sp.seep && chance(r, T.undergateShare)) sp.rift = 'undergate';
+  // From summer the Gatehouse's twin, the Undergate, stirs on some nights (undergateChance), and then one
+  // Creeper of each tide (undergatePerTide) comes up it, picked from a stream of its own (never a seeper, who
+  // comes up in the dark wherever it is).
+  const ur = sideStream(s, 0x9a7);
+  if (undergateOpen(s) && !tut && chance(ur, T.undergateChance)) {
+    const r = ur;
+    const w = (T.tideSpread * N) / 2 + 1;
+    for (const at of tides.map((x) => x * N)) {
+      const near = spawns.filter((sp) => sp.type === 'creeper' && !sp.seep && sp.rift !== 'undergate' && Math.abs(sp.at - at) <= w);
+      for (let i = 0; i < T.undergatePerTide && near.length; i++) {
+        const sp = near.splice(randInt(r, near.length), 1)[0];
+        Object.assign(sp, { from: sp.rift, rift: 'undergate' }); // its own rift, should the Undergate be shut
+      }
+    }
   }
   spawns.sort((a, b) => a.at - b.at);
   const night = {
@@ -1866,13 +1880,15 @@ function spawnFoes(s, L) {
       continue;
     }
     const open = MAP.rifts.filter((r) => !n.wards.includes(r.id));
-    const rift = open.find((r) => r.id === sp.rift) || open[0] || null;
-    // Up the Undergate, unless it's warded (then at a rift like the rest) or the Gatehouse is gone.
-    const g = sp.rift === 'undergate' && !n.wards.includes('undergate') ? gatehouseOf(s) : null;
+    const rift = open.find((r) => r.id === (sp.rift === 'undergate' ? sp.from : sp.rift)) || open[0] || null;
+    // Up the Undergate, unless it's warded or its mouth is lit (then at a rift like the rest), or the Gatehouse
+    // is gone.
+    const gh = sp.rift === 'undergate' && !n.wards.includes('undergate') ? gatehouseOf(s) : null;
+    const g = gh && !isLit(L, gh.f, undergateMouth(gh).x) ? gh : null;
     let at = null;
     let seeped = null;
     if (g) {
-      at = { f: g.f, x: (g.x0 + g.x1) / 2 };
+      at = undergateMouth(g);
       if (!n.stats.undergate) say(s, `The Unlit are coming up through the Undergate, ${tainPlace(geo(s), g.f, true)}.`, 'bad', true);
       n.stats.undergate = (n.stats.undergate || 0) + 1;
       cue(s, 'seep', at.f, at.x);
@@ -1901,7 +1917,7 @@ function spawnFoes(s, L) {
       cue(s, 'weep', at?.f, at?.x);
     }
     // Wards can't hold the new moon or a Maw: they break up through their rift whatever seals it.
-    if (!at) at = { f: DEEP_FLOOR, x: (rift || byId(MAP.rifts, sp.rift) || MAP.rifts[0]).x };
+    if (!at) at = { f: DEEP_FLOOR, x: (rift || byId(MAP.rifts, sp.from || sp.rift) || MAP.rifts[0]).x };
     const foe = addFoe(s, sp.type, at.f, at.x, { temper: sp.snuff ? 'snuff' : 'climb' });
     if (sp.weak) foe.hp = foe.max = foe.hp * sp.weak; // the tutorial's Maw
     if (seeped) keepMoment(s, 'seep', seeped.at, seeped.text);
@@ -3206,9 +3222,7 @@ const ACTIONS = {
     if (!at) return where && where !== 'top' ? 'There is no bare hall there.' : 'The keep can rise no higher.';
     if (room === 'gatehouse') {
       if (gatehouseOf(s)) return 'The keep has its Gatehouse.';
-      const G0 = geo(s);
-      const fromGround = at.newFloor ? G0.n : G0.n - 1 - at.f;
-      if (fromGround > 1) return 'A Gatehouse stands at the gate: on the ground floor, or the one above it.';
+      if (at.newFloor || !atTheGate(geo(s), at.f)) return 'A Gatehouse stands at the gate, on the ground floor: move a room up to make it room.';
     }
     const cost = raiseCost(s, at);
     if ((s.res.stone || 0) + EPS < cost) return at.newFloor && cost > T.roomStone ? `A room on a new floor takes ${fmt(cost)} stone.` : `A room takes ${fmt(cost)} stone.`;
@@ -3284,7 +3298,7 @@ const ACTIONS = {
     if (!a || !b || a === b) return 'Choose two places.';
     if (a.type === 'empty' && b.type === 'empty') return 'Both halls are bare.';
     if (s.fires.some((f) => f.room === id || f.room === to)) return 'Not while it burns.';
-    if ((a.type === 'gatehouse' && !atTheGate(G, b.f)) || (b.type === 'gatehouse' && !atTheGate(G, a.f))) return 'A Gatehouse stands at the gate: on the ground floor, or the one above it.';
+    if ((a.type === 'gatehouse' && !atTheGate(G, b.f)) || (b.type === 'gatehouse' && !atTheGate(G, a.f))) return 'A Gatehouse stands at the gate, on the ground floor.';
     const T = s.tuning;
     if ((s.res.stone || 0) + EPS < T.moveStone) return `Moving a room takes ${T.moveStone} stone.`;
     s.res.stone -= T.moveStone;
@@ -3365,7 +3379,7 @@ const ACTIONS = {
     if (!D) return 'No such decree.';
     if (s.decree?.season === s.season) return `${DECREES[s.decree.id].name} stands until the season ends.`;
     s.decree = { id, season: s.season };
-    say(s, `${D.name} is proclaimed from the Hall, until the season ends: ${D.does}. The price: ${D.price}.`, 'good', true);
+    say(s, `${D.name} is proclaimed from the Hall, until the season ends: ${decreeDoes(s.tuning, D)}. The price: ${D.price}.`, 'good', true);
     cue(s, 'bell');
     return undefined;
   },

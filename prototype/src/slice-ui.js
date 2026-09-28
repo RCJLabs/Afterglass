@@ -2,7 +2,7 @@
 // bar at the bottom, and everything else opens in a panel over the castle. Like the greyboxes it changes
 // the game only through act(), so every session replays from its seed and action log.
 
-import { TICKS_PER_SEC, DAY_ROOMS, WORK_ROOMS, TWINS, KINDS, MIRRORS, CAUSES, MAP, BOND_OTHER, TUNING, BUILDABLE, TRAITS, SHADE_TRAITS, SEASONS, TUTORIAL, REQUESTS, PRESETS, ACTS, OMENS, VISITORS, STUDIES, DECREES } from './slice/data.js';
+import { TICKS_PER_SEC, DAY_ROOMS, WORK_ROOMS, TWINS, KINDS, MIRRORS, CAUSES, MAP, BOND_OTHER, TUNING, BUILDABLE, TRAITS, SHADE_TRAITS, SEASONS, TUTORIAL, REQUESTS, PRESETS, ACTS, OMENS, VISITORS, STUDIES, DECREES, decreeDoes } from './slice/data.js';
 import {
   newSeason, step, act, retune, playerTuning, jobCap, jobCount, nextSlot, ritePreview, crossingPreview, capacity, canWork, defense, roomPower, bear, priests, funeralCap, eatRate,
   dayTicks, nightTicks, isNewMoon, choicesFor, byId, isTwinnedLiving, isTwinnedShade, lastSeason, SAVE_VERSION, fmt, mirrorCap, bareHalls, tainPlace,
@@ -440,14 +440,14 @@ function raidCard() {
     <div class="row"><button class="btn sm" id="btn-wardgate" data-act="wardgate"${r.ward || s.res.essence + 1e-9 < s.tuning.wardGateCost ? ' disabled' : ''}>${r.ward ? `Gate warded, +${r.ward}` : `Ward the gate: +${s.tuning.wardGateDefense} for ${s.tuning.wardGateCost} essence`}</button></div>${fight}</div>`;
 }
 const share = (x) => (x === 0.5 ? 'half' : `${mult(x)} times`);
-// From summer the Host brings ladders: how many go up over the assault, and how many the gate guards throw down.
+// From summer the Host brings ladders: how many go up over the assault, and whether a gate guard is on the
+// Gatehouse's walls to throw them down.
 function ladderNote(r) {
   const T = s.tuning;
   const n = Math.floor((T.raidAssaultSecs - 1e-9) / T.ladderEvery);
-  const g = Math.min(jobCap(s, 'gatehouse'), s.living.filter((p) => p.job === 'gatehouse' && !(p.sick > 0)).length);
-  const stand = Math.max(0, n - g);
+  const manned = gatehouseOf(s) && s.living.some((p) => p.job === 'gatehouse' && !(p.sick > 0));
   const who = r.crusade ? 'The crusaders' : 'They';
-  return `<p class="note${stand ? ' bad' : ''}">${who} bring ladders: about ${n} go up over the assault, each left standing adding ${fmt(T.ladderHost)} to their strength. ${gatehouseOf(s) ? `Each gate guard in the Gatehouse throws one down: with ${g}, ${stand ? `${stand} would stand, +${fmt(stand * T.ladderHost)}` : 'none would stand'}.` : `Only a Gatehouse's guards throw them down: with none, all would stand, +${fmt(n * T.ladderHost)}.`}</p>`;
+  return `<p class="note${manned ? '' : ' bad'}">${who} bring ladders: about ${n} go up over the assault, each left standing adding ${fmt(T.ladderHost)} to their strength. ${manned ? 'A gate guard on the Gatehouse\'s walls will throw every one down.' : gatehouseOf(s) ? `Put a gate guard in the Gatehouse and every one is thrown down; with none, all would stand, +${fmt(n * T.ladderHost)}.` : `Only a Gatehouse's guards throw them down: without one, all would stand, +${fmt(n * T.ladderHost)}.`}</p>`;
 }
 // The weather by day: today's, and a warning a day ahead of rain.
 function weatherNotes() {
@@ -495,7 +495,7 @@ function assaultCard(r) {
       <button class="btn sm" id="btn-shore" data-act="shore"${(s.res.stone || 0) + 1e-9 < T.raidShoreCost || r.gate >= 1 - 1e-9 ? ' disabled' : ''}>Shore up the gate: ${T.raidShoreCost} stone</button>
       <button class="btn sm" id="btn-raidbell" data-act="raid-bell"${r.bell || !hands ? ' disabled' : ''}>${r.bell ? 'The bell has rung' : `Ring the bell: everyone to the walls (${hands})`}</button>
       ${r.ward ? '' : `<button class="btn sm" id="btn-wardgate" data-act="wardgate"${s.res.essence + 1e-9 < T.wardGateCost ? ' disabled' : ''}>Ward the gate: +${T.wardGateDefense} for ${T.wardGateCost} essence</button>`}</div>
-    <p class="note">Each second ${r.crusade ? 'the crusade' : 'the Host'} is stronger than your defense, the gate gives. If it still stands when their time is up, they fall back. Candles poured are candles you won't have tonight; the bell stops all work, and whoever is on the walls can fall.${r.ladders ? ` A ladder goes up every ${fmt(T.ladderEvery)} s: each gate guard in the Gatehouse throws one down, and each one left standing adds ${fmt(T.ladderHost)} to ${r.crusade ? 'the crusade' : 'the Host'}.` : ''}</p></div>`;
+    <p class="note">Each second ${r.crusade ? 'the crusade' : 'the Host'} is stronger than your defense, the gate gives. If it still stands when their time is up, they fall back. Candles poured are candles you won't have tonight; the bell stops all work, and whoever is on the walls can fall.${r.ladders ? ` A ladder goes up every ${fmt(T.ladderEvery)} s: with a gate guard on the Gatehouse's walls every one is thrown down, and each left standing adds ${fmt(T.ladderHost)} to ${r.crusade ? 'the crusade' : 'the Host'}.` : ''}</p></div>`;
 }
 
 function inspectionCard() {
@@ -620,10 +620,10 @@ function hallCard() {
   const court = 'By night, a shade seated in the Court of Shades, lit, through half the night has one of the dead\'s requests heard free at the next rite: granted, it costs nothing; refused, it isn\'t held against you.';
   if (d) {
     const D = DECREES[d];
-    return `<div class="card hall"><h3>The Hall</h3><p><b>${esc(D.name)}</b> stands until the season ends: ${esc(D.does)}. The price: ${esc(D.price)}.</p><p class="note">${court}</p></div>`;
+    return `<div class="card hall"><h3>The Hall</h3><p><b>${esc(D.name)}</b> stands until the season ends: ${esc(decreeDoes(T, D))}. The price: ${esc(D.price)}.</p><p class="note">${court}</p></div>`;
   }
   const rows = Object.entries(DECREES)
-    .map(([id, D]) => `<li><div><b>${esc(D.name)}:</b> <small>${esc(D.does)}. The price: ${esc(D.price)}.</small></div><button class="btn sm" id="decree-${id}" data-act="decree" data-id="${id}"${day ? '' : ' disabled'}>Proclaim</button></li>`)
+    .map(([id, D]) => `<li><div><b>${esc(D.name)}:</b> <small>${esc(decreeDoes(T, D))}. The price: ${esc(D.price)}.</small></div><button class="btn sm" id="decree-${id}" data-act="decree" data-id="${id}"${day ? '' : ' disabled'}>Proclaim</button></li>`)
     .join('');
   return `<div class="card hall"><h3>The Hall</h3><p>One decree a season, proclaimed from here, stands until the season ends.</p><ul class="studies">${rows}</ul><p class="note">${court}</p></div>`;
 }
@@ -900,7 +900,11 @@ function drownedDusk() {
   return `<p class="note bad">Rain. ${dr.length === 1 ? 'One of the Drowned comes' : `${dr.length} of the Drowned come`} up tonight out of the moat's twin at ${esc(moatEnd(end.x))}${one ? '' : ', behind the line'}, and ${dr.length === 1 ? 'makes' : 'make'} for the mirrors on that floor. Ward the moat (${fmt(wardCost(s))} essence), or light the mirror on their side and post a fighter by it. A shade they catch in the dark is dragged to the moat and pulled under.</p>`;
 }
 
-// The Undergate (round six): the Gatehouse's twin, where from summer a share of the Creepers come up.
+// The Undergate (round six): the Gatehouse's twin, where from summer a Creeper of each tide comes up.
+const undergateMouthOf = () => {
+  const g = gatehouseOf(s);
+  return g && { f: g.f, x: g.x0 < MAP.W / 2 ? g.x0 + 4 : g.x1 - 4 };
+};
 function undergateDusk() {
   const n = s.night;
   if (!n || !undergateOpen(s)) return '';
@@ -908,9 +912,11 @@ function undergateDusk() {
   const k = n.spawns.filter((x) => x.rift === 'undergate').length;
   const where = tainPlace(K(), g.f);
   if (n.wards.includes('undergate')) return `<p class="note">The Undergate is warded tonight: whatever would have come up it comes up at the rifts.</p>`;
-  if (!k) return `<p class="note">The Undergate, your Gatehouse's twin, is ${esc(where)}. Nothing is coming up it tonight.</p>`;
+  if (!k) return `<p class="note">The Undergate, your Gatehouse's twin, is ${esc(where)}. It's still tonight: nothing is coming up it.</p>`;
   const can = s.res.essence + 1e-9 >= wardCost(s);
-  return `<div class="card warn"><h3>The Undergate</h3><p>Your Gatehouse's twin is ${esc(where)}, and ${k === 1 ? 'one Creeper comes' : `${k} Creepers come`} up it tonight instead of at the rifts. Light it and post a fighter there, or ward it.</p>
+  const m = undergateMouthOf();
+  if (m && isLit(lightMap(K(), s.tuning, n.candles), m.f, m.x)) return `<p class="note">A candle burns at the Undergate's mouth: while it's lit, whatever would come up it comes up at the rifts.</p>`;
+  return `<div class="card warn"><h3>The Undergate stirs</h3><p>Your Gatehouse's twin is ${esc(where)}, and tonight ${k === 1 ? 'one Creeper comes' : `${k} Creepers come`} up it instead of at a rift, making for the mirrors. A candle at its mouth, at the room's outer end, keeps it shut while it burns; or ward it; or light the mirror nearest it and post a fighter there.</p>
     <div class="row"><button class="btn sm" id="btn-ward-undergate" data-act="ward-undergate"${can ? '' : ' disabled'}>Ward the Undergate: ${fmt(wardCost(s))} essence</button></div></div>`;
 }
 
@@ -1652,7 +1658,8 @@ const TUNE = [
   ['ladderEvery', 'Seconds between ladders at the gate'],
   ['ladderHost', 'What each ladder left standing adds to the Host'],
   ['undergateFrom', 'The season (of the keep) from which the Undergate opens'],
-  ['undergateShare', "Share of the night's Creepers that come up the Undergate"],
+  ['undergateChance', 'Chance the Undergate stirs on a night, from the season it opens'],
+  ['undergatePerTide', 'Creepers of each tide that come up the Undergate when it stirs'],
 ];
 const KEYS = [
   ['Space', 'play or pause'], ['1, 2, 4', 'speed'], ['C, M, W, H', 'candle, move, ward, hush (at night)'], ['V', 'turn the Tain upright'],
@@ -2714,15 +2721,14 @@ function buildHTML() {
   const spot = ui.buildAt ? buildSpot(s, ui.buildAt) : null;
   const cost = raiseCost(s, spot);
   const can = day && !!spot && stone + 1e-9 >= cost;
-  // The Gatehouse stands at the gate: the ground floor, or the one above it. A new floor on top is that only
-  // while the keep is one floor.
-  const atGateHere = spot && (spot.newFloor ? G.n : G.n - 1 - spot.f) <= 1;
+  // The Gatehouse stands at the gate, on the ground floor.
+  const atGateHere = spot && !spot.newFloor && spot.f === G.veil;
   const rows = BUILDABLE.filter((type) => !NEW_ROOMS.includes(type) || T[type]).map((type) => {
     const R = DAY_ROOMS[type];
     const tw = TWINS[type];
     const have = roomsOf(G, type).length;
     const gate = type === 'gatehouse';
-    const why = gate && have ? 'The keep has its Gatehouse.' : gate && !atGateHere ? 'Only on the ground floor or the one above it: choose a bare hall there, or move a room up to make one.' : '';
+    const why = gate && have ? 'The keep has its Gatehouse.' : gate && !atGateHere ? 'Only on the ground floor, where the gate is: move a room up to make a bare hall there (Rearrange, below), then choose it.' : '';
     return `<li class="build-row"><div><b>${esc(R.name)}</b>${have ? ` <small class="muted">you have ${have}</small>` : ''}<p class="note">${esc(R.job(R))} By night, the ${esc(tw.name)}: ${esc(tw.note)}</p>${why ? `<p class="note bad">${esc(why)}</p>` : ''}</div>
       <button class="btn sm" id="raise-${type}" data-act="raise" data-room="${type}"${can && !why ? '' : ' disabled'}>Build, ${fmt(cost)} stone</button></li>`;
   }).join('');
@@ -2978,7 +2984,7 @@ const GUIDE = [
     id: 'ladders', target: '#open-phase', pause: true,
     when: () => s.phase === 'day' && laddersDue(s) && s.raid?.warned && s.raid.state === 'coming',
     done: () => ui.sheet === 'phase',
-    text: () => (gatehouseOf(s) ? 'From this season the Host brings ladders. Each gate guard in the Gatehouse throws one down; each left standing adds to the Host. The Day panel has the numbers.' : 'From this season the Host brings ladders, and only a Gatehouse’s guards throw them down: each left standing adds to the Host. The Day panel has the numbers.'),
+    text: () => (gatehouseOf(s) ? 'From this season the Host brings ladders. With a gate guard on the Gatehouse’s walls every one is thrown down; each left standing adds to the Host. The Day panel has the numbers.' : 'From this season the Host brings ladders, and only a Gatehouse’s guards throw them down: each left standing adds to the Host. The Day panel has the numbers.'),
   },
   {
     id: 'undergate', target: '#open-phase',
