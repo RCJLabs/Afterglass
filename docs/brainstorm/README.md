@@ -12,6 +12,8 @@ Open [`index.html`](index.html) in a browser for the full version: animated pixe
 
 **Round six:** three items for the nights and seven more, proposed after round five's queue was built: [`round-6/`](round-6/README.md).
 
+**Round seven:** an audit of the whole game after round six (its systems, the page, the art and sound, the code, and round three's plan against the build) and twenty phases after it: [`round-7/`](round-7/README.md).
+
 ## The problem with the pitch
 
 "Fallout Shelter–style side view, Elder Scrolls–style fantasy, build and defend a castle" already exists twice on Google Play:
