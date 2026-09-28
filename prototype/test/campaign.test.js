@@ -203,7 +203,7 @@ test('a chapter closes on a choice of two: goods now, or a help that lasts the n
   for (const k of [1, 2, 3, 4]) assert.equal(CHAPTERS[k].close.length, 2);
 });
 
-test("the fifth year ends in one of round three's three endings: seal the Veil, open it, or keep the watch into the open year", () => {
+test("the fifth year ends in one of round three's three endings: seal the Veil, open it, or keep the watch and play on", () => {
   const end = () => throughLongNight(at(20));
   assert.match(act(end(), { type: 'closeChapter', id: 'walls' }).error, /closes at the end of its year/);
   assert.match(act(end(), { type: 'nextSeason' }).error, /Choose how the keep's story ends/);
@@ -222,7 +222,7 @@ test("the fifth year ends in one of round three's three endings: seal the Veil, 
   assert.ok(!yearsEnd(opened));
   assert.match(act(opened, { type: 'nextSeason' }).error, /Veil is open/);
   assert.match(epitaph(opened.ledger.find((e) => e.id === opened.shades[0].id)), /Walked out of the glass into the keep when the Veil was opened/);
-  // Keeping the watch: the keeper takes the glass, and the keep plays on as the open year.
+  // Keeping the watch: the keeper takes the glass, and the keep plays on with no more chapters.
   const watch = end();
   ok(watch, { type: 'takeGlass' });
   assert.equal(watch.campaign.ending, 'watch');

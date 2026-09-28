@@ -67,7 +67,7 @@ export function howTo(T) {
           id: 'campaign',
           title: 'The campaign',
           items: [
-            `A campaign is five years, each a chapter: ${chapters.map((C, i) => `year ${i + 1}, ${C.name}`).join('; ')}. It sits beside the open year, chosen for a new keep, and after its fifth year it plays on as the open year if you keep the watch.`,
+            `A campaign is five years, each a chapter: ${chapters.map((C, i) => `year ${i + 1}, ${C.name}`).join('; ')}. It sits beside the open year, chosen for a new keep, and if you keep the watch after its fifth year, it plays on with no more chapters.`,
             "Each chapter brings its pressure. The first has none of these: from year 2 the Host lays siege in autumn and brings ladders to the gate, and a Gatehouse can be raised against it, with its Undergate below; from year 3 a censure brings the Church's embargo, then its Inquisition, then its crusade (before, it covers a mirror and nothing more); from year 4 the Hollow is half again as hard to drive back and eats the light as fast again, and the new moon brings half again as many Creepers.",
             `Each chapter has a goal, worth ${T.goalReward} remembrance when it's met: ${chapters.map((C) => `to ${C.goal.text}`).join('; ')}. The Day panel says how it's going.`,
             `Years 1 to 4 close on a choice of two, goods now or a help for the next year: ${[1, 2, 3, 4].map((k) => `${CHAPTERS[k].close.map((c) => `${c.name.charAt(0).toLowerCase()}${c.name.slice(1)} (${c.text})`).join(' or ')}`).join('; ')}.`,

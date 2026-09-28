@@ -744,10 +744,12 @@ function tendNight(s, plan) {
     for (const st of unwarded) doAct(s, { type: 'ward', target: st.id });
   }
   // The Hollow: ward the stairs above it while the essence lasts, and meet it with fighters near the top.
+  // AP_HOLLOWGOAL=1 leaves it unwarded on spring's new moon in a campaign's fourth year, for the chapter's goal.
   const h = n.foes.find((f) => f.type === 'hollow');
   if (h && !h.climb) {
     const up = G.stairs.filter((st) => st.f === h.f && !n.wards.includes(st.id));
-    if (h.f < G.veil && up.length && s.res.essence >= up.length * wardCost(s)) for (const st of up) doAct(s, { type: 'ward', target: st.id });
+    const goal = HOLLOWGOAL && chapterOf(s) === 4 && seasonIndex(s) === 0;
+    if (!goal && h.f < G.veil && up.length && s.res.essence >= up.length * wardCost(s)) for (const st of up) doAct(s, { type: 'ward', target: st.id });
     if (h.f === G.veil) {
       for (const d of s.shades.filter((x) => canWork(x) && fighter(x) >= 1 && x.memory > 30 && !x.grabbedBy && !x.climb)) {
         if (d.f !== h.f || Math.abs(d.x - h.x) > 6) doAct(s, { type: 'move', id: d.id, f: h.f, x: h.x + (d.x < h.x ? -5.5 : 5.5) });
@@ -832,6 +834,7 @@ function rite(s, plan) {
 // AP_ECLIPSE=ignore leaves it be (the shades at last night's posts, no candles), and AP_SIDE=1 posts each
 // shade bonded to one of the living in the twin of that one's room, side by side, off the line.
 const metEclipse = new WeakMap();
+const HOLLOWGOAL = !!globalThis.process?.env?.AP_HOLLOWGOAL;
 const ECLIPSE = globalThis.process?.env?.AP_ECLIPSE || '';
 const SIDE = !!globalThis.process?.env?.AP_SIDE;
 function sideBySide(s) {

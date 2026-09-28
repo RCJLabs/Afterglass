@@ -460,7 +460,7 @@ export const TUNING = {
   eclipseTwin: 2,
 
   // A campaign (round six; round three's five years). A keep made a campaign plays five years as five
-  // chapters (CHAPTERS), then plays on as the open year. Each chapter brings its pressure: the Host's siege and
+  // chapters (CHAPTERS), then plays on with no more chapters. Each chapter brings its pressure: the Host's siege and
   // ladders, with the Gatehouse and its Undergate, from year 2; the Church's embargo, Inquisition and crusade
   // after a censure from year 3; from year 4 the Hollow hollowRises times as hard to drive back and as hungry
   // for light, and hollowRises times the new moon's Creepers. Each sets a goal worth goalReward remembrance,
@@ -524,7 +524,7 @@ export const CHAPTERS = {
 export const ENDINGS = {
   seal: { name: 'Seal the Veil', text: 'Every shade goes free. The Tain closes, and the living go on alone. The story ends.' },
   open: { name: 'Open the Veil', text: 'The living and the dead share both realms, and the keep becomes a crossing. The story ends.' },
-  watch: { name: 'Keep the watch', text: 'You die and rule the Tain as its warden, and a new keeper goes on: play continues, as the open year.' },
+  watch: { name: 'Keep the watch', text: 'You die and rule the Tain as its warden, and a new keeper goes on: play continues, with no more chapters.' },
 };
 
 // Difficulty presets (round five): named sets of the Settings numbers, chosen for a new keep. A keep keeps

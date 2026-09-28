@@ -3905,7 +3905,7 @@ function playSlot(n) {
 function newKeep(n) {
   retuned = 0;
   const p = presetNow();
-  return playKeep(n, keepWith(p), `A new keep in slot ${n}${p === 'standard' ? '' : `, ${PRESETS[p].name.toLowerCase()}`}.`);
+  return playKeep(n, keepWith(p), `A new ${prefs.campaign ? 'campaign' : 'keep'} in slot ${n}${p === 'standard' ? '' : `, ${PRESETS[p].name.toLowerCase()}`}.`);
 }
 // Difficulty (round five): the preset chosen for a new keep, and a new keep made on it, with the player's own
 // numbers from the keep before where the preset has none. The keep keeps them as its own defaults.
