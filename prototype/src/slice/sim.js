@@ -106,6 +106,7 @@ export function newSeason(seed = Date.now() >>> 0, overrides = {}) {
     day: 1,
     phase: 'day', // day → dusk (paused) → night → dawn (the rite, paused) → day …; 'end' after the new moon; 'over' if lost
     t: 0,
+    eclipse: null, // while the sun is dark on midsummer's day: { from, to, side, woke }
     rev: 0,
     res: { food: tuning.startFood, candles: tuning.startCandles, glass: tuning.startGlass, essence: 0, remembrance: 0, stone: tuning.startStone },
     // The keep's layout, top floor first. Never changed in place: building replaces it.
@@ -250,7 +251,7 @@ const freeMirror = (s) => s.mirrors.find((m) => !m.hidden && mirrorUse(s, m) < m
 export const canWork = (d) => !!d.mirror && WORKING.includes(d.kind) && !d.deep && !d.hidden;
 // A shade's act (round six): which it has, whether it's at it now, and what it costs.
 export const actOf = (d) => Object.keys(ACTS).find((k) => ACTS[k].kind === d.kind) || null;
-export const acting = (s, d, what) => !!d.act && d.act.what === what && s.phase === 'night' && s.t < d.act.until;
+export const acting = (s, d, what) => !!d.act && d.act.what === what && tainAwake(s) && s.t < d.act.until;
 export const actCost = (s, d) => {
   const a = actOf(d);
   return a ? Math.round(s.tuning.actCost[a] * (d.named ? 0.5 : 1) * (shadeTrait(s, d)?.fade ?? 1) * 100) / 100 : 0;
@@ -267,7 +268,7 @@ export function actText(T, a) {
   }[a];
 }
 // Whether a shade could act now: tonight's act unspent, and memory to pay for it.
-export const canAct = (s, d) => !!s.tuning.acts && s.phase === 'night' && canWork(d) && !!actOf(d) && (d.acted || 0) < actsFor(s, d) && !d.climb && d.memory > actCost(s, d) + EPS;
+export const canAct = (s, d) => !!s.tuning.acts && tainAwake(s) && canWork(d) && !!actOf(d) && (d.acted || 0) < actsFor(s, d) && !d.climb && d.memory > actCost(s, d) + EPS;
 // The type of room a shade is posted in (its twin's type), or null.
 export const postRoom = (s, d) => (d.post ? typeAt(geo(s), d.post.f, d.post.x) : null);
 export const griefMult = (s, p) => (p.grief ? p.grief.mult : 1);
@@ -291,7 +292,7 @@ export function livingMult(s, p) {
   if (s.hungry) m *= T.hungryMult;
   m *= griefMult(s, p);
   if (p.peace > 0) m *= T.peaceMult;
-  if (isTwinnedLiving(s, p)) m *= T.twinMult;
+  if (isTwinnedLiving(s, p)) m *= twinMultOf(s);
   const L = livingTrait(s, p);
   if (L) m *= (L.any ?? 1) * (L.jobs?.[p.job] ?? L.other ?? 1) * (isGuard(p) ? (L.guard ?? 1) : 1);
   if (s.dreamt) m *= s.dreamt; // good dreams, the day after
@@ -342,6 +343,20 @@ export const undergateOpen = (s) => s.season >= s.tuning.undergateFrom && !!gate
 // Where the Undergate opens: at its room's outer end, away from the mirror hanging there, as the Drowned come
 // up at the ends of the moat's twin.
 export const undergateMouth = (g) => ({ f: g.f, x: g.x0 < MAP.W / 2 ? g.x0 + 4 : g.x1 - 4 });
+// The eclipse (round six): once a year, on midsummer's day, the sun goes dark for a stretch of the day and the
+// Tain wakes while the day goes on. eclipseSpan is that stretch, in the day's ticks; s.eclipse stands while
+// it lasts, and the Tain is awake then as it is by night.
+export const eclipseDue = (s) => !!s.tuning.eclipse && !!s.tuning.year && seasonIndex(s) === 1 && s.day === s.tuning.eclipseDay;
+export function eclipseSpan(s) {
+  const D = dayTicks(s);
+  const a = Math.round(s.tuning.eclipseAt * D);
+  return [a, Math.min(D - 1, a + Math.round(s.tuning.eclipseSecs * TICKS_PER_SEC))];
+}
+export const eclipsing = (s) => s.phase === 'day' && !!s.eclipse;
+export const tainAwake = (s) => s.phase === 'night' || eclipsing(s);
+// What a living person and their dead, the shade posted in the twin of the living one's room, each work at;
+// in the eclipse they fight side by side, and fight at it too.
+export const twinMultOf = (s) => (eclipsing(s) ? s.tuning.eclipseTwin : s.tuning.twinMult);
 // How long a ward holds the Hollow.
 export const wardHoldOf = (s) => s.tuning.wardHold * (learned(s, 'hollow') ? STUDIES.hollow.hold : 1);
 // What a pour of pitch takes off the Host.
@@ -440,6 +455,7 @@ export function step(s) {
 function dayTick(s) {
   const D = dayTicks(s);
   s.t++;
+  if (!s.eclipse && eclipseDue(s) && s.t === eclipseSpan(s)[0]) beginEclipse(s);
   const pw = roomPower(s);
   const len = dayLength(s); // a long summer day makes more, a short winter one less
   for (const r of WORK_ROOMS) {
@@ -452,6 +468,10 @@ function dayTick(s) {
   if (s.fires?.length) burn(s);
   if (s.raid?.state === 'assault') assaultTick(s);
   if (s.phase !== 'day') return;
+  if (s.eclipse) {
+    eclipseTick(s);
+    if (s.phase !== 'day') return;
+  }
   for (const p of [...s.living]) {
     if (s.phase !== 'day') return;
     if (p.peace > 0 && --p.peace === 0) s.rev++;
@@ -964,9 +984,10 @@ function resolveRaid(s) {
     true,
   );
   for (const f of fallen) kill(s, f.p, 'duty', f.how);
-  for (let i = 0; i < raiders; i++) raiderBody(s);
   const one = who.slice(0, -1);
-  if (raiders) say(s, held ? `One ${one} fell inside the gatehouse. The body lies in the crypt.` : `${raiders} ${one}${raiders === 1 ? ' was' : 's were'} cut down inside the walls. The bodies lie in the crypt.`);
+  const crypt = eclipsing(s) ? '' : raiders === 1 ? ' The body lies in the crypt.' : ' The bodies lie in the crypt.'; // in the eclipse they wake at once
+  if (raiders) say(s, held ? `One ${one} fell inside the gatehouse.${crypt}` : `${raiders} ${one}${raiders === 1 ? ' was' : 's were'} cut down inside the walls.${crypt}`);
+  for (let i = 0; i < raiders; i++) raiderBody(s);
   if (r.crusade) crusadeOver(s, held);
 }
 
@@ -1054,9 +1075,10 @@ function endAssault(s, held) {
   const host = r.crusade ? 'the crusade' : 'the Host';
   say(s, held ? `${cap(host)} fell back from the gate${r.pitched ? `, burned by ${r.pitched} ${r.pitched === 1 ? 'pour' : 'pours'} of pitch` : ''}.` : `The gate gave way, and ${host} broke in.${loot}`, held ? 'good' : 'bad', true);
   for (const f of fallen) kill(s, f.p, 'duty', f.how);
-  for (let i = 0; i < raiders; i++) raiderBody(s);
   const who = r.crusade ? 'crusader' : 'raider';
-  if (raiders) say(s, held ? `One ${who} fell inside the gatehouse. The body lies in the crypt.` : `${raiders} ${who}${raiders === 1 ? ' was' : 's were'} cut down inside the walls. The bodies lie in the crypt.`);
+  const crypt = eclipsing(s) ? '' : raiders === 1 ? ' The body lies in the crypt.' : ' The bodies lie in the crypt.'; // in the eclipse they wake at once
+  if (raiders) say(s, held ? `One ${who} fell inside the gatehouse.${crypt}` : `${raiders} ${who}${raiders === 1 ? ' was' : 's were'} cut down inside the walls.${crypt}`);
+  for (let i = 0; i < raiders; i++) raiderBody(s);
   if (r.crusade) crusadeOver(s, held);
 }
 
@@ -1204,6 +1226,7 @@ export function kill(s, p, cause, how) {
   say(s, `${p.name} ${b.how}.${guided ? ' The Threshold eased the passing.' : ''}${grief}`, 'death', true);
   cue(s, 'knell');
   if (!s.living.length) lose(s, 'fallen', 'No one living is left. The keep has fallen.');
+  else if (eclipsing(s)) wakeNow(s, b);
   return b;
 }
 function raiderBody(s) {
@@ -1213,6 +1236,7 @@ function raiderBody(s) {
   };
   s.bodies.push(b);
   addLedger(s, b);
+  if (eclipsing(s)) wakeNow(s, b);
 }
 // Everything the Book of the Dead tells about someone, from the day they die.
 function addLedger(s, b) {
@@ -1320,6 +1344,7 @@ function burn(s) {
 }
 
 function endDay(s) {
+  if (s.eclipse) endEclipse(s);
   if (s.raid?.state === 'assault') {
     endAssault(s, s.raid.gate > 0); // the Host falls back at nightfall if the gate still stands
     if (s.phase === 'over') return;
@@ -1455,7 +1480,7 @@ function newShade(s, o) {
   };
 }
 
-function rise(s, b, x) {
+function rise(s, b, x, now = false) {
   const d = newShade(s, b);
   let text;
   if (x.to === 'mirror') {
@@ -1469,8 +1494,9 @@ function rise(s, b, x) {
   else text = `${b.name} wakes as a Wraith.`;
   const e = ledgerOf(s, b.id);
   if (e) e.woke = x.to === 'overflow' ? 'overflow' : d.kind;
+  if (e && now) e.eclipse = true;
   s.shades.push(d);
-  say(s, text, d.mirror ? 'wake' : 'bad');
+  say(s, now ? `${text} In the eclipse the dead don't wait for dusk.` : text, d.mirror ? 'wake' : 'bad', now);
   cue(s, d.mirror ? 'wake' : d.kind === 'wraith' ? 'wraith' : 'restless');
 }
 
@@ -1540,13 +1566,110 @@ function newNight(s) {
     ...(T.errands && !tut ? { errands: rollErrands(s, N) } : {}),
     candles: [], foes: [], spawns, tides: tides.map((x) => Math.round(x * N)).sort((a, b) => a - b), wards: [], wardHold: {}, hush: false, steel: !!s.steel,
     broken: [], // twin rooms (ids) a Maw has broken tonight
-    stats: { spawned: 0, killed: 0, crossed: 0, cracks: 0, grabbed: 0, drained: 0, essence: 0, glass: 0, wick: 0, guidance: 0, candles: 0, wards: 0, lost: [], hollow: null, taken: null, wraiths: 0, maws: 0, smashed: 0, broken: [], drowned: 0, under: 0, pulled: 0, deep: [] },
+    stats: nightStats(),
   };
   // Tonight's omen, or two to choose between: the night as rolled is kept, so a choice can be changed at dusk.
   const offered = T.omens && !tut && !long && !isNewMoon(s) && s.day >= T.omenFrom ? rollOmens(s, N, night) : [];
   if (offered.length === 1) applyOmen(s, night, offered[0]);
   else if (offered.length === 2) Object.assign(night, { omens: offered, base: { spawns: spawns.map((x) => ({ ...x })), tides: [...night.tides] } });
   return night;
+}
+
+const nightStats = () => ({ spawned: 0, killed: 0, crossed: 0, cracks: 0, grabbed: 0, drained: 0, essence: 0, glass: 0, wick: 0, guidance: 0, candles: 0, wards: 0, lost: [], hollow: null, taken: null, wraiths: 0, maws: 0, smashed: 0, broken: [], drowned: 0, under: 0, pulled: 0, deep: [] });
+
+/* ---------------------------------------------------------------- the eclipse */
+
+// The eclipse's Tain (round six): one tide of Creepers up the rifts, eclipseTide of the way in, from a stream of
+// its own, so a keep meets the same raids, sickness and Unlit with it or without until it changes something.
+// No Maws, no Hollow, no Weepers, no Drowned, nothing up the Undergate, no omens and no errands. Its spawns
+// and marks are timed by the day's clock.
+function eclipseNight(s, from, to) {
+  const T = s.tuning;
+  const r = sideStream(s, 0xec1);
+  const count = Math.round(T.eclipseCreepers * (T.creepersBase + T.creepersPerNight * Math.min(s.day, T.seasonDays - 1)) * hard(s));
+  const tide = from + Math.round(T.eclipseTide * (to - from));
+  const spread = T.tideSpread * nightTicks(s);
+  const spawns = [];
+  for (let i = 0; i < count; i++) {
+    const at = Math.round(clamp(tide + (rand(r) - 0.5) * spread, from + 1, to - 1));
+    spawns.push({ at, type: 'creeper', seep: s.day >= T.seepFrom && chance(r, T.seepShare), snuff: chance(r, T.snuffShare), rift: pick(r, MAP.rifts).id });
+  }
+  spawns.sort((a, b) => a.at - b.at);
+  const marks = [...(count ? [{ at: spawns[0].at, kind: 'tide', count }] : []), { at: to, kind: 'sun' }];
+  return { eclipse: true, candles: [], foes: [], spawns, tides: [tide], wards: [], wardHold: {}, hush: false, steel: !!s.steel, broken: [], stats: nightStats(), marks };
+}
+// The sun goes dark: the dead stand at their posts, as at the night's start, each with its act to spend, and a
+// Wraith rises in the Waking Room.
+function beginEclipse(s) {
+  const [from, to] = eclipseSpan(s);
+  s.eclipse = { from, to, side: {}, woke: [] };
+  s.night = eclipseNight(s, from, to);
+  for (const d of s.shades) {
+    Object.assign(d, { path: [], climb: 0, grabbedBy: null });
+    if (s.tuning.acts) Object.assign(d, { acted: false, act: null });
+    if (canWork(d)) Object.assign(d, { f: d.post.f, x: d.post.x, ox: d.post.x, of: d.post.f });
+  }
+  const { f, x0 } = roomSpan(geo(s), 'crypt');
+  for (const [i, w] of s.shades.filter((d) => d.kind === 'wraith').entries()) {
+    addFoe(s, 'wraith', f, x0 + 10 + i * 9, { shade: w.id, temper: 'snuff' });
+    s.night.stats.wraiths++;
+  }
+  const k = s.night.spawns.length;
+  const host = s.raid && (s.raid.state === 'coming' || s.raid.state === 'assault') && !s.raid.crusade;
+  say(s, `The eclipse. The sun goes dark and the Tain wakes with the keep: the dead stand at their posts while the living work${host ? ', and the Host is at the gate' : ''}. ${k === 1 ? 'One Creeper climbs' : `${k} Creepers climb`} before the sun comes back, in ${fmt(s.tuning.eclipseSecs)} seconds. Anyone who dies in the dark wakes at once.`, 'night', true);
+  cue(s, 'eclipse');
+}
+// While it lasts: who stands beside their dead, and the Tain's tick; then the sun comes back.
+function eclipseTick(s) {
+  for (const p of s.living) if (isTwinnedLiving(s, p)) s.eclipse.side[p.id] = (s.eclipse.side[p.id] || 0) + 1;
+  tainTick(s);
+  if (s.phase === 'day' && s.t >= s.eclipse.to) endEclipse(s);
+}
+// The sun comes back. The Unlit left in the Tain burn away; the candles are put out, and those still half whole
+// go back to the store; the shades' work is credited as at dawn; whoever stood beside their dead through half
+// of it is at peace, their grief over. The Veil's cracks count at the next rite, as the night's do.
+function endEclipse(s) {
+  const T = s.tuning;
+  const n = s.night;
+  const e = s.eclipse;
+  const burned = n.foes.filter((f) => f.type !== 'wraith').length;
+  const back = n.candles.filter((c) => c.wax + EPS >= c.max / 2).length;
+  s.res.candles += back;
+  const wick = Math.floor(n.stats.wick + EPS);
+  if (wick) s.res.candles += wick;
+  const g = Math.floor(n.stats.guidance + EPS);
+  if (g) s.guidance = Math.min(T.guidanceMax, s.guidance + g);
+  if (n.stats.lore && s.study) study(s, n.stats.lore);
+  for (const d of s.shades) {
+    Object.assign(d, { path: [], climb: 0, grabbedBy: null });
+    if (d.act) d.act = null;
+  }
+  const side = [];
+  for (const p of s.living) {
+    if ((e.side[p.id] || 0) < (e.to - e.from) / 2) continue;
+    const d = bondedShade(s, p);
+    p.grief = null;
+    p.peace = Math.round(T.peaceDays * dayTicks(s));
+    side.push(d ? `${p.name} (with ${d.name})` : p.name);
+  }
+  s.today.eclipse = { spawned: n.stats.spawned, killed: n.stats.killed, cracks: n.stats.cracks, lost: n.stats.lost.length, burned, back, wick, woke: [...e.woke], side };
+  s.night = null;
+  s.eclipse = null;
+  say(s, `The sun comes back. ${burned ? `${burned === 1 ? 'One of the Unlit' : `${burned} of the Unlit`} left in the Tain ${burned === 1 ? 'burns' : 'burn'} away` : 'None of the Unlit are left in the Tain'}${back ? `, and ${back === 1 ? 'a candle' : `${back} candles`} still half whole ${back === 1 ? 'goes' : 'go'} back to the store` : ''}.${side.length ? ` ${listNames(side)} stood beside their dead through the dark, and ${side.length === 1 ? 'is' : 'are'} at peace.` : ''}`, 'good', true);
+  cue(s, 'dawn');
+}
+// In the eclipse the dead don't wait for dusk: one who dies in the dark wakes at once, where the crypt would
+// have woken them, with no funeral, and a Wraith rises where it wakes.
+function wakeNow(s, b) {
+  s.bodies = s.bodies.filter((x) => x !== b);
+  const m = b.kind === 'wraith' || b.kind === 'restless' ? null : freeMirror(s);
+  rise(s, b, b.kind === 'wraith' || b.kind === 'restless' ? { to: b.kind } : m ? { to: 'mirror', mirror: m } : { to: 'overflow' }, true);
+  const d = s.shades.at(-1);
+  s.eclipse.woke.push(d.id);
+  if (d.kind === 'wraith') {
+    addFoe(s, 'wraith', d.f, d.x, { shade: d.id, temper: 'snuff' });
+    s.night.stats.wraiths++;
+  }
 }
 
 // Omens (round six) come from their own stream, from the seed and the night, like errands, so a seed brings
@@ -1751,9 +1874,14 @@ function advance(u, speed, climbTicks) {
 }
 
 function nightTick(s) {
+  s.t++;
+  tainTick(s);
+  if (s.phase === 'night' && s.t >= nightTicks(s)) endNight(s);
+}
+// One tick of the Tain: by night, and by day in the eclipse.
+function tainTick(s) {
   const n = s.night;
   const T = s.tuning;
-  s.t++;
   carryLanterns(s);
   const L = lightMap(geo(s), T, n.candles);
   L.stood = stood(s, L);
@@ -1768,12 +1896,11 @@ function nightTick(s) {
   for (const d of [...s.shades]) if (canWork(d) && s.shades.includes(d)) shadeTick(s, L, d);
   for (const f of [...n.foes]) foeTick(s, L, f);
   if (n.errands?.length) errandTick(s, L);
-  if (s.phase !== 'night') return;
+  if (!tainAwake(s)) return;
   for (const f of n.foes) if (f.hp <= 0) foeDown(s, f);
   n.foes = n.foes.filter((f) => f.hp > 0);
   for (const c of n.candles) if (c.wax <= 0) cue(s, 'snuff', c.f, c.x);
   n.candles = n.candles.filter((c) => c.wax > 0);
-  if (s.t >= nightTicks(s)) endNight(s);
 }
 
 // Lanterns go where their shades go; one whose shade can't carry it any more (caught, gone, faded) is left
@@ -2003,7 +2130,8 @@ function shadeTick(s, L, d) {
     .filter((c) => c.f === d.f && !c.climb && c.hp > 0 && Math.abs(c.x - d.x) <= T.reach + (S?.reach || 0))
     .sort((a, b) => Math.abs(a.x - d.x) - Math.abs(b.x - d.x))[0];
   if (foe) {
-    foe.hp -= T.fightDps * K.fight * p * (n.steel ? T.steelFight : 1) * (S?.fight ?? 1) * (acting(s, d, 'stand') ? T.standFight : 1) * DT;
+    const side = n.eclipse && isTwinnedShade(s, d) ? T.eclipseTwin : 1; // side by side with its living one, in the eclipse
+    foe.hp -= T.fightDps * K.fight * p * side * (n.steel ? T.steelFight : 1) * (S?.fight ?? 1) * (acting(s, d, 'stand') ? T.standFight : 1) * DT;
     foe.lastHit = d.id;
     return;
   }
@@ -2014,7 +2142,7 @@ function shadeTick(s, L, d) {
   const job = room && TWINS[room].job;
   // Guarding the line is keeping watch: in the guard light the Watch's is the only work a shade does.
   if (T.lineGuard && job !== 'watch' && guardLit(geo(s), L, d.f, d.x)) return;
-  const w = K.work * p * (isTwinnedShade(s, d) ? T.twinMult : 1) * (S?.work ?? 1) * DT;
+  const w = K.work * p * (isTwinnedShade(s, d) ? twinMultOf(s) : 1) * (S?.work ?? 1) * DT;
   if (job === 'essence') {
     const sung = T.essencePerSec * w * (S?.essence ?? 1) * (n.omen?.id === 'thin' ? T.thinChoir : 1);
     gain(s, 'essence', sung);
@@ -2036,7 +2164,7 @@ function shadeTick(s, L, d) {
 function foeTick(s, L, c) {
   const T = s.tuning;
   const n = s.night;
-  if (c.hp <= 0 || s.phase !== 'night') return;
+  if (c.hp <= 0 || !tainAwake(s)) return;
   c.gnawing = false;
   if (c.type === 'hollow') {
     hollowTick(s, L, c);
@@ -2115,7 +2243,7 @@ export function wayOf(s, L, c) {
   const n = s.night;
   if (isLit(L, c.f, c.x)) return { mode: 'flee', path: fleePath(L, c) };
   // A Stranger's Lure: everything on its floor within reach comes for it, into its light if it stands in one.
-  const lure = !n.hush && s.phase === 'night' && s.shades.find((d) => acting(s, d, 'lure') && canWork(d) && !d.climb && d.f === c.f && Math.abs(d.x - c.x) <= T.lureReach);
+  const lure = !n.hush && tainAwake(s) && s.shades.find((d) => acting(s, d, 'lure') && canWork(d) && !d.climb && d.f === c.f && Math.abs(d.x - c.x) <= T.lureReach);
   if (lure) return { mode: 'hunt', prey: lure.id, path: [{ f: c.f, x: lure.x }] };
   const sleeper = !n.hush && c.type !== 'drowned' && n.errands?.find((e) => e.kind === 'sleeper' && e.out && !e.done && !e.climb && e.f === c.f && Math.abs(e.x - c.x) <= T.senseRange && !isLit(L, e.f, e.x) && darkBetween(L, c.f, c.x, e.x));
   if (sleeper) return { mode: 'hunt', prey: sleeper.id, path: [{ f: c.f, x: sleeper.x }] };
@@ -2502,7 +2630,7 @@ function cross(s, c, m, cracks) {
     say(s, `${who} slipped through the Veil at the mirror in the ${where}. The Veil cracks: ${s.cracks} of ${s.tuning.cracksMax}.`, 'bad', true);
     cue(s, 'crack', c.f, m.x);
   }
-  if (s.phase === 'night' && s.cracks >= s.tuning.cracksMax) {
+  if (tainAwake(s) && s.cracks >= s.tuning.cracksMax) {
     if (veilKept(s)) s.cracks = s.tuning.cracksMax - 1;
     else lose(s, 'veil', 'The Veil has broken. The Unlit are loose in the keep above.');
   }
@@ -2762,7 +2890,7 @@ function endNight(s) {
   }
   n.stats.nightmares = bad;
   s.today.night = { ...n.stats, broken: [...n.broken], fading, withdrew, wick, guidance: g, watch: s.watchBonus, ...(n.errands ? { errands: n.errands.map(({ kind, name, by, done }) => ({ kind, name, by, done })) } : {}), ...(n.omen ? { omen: n.omen.id } : {}) };
-  const cracks = n.stats.cracks;
+  const cracks = n.stats.cracks + (s.today.eclipse?.cracks || 0); // the eclipse's count with the night's
   review(s);
   s.night = null;
   if (s.cracks > 0) s.cracks--;
@@ -2938,6 +3066,7 @@ function beginDay(s) {
   const when = s.tuning.year ? `${cap(seasonName(s))} of year ${yearOf(s)}` : `Season ${s.season}`;
   say(s, `${when}, day ${s.day}${isLongNight(s) ? ': tonight is the Long Night' : isNewMoon(s) ? ': tonight is the new moon' : ''}.`, 'day');
   cue(s, 'day');
+  if (eclipseDue(s)) say(s, `Midsummer. At ${hourOf(s, eclipseSpan(s)[0])} the sun goes dark for ${fmt(T.eclipseSecs)} seconds, and the Tain wakes with the keep: the dead at their posts and the Unlit climbing, while the living work and the Host comes to the gate.`, 'night', true);
   weatherNews(s);
   const haunted = (s.haunted || []).map((id) => DAY_ROOMS[typeOf(geo(s), id)].name);
   const half = T.hauntWork < 1 ? ` Whoever works there manages ${Math.round(100 * T.hauntWork)}% until dusk.` : '';
@@ -3329,7 +3458,7 @@ const ACTIONS = {
   lantern(s, { id }) {
     const T = s.tuning;
     if (!T.lanterns) return 'There are no lanterns in this keep.';
-    if (!(s.phase === 'night' || (s.phase === 'dusk' && s.dusk.step === 'place'))) return 'Lanterns are for the night.';
+    if (!(tainAwake(s) || (s.phase === 'dusk' && s.dusk.step === 'place'))) return 'Lanterns are for the night.';
     const d = byId(s.shades, id);
     if (!d || !canWork(d)) return 'That shade can carry nothing tonight.';
     const n = s.night;
@@ -3400,7 +3529,7 @@ const ACTIONS = {
   shadeAct(s, { id }) {
     const T = s.tuning;
     if (!T.acts) return 'The dead have no acts in this keep.';
-    if (s.phase !== 'night') return 'The dead act at night.';
+    if (!tainAwake(s)) return 'The dead act at night.';
     const d = byId(s.shades, id);
     if (!d || !canWork(d)) return 'That shade can do nothing tonight.';
     const what = actOf(d);
@@ -3706,7 +3835,7 @@ const ACTIONS = {
     s.dusk.step = 'place';
   },
   candle(s, { f, x }) {
-    if (!(s.phase === 'night' || (s.phase === 'dusk' && s.dusk.step === 'place'))) return 'Candles are set at dusk, once the dead have woken, or during the night.';
+    if (!(tainAwake(s) || (s.phase === 'dusk' && s.dusk.step === 'place'))) return 'Candles are set at dusk, once the dead have woken, or during the night.';
     if (!onFloor(s, f, x)) return 'That is not a place in the Tain.';
     if (!roomAt(geo(s), f, x)) return 'That is inside a wall.';
     if (s.res.candles < 1) return 'No candles left. The Chandlery makes them by day.';
@@ -3721,12 +3850,12 @@ const ACTIONS = {
     if (!d) return 'No such shade.';
     if (!canWork(d)) return `${d.name} can't be posted.`;
     if (!onFloor(s, f, x) || !roomAt(geo(s), f, x)) return 'That is not a place in the Tain.';
-    if (s.phase === 'dusk' || s.phase === 'dawn' || s.phase === 'day') {
+    if (!tainAwake(s) && (s.phase === 'dusk' || s.phase === 'dawn' || s.phase === 'day')) {
       Object.assign(d, { post: { f, x }, f, x, ox: x, of: f, path: [], climb: 0 });
       cue(s, 'post', f, x);
       return undefined;
     }
-    if (s.phase !== 'night') return 'Not now.';
+    if (!tainAwake(s)) return 'Not now.';
     if (d.grabbedBy) return `${d.name} is held. Light the spot to free it.`;
     if (d.climb) return `${d.name} is on the stairs.`;
     const r = route(geo(s), lightMap(geo(s), s.tuning, s.night.candles), d, [{ f, x }]);
@@ -3736,7 +3865,8 @@ const ACTIONS = {
     cue(s, 'post', f, x);
   },
   ward(s, { target }) {
-    if (s.phase !== 'night' && s.phase !== 'dusk') return 'Wards are set at dusk or during the night.';
+    if (!tainAwake(s) && s.phase !== 'dusk') return 'Wards are set at dusk or during the night.';
+    if (eclipsing(s) && (target === 'moat' || target === 'undergate')) return 'In the eclipse the Unlit come up the rifts only.';
     if (target === 'moat' && !raining(s)) return "The moat's twin is still tonight: nothing will come up it.";
     if (target === 'undergate' && !undergateOpen(s)) return 'Nothing comes up the Undergate yet.';
     if (!geo(s).stairs.some((x) => x.id === target) && !MAP.rifts.some((x) => x.id === target) && target !== 'moat' && target !== 'undergate') return 'Wards seal a stair, a rift, the moat or the Undergate.';
@@ -3778,7 +3908,7 @@ const ACTIONS = {
     cue(s, 'shatter');
   },
   hush(s, { on }) {
-    if (s.phase !== 'night') return 'Hush is for the night.';
+    if (!tainAwake(s)) return 'Hush is for the night.';
     s.night.hush = !!on;
     say(s, on ? 'Hush. The shades go silent; the Unlit pass them by, and all work stops.' : 'The hush ends.', on ? 'night' : '');
     cue(s, on ? 'hush' : 'unhush');
@@ -3975,6 +4105,9 @@ export function upgrade(g) {
   g.study ??= null;
   g.decree ??= null;
   g.court ??= false;
+  // A keep from before the eclipse never has one.
+  for (const t of [g.tuning, g.tuning0]) if (t && !('eclipse' in t)) t.eclipse = 0;
+  g.eclipse ??= null;
   for (const p of g.living || []) p.trait ??= traitFor(g, p.name);
   for (const b of g.bodies || []) if (b.was === undefined) b.was = b.from === 'raider' ? null : traitFor(g, b.name);
   for (const d of g.shades || []) {

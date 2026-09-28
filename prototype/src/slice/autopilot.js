@@ -827,9 +827,18 @@ function rite(s, plan) {
 
 /* ---------------------------------------------------------------- the loop */
 
+// The eclipse the autopilot has met with its night's posts and candles (round six): it meets one as it meets a
+// night, at the sun's going dark, and tends it as it tends a night, while the day's moves go on.
+const metEclipse = new WeakMap();
 export function autoStep(s, plan = 'balanced') {
   const way = plan === 'double' ? 'balanced' : plan; // how the dead are treated
   if (s.phase === 'day') {
+    if (s.eclipse && plan !== 'idle') {
+      if (metEclipse.get(s) !== s.eclipse) {
+        metEclipse.set(s, s.eclipse);
+        placeNight(s, plan);
+      } else if (s.t % 10 === 0) tendNight(s, plan);
+    }
     if (s.t % 50 === 0 || (s.raid?.warned && s.raid.state === 'coming' && !s.raid.ward)) dayMoves(s);
     if (s.raid && s.t % 5 === 0) raidMoves(s);
     if (s.visitors?.some((v) => v.here && !v.done)) visitorMoves(s, way);

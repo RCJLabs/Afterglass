@@ -5,11 +5,12 @@ import { runSeasonAuto } from '../src/slice/autopilot.js';
 import { recapOf } from '../src/slice/recap.js';
 import { epitaph } from '../src/slice/book.js';
 
-// A keep the autopilot brings through a whole year, at the year's end: the first seed that does, from 4.
+// A keep the autopilot brings through a whole year, at the year's end, with shades in its glass: the first
+// seed that does, from 4.
 const [yearSeed, yearDone] = (() => {
   for (let seed = 4; seed < 40; seed++) {
     const s = runSeasonAuto(seed, { seasons: 4 });
-    if (yearsEnd(s)) return [seed, () => JSON.parse(JSON.stringify(s))];
+    if (yearsEnd(s) && s.shades.length) return [seed, () => JSON.parse(JSON.stringify(s))];
   }
   throw new Error('no seed from 4 to 39 came through a whole year');
 })();

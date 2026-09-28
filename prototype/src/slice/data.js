@@ -440,6 +440,24 @@ export const TUNING = {
   undergateFrom: 2,
   undergateChance: 0.25,
   undergatePerTide: 1,
+
+  // The eclipse (round six; round three's set piece). With the year on, once a year, on summer's day
+  // eclipseDay, the sun goes dark at eclipseAt of the day for eclipseSecs, and the Tain wakes while the day goes
+  // on: the living at work and the day's raid at the gate while the Unlit climb. The shades stand at their
+  // posts as at night, with candles, wards, moves and acts as at night; eclipseCreepers times the night's
+  // Creepers come up the rifts in one tide, eclipseTide of the way in (no Maws, no Hollow, no Weepers, no
+  // Drowned, nothing up the Undergate). A living person and their dead, the shade posted in the twin of the
+  // living one's room, work and fight eclipseTwin times over (not twinMult), and one who stood beside their
+  // dead through half of it is at peace after. Anyone who dies during it wakes at once, with no funeral. When
+  // the sun comes back the Unlit left in the Tain burn away, candles still half whole go back to the store,
+  // and its cracks in the Veil count at the next rite with the night's. 0 is the year without it.
+  eclipse: 1,
+  eclipseDay: 4,
+  eclipseAt: 0.5,
+  eclipseSecs: 30,
+  eclipseCreepers: 0.5,
+  eclipseTide: 0.3,
+  eclipseTwin: 2,
 };
 
 

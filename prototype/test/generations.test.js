@@ -6,7 +6,7 @@ import { geo, roomsOf } from '../src/slice/geo.js';
 
 // The original four-floor keep with nothing to harm it: no raids, sickness, deaths of old age, fire or
 // weather, and stores enough that nobody starves while no one runs it.
-const quiet = { startFloors: 4, sickChance: 0, oldAgeChance: 0, raidDays: { 2: 0, 4: 0, 6: 0 }, fire: 0, dreamwell: 0, weather: 0, siege: 0, plague: 0, startFood: 99999, newcomerEvery: 99, errands: 0 };
+const quiet = { startFloors: 4, sickChance: 0, oldAgeChance: 0, raidDays: { 2: 0, 4: 0, 6: 0 }, fire: 0, dreamwell: 0, weather: 0, siege: 0, plague: 0, startFood: 99999, newcomerEvery: 99, errands: 0, eclipse: 0 };
 const ok = (s, a) => {
   const r = act(s, a);
   assert.ok(r.ok, `${a.type}: ${r.error}`);
