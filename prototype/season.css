@@ -71,6 +71,7 @@ body.game-page {
 .gres > div { display: flex; align-items: center; gap: 5px; }
 .gres dt { font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); }
 .gres dd { margin: 0; font-family: var(--font-num); font-variant-numeric: tabular-nums; }
+.gres dd .cap { color: var(--ink-3); font-size: 0.85em; }
 .gres .short { display: none; }
 .gres .pips i { width: 8px; height: 8px; }
 /* The weather: today's, then tomorrow's; rain, and rain coming, stand out. */

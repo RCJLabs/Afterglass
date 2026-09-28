@@ -6,7 +6,7 @@ import { TICKS_PER_SEC, DAY_ROOMS, WORK_ROOMS, TWINS, KINDS, MIRRORS, CAUSES, MA
 import {
   newSeason, step, act, retune, playerTuning, jobCap, jobCount, nextSlot, ritePreview, crossingPreview, capacity, canWork, defense, roomPower, bear, priests, funeralCap, eatRate,
   dayTicks, nightTicks, isNewMoon, choicesFor, byId, isTwinnedLiving, isTwinnedShade, lastSeason, SAVE_VERSION, fmt, mirrorCap, bareHalls, tainPlace,
-  postRoom, wardCost, hollowHold, hollowNeed, shadeTrait, peopleIn, beds, tradeOf, inGreatGlass, handsAt, whispers, stepsThrough, perf,
+  postRoom, wardCost, wardDrawOf, wardHoldOf, hollowNeed, shadeTrait, peopleIn, beds, tradeOf, inGreatGlass, handsAt, whispers, stepsThrough, perf,
   seasonIndex, seasonName, yearOf, dayLength, isLongNight, tributeOf, besieged, sallyOdds, plagueSeason, atGate, gateGuard,
   weatherOf, forecastOf, raining, foggy, drownedDue, keepDefaults, embargoed, inquisition, churchDaysLeft, crusadeDay, crusadeDaysLeft,
   actOf, actCost, canAct, acting, actText, omenText, nextMark, SKIP_LEAD, visitorBlock,
@@ -278,7 +278,7 @@ function hudHTML() {
   const T = s.tuning;
   const cap = capacity(s);
   const go = running() && !ui.paused;
-  const res = (id, long, short, v) => `<div><dt><span class="long">${long}</span><span class="short">${short}</span></dt><dd><b data-live="${id}">${v}</b></dd></div>`;
+  const res = (id, long, short, v, cap = 0) => `<div><dt><span class="long">${long}</span><span class="short">${short}</span></dt><dd><b data-live="${id}">${v}</b>${cap ? `<span class="cap">/${cap}</span>` : ''}</dd></div>`;
   return `<div class="ghud-row">
     <div class="clock ${eclipseNow() ? 'is-night' : PH[s.phase]}"><span class="pill">${eclipseNow() ? 'The eclipse' : phaseLabel()}</span><span class="time" data-live="clock">${clockText()}</span><span class="bar" aria-hidden="true"><i data-bar="clock"></i></span></div>
     <div class="gctl">${ui.watch ? `<span class="pill watching">Watching</span><button class="btn sm" id="w-exit-hud" data-act="w-exit">Exit</button>` : `
@@ -293,7 +293,7 @@ function hudHTML() {
     ${res('candles', 'Candles', 'Cand', floor1(s.res.candles))}
     ${res('glass', 'Glass', 'Glass', floor1(s.res.glass))}
     ${res('stone', 'Stone', 'Stone', floor1(s.res.stone || 0))}
-    ${res('essence', 'Essence', 'Ess', floor1(s.res.essence))}
+    ${res('essence', 'Essence', 'Ess', floor1(s.res.essence), T.essenceCap)}
     ${res('rem', 'Remembrance', 'Rem', floor1(s.res.remembrance))}
     ${s.res.quicksilver ? res('qs', 'Quicksilver', 'QS', floor1(s.res.quicksilver)) : ''}
     <div><dt>Dread</dt><dd>${pips(s.dread, T.dreadMax, s.dread >= 4)}</dd></div>
@@ -1102,7 +1102,7 @@ function blackMirror() {
   }
   if (th.hollow) {
     const held = th.hollow.held.length;
-    lines.push({ bad: !held, text: `The Hollow rises from ${riftName(th.hollow.rift)} around ${at(th.hollow.at)} and walks to the Veil whatever the light. ${held ? `${plural(held, 'ward')} on its way will hold it ${fmt(hollowHold(s))} seconds each.` : `No ward stands on its way yet: each one there holds it ${fmt(hollowHold(s))} seconds.`}` });
+    lines.push({ bad: !held, text: `The Hollow rises from ${riftName(th.hollow.rift)} around ${at(th.hollow.at)} and walks to the Veil whatever the light. ${held ? `${plural(held, 'ward')} on its way will hold it${s.tuning.wardDraw ? ` while the essence lasts (${fmt(wardDrawOf(s))} a second), then` : ''} ${fmt(wardHoldOf(s))} seconds each.` : `No ward stands on its way yet: each one there holds it${s.tuning.wardDraw ? ` while the essence lasts (${fmt(wardDrawOf(s))} a second), then` : ''} ${fmt(wardHoldOf(s))} seconds.`}` });
   }
   const tideText = th.tides.map((t) => `${at(t.at)} (${t.count})`);
   const r = th.raid;
@@ -1160,11 +1160,12 @@ function moonNote() {
   if (left < 1 || left > 2) return '';
   const stairs = K().stairs.length;
   const when = left === 1 ? 'Tomorrow night' : 'In two nights';
-  // What holding it off until dawn takes: where it wears through wards faster as it grows, the stair it
-  // batters warded again and again; before that, a ward on every stair.
+  // What holding it off until dawn takes: where wards draw on the essence while it batters them, its hours
+  // there at tonight's rate; before that, a ward on every stair.
   const need = hollowNeed(s);
-  const cost = s.tuning.hollowWear
-    ? `each ward holds it about ${fmt(hollowHold(s))} seconds now, and it has about ${Math.round(need.secs)} seconds before dawn: holding it off takes about ${need.wards} wards, ${fmt(need.essence)} essence`
+  const cap = s.tuning.essenceCap ? ` (the store holds ${s.tuning.essenceCap} at most)` : '';
+  const cost = s.tuning.wardDraw
+    ? `each draws on the essence while the Hollow batters it, about ${fmt(need.rate)} a second now, and it has about ${Math.round(need.secs)} seconds before dawn: holding it off takes about ${Math.round(need.essence)} essence${cap}`
     : `warding all ${stairs} here would take ${fmt(stairs * wardCost(s))} essence`;
   if (s.tuning.year && seasonIndex(s) === 3) return `<p class="note">${when} comes the Long Night, ${longTimes()} as long as a winter night, with the Hollow, a Maw and more of the Unlit. Put candles by for it.${stairs ? ` Wards on the stairs hold the Hollow back: ${cost}, and you have ${floor1(s.res.essence)}.` : ''}</p>`;
   if (!stairs) return `<p class="note">${when} comes the new moon, and the Hollow. This keep has no stairs yet, so only shades fighting it can stop it.</p>`;
@@ -1672,8 +1673,9 @@ const TUNE = [
   ['hollowAt', 'When the Hollow rises, as a share of the night'],
   ['hollowReach', 'How far the Hollow eats light, pixels'],
   ['hollowEat', 'Wax the Hollow eats per second'],
-  ['wardHold', 'Seconds a ward holds the Hollow, in the first spring'],
-  ['hollowWear', 'How much faster the Hollow wears through wards as it grows (0 to 1)'],
+  ['wardHold', 'Seconds a ward holds the Hollow with no essence to draw on'],
+  ['wardDraw', 'Essence a second a ward draws to hold the Hollow, at first (0: none)'],
+  ['essenceCap', 'Most essence the store holds (0: no limit)'],
   ['newMoonCreepers', 'Creepers on the new moon, as a share of the night before'],
   ['dreadLivingPer', 'Living per point of Dread borne'],
   ['traits', 'Traits: everyone has one, and death turns it over (1 on, 0 off)'],

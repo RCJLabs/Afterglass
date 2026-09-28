@@ -114,12 +114,14 @@ export const TUNING = {
   hollowCracks: 1,
   hollowAt: 0.3,
   hollowReward: 3,
-  wardHold: 20, // seconds a ward on a stair holds the Hollow back
-  // ... in the first spring. The Hollow wears through a ward as much faster as it has grown (the season's
-  // hardness, and the campaign's Deep), to the power hollowWear: past the first spring, holding it off takes
-  // more wards, so the essence banked has a use. 0 is as before, every ward holding it wardHold seconds.
-  // Off while it's measured (the essence fix, in progress): at 1 it kills keeps without spending essence.
-  hollowWear: 0,
+  wardHold: 20, // seconds a ward on a stair holds the Hollow back once the store has no essence to draw on
+  // While the Hollow batters a ward on a stair, the ward draws wardDraw essence a second to hold it, times as
+  // much as the Hollow has grown (the season's hardness, and the campaign's Deep); Hollow-lore halves it. With
+  // the store empty it holds wardHold seconds. And the store holds essenceCap at most: the Choir's singing
+  // beyond it is lost. Together, essence stops piling up past the first spring, and holding the Hollow off
+  // until dawn takes a good part of a full store, most of it on the Long Night. 0 turns either off (as before).
+  wardDraw: 0.3,
+  essenceCap: 100,
   // Maws, the round-three brutes: they walk through light to whatever is worth most for the least fight,
   // the candle holding the way up or a room where the living or the dead work, hitting any shade in their
   // way. A candle they tear down; a room they break. One lone Loyal shade can just about stop one.

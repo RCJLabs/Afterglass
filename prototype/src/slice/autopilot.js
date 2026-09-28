@@ -512,11 +512,13 @@ function placeNight(s, plan) {
 // A rainy night (DROWN above): ward the moat, or light the mirror nearest the end the Drowned come up at and
 // post the best fighter left (ds is strongest first) by it. Returns the rooms it lit, so no second candle
 // goes in them.
-// The essence kept back, late in a season, for the new moon: a ward on every stair, or, where the Hollow
-// wears through wards faster as it grows, what holding it off until dawn will take.
+// The essence kept back, late in a season, for the new moon: a ward on every stair, or, where wards draw on
+// the essence to hold the Hollow, what holding it off until dawn will take, as much of it as the store holds.
 const moonReserve = (s) => {
   const every = geo(s).stairs.length * wardCost(s);
-  return s.tuning.hollowWear ? Math.max(every, hollowNeed(s).essence) : every;
+  if (!s.tuning.wardDraw) return every;
+  const need = Math.max(every, hollowNeed(s).essence);
+  return s.tuning.essenceCap ? Math.min(need, s.tuning.essenceCap) : need;
 };
 function meetDrowned(s, ds) {
   const T = s.tuning;
@@ -756,7 +758,7 @@ function tendNight(s, plan) {
     const up = G.stairs.filter((st) => st.f === h.f && !n.wards.includes(st.id));
     const goal = HOLLOWGOAL && chapterOf(s) === 4 && seasonIndex(s) === 0;
     if (!goal && h.f < G.veil && up.length && s.res.essence >= up.length * wardCost(s)) for (const st of up) doAct(s, { type: 'ward', target: st.id });
-    else if (!goal && h.f < G.veil && up.length && T.hollowWear) {
+    else if (!goal && h.f < G.veil && up.length && T.wardDraw) {
       // Short of essence for every way up, the nearest first: it has to go round to the other, which is time.
       for (const st of up.sort((a, b) => Math.abs(a.x - h.x) - Math.abs(b.x - h.x))) if (s.res.essence >= wardCost(s)) doAct(s, { type: 'ward', target: st.id });
     }

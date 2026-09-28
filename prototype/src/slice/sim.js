@@ -271,6 +271,9 @@ function cue(s, name, f, x) {
 }
 function gain(s, res, n) {
   s.res[res] = (s.res[res] || 0) + n; // quicksilver has no store until a shade first brings some back
+  // The store holds essenceCap at most: what the Choir sings beyond it is lost.
+  const cap = res === 'essence' && s.tuning.essenceCap;
+  if (cap) s.res.essence = Math.min(s.res.essence, Math.max(cap, s.res.essence - n));
   s.today.made[res] = (s.today.made[res] || 0) + n;
 }
 
@@ -400,18 +403,20 @@ export const tainAwake = (s) => s.phase === 'night' || eclipsing(s);
 // What a living person and their dead, the shade posted in the twin of the living one's room, each work at;
 // in the eclipse they fight side by side, and fight at it too.
 export const twinMultOf = (s) => (eclipsing(s) ? s.tuning.eclipseTwin : s.tuning.twinMult);
-// How long a ward holds the Hollow, as set; it wears through it hollowWear times as fast as that.
+// How long a ward holds the Hollow once the store has no essence to draw on.
 export const wardHoldOf = (s) => s.tuning.wardHold * (learned(s, 'hollow') ? STUDIES.hollow.hold : 1);
-export const hollowWear = (s) => Math.pow(hard(s) * (hollowRisen(s) ? s.tuning.hollowRises : 1), s.tuning.hollowWear || 0);
-// How long a ward on a stair holds it tonight, and what holding it off until dawn on this season's new moon
-// takes: the stair it batters warded again and again, and one ward on the other way up from its floor.
-export const hollowHold = (s) => wardHoldOf(s) / hollowWear(s);
+// How much the Hollow has grown: as its strength, the season's hardness (and the campaign's Deep).
+export const hollowGrowth = (s) => hard(s) * (hollowRisen(s) ? s.tuning.hollowRises : 1);
+// The essence a second a ward on a stair draws to hold the Hollow while it batters it: wardDraw at first,
+// times its growth, Hollow-lore halving it. 0 where wards don't draw (keeps from before).
+export const wardDrawOf = (s) => ((s.tuning.wardDraw || 0) * hollowGrowth(s) * s.tuning.wardHold) / wardHoldOf(s);
+// What holding it off until dawn on this season's new moon takes: its time there, drawn at that rate, and a
+// ward on each of the two ways up from its floor.
 export function hollowNeed(s) {
   const T = s.tuning;
   const winter = T.year && seasonIndex(s) === 3;
   const secs = T.nightSecs * (T.year ? T.seasonNight[seasonIndex(s)] * (winter ? T.longNight : 1) : 1) * (1 - T.hollowAt);
-  const wards = 1 + Math.ceil(secs / hollowHold(s));
-  return { secs, wards, essence: wards * wardCost(s) };
+  return { secs, rate: wardDrawOf(s), essence: 2 * wardCost(s) + secs * wardDrawOf(s) };
 }
 // What a pour of pitch takes off the Host.
 export const pitchOf = (s) => s.tuning.raidPitch * (learned(s, 'pitch') ? STUDIES.pitch.mult : 1);
@@ -2645,7 +2650,22 @@ function hollowTick(s, L, h) {
   }
   if (h.batter && !h.path.length) {
     h.gnawing = true;
-    n.wardHold[h.batter] = (n.wardHold[h.batter] ?? wardHoldOf(s)) - DT * hollowWear(s);
+    // While there's essence to draw on, the ward holds; with the store empty it gives way in wardHold seconds.
+    const draw = wardDrawOf(s) * DT;
+    if (draw > 0 && s.res.essence + EPS >= draw) {
+      s.res.essence = Math.max(0, s.res.essence - draw);
+      n.stats.drawn = (n.stats.drawn || 0) + draw;
+      if (!n.drawing) {
+        n.drawing = true;
+        say(s, `The ward on the stair draws on the essence to hold the Hollow back: ${fmt(wardDrawOf(s))} a second.`);
+      }
+    } else {
+      if (draw > 0 && !n.dry) {
+        n.dry = true;
+        say(s, `The essence is spent. The ward holds the Hollow ${fmt(wardHoldOf(s))} seconds more at most.`, 'bad', true);
+      }
+      n.wardHold[h.batter] = (n.wardHold[h.batter] ?? wardHoldOf(s)) - DT;
+    }
     if (n.wardHold[h.batter] <= EPS) {
       n.wards = n.wards.filter((w) => w !== h.batter);
       delete n.wardHold[h.batter];
@@ -4212,8 +4232,9 @@ export function upgrade(g) {
   g.court ??= false;
   // A keep from before the eclipse never has one.
   for (const t of [g.tuning, g.tuning0]) if (t && !('eclipse' in t)) t.eclipse = 0;
-  // ... or before the Hollow wore through wards faster as it grew.
-  for (const t of [g.tuning, g.tuning0]) if (t && !('hollowWear' in t)) t.hollowWear = 0;
+  // ... or before wards drew essence to hold the Hollow, and the store held only so much.
+  for (const t of [g.tuning, g.tuning0]) if (t && !('wardDraw' in t)) t.wardDraw = 0;
+  for (const t of [g.tuning, g.tuning0]) if (t && !('essenceCap' in t)) t.essenceCap = 0;
   g.eclipse ??= null;
   g.campaign ??= null;
   for (const p of g.living || []) p.trait ??= traitFor(g, p.name);
