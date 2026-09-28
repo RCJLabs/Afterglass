@@ -31,8 +31,9 @@ const near = (a, b) => Math.abs(a - b) < 1e-6;
 test('visitors come from a stream of their own: with them or without, the keep rolls the same days', () => {
   let came = 0;
   for (let seed = 1; seed <= 40; seed++) {
-    const a = newSeason(seed);
-    const b = newSeason(seed, { visitors: 0 });
+    // visitFrom 1: day 1's roll, as before round seven's staging (test/staging.test.js).
+    const a = newSeason(seed, { visitFrom: 1 });
+    const b = newSeason(seed, { visitors: 0, visitFrom: 1 });
     assert.equal(a.rng, b.rng, 'the keep\'s own stream is untouched');
     assert.deepEqual(a.raid, b.raid);
     assert.deepEqual(b.visitors, []);

@@ -16,8 +16,9 @@ const ok = (s, a) => {
 };
 const no = (s, a) => act(s, a).error;
 // Nothing by day or night to get in the way: no fire, sickness, weather, raids, Unlit or visitors.
+// lateRoomsFrom 1: these test the rooms, not round seven's staging of them (test/staging.test.js).
 const calm = {
-  fire: 0, sickChance: 0, oldAgeChance: 0, weather: 0, dreamwell: 0, errands: 0, omens: 0, visitors: 0, firstInspection: 99,
+  fire: 0, sickChance: 0, oldAgeChance: 0, weather: 0, dreamwell: 0, errands: 0, omens: 0, visitors: 0, firstInspection: 99, lateRoomsFrom: 1,
   raidDays: { 2: 0, 4: 0, 6: 0 }, creepersBase: 0, creepersPerNight: 0, mawFrom: 99,
 };
 // On through dusk, the night and the rite to the next day, doing nothing.
@@ -232,7 +233,7 @@ test('from the second season one Creeper of each tide comes up the Undergate, un
 
 test('the rooms replay exactly; old saves have none of them; How to play covers them', () => {
   // A keep that builds all three and uses them, then plays on by the autopilot.
-  const s = newSeason(2);
+  const s = newSeason(2, { lateRoomsFrom: 1 });
   ok(s, { type: 'debug', what: 'give', res: 'stone', n: 40 });
   ok(s, { type: 'debug', what: 'give', res: 'remembrance', n: 10 });
   withGatehouse(s);

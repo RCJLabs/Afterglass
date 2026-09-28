@@ -436,6 +436,9 @@ export const TUNING = {
   visitorChance: 0.5,
   visitorSecond: 0.2,
   visitorWait: 0.25,
+  // Round seven, phase 4: a keep's first season meets its visitors from this day, so its first days are only
+  // the keep, the Host and the night. 1 is from the first day, as keeps from before.
+  visitFrom: 3,
   charmBurn: 0.75, // the hedge-witch's charm: tonight's candles burn at this rate
   // The Library, the Hall and the Gatehouse (round six). library: scholars make lore by day toward one of the
   // STUDIES at a time, begun with remembrance; a lit shade in its twin, the Archive of the Dead, adds
@@ -449,6 +452,9 @@ export const TUNING = {
   library: 1,
   lorePerSec: 0.01,
   hall: 1,
+  // Round seven, phase 4: the Library and the Hall can be built from this season of the keep (2 is summer), so the
+  // first spring holds only the rooms it needs. 1 is from the start, as keeps from before.
+  lateRoomsFrom: 2,
   gatehouse: 1,
   laddersFrom: 2,
   ladderEvery: 4,
@@ -601,23 +607,23 @@ export const TUTORIAL = {
 export const TRAITS = {
   brave: { name: 'Brave', dead: 'reckless', short: 'guards ×1.5; falls at the gate twice as often', guard: 1.5, fall: 2 },
   coward: { name: 'Coward', dead: 'lurker', short: 'guards ×0.5; never falls at the gate', guard: 0.5, fall: 0 },
-  devout: { name: 'Devout', dead: 'bitter', short: '×1.5 in the Chapel, ×0.8 anywhere else', jobs: { chapel: 1.5 }, other: 0.8 },
+  devout: { name: 'Devout', dead: 'bitter', short: '×1.5 in the Chapel, ×0.8 elsewhere', jobs: { chapel: 1.5 }, other: 0.8 },
   diligent: { name: 'Diligent', dead: 'tireless', short: '×1.15 at any job', any: 1.15 },
-  gentle: { name: 'Gentle', dead: 'keening', short: '×1.5 healing in the Infirmary; grieves harder (×0.6 while grieving)', jobs: { infirmary: 1.5 }, grief: 0.6 },
-  greedy: { name: 'Greedy', dead: 'hoarding', short: '×1.25 at the Glazier or the Chandlery, ×0.8 anywhere else', jobs: { glazier: 1.25, chandlery: 1.25 }, other: 0.8 },
-  stubborn: { name: 'Stubborn', dead: 'anchored', short: 'sickness kills them half as fast', sick: 2 },
+  gentle: { name: 'Gentle', dead: 'keening', short: '×1.5 healing; grieves harder (×0.6)', jobs: { infirmary: 1.5 }, grief: 0.6 },
+  greedy: { name: 'Greedy', dead: 'hoarding', short: '×1.25 at the Glazier or Chandlery, ×0.8 elsewhere', jobs: { glazier: 1.25, chandlery: 1.25 }, other: 0.8 },
+  stubborn: { name: 'Stubborn', dead: 'anchored', short: 'sickness kills half as fast', sick: 2 },
   cheerful: { name: 'Cheerful', dead: 'wistful', short: 'never grieves', grieves: false },
 };
 export const TRAIT_KEYS = Object.keys(TRAITS);
 export const SHADE_TRAITS = {
-  reckless: { name: 'Reckless', short: 'lunges further and fights ×2, but loses memory twice as fast', fight: 2, reach: 5, fade: 2, drain: 2 },
-  lurker: { name: 'Lurker', short: 'unseen by Creepers and Wraiths, so never caught by them, and caught half as often in the Deep; fights ×0.25', fight: 0.25, unseen: true },
-  bitter: { name: 'Bitter', short: 'costs 3 Dread to keep; while it stays, wards cost a fifth', dread: 3, wards: 0.2 },
-  tireless: { name: 'Tireless', short: 'works ×1.6, but never rests and never works as a twin', work: 1.6, rests: false, twins: false },
-  keening: { name: 'Keening', short: 'sings wherever it stands: calms two Restless shades a night, and Weepers on its floor fall quiet', calms: 2, hushes: true },
-  hoarding: { name: 'Hoarding', short: '×2 essence in the Choir, but pockets 2 candles every dusk while the store holds more than 4', essence: 2, pockets: 2, spares: 4 },
+  reckless: { name: 'Reckless', short: 'fights ×2 and lunges further, but fades twice as fast', fight: 2, reach: 5, fade: 2, drain: 2 },
+  lurker: { name: 'Lurker', short: 'never caught by Creepers or Wraiths, and half as often in the Deep; fights ×0.25', fight: 0.25, unseen: true },
+  bitter: { name: 'Bitter', short: '3 Dread to keep; while it stays, wards cost a fifth', dread: 3, wards: 0.2 },
+  tireless: { name: 'Tireless', short: 'works ×1.6, but never rests or works as a twin', work: 1.6, rests: false, twins: false },
+  keening: { name: 'Keening', short: 'calms two Restless shades a night, and quiets Weepers on its floor', calms: 2, hushes: true },
+  hoarding: { name: 'Hoarding', short: '×2 essence in the Choir, but pockets 2 candles a dusk while the store holds more than 4', essence: 2, pockets: 2, spares: 4 },
   anchored: { name: 'Anchored', short: 'fades half as fast', fade: 0.5 },
-  wistful: { name: 'Wistful', short: 'resting the night through in the Cold Hearth, or dreaming in the Dreamwell, it sends good dreams: the living work ×1.15 the next day', dreams: 1.15 },
+  wistful: { name: 'Wistful', short: 'resting or dreaming the night through, it sends good dreams: the living work ×1.15 the next day', dreams: 1.15 },
 };
 
 // Day rooms. out is what a worker makes each day at full strength.

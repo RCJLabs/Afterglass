@@ -10,7 +10,7 @@
 // on the line for the biggest tides when the essence is there, and a fighter to meet a Maw. They move a
 // shade only along a lit floor; where its way is dark it stays.
 
-import { hollowNeed, chapterOf, yearsEnd, bondedShade, postRoom, bareHalls, buildSpot, raiseCost, step, act, newSeason, ritePreview, crossingPreview, capacity, canWork, defense, funeralCap, choicesFor, jobCap, jobCount, eatRate, wardCost, livingTrait, shadeTrait, peopleIn, crowded, tradeOf, inGreatGlass, handsAt, seasonIndex, tributeOf, besieged, sallyOdds, embargoed, inquisition, crusadeDaysLeft, canAct, actOf, actCost, NEW_ROOMS, atTheGate, gatehouseOf, decreeOf, undergateMouth } from './sim.js';
+import { hollowNeed, chapterOf, yearsEnd, bondedShade, postRoom, bareHalls, buildSpot, raiseCost, step, act, newSeason, ritePreview, crossingPreview, capacity, canWork, defense, funeralCap, choicesFor, jobCap, jobCount, eatRate, wardCost, livingTrait, shadeTrait, peopleIn, crowded, tradeOf, inGreatGlass, handsAt, seasonIndex, tributeOf, besieged, sallyOdds, embargoed, inquisition, crusadeDaysLeft, canAct, actOf, actCost, NEW_ROOMS, atTheGate, gatehouseOf, decreeOf, undergateMouth, roomReady } from './sim.js';
 import { DAY_ROOMS, MIRRORS, KINDS, MAP, TICKS_PER_SEC, VISITORS, STUDIES, CHAPTERS } from './data.js';
 import { geo, roomSpan, roomAt, roomsOf, lineSpots, lightMap, isLit } from './geo.js';
 
@@ -134,6 +134,7 @@ function nextBuild(s) {
   for (const type of BUILD_ORDER) {
     if (type === 'quarters' && (NOQUARTERS || !crowded(s))) continue;
     if (NEW_ROOMS.includes(type) && (!s.tuning[type] || NO(type.toUpperCase()))) continue;
+    if (!roomReady(s, type)) continue;
     // The Gatehouse waits until there's a bare hall to move a room into, to make it room at the gate.
     if (type === 'gatehouse' && !gatehouseOf(s) && !gateSpot(s) && !bareHalls(s).length) continue;
     want[type] = (want[type] || 0) + 1;

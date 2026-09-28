@@ -65,6 +65,9 @@ export const campaignOn = (s) => !!s.tuning.campaign && !!s.tuning.year;
 export const chapterOf = (s) => (campaignOn(s) && !s.campaign?.ending ? Math.min(5, yearOf(s)) : 0);
 // Whether a pressure a chapter brings has come yet: from its year in a campaign, always in the open year.
 export const arrived = (s, year) => !campaignOn(s) || yearOf(s) >= year;
+// The Library and the Hall wait for the keep's season lateRoomsFrom (round seven, phase 4).
+export const LATE_ROOMS = ['library', 'hall'];
+export const roomReady = (s, type) => !LATE_ROOMS.includes(type) || s.season >= (s.tuning.lateRoomsFrom || 1);
 // From the fourth year of a campaign the Hollow grows, and so do its nights.
 export const hollowRisen = (s) => campaignOn(s) && yearOf(s) >= 4;
 const yearOfSeason = (season) => Math.floor((season - 1) / SEASONS.length) + 1;
@@ -727,7 +730,7 @@ function visitorCan(s, k, now) {
 }
 function rollVisitors(s) {
   const T = s.tuning;
-  if (!T.visitors || besieged(s) || crusadeDue(s)) return;
+  if (!T.visitors || besieged(s) || crusadeDue(s) || (s.season === 1 && s.day < (T.visitFrom || 1))) return;
   const r = sideStream(s, VISIT_TAG);
   const D = dayTicks(s);
   const n = chance(r, T.visitorChance) ? (chance(r, T.visitorSecond) ? 2 : 1) : 0;
@@ -949,7 +952,7 @@ function weatherNews(s) {
   if (raining(s)) say(s, `Rain. The Yard quarries at ${Math.round(100 * s.tuning.rainYard)}%, and fire catches and spreads less. ${drownedDue(s) ? `Tonight the Drowned come up out of the moat's twin${behind}.` : `The Drowned stay under tonight: ${under}.`}`, 'bad');
   else if (foggy(s)) say(s, 'Fog. Tonight the black mirror will show how many come and when, but not their ways.');
   if (forecastOf(s) === 'rain' && drownedDue(s, true)) {
-    say(s, `Rain is coming tomorrow. Tomorrow night the Drowned will come up out of the moat's twin, on the floor under the Veil, and make for the mirrors${behind ? ' from behind the line' : ''}.`, 'bad', true);
+    say(s, `Rain is coming tomorrow. Tomorrow night the Drowned come up out of the moat's twin, under the Veil, for the mirrors${behind ? ', behind the line' : ''}.`, 'bad', true);
     cue(s, 'warn');
   } else if (forecastOf(s) === 'rain') say(s, `Rain is coming tomorrow. The Drowned will stay under: ${under}.`);
 }
@@ -3018,7 +3021,7 @@ function toRite(s, cracks) {
   const heard = s.court ? heardAt(s, asks) : null; // the Court of Shades hears one, free
   s.court = false;
   s.rite = { choice: Object.fromEntries(s.shades.map((d) => [d.id, defaultChoice(d)])), vigils: 0, cracks, broken: (s.haunted || []).length, asks, grant: {}, ...(heard ? { heard } : {}) };
-  say(s, 'Dawn. The Unlit withdraw and the shades go back into the glass. Decide who stays.', 'rite', true);
+  say(s, 'Dawn. The shades go back into the glass: decide who stays.', 'rite', true);
   cue(s, 'dawn');
 }
 
@@ -3449,6 +3452,7 @@ const ACTIONS = {
     if (!BUILDABLE.includes(room)) return 'That cannot be built.';
     const T = s.tuning;
     if (NEW_ROOMS.includes(room) && !T[room]) return `There is no ${DAY_ROOMS[room].name} in this keep.`;
+    if (!roomReady(s, room)) return `The ${DAY_ROOMS[room].name} can be built from ${T.year && T.lateRoomsFrom === 2 ? 'summer' : `the keep's season ${T.lateRoomsFrom}`}.`;
     const at = buildSpot(s, where);
     if (!at) return where && where !== 'top' ? 'There is no bare hall there.' : 'The keep can rise no higher.';
     if (room === 'gatehouse') {
@@ -3481,8 +3485,9 @@ const ACTIONS = {
       s.keep = { floors: keep.floors.map((fl, f) => (f === at.f ? fl.map((r, i) => (i === at.slot ? made : r)) : fl)) };
     }
     const G = geo(s);
-    if (at.f === 0) say(s, `The masons raise a ${DAY_ROOMS[room].name} on top of the keep. By night its twin, the ${TWINS[room].name}, is the Tain's deepest room.`, 'good', true);
-    else say(s, `The masons raise a ${DAY_ROOMS[room].name} in the bare hall on floor ${G.n - at.f}. By night its twin, the ${TWINS[room].name}, is ${tainPlace(G, at.f, true)}.`, 'good', true);
+    const an = `${/^[AEIOU]/.test(DAY_ROOMS[room].name) ? 'An' : 'A'} ${DAY_ROOMS[room].name}`;
+    if (at.f === 0) say(s, `${an} rises on top of the keep. By night its twin, the ${TWINS[room].name}, is the Tain's deepest room.`, 'good', true);
+    else say(s, `${an} rises in the bare hall on floor ${G.n - at.f}. By night its twin, the ${TWINS[room].name}, is ${tainPlace(G, at.f, true)}.`, 'good', true);
     cue(s, 'build');
   },
   // Tearing a room down leaves a bare hall and gives back part of its stone. The Crypt stays (the dead wake
@@ -4288,6 +4293,9 @@ export function upgrade(g) {
   // last raid forgotten by the next.
   for (const t of [g.tuning, g.tuning0]) if (t && !('granaryGuards' in t)) t.granaryGuards = 0;
   for (const t of [g.tuning, g.tuning0]) if (t && !('emboldenCarries' in t)) t.emboldenCarries = 0;
+  // ... or before round seven's staging of the first year: visitors from the first day, every room from the start.
+  for (const t of [g.tuning, g.tuning0]) if (t && !('visitFrom' in t)) t.visitFrom = 1;
+  for (const t of [g.tuning, g.tuning0]) if (t && !('lateRoomsFrom' in t)) t.lateRoomsFrom = 1;
   g.eclipse ??= null;
   g.campaign ??= null;
   // A Gentle or Hard keep made while its years hardened ×1.15 or ×1.2 (Standard's ×1.3) grows as Standard's does

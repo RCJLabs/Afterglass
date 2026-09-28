@@ -634,3 +634,13 @@ details.custom .custom-parts .row input { flex: none; margin-top: 0.25em; }
   .estrip { max-width: 44rem; }
   .estrip .eacts .btn { flex: 0 1 auto; }
 }
+
+/* Standing explanations, folded (round seven, phase 4): a "?" and a few words, opened in place. */
+details.why { margin: 0; }
+details.why > summary { list-style: none; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; padding: 2px 0; font-size: 13px; color: var(--ink-3); }
+details.why > summary::-webkit-details-marker { display: none; }
+details.why .q { display: inline-grid; place-items: center; width: 18px; height: 18px; flex: none; border: 1px solid var(--line-2); border-radius: 50%; font-size: 12px; font-weight: 700; color: var(--ink-2); }
+details.why[open] > summary { color: var(--ink-2); }
+details.why .why-body { display: grid; gap: 4px; margin: 2px 0 6px; }
+details.why .why-more { margin: 0; font-size: 13px; }
+@media (pointer: coarse) { details.why > summary { min-height: 44px; padding-block: 0; } }

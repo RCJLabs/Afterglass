@@ -11,7 +11,7 @@ import {
   weatherOf, forecastOf, raining, foggy, drownedDue, keepDefaults, embargoed, inquisition, churchDaysLeft, crusadeDay, crusadeDaysLeft,
   actOf, actCost, canAct, acting, actText, omenText, nextMark, SKIP_LEAD, visitorBlock,
   raiseCost, buildSpot, NEW_ROOMS, learned, decreeOf, gatehouseOf, undergateOpen, laddersDue, actsFor, mirrorGlass, pitchOf,
-  eclipseDue, eclipseSpan, bondedShade, chapterOf, campaignOn, chapterAgain, boonNow, arrived,
+  eclipseDue, eclipseSpan, bondedShade, chapterOf, campaignOn, chapterAgain, boonNow, arrived, roomReady, LATE_ROOMS,
 } from './slice/sim.js';
 import { geo, feet, floorAtY, roomAt, typeAt, typeOf, roomSpan, roomsOf, lightMap, isLit, unitAt, DEEP_FLOOR, lineSpots as lineOf, guardLit, MAX_FLOORS } from './slice/geo.js';
 import { drawScene, drawMoment } from './slice/draw.js';
@@ -59,7 +59,7 @@ const store = {
 };
 
 const prefs = {
-  speed: 1, mode: 'reflection', labels: true, tab: 'log', autoPause: true, introDone: false, guide: false, guideSeen: {}, sound: true, sfx: 0.8, amb: 0.5, haptics: true,
+  speed: 1, mode: 'reflection', labels: true, tab: 'log', autoPause: true, introDone: false, guide: true, guideSeen: {}, sound: true, sfx: 0.8, amb: 0.5, haptics: true,
   ...(store.get(PREF_KEY) || {}),
 };
 const savePrefs = () => store.set(PREF_KEY, prefs);
@@ -161,6 +161,7 @@ const roofTop = () => K().top - 24;
 const ui = {
   paused: true, rev: 0, tool: 'move', selected: null, person: null, hover: null, toasts: [], toastRev: 0, confirmNew: false,
   copied: '', showExport: false, rush: false, skip: null, flash: 0, scale: 3, sheet: null, cross: null, open: {}, kb: null,
+  reading: new Set(),
 };
 const bump = () => {
   ui.rev++;
@@ -508,6 +509,37 @@ function showHint() {
   if (el.textContent !== hint) el.textContent = hint;
 }
 
+/* ---------------------------------------------------------------- explanations */
+
+// Round seven, phase 4: fewer words. A panel's standing explanation is shown in full the first time a keep shows
+// it (once), and from then on folds to a "?" with a short label, opened in place, with a way on to How to play.
+// A legend or a rule met later is folded from the start (aside). What a keep has read goes with it (s.read),
+// marked when the panel it was shown in closes.
+function why(id, html, label, howto) {
+  const key = `why-${id}`;
+  const more = howto ? `<p class="why-more"><button class="linkish" data-act="howto" data-sec="${howto}">More in How to play</button></p>` : '';
+  return `<details class="why" data-keep="${key}"${ui.open[key] ? ' open' : ''}><summary><span class="q" aria-hidden="true">?</span>${esc(label)}</summary><div class="why-body">${html}${more}</div></details>`;
+}
+function once(id, html, label, howto) {
+  if (s.read?.[id] || ui.watch) return why(id, html, label, howto);
+  ui.reading.add(id);
+  return html;
+}
+const aside = why;
+function markRead() {
+  if (!ui.reading.size || ui.watch) return;
+  s.read = { ...(s.read || {}) };
+  for (const id of ui.reading) s.read[id] = 1;
+  ui.reading.clear();
+  dirty = true;
+}
+// How to play, opened at a section.
+function openHowto(sec) {
+  ui.menuTab = 'howto';
+  openSheet('menu');
+  requestAnimationFrame(() => requestAnimationFrame(() => document.getElementById(`howto-${sec}`)?.scrollIntoView({ block: 'start' })));
+}
+
 /* ---------------------------------------------------------------- the phase panels */
 
 function raidCard() {
@@ -534,14 +566,14 @@ function raidCard() {
     return `<div class="card warn"><h3>The raid</h3><p>The raiders broke through: strength ${fmt(r.strength)} against defense ${fmt(s.today.raid?.defense ?? def)}.</p>${chase}</div>`;
   }
   if (r.state === 'assault') return assaultCard(r);
-  if (!r.warned) return `<div class="card"><h3>A raid today</h3><p>Scouts expect the Ashen Host before noon. Guards give ${DAY_ROOMS.barracks.rate} defense each; the Watch of the Dead adds what it kept last night${s.watchBonus ? ` (+${fmt(s.watchBonus)} today)` : ''}.</p><p class="num">Defense now ${fmt(def)}</p></div>`;
+  if (!r.warned) return `<div class="card"><h3>A raid today</h3><p>Scouts expect the Ashen Host before noon. Defense now <b class="num">${fmt(def)}</b>${s.watchBonus ? `, ${fmt(s.watchBonus)} of it from last night's Watch` : ''}.</p>${once('guards', `<p class="note">Guards give ${DAY_ROOMS.barracks.rate} defense each, and the Watch of the Dead adds what it kept the night before.</p>`, 'Defense', 'raids')}</div>`;
   const short = def + 1e-9 < r.strength;
   const t = tributeOf(s);
   const canPay = s.res.food + 1e-9 >= t.food && s.res.candles + 1e-9 >= t.candles;
   const fight = r.crusade ? `<p class="note">The crusade takes no tribute and wants none of the stores: it's the mirrors it's after. At the gate you'll have pitch (${T.raidPitchCost} candles for −${fmt(T.raidPitch)}), stone to shore it up, and the bell.</p>`
     : !T.raidFight ? '' : `<div class="row"><button class="btn sm" id="btn-payoff" data-act="payoff"${canPay ? '' : ' disabled'}>Pay them off: ${t.food} food, ${t.candles} candles</button>
       <button class="btn sm" id="btn-bar" data-act="bar-stores"${r.barred ? ' disabled' : ''}>${r.barred ? 'Stores barred' : 'Bar the stores'}</button></div>
-    <p class="note">Paid, they turn back${raidsAhead(s) ? `, but the season's raids after it come ×${mult(T.raidEmbolden)} harder` : T.emboldenCarries ? `, but next season's raids come ×${mult(T.raidEmbolden)} harder` : ''}. Barred, the Hearth, the Chandlery and the Glazier stop while the Host is at the gate, and a breach carries off half as much. At the gate you'll have pitch (${T.raidPitchCost} candles for −${fmt(T.raidPitch)}), stone to shore it up, and the bell.</p>`;
+    ${once('raid-choices', `<p class="note">Paid, they turn back${raidsAhead(s) ? `, but the season's raids after it come ×${mult(T.raidEmbolden)} harder` : T.emboldenCarries ? `, but next season's raids come ×${mult(T.raidEmbolden)} harder` : ''}. Barred, the Hearth, the Chandlery and the Glazier stop while the Host is at the gate, and a breach carries off half as much. At the gate you'll have pitch (${T.raidPitchCost} candles for −${fmt(T.raidPitch)}), stone to shore it up, and the bell.</p>`, 'Paying and barring', 'raids')}`;
   return `<div class="card raid-road ${short ? 'warn' : 'ok'}"><h3>${r.crusade ? 'The crusade on the road' : r.camp ? 'The camp comes at the gate' : 'Raiders on the road'}</h3>
     <p>${r.count} ${r.crusade ? 'knights of the Lantern' : 'raiders'}, strength <b class="num">${fmt(r.strength)}</b>, at the gate about ${hhmm(6 + (12 * r.hitAt) / dayTicks(s))}. Your defense: <b class="num" data-live="defense">${fmt(def)}</b>. ${short ? 'Not enough. Move people to the Barracks or ward the gate.' : 'Enough, if nothing changes.'}</p>${laddersDue(s) ? ladderNote(r) : ''}
     <div class="row"><button class="btn sm" id="btn-wardgate" data-act="wardgate"${r.ward || s.res.essence + 1e-9 < s.tuning.wardGateCost ? ' disabled' : ''}>${r.ward ? `Gate warded, +${r.ward}` : `Ward the gate: +${s.tuning.wardGateDefense} for ${s.tuning.wardGateCost} essence`}</button></div>${fight}</div>`;
@@ -608,15 +640,15 @@ function assaultCard(r) {
 function inspectionCard() {
   const I = s.inspection;
   const T = s.tuning;
-  const verdicts = 'Dread 0–1: blessed (candles and remembrance). 2–3: warned, with a tithe. 4–5: censured, and the fullest mirror is taken with its shades.';
+  const verdicts = once('verdicts', '<p class="note">Dread 0–1: blessed (candles and remembrance). 2–3: warned, with a tithe. 4–5: censured, and the fullest mirror is taken with its shades.</p>', "The Church's verdicts", 'church');
   if (I && !I.done) {
     const when = I.day === s.day ? 'today at noon' : 'tomorrow at noon';
-    return `<div class="card ${s.dread >= 4 ? 'warn' : ''}"><h3>The Lantern Church</h3><p>${I.reason === 'inquisition' ? 'The inquisitor inspects' : 'An inspector comes'} ${when} and judges the keep by its Dread, now <b>${s.dread}</b>. ${verdicts}</p>
+    return `<div class="card ${s.dread >= 4 ? 'warn' : ''}"><h3>The Lantern Church</h3><p>${I.reason === 'inquisition' ? 'The inquisitor inspects' : 'An inspector comes'} ${when} and judges the keep by its Dread, now <b>${s.dread}</b>.</p>${verdicts}
       ${s.phase === 'day' ? `<div class="row"><button class="btn sm" id="btn-vigil" data-act="vigil"${s.dread <= 0 || s.res.remembrance + 1e-9 < T.vigilCost ? ' disabled' : ''}>Keep a vigil: Dread −1 for ${T.vigilCost} remembrance</button></div>` : ''}</div>`;
   }
   const done = s.inspections.filter((x) => x.season === s.season && x.day === s.day).pop();
   if (done) return `<div class="card ${done.verdict === 'blessed' ? 'ok' : 'warn'}"><h3>The Lantern Church</h3><p>The inspector's verdict: <b>${done.verdict}</b> (Dread ${done.dread}).</p></div>`;
-  if (s.phase === 'day' && s.day < T.firstInspection && !crusadeDay(s)) return `<p class="note">The Lantern Church inspects on day ${T.firstInspection}. ${verdicts}</p>`;
+  if (s.phase === 'day' && s.day < T.firstInspection && !crusadeDay(s)) return `<p class="note">The Lantern Church inspects on day ${T.firstInspection}.</p>${verdicts}`;
   return '';
 }
 
@@ -806,7 +838,7 @@ function mirrorsHTML({ upgrades = true } = {}) {
       const slots = Array.from({ length: mirrorCap(m) }, (_, i) => (ds[i] ? `<span class="slot full">${esc(ds[i].name)}</span>` : '<span class="slot">empty</span>')).join('');
       return `<div class="mirror"><span class="mname">${esc(m.name)}${m.hidden ? ' <small class="muted">hidden</small>' : ''}</span><div class="slots">${slots}</div>${upgrades ? upgradeHTML(m) : ''}${ds.length ? breakHTML(m) : ''}</div>`;
     })
-    .join('')}</div>${upgrades && s.tuning.deep ? `<p class="note">Quicksilver: ${floor1(s.res.quicksilver || 0)}. Shades bring it back from the Deep, sent down at dusk; it upgrades a mirror where it hangs, its shades and all.</p>` : ''}`;
+    .join('')}</div>${upgrades && s.tuning.deep ? `<p class="note">Quicksilver: ${floor1(s.res.quicksilver || 0)}.</p>${once('quicksilver', '<p class="note">Shades bring quicksilver back from the Deep, sent down at dusk. It upgrades a mirror where it hangs, its shades and all.</p>', 'Quicksilver', 'mirrors')}` : ''}`;
 }
 // Quicksilver upgrades a hand mirror into a pier glass, and a pier glass into a great glass.
 function upgradeHTML(m) {
@@ -847,40 +879,49 @@ function dayPanel() {
   const pw = roomPower(s);
   const sick = s.living.filter((p) => p.sick > 0);
   const moon = T.seasonDays - s.day;
+  const len = dayLength(s);
   const rows = WORK_ROOMS.filter((id) => jobCap(s, id) > 0 || jobCount(s, id) > 0).map((id) => {
     const R = DAY_ROOMS[id];
     const n = jobCount(s, id);
     const cap = jobCap(s, id);
     const k = s.shades.filter((d) => stepsThrough(s, d) && d.byDay.room === id).length;
     const w = s.shades.find((d) => whispers(s, d) && tradeOf(s, d) === id);
-    const len = dayLength(s);
     const out = id === 'infirmary' ? `heals ${fmt(pw[id] * R.rate * len)}/day` : R.out === 'defense' ? `defense ${fmt(pw[id] * R.rate)}` : `${fmt(pw[id] * R.rate * len)} ${R.out}/day`;
     return `<li><span>${R.name} <small class="muted">${plural(n, R.role)}${k ? ` and ${plural(k, 'shade')},` : ''}${Number.isFinite(cap) ? ` of ${cap}` : ''}${w ? `, ${esc(w.name)} whispering` : ''}</small></span><span class="num">${out}</span></li>`;
   }).join('');
+  // Food in and out, a day at a time (round seven: rates, not only stores).
+  const makes = (pw.hearth || 0) * DAY_ROOMS.hearth.rate * len;
+  const eats = eatRate(s);
+  const food = `<p class="note${makes + 1e-9 < eats ? ' bad' : ''}">Food ${floor1(s.res.food)}: the keep eats ${fmt(eats)} a day and the Hearth makes ${fmt(makes)}.</p>`;
   const lunar = isLongNight(s) ? `Tonight is the Long Night: ${longTimes()} as long as a winter night, with the Hollow, a Maw and more of the Unlit. At dawn the year ends.` : moon > 0 ? `The ${T.year && seasonIndex(s) === 3 ? 'Long Night' : 'new moon'} is ${plural(moon, 'night')} off.` : 'Tonight is the new moon. The Hollow will rise.';
-  return `<header class="ph-head"><h2>${seasonWord() ? `${seasonWord()}, day ${s.day}` : `Day ${s.day}`}</h2><p>${lunar} The living work; anyone who dies inside the walls wakes at dusk.</p></header>
-    ${s.day === 1 ? seasonNote() : ''}
-    ${s.daily && s.season === 1 && s.day === 1 ? `<p class="note">This is the keep of ${esc(dayText(s.daily))}: everyone who plays it gets this same keep, on the same rules.</p>` : ''}
+  // A raid today, or one on its way, is now; one expected on a later day is what's coming.
+  const raid = raidCard();
+  const raidNow = s.raid ? raid : '';
+  return `<header class="ph-head"><h2>${seasonWord() ? `${seasonWord()}, day ${s.day}` : `Day ${s.day}`}</h2><p>${lunar}</p></header>
+    ${once('day', '<p class="note">The living work by day. Anyone who dies inside the walls wakes at dusk, as a shade.</p>', 'The day', 'day')}
     ${chapterCard(false)}
-    ${weatherNotes()}
     ${eclipseCard()}
     ${fireCards()}
     ${visitorCards()}
     ${siegeCard()}
     ${gateGuard(s) ? `<p class="note">${esc(listOf(s.shades.filter((d) => atGate(s, d)).map((d) => d.name)))} ${s.shades.filter((d) => atGate(s, d)).length === 1 ? 'stands' : 'stand'} at the gate today, as asked: +${fmt(gateGuard(s))} defense.</p>` : ''}
-    ${raidCard()}
+    ${raidNow}
     ${inspectionCard()}
+    ${sick.length ? `<p class="note bad">Sick: ${esc(listOf(sick.map((p) => p.name)))}. A healer in the Infirmary cures one a day; untreated, the sickness kills.</p>` : ''}
+    ${s.hungry ? '<p class="note bad">The larder is empty. Everyone works hungry, and the weakest will starve. Put more cooks in the Hearth.</p>' : ''}
+    ${s.haunted.length ? `<p class="note">Haunted today: the ${esc(listOf(s.haunted.map((id) => roomName(id))))}. A Maw broke ${s.haunted.length === 1 ? 'its twin' : 'their twins'} last night${T.hauntWork < 1 ? `, and whoever works there manages ${Math.round(100 * T.hauntWork)}% of their work` : ''}.</p>` : ''}
+    ${badLuckNote()}
+    ${sleepNotes()}
+    <div class="card"><h3>Work today</h3>${food}<ul class="facts">${rows}</ul></div>
+    ${s.day === 1 ? seasonNote() : ''}
+    ${s.daily && s.season === 1 && s.day === 1 ? `<p class="note">This is the keep of ${esc(dayText(s.daily))}: everyone who plays it gets this same keep, on the same rules.</p>` : ''}
+    ${weatherNotes()}
+    ${s.raid ? '' : raid}
     ${churchCard()}
     ${libraryCard()}
     ${hallCard()}
-    ${sick.length ? `<p class="note bad">Sick: ${esc(listOf(sick.map((p) => p.name)))}. A healer in the Infirmary cures one a day; untreated, the sickness kills.</p>` : ''}
-    ${badLuckNote()}
-    ${sleepNotes()}
-    ${s.hungry ? '<p class="note bad">The larder is empty. Everyone works hungry, and the weakest will starve. Put more cooks in the Hearth.</p>' : ''}
-    ${s.haunted.length ? `<p class="note">Haunted today: the ${esc(listOf(s.haunted.map((id) => roomName(id))))}. A Maw broke ${s.haunted.length === 1 ? 'its twin' : 'their twins'} last night${T.hauntWork < 1 ? `, and whoever works there manages ${Math.round(100 * T.hauntWork)}% of their work` : ''}.</p>` : ''}
-    <div class="card"><h3>Work today</h3><ul class="facts">${rows}</ul></div>
     ${deadByDay()}
-    <div class="card"><h3>The mirrors</h3><p class="note">Each shade needs a place in a mirror. With no room, the dead wake Restless. Breaking one, in an emergency, frees everyone in it at once and lowers Dread, at the price of the mirror and ${s.tuning.badLuckDays} days of bad luck.</p>${mirrorsHTML()}${buildRow()}</div>`;
+    <div class="card"><h3>The mirrors</h3>${once('mirrors', `<p class="note">Each shade needs a place in a mirror; with no room, the dead wake Restless. Breaking one, in an emergency, frees everyone in it at once and lowers Dread, at the price of the mirror and ${s.tuning.badLuckDays} days of bad luck.</p>`, 'Mirrors', 'mirrors')}${mirrorsHTML()}${buildRow()}</div>`;
 }
 
 // The campaign (round six): the chapter this year is, what it brings, its goal and how it's going. Told in full
@@ -979,7 +1020,7 @@ function deadByDay() {
     })
     .join('');
   return `<div class="card"><h3>The dead by day</h3>${rows ? `<ul class="facts">${rows}</ul>` : ''}
-    <p class="note">A shade can whisper its old trade to whoever works it now (×${mult(T.whisperMult)}), for ${fmt(T.whisperFade)} memory at dusk. One in a great glass can step through instead and work a room in person, for ${fmt(T.stepFade)}. The named pay half, and a trait that changes fading changes this too. Memory is what keeps a shade in the glass. ${busy.length ? 'Change it in People.' : 'Set it in People.'}</p></div>`;
+    ${once('by-day', `<p class="note">A shade can whisper its old trade to whoever works it now (×${mult(T.whisperMult)}), for ${fmt(T.whisperFade)} memory at dusk. One in a great glass can step through instead and work a room in person, for ${fmt(T.stepFade)}. The named pay half. Memory is what keeps a shade in the glass.</p>`, 'Whispering, and stepping through', 'mirrors')}<p class="note">${busy.length ? 'Change it in People.' : 'Set it in People.'}</p></div>`;
 }
 
 function duskCrypt() {
@@ -1040,7 +1081,7 @@ function duskPlace() {
   const creepers = n.spawns.filter((x) => x.type === 'creeper').length;
   const maws = n.spawns.filter((x) => x.type === 'maw').length;
   const wraiths = s.shades.filter((d) => d.kind === 'wraith');
-  return `<header class="ph-head"><h2>Dusk: set the night</h2><p>${plural(creepers, 'Creeper')} will climb out of the Deep tonight, most of them in tides around ${tidesText()}.${maws ? ` ${maws === 1 ? 'A Maw comes' : `${maws} Maws come`} with the last tide.` : ''}${isLongNight(s) ? ` <b>Tonight is the Long Night: ${longTimes()} as long as a winter night, with the Hollow and a Maw. At dawn the year ends.</b>` : isNewMoon(s) ? ' <b>Tonight is the new moon: the Hollow rises.</b>' : ''} Set candles and post the shades, then begin.</p></header>
+  return `<header class="ph-head"><h2>Dusk: set the night</h2><p>${plural(creepers, 'Creeper')} tonight, in tides around ${tidesText()}.${maws ? ` ${maws === 1 ? 'A Maw comes' : `${maws} Maws come`} with the last tide.` : ''}${isLongNight(s) ? ` <b>Tonight is the Long Night: ${longTimes()} as long as a winter night, with the Hollow and a Maw. At dawn the year ends.</b>` : isNewMoon(s) ? ' <b>Tonight is the new moon: the Hollow rises.</b>' : ''} Set candles, post the shades, and begin.</p></header>
     ${blackMirror()}
     ${nightTicks(s) > s.tuning.candleWax * TICKS_PER_SEC ? `<p class="note">Tonight lasts ${minsSecs(nightTicks(s) / TICKS_PER_SEC)} at 1×, and a candle burns ${minsSecs(s.tuning.candleWax)}. Keep candles back to relight before dawn.</p>` : ''}
     <ul class="facts">
@@ -1048,7 +1089,7 @@ function duskPlace() {
       <li><span>Shades posted in the dark</span><b class="num">${dark.length}</b></li>
       <li><span>Wards</span><b>${n.wards.length ? esc(listOf(n.wards.map(wardName))) : 'none'}</b></li>
     </ul>
-    ${n.candles.length || n.wards.length ? '<p class="hint">Until the night begins, a tap on a candle with Candle, or on a ward with Ward, takes it back whole.</p>' : ''}
+    ${n.candles.length || n.wards.length ? once('take-back', '<p class="hint">Until the night begins, a tap on a candle or ward you set takes it back.</p>', 'Taking back') : ''}
     ${dark.length ? `<p class="note">${esc(listOf(dark.map((d) => d.name)))} ${dark.length === 1 ? 'stands' : 'stand'} in the dark, where Creepers catch and drain shades. A shade works only in light.</p>` : ''}
     ${wraiths.length ? `<p class="note bad">${esc(listOf(wraiths.map((d) => d.name)))} will rise as ${wraiths.length === 1 ? 'a Wraith' : 'Wraiths'} in the Waking Room. Cut ${wraiths.length === 1 ? 'it' : 'them'} down to banish for good.</p>` : ''}
     ${s.charm ? `<p class="note">The hedge-witch's charm: tonight the candles burn ×${mult(T.charmBurn)} as fast.</p>` : ''}
@@ -1228,15 +1269,16 @@ function blackMirror() {
   const tideText = th.tides.map((t) => `${at(t.at)} (${t.count})`);
   const r = th.raid;
   const raidText = r
-    ? `<p class="note${r.defense < r.hi ? ' bad' : ''}">Tomorrow, raiders: strength ${fmt(r.lo)} to ${fmt(r.hi)}. The gate holds ${fmt(r.defense)} with the guards you have now; tonight's Watch and tomorrow's guards add to it.</p>`
+    ? `<p class="note${r.defense < r.hi ? ' bad' : ''}">Tomorrow, raiders: strength ${fmt(r.lo)} to ${fmt(r.hi)}, against the gate's ${fmt(r.defense)} now.</p>`
     : '';
   return `<details class="card scry" data-keep="scry"${ui.open.scry !== false ? ' open' : ''}><summary><b>The black mirror</b></summary>
-      <p class="note">What tonight holds as the candles, posts and wards stand now. Candles burn down and shades move once it begins, so it can still turn out otherwise. Tap a line to see where on the Tain.</p>
+      <p class="note">As things stand now. Tap a line to see where.</p>${aside('scry', '<p class="note">What tonight holds as the candles, posts and wards stand now; once it begins, candles burn down and shades move, so it can still turn out otherwise.</p>', 'How sure is it?', 'dusk')}
       <ul class="ways">${lines.map((l, i) => `<li${l.bad ? ' class="bad"' : ''}>${l.spot ? `<button class="way" id="way-${i}" data-act="way-spot" data-f="${l.spot.f}" data-x="${Math.round(l.spot.x)}" title="Show it on the Tain">${l.text}<span class="go" aria-hidden="true">Show</span></button>` : l.text}</li>`).join('')}</ul>
       ${tideText.length ? `<p class="note">Tides at ${listOf(tideText)}${th.alone ? `; ${plural(th.alone, 'Creeper')} ${th.alone === 1 ? 'comes' : 'come'} alone` : ''}.</p>` : ''}
       ${errandsAtDusk()}
       ${raidText}
-      <label class="row" for="ways-on"><input type="checkbox" id="ways-on" data-act="ways"${prefs.ways !== false ? ' checked' : ''}>Show their ways on the Tain: dots march each rift's way up, ✕ where they'll gnaw, a ring on a mirror they'll reach, ! over a shade they'll catch</label>
+      <label class="row" for="ways-on"><input type="checkbox" id="ways-on" data-act="ways"${prefs.ways !== false ? ' checked' : ''}>Show their ways on the Tain</label>
+      ${aside('ways', "<p class=\"note\">Dots march each rift's way up, ✕ where they'll gnaw, a ring on a mirror they'll reach, ! over a shade they'll catch.</p>", 'What the marks mean', 'dusk')}
     </details>`;
 }
 
@@ -1365,7 +1407,7 @@ function nightReport() {
   const rows = r.fading
     .map((f) => `<li><span>${esc(f.name)}${f.rested ? ', rested' : ''}</span><span class="num">−${fmt(f.fade)}${f.drained ? `, −${fmt(f.drained)} drained` : ''} → ${fmt(Math.max(0, f.memory))}</span></li>`)
     .join('');
-  const made = [r.wick ? `${r.wick} candles saved` : '', r.guidance ? `${r.guidance} guidance readied` : '', r.watch ? `+${fmt(r.watch)} defense from the Watch` : '', r.essence >= 0.1 ? `${fmt(r.essence)} essence` : '', r.glass >= 0.1 ? `${fmt(r.glass)} glass` : '']
+  const made = [r.wick ? `${r.wick} ${r.wick === 1 ? 'candle' : 'candles'} saved` : '', r.guidance ? `${r.guidance} guidance readied` : '', r.watch ? `+${fmt(r.watch)} defense from the Watch` : '', r.essence >= 0.1 ? `${fmt(r.essence)} essence` : '', r.glass >= 0.1 ? `${fmt(r.glass)} glass` : '']
     .filter(Boolean)
     .join(', ');
   return `<div class="card"><h3>The night</h3>
@@ -1445,8 +1487,7 @@ function riteRow(d) {
       : `${c === 'release' ? 'Released: +1 remembrance.' : c === 'bind' ? `Bound into a mirror as ${KINDS[d.trueKind].name}: +${keepD} Dread.` : `Left at the edge: +${T.dreadPerRestless} Dread, and a night closer to Wraith.`}`;
   const acts = canWork(d) && c !== 'cover'
     ? `<div class="feel"><button class="btn sm" id="name-${d.id}" data-act="name" data-id="${d.id}"${d.named || s.res.remembrance + 1e-9 < T.nameCost ? ' disabled' : ''}>Name, ${T.nameCost}</button>
-       <button class="btn sm" id="rem-${d.id}" data-act="remember" data-id="${d.id}"${d.memory >= 100 || s.res.remembrance + 1e-9 < T.rememberCost ? ' disabled' : ''}>Remember +${T.rememberGain}, ${T.rememberCost}</button>
-       <span>Naming halves fading for good.</span></div>`
+       <button class="btn sm" id="rem-${d.id}" data-act="remember" data-id="${d.id}"${d.memory >= 100 || s.res.remembrance + 1e-9 < T.rememberCost ? ' disabled' : ''}>Remember +${T.rememberGain}, ${T.rememberCost}</button></div>`
     : '';
   const bonded = d.bond && byId(s.living, d.bond.with);
   return `<div class="rite-row${c === 'cover' || c === 'release' || c === 'banish' ? ' is-cover' : ''}${s.rite.asks?.[d.id] ? ' is-asking' : ''}">
@@ -1470,7 +1511,8 @@ function dawnPanel() {
     `−${D.bear} borne by the living`,
     D.vigils ? `−${D.vigils} vigils` : '',
   ].filter(Boolean).join(', ');
-  return `<header class="ph-head"><h2>${s.day === 0 ? `Season ${s.season}: the first dawn` : 'Dawn: the Rite'}</h2><p>The Unlit withdraw and the shades go back into the glass. Choose who stays. Each shade kept adds Dread; ${bear(s)} ${bear(s) === 1 ? 'is' : 'are'} borne by the living (one per ${T.dreadLivingPer} living, one per priest).</p></header>
+  return `<header class="ph-head"><h2>${s.day === 0 ? `Season ${s.season}: the first dawn` : 'Dawn: the Rite'}</h2><p>Choose who stays. Each shade kept adds Dread, and the living bear ${bear(s)} of it.</p></header>
+    ${aside('rite', `<p class="note">The living bear 1 Dread for every ${T.dreadLivingPer} of them, and each priest 1. Cover a shade's mirror and it rests: +1 remembrance, and its kin find peace. Naming a shade (${T.nameCost} remembrance) halves its fading for good.</p>`, 'The rite', 'dawn')}
     ${s.day === 0 && seasonIndex(s) === 0 ? chapterCard(true) : ''}
     ${nightReport()}
     ${reviewHTML('The night in moments')}
@@ -1712,9 +1754,9 @@ function byDaySelect(d) {
 
 function rosterHTML() {
   const cap = capacity(s);
-  const dead = `<div class="roster dead"><div class="roster-head"><h2>The dead</h2><span class="count">${s.shades.length}</span><button class="btn sm" id="people-book" data-act="book">Book of the Dead</button><p>${cap.used} of ${cap.cap} mirror places taken. Loyal shades fight hardest; Serene ones work best. Memory weakens both.${traitsOn() ? ' Death turns each one\'s trait over.' : ''}</p></div>
+  const dead = `<div class="roster dead"><div class="roster-head"><h2>The dead</h2><span class="count">${s.shades.length}</span><button class="btn sm" id="people-book" data-act="book">Book of the Dead</button><p>${cap.used} of ${cap.cap} mirror places taken.</p>${once('kinds', `<p class="note">Loyal shades fight hardest; Serene ones work best. Memory weakens both.${traitsOn() ? " Death turns each one's trait over." : ''}</p>`, 'The kinds of the dead', 'dusk')}</div>
     <div class="rows">${shadeRows() || '<p class="empty" style="padding:12px">The glass is empty.</p>'}</div></div>`;
-  const living = `<div class="roster"><div class="roster-head"><h2>The living</h2><span class="count">${s.living.length}</span><p>${priests(s)} ${priests(s) === 1 ? 'priest' : 'priests'}, defense ${fmt(defense(s))}. Bonded pairs split across the Veil work ×${s.tuning.twinMult} when the shade is posted in the twin of the living one's room.</p></div>
+  const living = `<div class="roster"><div class="roster-head"><h2>The living</h2><span class="count">${s.living.length}</span><p>${s.living.length} of the ${s.tuning.maxLiving} the keep can shelter${s.tuning.dreamwell ? `, with beds for ${beds(s)}` : ''}. ${priests(s)} ${priests(s) === 1 ? 'priest' : 'priests'}, defense ${fmt(defense(s))}.</p>${aside('bonds', `<p class="note">Bonded pairs split across the Veil work ×${s.tuning.twinMult} when the shade is posted in the twin of the living one's room.</p>`, 'Bonds across the Veil', 'dusk')}</div>
     <div class="rows">${livingRows()}</div></div>`;
   return `<div class="rosters">${s.phase === 'day' ? living + dead : dead + living}</div>`;
 }
@@ -1996,7 +2038,7 @@ function startTutorial(n) {
   retuned = 0;
   prefs.guide = true;
   savePrefs();
-  return playKeep(n, newTutorial(playerTuning(s)), `The tutorial, in slot ${n}.`);
+  return playKeep(n, newTutorial(playerTuning(s)), `The tutorial, in keep ${n}.`);
 }
 // How to play: the tutorial, and every lesson as a short manual, in this keep's numbers.
 function howtoTab() {
@@ -2007,7 +2049,7 @@ function howtoTab() {
 function startDaily(n) {
   retuned = 0;
   const key = dayKey();
-  return playKeep(n, newDaily(key), `Today's keep, ${dayText(key)}, in slot ${n}.`);
+  return playKeep(n, newDaily(key), `Today's keep, ${dayText(key)}, in keep ${n}.`);
 }
 function savesTab() {
   if (ui.watch) {
@@ -3012,6 +3054,24 @@ function installHTML(where) {
 
 // Building: what stone buys, and where (round five): choose among the bare halls and a new floor on top,
 // then what; below, the keep floor by floor, where any room can be torn down or moved.
+// A room in the build list in a line (round seven, phase 4): what it does by day, and its twin by night (folded
+// under one "?"). The rooms in full are in How to play. The tutorial's list is the rooms its lessons use.
+const TUT_ROOMS = ['barracks', 'chandlery', 'hearth', 'glazier', 'chapel'];
+const BRIEF = {
+  barracks: () => [`Guards, ${DAY_ROOMS.barracks.rate} defense each.`, 'the Watch: adds to tomorrow’s defense.'],
+  chandlery: () => [`Chandlers, ${DAY_ROOMS.chandlery.rate} candles a day each.`, 'the Wick Room: saves candles.'],
+  hearth: () => [`Cooks, ${DAY_ROOMS.hearth.rate} food a day each.`, 'the Cold Hearth: a shade rests there.'],
+  forge: () => [`Smiths, ${DAY_ROOMS.forge.rate} defense each.`, 'the Cold Forge: grave-steel for the next night.'],
+  cellar: () => ['Keeps half the candles and glass from raiders.', 'a dark, empty room.'],
+  chapel: () => ['Priests: remembrance, funerals, and Dread borne.', 'the Choir: sings essence.'],
+  glazier: () => [`Glaziers, ${DAY_ROOMS.glazier.rate} glass a day each, for mirrors.`, 'the Silvering: makes glass.'],
+  infirmary: () => ['Healers cure one sick a day each.', 'the Threshold: gentler deaths.'],
+  granary: () => ['Keeps half the food from raiders.', 'a dark, empty room.'],
+  quarters: () => [`Beds for ${s.tuning.quartersBeds}.`, 'the Dreamwell: good dreams.'],
+  library: () => ['Scholars study, for the keep’s lore.', 'the Archive: speeds the study.'],
+  hall: () => ['One decree a season.', 'the Court: hears the dead’s requests.'],
+  gatehouse: () => [`Gate guards, ${DAY_ROOMS.gatehouse.rate} defense each; stands at the gate.`, 'the Undergate.'],
+};
 function buildHTML() {
   const T = s.tuning;
   const G = K();
@@ -3027,11 +3087,11 @@ function buildHTML() {
   // What a place means by night: the line's floor is worked by the shades holding the line, as they hold it;
   // below the line the tides climb through, so a shade working there needs a candle of its own and risks
   // being caught; and each floor raised on top makes the Unlit's climb longer.
-  const means = (G2, f) => (G2.n > 1 && f === G2.veil - 1 ? ' The shades holding the line work its rooms as they hold it: the place for a Chapel, whose Choir they sing in.' : G2.n > 1 && f < G2.veil - 1 ? ' The tides climb through it: a shade working it by night needs a candle of its own, and can be caught.' : '');
+  const means = (G2, f) => (G2.n > 1 && f === G2.veil - 1 ? " The line's shades work its rooms: the place for a Chapel." : G2.n > 1 && f < G2.veil - 1 ? ' The tides climb through it: a shade working it needs its own candle.' : '');
   const place = (id) => {
     if (id === 'top') {
       const G2 = { ...G, n: G.n + 1, veil: G.n };
-      return ['On top, a new floor', `By night, ${tainPlace(G2, 0)}.${means(G2, 0)} Each floor raised makes the Unlit climb farther.`];
+      return ['On top, a new floor', `By night, ${tainPlace(G2, 0)}.${means(G2, 0)} Each floor raised lengthens the Unlit's climb.`];
     }
     const h = halls.find((x) => x.id === id);
     const b = beside(h);
@@ -3049,21 +3109,34 @@ function buildHTML() {
   const can = day && !!spot && stone + 1e-9 >= cost;
   // The Gatehouse stands at the gate, on the ground floor.
   const atGateHere = spot && !spot.newFloor && spot.f === G.veil;
-  const rows = BUILDABLE.filter((type) => !NEW_ROOMS.includes(type) || T[type]).map((type) => {
+  const offered = BUILDABLE.filter((type) => !NEW_ROOMS.includes(type) || T[type]);
+  const later = offered.filter((type) => !roomReady(s, type));
+  const row = (type) => {
     const R = DAY_ROOMS[type];
-    const tw = TWINS[type];
     const have = roomsOf(G, type).length;
     const gate = type === 'gatehouse';
-    const why = gate && !arrived(s, 2) ? 'It comes with the Ashen Host, in the campaign\'s second year.' : gate && have ? 'The keep has its Gatehouse.' : gate && !atGateHere ? 'Only on the ground floor, where the gate is: move a room up to make a bare hall there (Rearrange, below), then choose it.' : '';
-    return `<li class="build-row"><div><b>${esc(R.name)}</b>${have ? ` <small class="muted">you have ${have}</small>` : ''}<p class="note">${esc(R.job(R))} By night, the ${esc(tw.name)}: ${esc(tw.note)}</p>${why ? `<p class="note bad">${esc(why)}</p>` : ''}</div>
+    const why = gate && !arrived(s, 2) ? 'It comes with the Ashen Host, in the campaign\'s second year.' : gate && have ? 'The keep has its Gatehouse.' : gate && !atGateHere ? 'Only on the ground floor: move a room up to free a hall there (Rearrange, below).' : '';
+    const [by] = BRIEF[type]();
+    return `<li class="build-row"><div><b>${esc(R.name)}</b>${have ? ` <small class="muted">you have ${have}</small>` : ''}<p class="note">${esc(by)}</p>${why ? `<p class="note bad">${esc(why)}</p>` : ''}</div>
       <button class="btn sm" id="raise-${type}" data-act="raise" data-room="${type}"${can && !why ? '' : ' disabled'}>Build, ${fmt(cost)} stone</button></li>`;
-  }).join('');
+  };
+  const ready = offered.filter((type) => roomReady(s, type));
+  // The tutorial keeps to its own rooms, one thing at a time; the rest wait under More rooms.
+  const tut = isTutorial(s) && !s.tut?.over && !s.tut?.off ? ready.filter((type) => TUT_ROOMS.includes(type) || roomsOf(G, type).length) : ready;
+  const more = ready.filter((type) => !tut.includes(type));
+  const rows = tut.map(row).join('');
+  const moreRows = more.length ? aside('more-rooms', `<ul class="build-list">${more.map(row).join('')}</ul>`, `${more.length} more rooms`) : '';
+  const twins = aside('twins', `<ul class="facts">${ready.map((type) => `<li><span>${esc(DAY_ROOMS[type].name)}</span><span>${esc(upper(BRIEF[type]()[1]))}</span></li>`).join('')}</ul>`, 'What each room is by night', 'dusk');
+  const laterNote = later.length ? `<p class="note">${esc(listOf(later.map((type) => `the ${DAY_ROOMS[type].name}`)).replace(/^t/, 'T'))} can be built from ${T.year && T.lateRoomsFrom === 2 ? 'summer' : `the keep's season ${T.lateRoomsFrom}`}.</p>` : '';
   return `<section class="build">
     <p>Stone <b data-live="stone">${floor1(stone)}</b>. ${masons ? `${esc(plural(masons, 'mason'))} in the Yard quarry ${fmt(masons * DAY_ROOMS.yard.rate)} a day.` : 'Nobody is quarrying: put someone in the Yard, in People, for 2 stone a day.'}</p>
     ${day ? '' : '<p class="note">Masons build by day.</p>'}
     <div class="card"><h3>Where</h3>${places.length ? `<div class="places">${radios}</div>` : '<p class="note">The keep can rise no higher, and there is no bare hall. Tear a room down to make one.</p>'}
-      <p class="note">Each room holds ${T.roomCap} workers, so another Barracks lets more guards stand. By night each room is its twin in the Tain, upside down: the top floor is the deepest, where the rifts open, and the ground floor stands under the Veil. A room below the line is in the Unlit's way.</p></div>
+      ${once('build', `<p class="note">Each room holds ${T.roomCap} workers, and by night is its twin in the Tain, upside down.</p>`, 'Rooms and their twins', 'day')}</div>
     <ul class="build-list">${rows}</ul>
+    ${moreRows}
+    ${laterNote}
+    ${twins}
     ${rearrangeHTML()}
   </section>`;
 }
@@ -3355,6 +3428,7 @@ function srNight(now) {
 }
 
 function openSheet(name, by = 'you') {
+  if (ui.sheet && ui.sheet !== name) markRead();
   if (name === 'menu' && running() && !ui.paused) {
     ui.paused = true;
     ui.resume = true;
@@ -3366,6 +3440,7 @@ function openSheet(name, by = 'you') {
   requestAnimationFrame(() => document.getElementById('sheet-close')?.focus({ preventScroll: true }));
 }
 function closeSheet() {
+  markRead();
   const was = ui.sheet;
   ui.sheet = null;
   ui.confirmSlot = null;
@@ -3614,6 +3689,47 @@ const GUIDE = [
     when: () => first() && s.phase === 'night' && s.night.foes.some((f) => f.type === 'maw'),
     text: 'A Maw. It goes for whatever is worth most for the least fight: the candle holding the stairs, or a room where people work. It counts every fighter on its way, so a thick line only sends it elsewhere. Watch where it heads, and send a fighter there with a candle. A room it stands in for 12 seconds breaks, and costs Dread at dawn.',
   },
+  // Round seven, phase 4: the troubles of the first year that came without a word, each the first time.
+  {
+    id: 'larder', target: '#open-people', pause: true,
+    when: () => s.phase === 'day' && s.hungry,
+    text: 'The larder is empty. Everyone works hungry, and the weakest will starve: put more cooks in the Hearth, in People.',
+  },
+  {
+    id: 'siege', target: '#open-phase', pause: true,
+    when: () => s.phase === 'day' && besieged(s),
+    text: 'The Ashen Host has made camp outside the walls. The gate stays shut: no quarrying in the Yard, and no one new comes. Sally out with your guards to break the camp, or wait it out.',
+  },
+  {
+    id: 'plague', target: '#btn-build',
+    when: () => s.phase === 'day' && plagueSeason(s) && s.living.length > beds(s),
+    text: () => `Summer is plague season. In a crowded keep, sickness takes one more for every ${s.tuning.plagueCrowd} living beyond the beds, at once. Quarters and healers answer it.`,
+  },
+  {
+    id: 'sick', target: '#open-people',
+    when: () => s.phase === 'day' && s.living.some((p) => p.sick > 0),
+    text: () => `${s.living.find((p) => p.sick > 0).name} is sick. Untreated, sickness kills in about ${fmt(s.tuning.sickDays)} days; a healer in an Infirmary cures one a day.`,
+  },
+  {
+    id: 'grief', target: '#open-people',
+    when: () => s.phase === 'day' && s.living.some((p) => p.grief),
+    text: () => `${s.living.find((p) => p.grief).name} grieves, and works at ${Math.round(100 * s.tuning.griefMult)}% until their dead finds rest: a funeral, or its mirror covered at the rite.`,
+  },
+  {
+    id: 'crowd', target: '#btn-build',
+    when: () => s.phase === 'day' && s.tuning.dreamwell && s.living.length > beds(s),
+    text: () => `${s.living.length} living and beds for ${beds(s)}: the crowded fall sick ${fmt(s.tuning.crowdSick)} times as often. Quarters add ${s.tuning.quartersBeds} beds.`,
+  },
+  {
+    id: 'cap', target: '#open-people',
+    when: () => s.phase === 'day' && s.living.length >= s.tuning.maxLiving,
+    text: () => `The keep shelters ${s.tuning.maxLiving} at most. While it's full, no one new comes to the gate, and no child is born.`,
+  },
+  {
+    id: 'tides', target: '.tclock',
+    when: () => s.phase === 'night' && s.t > 40 && seen('night') && !!s.night?.marks,
+    text: 'The strip under the top bar is the night’s clock, dusk to dawn: each red mark is a tide, orange a Maw. Skip runs the clock fast to just before the next mark.',
+  },
   {
     id: 'moon', target: '#open-phase', pause: true,
     when: () => first() && s.phase === 'day' && isNewMoon(s),
@@ -3647,97 +3763,97 @@ const TUT = [
   {
     id: 't-maud', pause: true,
     when: () => onDay(1) && s.today.deaths.some((id) => s.ledger.find((e) => e.id === id)?.name === TUTORIAL.servant.name),
-    text: () => `${TUTORIAL.servant.name}, the old servant, has died. Anyone who dies inside the walls lies in the crypt until dusk, then wakes as a shade, and how they died decides what kind. Old age makes the Serene, who work best of all the dead.`,
+    text: () => `${TUTORIAL.servant.name}, the old servant, has died. At dusk the dead wake as shades; old age makes the Serene, who work best.`,
   },
   {
-    id: 't-fire', covers: ['fire'], target: '#open-phase', pause: true,
+    id: 't-fire', covers: ['fire'], target: '#e-yard', pause: true,
     when: () => onDay(2) && s.fires.length > 0,
     done: () => !s.fires.length,
-    text: "Fire in the Hearth! Its cooks fight it, but a Hearth fire outgrows two pairs of hands. Open the Day panel and send the Yard's masons. Left alone it spreads, and fighting it at full heat kills; still burning at dusk, the room is lost for tomorrow.",
+    text: "Fire in the Hearth! Two cooks can't beat it: send the Yard's masons, from the red strip under the top bar. Still burning at dusk, the room is lost for tomorrow.",
   },
   {
-    id: 't-assault', target: '#open-phase', pause: true,
+    id: 't-assault', target: '#e-pitch', pause: true,
     when: () => onDay(2) && s.raid?.state === 'assault',
     done: () => s.raid?.state !== 'assault',
-    text: () => `The Host is at the gate. Each second they're stronger than your defense, the gate gives; if it still stands when their time is up, they fall back. In the Day panel: pour pitch (${s.tuning.raidPitchCost} candles) to weaken them, shore the gate with stone, or ring the bell to bring everyone to the walls. Candles poured are candles you won't have tonight.`,
+    text: () => `The Host is at the gate. While they outmatch your defense the gate gives; if it holds until their time runs out, they fall back. Pitch (${s.tuning.raidPitchCost} candles) weakens them, and the bell brings everyone to the walls.`,
   },
   {
     id: 't-raid', covers: ['raid'], target: '#open-phase', pause: true,
     when: () => onDay(2) && s.raid?.warned && s.raid.state === 'coming',
-    text: () => `Raiders on the road: strength ${fmt(s.raid.strength)}, against your defense of ${fmt(defense(s))} (2 for each guard; a Brave one counts 3, a Coward 1). They reach the gate a little after noon. Before then: more guards, a ward on the gate if you have the essence, or, in the Day panel, bar the stores or pay them off.`,
+    text: () => `Raiders on the road: strength ${fmt(s.raid.strength)} against your defense of ${fmt(defense(s))}. They reach the gate after noon. Before then: more guards, a ward on the gate, or, in the Day panel, bar the stores or pay them off.`,
   },
   {
     id: 't-church', target: '#open-phase', pause: true,
     when: () => onDay(3) && churchWord(),
-    text: () => `The Lantern Church judges how a keep keeps its dead, by its Dread: on day ${s.tuning.firstInspection}, and whenever Dread reaches ${s.tuning.dreadMax}. At 0–1 it blesses the keep; at 4–5 it takes your fullest mirror and the shades in it. Dread is now ${s.dread}. Priests bear Dread, 1 each, and a vigil in the Day panel lowers it for ${s.tuning.vigilCost} remembrance.`,
+    text: () => `The Lantern Church judges the keep by its Dread on day ${s.tuning.firstInspection}: at 0–1 it blesses, at 4–5 it takes your fullest mirror, shades and all. Dread is ${s.dread}. Priests bear it, 1 each, and a vigil lowers it for ${s.tuning.vigilCost} remembrance.`,
   },
   {
     id: 't-crack', pause: true,
     when: () => s.phase === 'night' && s.day < TUTORIAL.safeUntil && s.night.stats.cracks > 0,
-    text: () => `A Creeper reached a mirror and the Veil cracked. Each crack costs 1 Dread at dawn, and one heals each dawn; ${s.tuning.cracksMax} at once break the Veil and the keep is lost. Here it can't break before night ${TUTORIAL.safeUntil}. Light the way it came.`,
+    text: () => `A Creeper reached a mirror and the Veil cracked: 1 Dread at dawn. ${s.tuning.cracksMax} cracks at once break it and lose the keep, though not before night ${TUTORIAL.safeUntil} here. Light the way it came.`,
   },
   {
     id: 't-maw', covers: ['maw'], target: '#tool-move', pause: true,
     when: () => s.phase === 'night' && s.day < TUTORIAL.safeUntil && s.night.foes.some((f) => f.type === 'maw'),
-    text: () => `A Maw, weakened for the tutorial. It walks through light to whatever is worth most for the least fight: the candle holding the way up, or a room where the dead work, and it counts every fighter on its way. A room it stands in for ${s.tuning.mawBreak} seconds breaks. Watch where it heads, and move a fighter there with a candle.`,
+    text: () => `A Maw, weakened for the tutorial. It walks through light to what's worth most for the least fight: the candle holding the way up, or a room the dead work. Watch where it heads, and send a fighter there.`,
   },
   // Day 1: jobs, the Yard, building.
   {
     id: 't-play', covers: ['welcome'], target: '#btn-play',
     when: () => onDay(1),
     done: () => running() && !ui.paused,
-    text: 'This is the tutorial keep: three days and nights, one thing at a time. The keep is what there is of it, a Hearth and a Crypt. Press Play to start the day, and pause whenever you like.',
+    text: 'The tutorial keep: three days and nights, one thing at a time. Press Play to start the day, and pause whenever you like.',
   },
   {
     id: 't-people', covers: ['jobs'], target: '#open-people',
     when: () => onDay(1) && tutHas('t-play'),
     done: () => ui.sheet === 'people',
-    text: 'Open People. Everyone has a job, and a job needs its room: cooks in the Hearth, guards in a Barracks, chandlers in a Chandlery. Anyone without one quarries stone in the Yard.',
+    text: 'Open People. A job needs its room: cooks in the Hearth, guards in a Barracks. Anyone without one quarries stone in the Yard.',
   },
   {
     id: 't-build', covers: ['build'], target: '#btn-build',
     when: () => onDay(1) && tutHas('t-people'),
     done: () => built('barracks'),
-    text: () => `Raiders come tomorrow. Build a Barracks: tap Build. A room costs ${s.tuning.roomStone} stone (you have ${fmt(s.res.stone)}), and unless you choose a bare hall it goes on top of the keep.`,
+    text: () => `Raiders come tomorrow. Tap Build and raise a Barracks: ${s.tuning.roomStone} stone, and you have ${floor1(s.res.stone)}.`,
   },
   {
     id: 't-guards', target: '#open-people',
     when: () => (onDay(1) || onDay(2)) && built('barracks') && tutHas('t-build'),
     done: () => jobCount(s, 'barracks') >= 2,
-    text: 'Put two people in the Barracks: in People, set their job, or pick a name and tap the room. Each guard is 2 defense. Everyone has a trait, under their name: Ada is Brave, ×1.5 at the gate but likelier to fall; her brother Wil is a Coward, ×0.5.',
+    text: 'Put two people in the Barracks, in People. Each guard is 2 defense, and Ada is Brave, ×1.5 at the gate.',
   },
   {
     id: 't-chandlery', target: '#btn-build',
     when: () => (onDay(1) || onDay(2)) && tutHas('t-guards'),
     done: () => built('chandlery') && jobCount(s, 'chandlery') >= 1,
-    text: () => `The masons quarry ${DAY_ROOMS.yard.rate} stone a day each. Next a Chandlery, with someone in it: candles are what the night runs on, and you have ${fmt(s.res.candles)}. Osk is Greedy, ×1.25 there. After that, every room is in Build, with what it does by day and by night.`,
+    text: () => 'Next, a Chandlery with someone in it: candles are what the night runs on. Osk is Greedy, ×1.25 there.',
   },
   // Dusk 1: the Crossing, the Tain, candles, posts, the black mirror.
   {
     id: 't-crypt', covers: ['crypt'], target: '#bar-wake',
     when: () => onDay(1, 'dusk') && s.dusk.step === 'crypt' && !ui.cross,
     done: () => s.dusk?.step !== 'crypt',
-    text: () => `Dusk: the Crossing. ${TUTORIAL.servant.name}'s body lies in the crypt. ${priests(s) ? 'Your priest could give her a funeral: she would rest, and you would gain remembrance.' : 'A priest in a Chapel could give her a funeral, and you have none yet.'} Otherwise she wakes tonight as a shade in a mirror. Let her wake.`,
+    text: () => `Dusk. ${TUTORIAL.servant.name} lies in the crypt${priests(s) ? '; your priest could give her a funeral, for remembrance' : ", and with no Chapel there's no funeral"}. Let her wake, as a shade in a mirror.`,
   },
   {
     id: 't-tain', covers: ['tain'],
     when: () => onDay(1, 'dusk') && s.dusk.step === 'place' && nightView(),
     marks: () => [...MAP.rifts.map((r) => ({ f: DEEP_FLOOR, x: r.x })), ...MAP.mirrors.map((m) => ({ f: K().veil, x: m.x }))],
-    text: 'This is the Tain, the keep reflected under the Veil, where the night happens. The Unlit climb from the red rifts in the Deep to the two mirrors under the Veil. They can’t cross candlelight.',
+    text: 'This is the Tain, the keep’s reflection, where the night happens. The Unlit climb from the red rifts to the mirrors, and can’t cross candlelight.',
   },
   {
     id: 't-line', covers: ['line'], target: '#tool-candle',
     when: () => onDay(1, 'dusk') && s.dusk.step === 'place' && tutHas('t-tain'),
     marks: () => lineSpots().filter((p) => !litAt(p.f, p.x)),
     done: () => lineSpots().every((p) => litAt(p.f, p.x)),
-    text: () => `${K().n === 1 ? 'Light the two marked spots between each rift and its mirror' : 'Light the feet of the two stairs up to the Veil (marked)'}: choose Candle, then tap each. That's the line: to reach the mirrors, the Unlit have to get past it.`,
+    text: () => `${K().n === 1 ? 'Light the two marked spots between the rifts and the mirrors' : 'Light the feet of the two stairs up to the Veil'}: choose Candle, then tap each mark. That's the line the Unlit must get past.`,
   },
   {
     id: 't-guard', target: '#tool-move',
     when: () => onDay(1, 'dusk') && s.dusk.step === 'place' && tutHas('t-line'),
     marks: () => lineSpots().filter((p) => !guarded(p)),
     done: () => lineSpots().every(guarded),
-    text: 'Now a shade in each light. Choose Move, tap one of the dark figures with glowing eyes, then a spot inside one of the lights; then the other, into the other light. They are Garrick and Hesper, the last keeper’s dead. Creepers stopped at the light gnaw its edge, and a shade standing in it cuts them down.',
+    text: 'Now a shade in each light: with Move, tap a dark figure with glowing eyes, then a spot in a light. A shade in the light cuts down what gnaws its edge.',
   },
   {
     id: 't-post', target: '#tool-candle',
@@ -3746,23 +3862,23 @@ const TUT = [
       const d = maud();
       return !!d && !!TWINS[postRoom(s, d)]?.job && litAt(d.post.f, d.post.x);
     },
-    text: () => `Now ${TUTORIAL.servant.name}. Each room's twin has a night job, which a shade works only in the light: ${built('chandlery') ? 'the Wick Room saves candles, ' : ''}${built('barracks') ? 'the Watch adds to tomorrow’s defense, ' : ''}the Cold Hearth rests a shade. Choose Candle and set one in a room; then choose Move, tap her in the Waking Room, and a spot in its light.`,
+    text: () => `Now ${TUTORIAL.servant.name}. A shade works its room’s night job only in light. Set a candle in a room; then, with Move, tap her and a spot in its light.`,
   },
   {
     id: 't-mirror', target: '#open-phase',
     when: () => onDay(1, 'dusk') && s.dusk.step === 'place' && (tutHas('t-post') || !maud()) && tutHas('t-guard'),
     done: () => ui.sheet === 'phase',
-    text: 'Open the Dusk panel. Its black mirror reads tonight’s threats: how many come and when, from which rift, and where each tide will get past your candles. The red chevrons on the Tain are their ways.',
+    text: 'Open the Dusk panel. Its black mirror says what comes tonight, and where each tide gets past your candles.',
   },
   {
     id: 't-begin', covers: ['begin'], target: '#bar-start',
     when: () => onDay(1, 'dusk') && s.dusk.step === 'place' && tutHas('t-mirror'),
-    text: 'Candles you keep carry over to tomorrow. Begin the night when you are ready.',
+    text: 'Begin the night when you’re ready.',
   },
   {
-    id: 't-night', covers: ['night'], target: '#btn-hush', pause: true,
+    id: 't-night', covers: ['night', 'tides'], target: '.tclock', pause: true,
     when: () => onDay(1, 'night') && s.t > 30,
-    text: 'One small tide tonight. Watch the edges of the light: a shade standing in it cuts down what comes. If a shade is caught in the dark, drop a candle on it. Hush makes the Unlit pass the shades by, but stops all work.',
+    text: 'One small tide tonight. If a shade is caught in the dark, drop a candle on it. The strip under the top bar is the night’s clock: each red mark is a tide.',
   },
   // Dawn 1: the rite.
   {
@@ -3770,32 +3886,32 @@ const TUT = [
     when: () => onDay(1, 'dawn'),
     text: () => {
       const P = ritePreview(s);
-      return `Dawn: the rite. Each shade you keep works again tonight but adds ${s.tuning.dreadPerKeep} Dread; the living bear 1 for every ${s.tuning.dreadLivingPer} of them, and priests 1 each. Cover a shade’s mirror and it rests, for 1 remembrance. As you have it, Dread goes ${P.dread.from} → ${P.dread.to}.`;
+      return `Dawn: the rite. Each shade you keep works tonight but adds ${s.tuning.dreadPerKeep} Dread; cover its mirror and it rests. Dread goes ${P.dread.from} → ${P.dread.to}.`;
     },
   },
   {
     id: 't-traits', covers: ['traits'], target: '.rite-list',
     when: () => onDay(1, 'dawn') && tutHas('t-rite') && traitsOn() && s.shades.some((d) => SHADE_TRAITS[d.trait]),
-    text: () => `Death turns a trait over: Garrick, Brave in life, is Reckless, and ${maud() ? TUTORIAL.servant.name : 'Hesper'}, Stubborn, is Anchored: she fades half as fast. Every shade fades a little each night, and naming one (${s.tuning.nameCost} remembrance) halves that. Read each line before you choose.`,
+    text: () => `Death turns a trait over: Garrick, Brave in life, is Reckless. Shades fade each night; naming one (${s.tuning.nameCost} remembrance) halves it.`,
   },
   {
     id: 't-day2', target: '#bar-day',
     when: () => onDay(1, 'dawn') && (tutHas('t-traits') || !traitsOn()) && tutHas('t-rite'),
-    text: 'Begin day 2 when you are ready. Raiders are expected.',
+    text: 'Begin day 2 when you’re ready.',
   },
   // Day 2: a newcomer, a fire, the raid.
   {
     id: 't-newcomer', target: '#open-people',
     when: () => onDay(2) && !!newcomer(),
     done: () => !!newcomer()?.job,
-    text: () => `${newcomer().name} has come to the gate and asks to stay. Someone new arrives every second day while there's room. Give ${newcomer().name} a job in People.`,
+    text: () => `${newcomer().name} has come to the gate to stay. Give ${newcomer().name} a job in People.`,
   },
   {
     id: 't-after',
     when: () => onDay(2) && ['held', 'breached', 'paid'].includes(s.raid?.state),
     text: () => (s.raid.state === 'paid'
       ? "They took the tribute and turned back. The season's next raid will come harder for it."
-      : `${s.raid.state === 'held' ? 'The gate held.' : 'The gate gave way. After a breach, the Day panel lets your guards go after what was taken, at a risk.'} One raider fell inside, and lies in the crypt: a raider who dies inside the walls wakes as a Stranger, a fighter with no bonds.`),
+      : `${s.raid.state === 'held' ? 'The gate held.' : 'The gate gave way; the Day panel can send your guards after what was taken.'} A raider who fell inside lies in the crypt, and wakes as a Stranger: a fighter with no bonds.`),
   },
   // Dusk and dawn 2: full mirrors and the Restless.
   {
@@ -3804,7 +3920,7 @@ const TUT = [
     done: () => s.dusk?.step !== 'crypt',
     text: () => {
       const over = crossingPreview(s).some((x) => x.to === 'overflow');
-      return `${over ? 'Every mirror is full, and a shade needs a place in one. With no room, the raider wakes Restless at the edge of the Deep: it does no work, costs Dread, and turns Wraith after three nights unless you release it.' : 'There is room in the mirrors, so the raider wakes as a Stranger.'}${priests(s) ? ' Or give it a funeral: raiders are burned with the Host’s dead.' : ''} Let them wake.`;
+      return `${over ? 'Every mirror is full, so the raider wakes Restless at the edge of the Deep: no work, Dread each dawn, and a Wraith after three nights unless released.' : 'There is room in the mirrors, so the raider wakes as a Stranger.'}${priests(s) ? ' Or give it a funeral.' : ''} Let them wake.`;
     },
   },
   ...[2, 3].map((d) => ({
@@ -3812,12 +3928,12 @@ const TUT = [
     when: () => onDay(d, 'dusk') && s.dusk.step === 'place',
     marks: () => lineSpots().filter((p) => !guarded(p)),
     done: () => lineSpots().every(guarded),
-    text: 'Last night’s candles are gone: every dusk, the line is set again. Light the marked spots and put a shade in each light. The shades stay where you last posted them.',
+    text: 'Last night’s candles are gone: set the line again. Choose Candle and light the marks; the shades stay where you posted them.',
   })),
   {
     id: 't-hunters',
     when: () => onDay(2, 'dusk') && s.dusk.step === 'place' && tutHas('t-relight2'),
-    text: () => `Tonight some of the Creepers hunt candles instead of the mirrors. A candle burns ${fmt(s.tuning.candleWax / 60)} minutes; relight what goes out. Essence, sung in the Choir under a Chapel, buys wards: one seals a rift or holds a stair for the night.`,
+    text: () => `Tonight some Creepers hunt candles. A candle burns ${fmt(s.tuning.candleWax / 60)} minutes; relight what goes out. Essence, sung in the Choir under a Chapel, buys wards: one seals a rift or holds a stair.`,
   },
   {
     id: 't-ask', covers: ['request'], target: '.rite-list .is-asking',
@@ -3827,26 +3943,26 @@ const TUT = [
   {
     id: 't-release', target: '.rite-list',
     when: () => onDay(2, 'dawn') && s.shades.some((d) => d.kind === 'restless'),
-    text: () => `Release the Restless shade: it goes to rest, for 1 remembrance. Or bind it into a free mirror for ${s.tuning.bindCost} essence, and it settles as what it would have been. Left alone it costs Dread every dawn.`,
+    text: () => `Release the Restless shade, for 1 remembrance, or bind it into a free mirror for ${s.tuning.bindCost} essence. Left alone it costs Dread every dawn.`,
   },
   // Day 3: glass and mirrors, the Chapel.
   {
     id: 't-glazier', target: '#btn-build',
     when: () => onDay(3),
     done: () => built('glazier') && jobCount(s, 'glazier') >= 1,
-    text: () => `Mirrors hold the dead, and glass makes mirrors: a hand mirror is ${MIRRORS.hand.glass} glass for one shade, a pier glass ${MIRRORS.pier.glass} for two, built from the Day panel. Build a Glazier and put someone in it, ${DAY_ROOMS.glazier.rate} glass a day each. Sabe is Diligent, ×1.15 at anything.`,
+    text: () => `Mirrors hold the dead, and glass makes mirrors: a hand mirror is ${MIRRORS.hand.glass} glass, built from the Day panel. Build a Glazier and put someone in it; Sabe is Diligent, ×1.15 at anything.`,
   },
   {
     id: 't-chapel', target: '#btn-build',
     when: () => onDay(3) && tutHas('t-church'),
     done: () => built('chapel') && priests(s) >= 1,
-    text: 'Build a Chapel and put Tam in it: he’s Devout, ×1.5 there. A priest bears Dread, holds a funeral each dusk, and makes remembrance, which pays for vigils and for naming the dead.',
+    text: 'Build a Chapel and put Tam in it (Devout, ×1.5 there). A priest bears 1 Dread, holds a funeral each dusk, and makes remembrance, for vigils and names.',
   },
   // The end.
   {
     id: 't-done',
     when: () => onDay(3, 'dawn') || s.day >= TUTORIAL.safeUntil,
-    text: () => `That's the tutorial. From here it's an ordinary season: raids on days 4 and 6, the Church on day ${s.tuning.firstInspection}, and on the seventh night the new moon, when the Hollow rises. From night ${TUTORIAL.safeUntil} the Unlit also seep up through dark rooms, and the Veil can break. The guide shows a card the first time anything new happens, and Menu, How to play, has every lesson.`,
+    text: () => `That's the tutorial. From here it's an ordinary season: raids on days 4 and 6, the Church on day ${s.tuning.firstInspection}, and the new moon on the seventh night, when the Hollow rises. The guide shows a card the first time anything new happens, and How to play, in the Menu, has every lesson.`,
   },
 ];
 function tutStep() {
@@ -3877,7 +3993,7 @@ function markSeen(id) {
   }
   bump();
 }
-function showCoach(step) {
+function showCoach(step, force = false) {
   if (ui.watch) {
     // A session's lessons are the tester's, marked on the timeline; the watcher's own are left as they were.
     coachId = null;
@@ -3887,7 +4003,8 @@ function showCoach(step) {
     return;
   }
   const id = step?.id || null;
-  if (id === coachId) return;
+  if (id === coachId && !force) return;
+  if (id !== coachId) ui.tutEndAsk = false;
   // A card the player has moved past (the moment it was about is over) counts as read.
   const was = [...TUT, ...GUIDE].find((g) => g.id === coachId);
   if (was && !was.when()) {
@@ -3912,14 +4029,18 @@ function showCoach(step) {
     coachRoom();
     return;
   }
-  const buttons = tut
-    ? `<button class="btn sm${step.done ? '' : ' primary'}" id="coach-ok" data-act="guide-ok" data-id="${step.id}">${step.done ? 'Skip this' : 'Got it'}</button>${step.id === 't-done' ? '' : '<button class="btn sm" id="coach-off" data-act="tut-end">End the tutorial</button>'}`
-    : `<button class="btn sm primary" id="coach-ok" data-act="guide-ok" data-id="${step.id}">Got it</button><button class="btn sm" id="coach-off" data-act="guide-off">Skip the guide</button>`;
+  // Round seven, phase 4: ending the tutorial asks first, since it can't be taken back.
+  const buttons = tut && ui.tutEndAsk
+    ? '<span class="coach-ask">End the tutorial for good? The keep plays on.</span><button class="btn sm primary" id="coach-end-yes" data-act="tut-end-yes">End it</button><button class="btn sm" id="coach-end-no" data-act="tut-end-no">Keep going</button>'
+    : tut
+      ? `<button class="btn sm${step.done ? '' : ' primary'}" id="coach-ok" data-act="guide-ok" data-id="${step.id}">${step.done ? 'Skip this lesson' : 'Got it'}</button>${step.id === 't-done' ? '' : '<button class="btn sm" id="coach-off" data-act="tut-end">End the tutorial</button>'}`
+      : `<button class="btn sm primary" id="coach-ok" data-act="guide-ok" data-id="${step.id}">Got it</button><button class="btn sm" id="coach-off" data-act="guide-off">Skip the guide</button>`;
   const label = step.id === 't-done' ? 'The tutorial is over' : `Tutorial, day ${s.phase === 'dawn' ? s.day + 1 : s.day}`; // as the HUD counts
   coachEl.innerHTML = `${tut ? `<span class="eyebrow">${label}</span>` : ''}<p>${esc(typeof step.text === 'function' ? step.text() : step.text)}</p><div class="row">${buttons}</div>`;
   coachRoom();
-  if (step?.pause && running() && !ui.paused) {
+  if (step?.pause && running() && !ui.paused && id !== ui.coachPaused) {
     ui.paused = true;
+    ui.coachPaused = id;
     trail('pause', { by: 'lesson', id });
     bump();
   }
@@ -4303,6 +4424,7 @@ function copyExport() {
 // The keeps in the slots. Whatever is being played is saved before another is put in play.
 const waiting = () => s.phase === 'dawn' || s.phase === 'end' || s.phase === 'over' || (s.phase === 'dusk' && s.dusk.step === 'crypt');
 function freshKeep(g) {
+  ui.reading.clear();
   s = listen(g);
   seenPhase = s.phase;
   seenPhaseWas = s.phase;
@@ -4358,7 +4480,7 @@ function playSlot(n) {
 function newKeep(n) {
   retuned = 0;
   const p = presetNow();
-  return playKeep(n, keepWith(p), `A new ${prefs.campaign ? 'campaign' : 'keep'} in slot ${n}${p === 'standard' ? '' : `, ${PRESETS[p].name.toLowerCase()}`}.`);
+  return playKeep(n, keepWith(p), `Keep ${n}: a new ${prefs.campaign ? 'campaign' : 'keep'}${p === 'standard' ? '' : `, ${PRESETS[p].name.toLowerCase()}`}.`);
 }
 // Difficulty (round five): the preset chosen for a new keep, and a new keep made on it, with the player's own
 // numbers from the keep before where the preset has none. The keep keeps them as its own defaults.
@@ -4509,6 +4631,7 @@ function onAct(name, el) {
     case 'play': return togglePlay();
     case 'speed': return setSpeed(Number(el.dataset.v));
     case 'strip-open': return stripOpen(el.dataset.card);
+    case 'howto': return openHowto(el.dataset.sec);
     case 'way-spot': return showSpot(Number(el.dataset.f), Number(el.dataset.x));
     case 'hud-more':
       prefs.hudAll = !prefs.hudAll;
@@ -4793,6 +4916,13 @@ function onAct(name, el) {
       savePrefs();
       return bump();
     case 'tut-end':
+      ui.tutEndAsk = true;
+      return showCoach(guideStep(), true);
+    case 'tut-end-no':
+      ui.tutEndAsk = false;
+      return showCoach(guideStep(), true);
+    case 'tut-end-yes':
+      ui.tutEndAsk = false;
       s.tut = { ...(s.tut || {}), off: true };
       saveGame();
       showCoach(null);
@@ -4804,6 +4934,12 @@ function onAct(name, el) {
       return bump();
     case 'guide-ok':
       markSeen(el.dataset.id);
+      // Read: the clock the card stopped runs again (round seven: it stayed stopped, without a word).
+      if (ui.coachPaused === el.dataset.id && ui.paused && running() && !ui.title) {
+        ui.paused = false;
+        trail('play', { by: 'lesson' });
+      }
+      ui.coachPaused = null;
       return undefined;
     case 'guide-off':
       prefs.guide = false;
