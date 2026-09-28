@@ -8,7 +8,7 @@
 // stretches, lessons) are placed on the same timeline by where in the game they happened.
 
 import { newSeason, step, act } from './sim.js';
-import { exportTuning0, isExport, isSave } from './saves.js';
+import { exportTuning0, isExport, isSave, replays, CANT_REPLAY } from './saves.js';
 
 export const WAIT = 20;
 export const CHOICE = 10;
@@ -42,6 +42,7 @@ export function readExport(text) {
     }
   }
   if (!isExport(x)) return { error: isSave(x) ? "That's a saved keep, not a playtest export: load it into a slot in Saves to play it. An export comes from the Playtest tab in Records, or a tester's Send button." : "That isn't a playtest export." };
+  if (!replays(x)) return { error: CANT_REPLAY };
   return { x };
 }
 

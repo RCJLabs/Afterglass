@@ -2,7 +2,8 @@
 // index of summaries so the list of keeps never has to read a whole save. Pure apart from the store passed
 // in ({ get(key), set(key, value) → true if written, remove(key) }), so it can be tested without a browser.
 
-import { SAVE_VERSION, upgrade, replay, canWork } from './sim.js';
+import { SAVE_VERSION, upgrade, replay, canWork, yearOf, chapterOf } from './sim.js';
+import { SEASONS } from './data.js';
 
 export const SLOTS = 3;
 export const OLD_KEY = 'afterglass-season/save/v1'; // the single save from before there were slots
@@ -55,9 +56,30 @@ export function loadSlot(store, n) {
   return isSave(g) ? upgrade(g) : null;
 }
 
+// A long keep's save (README, problem 43). The Days tab's rows and the actions a playtest export replays grow
+// by about 100 KB a year, the page writes the save every few seconds, and the browser gives the whole site
+// about 5 MB. So a save keeps KEPT_YEARS years of both, this one and the one before, and every number the
+// player set in Settings; actionsFrom is the first season whose actions it still holds, and an export with
+// actionsFrom past 1 no longer replays. Nothing the rules read is dropped: they read this year's days, and the
+// actions only to begin a chapter again, which is why a campaign keep in its chapters keeps everything.
+export const KEPT_YEARS = 2;
+export function trimSave(s) {
+  const from = (yearOf(s) - KEPT_YEARS) * SEASONS.length + 1;
+  if (from <= (s.actionsFrom || 1) || chapterOf(s)) return s;
+  return {
+    ...s,
+    days: s.days.filter((d) => d.season >= from),
+    actions: s.actions.filter((x) => x.at.season >= from || x.a.type === 'tune'),
+    actionsFrom: from,
+  };
+}
+// Whether an export still holds every action since the first day, so it replays.
+export const replays = (x) => !(x.actionsFrom > 1);
+export const CANT_REPLAY = "That export can't be played back: its keep ran past two years, and a save keeps only its last two years of actions.";
+
 // Writes a keep to a slot and its line in the index. False if the browser wouldn't store it.
 export function saveSlot(store, index, n, s, now) {
-  if (!store.set(slotKey(n), { ...s, alerts: [], cues: undefined })) return false;
+  if (!store.set(slotKey(n), { ...trimSave(s), alerts: [], cues: undefined })) return false;
   index.slots[n] = summary(s, now);
   return store.set(INDEX_KEY, index);
 }
@@ -96,6 +118,7 @@ export function keepFromFile(text) {
   }
   if (isSave(x)) return { s: upgrade(x) };
   if (isExport(x)) {
+    if (!replays(x)) return { error: CANT_REPLAY };
     try {
       const g = replay(x.seed >>> 0, exportTuning0(x), x.actions);
       if (typeof x.daily === 'string') g.daily = x.daily; // a day's keep stays that day's

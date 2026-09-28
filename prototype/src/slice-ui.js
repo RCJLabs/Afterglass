@@ -1608,7 +1608,7 @@ function daysTab() {
         <td class="num">${n.spawned ?? '—'}</td><td class="num">${n.crossed ?? '—'}</td><td class="num">${n.grabbed ?? '—'}</td><td>${n.lost?.length ? esc(n.lost.join(', ')) : '—'}</td><td>${n.hollow || '—'}</td><td class="num">${d.dread ?? '—'}</td></tr>`;
     })
     .join('');
-  return `<div class="table-wrap" id="days-wrap"><table class="ledger days"><thead><tr><th>Day</th><th>Deaths</th><th>Raid</th><th>Church</th><th>Creepers</th><th>Through</th><th>Caught</th><th>Lost</th><th>Hollow</th><th>Dread</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  return `${s.actionsFrom > 1 ? `<p class="hint">A long keep's save keeps its last two years of days: these are from season ${s.actionsFrom}.</p>` : ''}<div class="table-wrap" id="days-wrap"><table class="ledger days"><thead><tr><th>Day</th><th>Deaths</th><th>Raid</th><th>Church</th><th>Creepers</th><th>Through</th><th>Caught</th><th>Lost</th><th>Hollow</th><th>Dread</th></tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 function bookTab() {
   const book = s.ledger;
@@ -1644,6 +1644,7 @@ function exportJSON() {
       tuning0: s.tuning0,
       tuning: s.tuning,
       actions: s.actions,
+      actionsFrom: s.actionsFrom || 1,
       test: s.test || null,
       trail: s.trail || [],
     },
@@ -1656,7 +1657,7 @@ function playtestTab() {
   return `${testCard()}<p>The question for weeks 7–10: <b>would you play a second season?</b> It's asked when a season ends or the keep falls. ${answered.length ? `Answers so far: ${answered.map((e) => `season ${e.season}, ${e.answer === 'again' ? 'yes' : 'no'}`).join('; ')}.` : 'No answer yet.'}</p>
     <div class="row"><button class="btn" id="btn-copy" data-act="copy">Copy playtest export</button><button class="btn" id="btn-show-export" data-act="show-export" aria-expanded="${ui.showExport}">${ui.showExport ? 'Hide export' : 'Show export'}</button><span class="hint">${esc(ui.copied)}</span></div>
     ${ui.showExport ? `<label for="export">Export (JSON)</label><textarea id="export" rows="8" readonly>${esc(exportJSON())}</textarea>` : ''}
-    <p class="hint">The export holds your answers and notes, every day's numbers, the ledger of the dead, the seed and every action, so a session replays exactly, and the trail: when you paused, opened a panel or sat idle. Menu, Saves, Watch a playtest plays one back.</p>`;
+    <p class="hint">The export holds your answers and notes, every day's numbers, the ledger of the dead, the seed and every action, so a session replays exactly, and the trail: when you paused, opened a panel or sat idle. Menu, Saves, Watch a playtest plays one back.${s.actionsFrom > 1 ? ` This keep has run so long that its save keeps only the last two years (from season ${s.actionsFrom}) of days and actions, so its export no longer plays back.` : ''}</p>`;
 }
 const TUNE = [
   ['daySecs', 'Day length, seconds at 1×'],
@@ -1684,6 +1685,7 @@ const TUNE = [
   ['fadePerNight', 'Memory every shade loses per night'],
   ['cracksMax', 'Veil cracks that lose the keep'],
   ['hardness', 'How much harder each season is (raids, Creepers, the Hollow)'],
+  ['yearHardness', 'With the year on, how much harder each year starts than the last (0: each season harder, straight on)'],
   ['mawHardness', 'How much stronger a Maw is each season'],
   ['roomStone', 'Stone a room costs'],
   ['roomCap', 'Workers a room holds'],

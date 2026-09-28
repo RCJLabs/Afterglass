@@ -1,8 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { newSeason, step, act, SAVE_VERSION } from '../src/slice/sim.js';
-import { autoStep } from '../src/slice/autopilot.js';
-import { SLOTS, OLD_KEY, slotKey, openIndex, loadSlot, saveSlot, useSlot, deleteSlot, keepFromFile, summary, isSave, mergeIndex } from '../src/slice/saves.js';
+import { newSeason, step, act, SAVE_VERSION, playerTuning, chapterOf } from '../src/slice/sim.js';
+import { autoStep, closeYear } from '../src/slice/autopilot.js';
+import { SLOTS, OLD_KEY, slotKey, openIndex, loadSlot, saveSlot, useSlot, deleteSlot, keepFromFile, summary, isSave, mergeIndex, trimSave, CANT_REPLAY } from '../src/slice/saves.js';
+import { readExport } from '../src/slice/watch.js';
 
 // localStorage as the page uses it: values go through JSON, and a full store refuses to write.
 function fakeStore(limit = Infinity) {
@@ -152,4 +153,66 @@ test('files that are not keeps are refused with a reason', () => {
   assert.match(keepFromFile(JSON.stringify({ ...newSeason(1), v: SAVE_VERSION + 1 })).error, /isn't an Afterglass keep/);
   const bad = { game: 'afterglass-season', seed: 1, tuning0: newSeason(1).tuning0, actions: [{ a: { type: 'nope' }, at: { season: 1, day: 1, phase: 'day', t: 0 } }] };
   assert.match(keepFromFile(JSON.stringify(bad)).error, /didn't replay/);
+});
+
+// A keep played by the autopilot to the end of a later season, with a number set in Settings on its first day.
+function years(seed, seasons, tuning = {}) {
+  const s = newSeason(seed, tuning);
+  assert.ok(act(s, { type: 'tune', key: 'daySecs', value: 60 }).ok);
+  for (let guard = 0; guard < 2e6 && s.phase !== 'over'; guard++) {
+    if (s.phase !== 'end') autoStep(s);
+    else if (s.season >= seasons || (!act(s, { type: 'nextSeason' }).ok && !closeYear(s))) break;
+  }
+  return s;
+}
+const rest = ({ days, actions, actionsFrom, ...x }) => plain(x);
+const json = (x) => JSON.parse(JSON.stringify(x));
+
+test("a long keep's save keeps its last two years of days and actions, and plays on the same", () => {
+  const s = years(3, 9); // the third year's spring: years 2 and 3 are kept
+  assert.equal(s.season, 9);
+  assert.equal(s.phase, 'end');
+  const store = fakeStore();
+  const index = openIndex(store, 0);
+  assert.ok(saveSlot(store, index, 1, s, 1));
+  const g = loadSlot(store, 1);
+  assert.equal(g.actionsFrom, 5);
+  assert.deepEqual(g.days, json(s.days.filter((d) => d.season >= 5)));
+  assert.ok(g.days.length > 30 && g.days.length < s.days.length);
+  assert.deepEqual(g.actions, json(s.actions.filter((x) => x.at.season >= 5 || x.a.type === 'tune')));
+  assert.ok(g.actions.some((x) => x.at.season === 1), 'the number set in Settings on the first day stays');
+  assert.deepEqual(playerTuning(g), playerTuning(s));
+  assert.ok(store.m.get(slotKey(1)).length < JSON.stringify(s).length * 0.8, 'the save is smaller');
+  // Nothing the rules read went: both play the next season alike.
+  assert.deepEqual(rest(g), rest(s));
+  for (const k of [s, g]) {
+    assert.ok(act(k, { type: 'nextSeason' }).ok);
+    for (let i = 0; i < 3000; i++) autoStep(k);
+  }
+  assert.deepEqual(rest(g), rest(s));
+  // Saved again, it cuts no further until the next year.
+  assert.equal(trimSave(g), g);
+});
+
+test('a keep in its first two years, or in a campaign chapter, keeps everything', () => {
+  const s = newSeason(5);
+  s.season = 8;
+  assert.equal(trimSave(s), s, 'the second year');
+  const c = newSeason(5, { campaign: 1 });
+  c.season = 16;
+  assert.equal(chapterOf(c), 4);
+  assert.equal(trimSave(c), c, 'a chapter can be begun again from the first day');
+  c.campaign.ending = 'watch';
+  c.season = 24;
+  assert.equal(chapterOf(c), 0);
+  assert.equal(trimSave(c).actionsFrom, 17, 'after the ending, as the open year');
+});
+
+test("an export of a trimmed keep says it can't be played back", () => {
+  const s = played(51, 2);
+  const exp = { game: 'afterglass-season', save: SAVE_VERSION, seed: s.seed, now: {}, tuning0: s.tuning0, tuning: s.tuning, actions: s.actions };
+  assert.equal(keepFromFile(JSON.stringify({ ...exp, actionsFrom: 1 })).error, undefined);
+  assert.equal(keepFromFile(JSON.stringify({ ...exp, actionsFrom: 5 })).error, CANT_REPLAY);
+  assert.equal(readExport({ ...exp, actionsFrom: 5 }).error, CANT_REPLAY);
+  assert.ok(readExport({ ...exp, actionsFrom: 1 }).x);
 });
