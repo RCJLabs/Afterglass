@@ -458,10 +458,74 @@ export const TUNING = {
   eclipseCreepers: 0.5,
   eclipseTide: 0.3,
   eclipseTwin: 2,
+
+  // A campaign (round six; round three's five years). A keep made a campaign plays five years as five
+  // chapters (CHAPTERS), then plays on as the open year. Each chapter brings its pressure: the Host's siege and
+  // ladders, with the Gatehouse and its Undergate, from year 2; the Church's embargo, Inquisition and crusade
+  // after a censure from year 3; from year 4 the Hollow hollowRises times as hard to drive back and as hungry
+  // for light, and hollowRises times the new moon's Creepers. Each sets a goal worth goalReward remembrance,
+  // and years 1 to 4 end with a closing choice for the next; year 5 with round three's three endings. Its
+  // years harden by campaignHardness, not yearHardness. 0 is the open year.
+  campaign: 0,
+  campaignHardness: 1.1,
+  hollowRises: 1.5,
+  goalReward: 3,
 };
 
 
 export const SEASONS = ['spring', 'summer', 'autumn', 'winter'];
+
+// The campaign's five chapters (round six; round three's plan): each year's name, what's new in it, its goal,
+// and how it closes: a choice of two for the next year, or, after the fifth, one of three endings.
+export const CHAPTERS = {
+  1: {
+    name: 'The First Winter',
+    text: 'Learn the round of day and night, and live through the long nights of winter on the candles you put by.',
+    goal: { id: 'candles', n: 20, text: 'go into winter with 20 candles put by' },
+    close: [
+      { id: 'walls', name: 'Raise the walls', text: 'the Host meets 2 more defense at every raid next year' },
+      { id: 'stores', name: 'Lay in stores', text: '20 food and 10 candles now', gain: { food: 20, candles: 10 } },
+    ],
+  },
+  2: {
+    name: 'The Ashen Host',
+    text: "The Host has taken the keep's measure. Its raids bring ladders now, and in autumn it lays siege. A Gatehouse can be raised to meet it.",
+    goal: { id: 'gate', text: 'hold the gate against every raid this year' },
+    close: [
+      { id: 'tithe', name: 'Tithe to the Church', text: 'Dread −2 now, and the Church forgives the first censure next year' },
+      { id: 'silver', name: 'Keep the silver', text: '12 glass now', gain: { glass: 12 } },
+    ],
+  },
+  3: {
+    name: 'The Lantern Church',
+    text: 'The Church judges the keep more sternly now: a censure brings its embargo, then its Inquisition, and at last its crusade.',
+    goal: { id: 'church', text: 'come through every inspection this year without a censure' },
+    close: [
+      { id: 'steel', name: 'Arm the dead', text: 'grave-steel every night of the new moon next year: every shade fights harder' },
+      { id: 'wax', name: 'Stock the Chandlery', text: '15 candles now', gain: { candles: 15 } },
+    ],
+  },
+  4: {
+    name: 'The Deep Rises',
+    text: 'The Hollow grows: it is half again as hard to drive back and eats the light as fast again, and the nights of the new moon bring half again as many Creepers.',
+    goal: { id: 'hollow', n: 1, text: 'drive the Hollow back on one of its nights this year' },
+    close: [
+      { id: 'kin', name: 'Bind the household', text: 'everyone living at peace for seven days, their grief over' },
+      { id: 'debts', name: "Call in the keep's debts", text: '4 remembrance and 20 food now', gain: { remembrance: 4, food: 20 } },
+    ],
+  },
+  5: {
+    name: 'The Long Night',
+    text: "The last year of the watch. At its end comes the last Long Night, and a choice of how the keep's story ends.",
+    goal: { id: 'end', text: 'come through the last Long Night' },
+  },
+};
+// Round three's three endings, after the campaign's fifth year.
+export const ENDINGS = {
+  seal: { name: 'Seal the Veil', text: 'Every shade goes free. The Tain closes, and the living go on alone. The story ends.' },
+  open: { name: 'Open the Veil', text: 'The living and the dead share both realms, and the keep becomes a crossing. The story ends.' },
+  watch: { name: 'Keep the watch', text: 'You die and rule the Tain as its warden, and a new keeper goes on: play continues, as the open year.' },
+};
 
 // Difficulty presets (round five): named sets of the Settings numbers, chosen for a new keep. A keep keeps
 // the numbers it was made with: a newer build moves the rest of its numbers to its own, not these.

@@ -10,8 +10,8 @@
 // on the line for the biggest tides when the essence is there, and a fighter to meet a Maw. They move a
 // shade only along a lit floor; where its way is dark it stays.
 
-import { bondedShade, postRoom, bareHalls, buildSpot, raiseCost, step, act, newSeason, ritePreview, crossingPreview, capacity, canWork, defense, funeralCap, choicesFor, jobCap, jobCount, eatRate, wardCost, livingTrait, shadeTrait, peopleIn, crowded, tradeOf, inGreatGlass, handsAt, seasonIndex, tributeOf, besieged, sallyOdds, embargoed, inquisition, crusadeDaysLeft, canAct, actOf, actCost, NEW_ROOMS, atTheGate, gatehouseOf, decreeOf, undergateMouth } from './sim.js';
-import { DAY_ROOMS, MIRRORS, KINDS, MAP, TICKS_PER_SEC, VISITORS, STUDIES } from './data.js';
+import { chapterOf, yearsEnd, bondedShade, postRoom, bareHalls, buildSpot, raiseCost, step, act, newSeason, ritePreview, crossingPreview, capacity, canWork, defense, funeralCap, choicesFor, jobCap, jobCount, eatRate, wardCost, livingTrait, shadeTrait, peopleIn, crowded, tradeOf, inGreatGlass, handsAt, seasonIndex, tributeOf, besieged, sallyOdds, embargoed, inquisition, crusadeDaysLeft, canAct, actOf, actCost, NEW_ROOMS, atTheGate, gatehouseOf, decreeOf, undergateMouth } from './sim.js';
+import { DAY_ROOMS, MIRRORS, KINDS, MAP, TICKS_PER_SEC, VISITORS, STUDIES, CHAPTERS } from './data.js';
 import { geo, roomSpan, roomAt, roomsOf, lineSpots, lightMap, isLit } from './geo.js';
 
 export const PLANS = ['balanced', 'keeper', 'mourner', 'double', 'idle'];
@@ -877,14 +877,30 @@ export function autoStep(s, plan = 'balanced') {
   }
 }
 
-// Plays whole seasons; stops at the end of the last one (or when the keep falls).
+// A campaign's year end (round six): years 1 to 4 close by rule, the lasting help unless AP_CLOSE=goods; the
+// fifth's ending is the player's, unless AP_ENDING names one (seal, open or watch, which plays on). Returns
+// whether it went on.
+const CLOSE = globalThis.process?.env?.AP_CLOSE || 'help';
+const ENDING = globalThis.process?.env?.AP_ENDING || '';
+export function closeYear(s) {
+  const k = chapterOf(s);
+  if (!k || !yearsEnd(s)) return false;
+  if (k < 5) {
+    const c = CHAPTERS[k].close;
+    return doAct(s, { type: 'closeChapter', id: (CLOSE === 'goods' ? c.find((x) => x.gain) : c.find((x) => !x.gain)).id });
+  }
+  const type = { seal: 'sealVeil', open: 'openVeil', watch: 'takeGlass' }[ENDING];
+  return !!type && doAct(s, { type }) && ENDING === 'watch';
+}
+
+// Plays whole seasons; stops at the end of the last one (or when the keep falls, or a campaign ends).
 export function runSeasonAuto(seed, { plan = 'balanced', seasons = 1, tuning = {} } = {}) {
   const s = newSeason(seed, tuning);
   for (let guard = 0; guard < 2e6; guard++) {
     if (s.phase === 'over') return s;
     if (s.phase === 'end') {
       if (s.season >= seasons) return s;
-      act(s, { type: 'nextSeason' });
+      if (!act(s, { type: 'nextSeason' }).ok && !closeYear(s)) return s;
       continue;
     }
     autoStep(s, plan);
