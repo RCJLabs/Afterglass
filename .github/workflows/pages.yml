@@ -41,6 +41,10 @@ jobs:
           if [ "$mode" != "workflow" ]; then
             echo "::notice::Pages source is '$mode', so this workflow only tests. Set Settings > Pages > Source to GitHub Actions to deploy from here."
           fi
+      - name: Stamp the build
+        if: steps.mode.outputs.mode == 'workflow'
+        # The season shows this in Settings, and writes it into saves, exports and crash reports.
+        run: echo "export const BUILD = '${GITHUB_SHA::7}';" > prototype/src/build.js
       - name: Upload the site
         if: steps.mode.outputs.mode == 'workflow'
         uses: actions/upload-pages-artifact@v3

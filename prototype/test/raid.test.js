@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { newSeason, step, act, defense, roomPower, tributeOf, upgrade, replay } from '../src/slice/sim.js';
+import { newSeason, step, act, defense, roomPower, tributeOf, upgrade, replay, granaryShare } from '../src/slice/sim.js';
+import { TUNING } from '../src/slice/data.js';
 
 // The original four-floor keep, a raid on day 1, nothing else by day to get in the way.
 const quiet = { startFloors: 4, sickChance: 0, oldAgeChance: 0, fire: 0, raidDays: { 1: 6, 2: 0, 4: 0, 6: 0 }, raidSpread: 0, raidFightStrength: 1 };
@@ -79,7 +80,9 @@ test('paid off, they turn back and the next raid comes harder; barred, the store
   ok(s, { type: 'payOff' });
   assert.equal(s.raid.state, 'paid');
   assert.equal(s.res.food, 40 - t.food);
-  assert.equal(s.embolden, s.tuning.raidEmbolden);
+  // It was the season's only raid, so the Host remembers into the next (round seven's fix).
+  assert.equal(s.embolden || 1, 1);
+  assert.equal(s.grudge, s.tuning.raidEmbolden);
   until(s, () => false);
   assert.ok(!s.log.some((l) => /The Host is at the gate/.test(l.text)), 'no assault');
   // Barred stores: no work in the Hearth, the Chandlery or the Glazier until it's over, half the loot.
@@ -144,4 +147,62 @@ test('older saves keep the old raid, one throw at noon, and a fought raid replay
   while (r.t < s.t) step(r);
   assert.deepEqual(r.raid, s.raid);
   assert.deepEqual(r.living.map((p) => p.id), s.living.map((p) => p.id));
+});
+
+// On to the next season from wherever the keep stands, as its season's end.
+function toNextSeason(g) {
+  g.day = g.tuning.seasonDays;
+  g.phase = 'end';
+  g.seasons.push({ season: g.season, day: g.day, lost: null, cracks: 0, answer: null, note: '', summary: {} });
+  ok(g, { type: 'nextSeason' });
+}
+
+test("paid off with raids still to come, the season's later raids come harder; paid off at its last, the next season's do (round seven)", () => {
+  const pay = (over) => {
+    const g = raidDay(5, 6, 3, over);
+    g.res.food = 40;
+    g.res.candles = 20;
+    ok(g, { type: 'payOff' });
+    return g;
+  };
+  const later = pay({ raidDays: { 1: 6, 2: 0, 4: 7, 6: 0 } });
+  assert.equal(later.embolden, TUNING.raidEmbolden, 'the day-4 raid comes harder');
+  assert.ok(!later.grudge);
+  assert.ok(later.log.some((l) => /the season's raids after this one come harder/.test(l.text)));
+  const last = pay();
+  assert.equal(last.embolden || 1, 1, 'nothing left this season to come harder');
+  assert.ok(last.log.some((l) => /next season's raids come harder/.test(l.text)));
+  toNextSeason(last);
+  assert.equal(last.embolden, TUNING.raidEmbolden, 'the next season remembers');
+  assert.ok(!last.grudge);
+  toNextSeason(last);
+  assert.equal(last.embolden, 1, 'for one season');
+  // A keep from before forgot it at the season's end.
+  const old = pay({ emboldenCarries: 0 });
+  assert.equal(old.embolden, TUNING.raidEmbolden);
+  toNextSeason(old);
+  assert.equal(old.embolden, 1);
+});
+
+test('a breach carries off the raiders\' whole share of food, half with a Granary (round seven); a keep from before halved it either way', () => {
+  const run = (granary, over = {}) => {
+    const g = raidDay(6, 10, 0, over);
+    if (!granary) g.keep = { floors: g.keep.floors.map((fl) => fl.map((r) => (r.type === 'granary' ? { ...r, type: 'empty' } : r))) };
+    assert.equal(granaryShare(g), granary || over.granaryGuards === 0 ? 0.5 : 1);
+    g.res.food = 100;
+    until(g, () => g.raid.state === 'breached' || g.raid.state === 'held');
+    assert.equal(g.raid.state, 'breached');
+    return g.raid.loot.food;
+  };
+  const kept = run(true);
+  const open = run(false);
+  assert.ok(kept > 0);
+  assert.ok(Math.abs(open - 2 * kept) <= 1, `${open} against ${kept}`);
+  assert.equal(run(false, { granaryGuards: 0 }), kept, 'the old rule');
+  const g = newSeason(1);
+  delete g.tuning.granaryGuards;
+  delete g.tuning.emboldenCarries;
+  const u = upgrade(JSON.parse(JSON.stringify(g)));
+  assert.equal(u.tuning.granaryGuards, 0);
+  assert.equal(u.tuning.emboldenCarries, 0);
 });

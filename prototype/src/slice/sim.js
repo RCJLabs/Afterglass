@@ -956,6 +956,11 @@ function weatherNews(s) {
 
 // A raid's strength before the spread: the day's, harder each season, stronger for one you paid off before, and
 // for a Host you can fight back if raidFightStrength says so.
+// The share of the raiders' take of food that a breach carries off: half with a Granary. A keep from before
+// granaryGuards had every keep's halved, Granary or not.
+export const granaryShare = (s) => (!s.tuning.granaryGuards || roomsOf(geo(s), 'granary').length ? 0.5 : 1);
+// Whether the Host comes again this season after today: a raid day still ahead of it.
+export const raidsAhead = (s) => Object.entries(s.tuning.raidDays || {}).some(([d, v]) => Number(d) > s.day && v > 0);
 export const raidStrength = (s, base) => base * hard(s) * (s.embolden || 1) * (s.tuning.raidFight ? s.tuning.raidFightStrength : 1);
 
 // A scripted raid (the tutorial's) comes at its exact strength, kills no one on the walls, and always leaves
@@ -1032,7 +1037,7 @@ function resolveRaid(s) {
     if (civ.length && !r.safe) fallen.push({ p: pick(s, civ), how: 'was cut down in the yard' });
   }
   if (!held && !r.crusade) {
-    const food = Math.floor(s.res.food * T.raidLoot * 0.5); // the Granary keeps half the food out of their hands
+    const food = Math.floor(s.res.food * T.raidLoot * granaryShare(s)); // a Granary keeps half the food out of their hands
     const kept = roomsOf(geo(s), 'cellar').length ? 0.5 : 1; // a Cellar keeps half the candles and glass out of their hands
     const glass = Math.floor(s.res.glass * T.raidLoot * kept);
     const candles = Math.floor(s.res.candles * T.raidLoot * kept);
@@ -1126,7 +1131,7 @@ function endAssault(s, held) {
   }
   if (!held && !r.crusade) {
     const barred = r.barred ? 0.5 : 1;
-    const food = Math.floor(s.res.food * T.raidLoot * 0.5 * barred);
+    const food = Math.floor(s.res.food * T.raidLoot * granaryShare(s) * barred);
     const kept = (roomsOf(geo(s), 'cellar').length ? 0.5 : 1) * barred;
     const glass = Math.floor(s.res.glass * T.raidLoot * kept);
     const candles = Math.floor(s.res.candles * T.raidLoot * kept);
@@ -3318,7 +3323,9 @@ function nextSeason(s) {
   s.season++;
   s.day = 0;
   s.inspection = null;
-  s.embolden = 1;
+  // A Host paid off at the season's last raid comes back harder.
+  s.embolden = s.tuning.emboldenCarries ? s.grudge || 1 : 1;
+  s.grudge = null;
   s.siege = null;
   s.barrels = false; // the cooper's, for the season
   // Nothing the player does mends the Veil, so cracks don't follow the keep into a new season.
@@ -3797,10 +3804,13 @@ const ACTIONS = {
     s.res.candles -= candles;
     r.state = 'paid';
     r.paid = { food, candles };
-    s.embolden = (s.embolden || 1) * s.tuning.raidEmbolden;
+    // They'll remember: the rest of the season's raids come harder, or, if this was its last, the next season's.
+    const later = raidsAhead(s) || !s.tuning.emboldenCarries;
+    if (later) s.embolden = (s.embolden || 1) * s.tuning.raidEmbolden;
+    else s.grudge = (s.grudge || 1) * s.tuning.raidEmbolden;
     s.today.raid = { strength: r.strength, defense: r1(defense(s)), held: false, paid: true };
     s.events = s.events.filter((e) => e.type !== 'raidHit');
-    say(s, `You pay the Host ${food} food and ${candles} candles, and they turn back. They'll remember: the season's next raid comes harder.`, 'bad', true);
+    say(s, `You pay the Host ${food} food and ${candles} candles, and they turn back. They'll remember: ${later ? "the season's raids after this one come harder" : "next season's raids come harder"}.`, 'bad', true);
     cue(s, 'tribute');
   },
   barStores(s) {
@@ -4119,7 +4129,10 @@ const ACTIONS = {
     const T = s.tuning;
     nextSeason(s);
     const m = freeMirror(s) || addMirror(s, 'hand', nextPlace(s));
-    const d = newShade(s, { id: 'p' + s.nextId++, name: 'The Keeper', kind: 'loyal', cause: 'duty', from: 'keeper', day: 0, memory: 100, named: true, was: 'stubborn' });
+    // Each keeper who takes the glass after the first is named in turn: The Keeper, then The Second Keeper.
+    const before = s.ledger.filter((e) => e.from === 'keeper').length;
+    const name = before ? `The ${KEEPER_ORDINALS[before] || `${before + 1}th`} Keeper` : 'The Keeper';
+    const d = newShade(s, { id: 'p' + s.nextId++, name, kind: 'loyal', cause: 'duty', from: 'keeper', day: 0, memory: 100, named: true, was: 'stubborn' });
     d.mirror = m.id;
     d.keeper = true;
     s.shades.push(d);
@@ -4128,7 +4141,7 @@ const ACTIONS = {
       id: d.id, name: d.name, from: 'keeper', season: s.season, day: 0, cause: 'duty', how: 'kept the keep a whole year, and took their place in the glass', kind: 'loyal', guided: false, job: null,
       age: 'adult', bond: null, woke: 'loyal', end: null, endDay: null, nights: 0, kills: 0, posts: {}, named: true, memory: 100, was: 'stubborn',
     });
-    say(s, `You take your own place in the ${m.name}, and a new keeper takes up the keep. The Keeper is Loyal, named and Anchored, and weighs ${T.keeperDread} shades' Dread at every rite.`, 'rite', true);
+    say(s, `You take your own place in the ${m.name}, and a new keeper takes up the keep. ${name} is Loyal, named and Anchored, and weighs ${T.keeperDread} shades' Dread at every rite.`, 'rite', true);
     cue(s, 'wake');
   },
   tune(s, { key, value, build }) {
@@ -4204,6 +4217,7 @@ export const keepDefaults = (s) => ({ ...TUNING, ...(s.defaults || {}) });
 // A save from an older build, brought up to this one: what it predates gets what it would have had. Saves
 // from before seasons started from two rooms had the whole original keep.
 const OLD_YEAR_RATES = { gentle: 1.15, hard: 1.2 };
+const KEEPER_ORDINALS = ['', 'Second', 'Third', 'Fourth', 'Fifth', 'Sixth', 'Seventh', 'Eighth', 'Ninth', 'Tenth', 'Eleventh', 'Twelfth'];
 export function upgrade(g) {
   g.keep ??= { floors: FULL_KEEP.floors.map((fl) => fl.map((r) => ({ ...r }))) };
   for (const t of [g.tuning, g.tuning0]) if (t && !('startFloors' in t)) t.startFloors = FULL_KEEP.floors.length;
@@ -4246,6 +4260,10 @@ export function upgrade(g) {
   // ... or before wards drew essence to hold the Hollow, and the store held only so much.
   for (const t of [g.tuning, g.tuning0]) if (t && !('wardDraw' in t)) t.wardDraw = 0;
   for (const t of [g.tuning, g.tuning0]) if (t && !('essenceCap' in t)) t.essenceCap = 0;
+  // ... or before round seven's fixes: every keep's food halved at a breach, and a Host paid off at the season's
+  // last raid forgotten by the next.
+  for (const t of [g.tuning, g.tuning0]) if (t && !('granaryGuards' in t)) t.granaryGuards = 0;
+  for (const t of [g.tuning, g.tuning0]) if (t && !('emboldenCarries' in t)) t.emboldenCarries = 0;
   g.eclipse ??= null;
   g.campaign ??= null;
   // A Gentle or Hard keep made while its years hardened ×1.15 or ×1.2 (Standard's ×1.3) grows as Standard's does

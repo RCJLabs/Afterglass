@@ -61,6 +61,8 @@ html = html.replace(/<link rel="stylesheet" href="(?!https?:)([^"]+)">/g, (_, hr
 // One file can't be an installable app: drop the manifest (the page then skips its service worker too)
 // and the home-screen icon, and carry the favicon inline.
 html = html.replace(/<link rel="(manifest|apple-touch-icon)"[^>]*>\s*/g, '');
+// Its code is inline, so the page's Content Security Policy (script-src 'self') would block it: drop it too.
+html = html.replace(/<meta http-equiv="Content-Security-Policy"[^>]*>\s*/i, '');
 html = html.replace(/<link rel="icon" href="(?!https?:|data:)([^"]+)"/g, (_, href) => `<link rel="icon" href="data:image/png;base64,${readFileSync(resolve(root, href)).toString('base64')}"`);
 html = html.replace(script[0], () => `<script>\n'use strict';\n${js}\n</script>`);
 

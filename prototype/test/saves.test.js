@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { newSeason, step, act, SAVE_VERSION, playerTuning, chapterOf } from '../src/slice/sim.js';
 import { autoStep, closeYear } from '../src/slice/autopilot.js';
-import { SLOTS, OLD_KEY, slotKey, openIndex, loadSlot, saveSlot, useSlot, deleteSlot, keepFromFile, summary, isSave, mergeIndex, trimSave, CANT_REPLAY } from '../src/slice/saves.js';
+import { SLOTS, OLD_KEY, slotKey, openIndex, loadSlot, saveSlot, useSlot, deleteSlot, keepFromFile, summary, isSave, mergeIndex, trimSave, CANT_REPLAY, KEPT_TRAIL, BAD_FILE } from '../src/slice/saves.js';
 import { readExport } from '../src/slice/watch.js';
 
 // localStorage as the page uses it: values go through JSON, and a full store refuses to write.
@@ -215,4 +215,37 @@ test("an export of a trimmed keep says it can't be played back", () => {
   assert.equal(keepFromFile(JSON.stringify({ ...exp, actionsFrom: 5 })).error, CANT_REPLAY);
   assert.equal(readExport({ ...exp, actionsFrom: 5 }).error, CANT_REPLAY);
   assert.ok(readExport({ ...exp, actionsFrom: 1 }).x);
+});
+
+test("a keep that isn't a playtest saves only the last of its trail; a tester's keeps all of it (round seven)", () => {
+  const s = newSeason(9);
+  s.trail = Array.from({ length: 1500 }, (_, i) => ({ k: 'panel', at: { season: 1, day: 1, phase: 'day', t: i }, w: i }));
+  const store = fakeStore();
+  const index = openIndex(store, 0);
+  assert.ok(saveSlot(store, index, 1, s, 1));
+  const g = loadSlot(store, 1);
+  assert.equal(g.trail.length, KEPT_TRAIL);
+  assert.equal(g.trail[KEPT_TRAIL - 1].w, 1499, 'the latest kept');
+  s.test = { name: 'Sam', sent: false };
+  assert.ok(saveSlot(store, index, 1, s, 2));
+  assert.equal(loadSlot(store, 1).trail.length, 1500);
+});
+
+test('a file whose numbers aren\'t numbers, or whose export replays measurement actions, is refused (round seven)', () => {
+  const s = played(51, 2);
+  const exp = { game: 'afterglass-season', save: SAVE_VERSION, seed: s.seed, now: {}, tuning0: s.tuning0, tuning: s.tuning, actions: s.actions, seasons: [{ season: 1, answer: null, note: '' }] };
+  assert.equal(keepFromFile(JSON.stringify(exp)).error, undefined);
+  const bad = [
+    { ...exp, seasons: [{ season: '<i id="x">1</i>', answer: null }] },
+    { ...exp, tuning0: { ...exp.tuning0, cracksMax: '5" onfocus="x' } },
+    { ...exp, actions: [...exp.actions, { a: { type: 'debug', what: 'give', res: 'candles', n: 99 }, at: { season: 1, day: 1, phase: 'day', t: 0 } }] },
+  ];
+  for (const x of bad) {
+    assert.equal(keepFromFile(JSON.stringify(x)).error, BAD_FILE);
+    assert.equal(readExport(x).error, BAD_FILE);
+  }
+  const save = JSON.parse(JSON.stringify(s));
+  assert.equal(keepFromFile(JSON.stringify(save)).error, undefined);
+  assert.equal(keepFromFile(JSON.stringify({ ...save, tuning: { ...save.tuning, hardness: '1.2<b>' } })).error, BAD_FILE);
+  assert.equal(keepFromFile(JSON.stringify({ ...save, res: { ...save.res, food: 'lots' } })).error, BAD_FILE);
 });

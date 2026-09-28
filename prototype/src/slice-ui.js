@@ -6,7 +6,7 @@ import { TICKS_PER_SEC, DAY_ROOMS, WORK_ROOMS, TWINS, KINDS, MIRRORS, CAUSES, MA
 import {
   newSeason, step, act, retune, playerTuning, jobCap, jobCount, nextSlot, ritePreview, crossingPreview, capacity, canWork, defense, roomPower, bear, priests, funeralCap, eatRate,
   dayTicks, nightTicks, isNewMoon, choicesFor, byId, isTwinnedLiving, isTwinnedShade, lastSeason, SAVE_VERSION, fmt, mirrorCap, bareHalls, tainPlace,
-  postRoom, wardCost, wardDrawOf, wardHoldOf, hollowNeed, yearRate, shadeTrait, peopleIn, beds, tradeOf, inGreatGlass, handsAt, whispers, stepsThrough, perf,
+  postRoom, wardCost, wardDrawOf, wardHoldOf, hollowNeed, yearRate, raidsAhead, shadeTrait, peopleIn, beds, tradeOf, inGreatGlass, handsAt, whispers, stepsThrough, perf,
   seasonIndex, seasonName, yearOf, dayLength, isLongNight, tributeOf, besieged, sallyOdds, plagueSeason, atGate, gateGuard,
   weatherOf, forecastOf, raining, foggy, drownedDue, keepDefaults, embargoed, inquisition, churchDaysLeft, crusadeDay, crusadeDaysLeft,
   actOf, actCost, canAct, acting, actText, omenText, nextMark, SKIP_LEAD, visitorBlock,
@@ -22,7 +22,8 @@ import { newTutorial, isTutorial } from './slice/tutorial.js';
 import { howTo } from './slice/howto.js';
 import { drawCard, cardFonts } from './slice/card.js';
 import { epitaph, ordinal, RESTING, LOST } from './slice/book.js';
-import { SLOTS, slotKey, openIndex, loadSlot, saveSlot, useSlot, deleteSlot, keepFromFile, summary, mergeIndex, isIndexKey } from './slice/saves.js';
+import { SLOTS, slotKey, openIndex, loadSlot, saveSlot, useSlot, deleteSlot, keepFromFile, summary, mergeIndex, isIndexKey, saveSpare, loadSpare } from './slice/saves.js';
+import { BUILD } from './build.js';
 import { createSound, SOUNDS } from './slice/sound.js';
 import { readExport, indexOf, advance, seek, cloneCursor } from './slice/watch.js';
 
@@ -123,15 +124,27 @@ let saveWarned = false;
 // Whether the player has done anything since the keep was last saved: the page saves on being hidden only
 // then (or while the clock runs), so a page left alone never writes over a keep another tab has saved.
 let dirty = false;
+// Something went wrong (round seven): from then on nothing is saved, so the keep stays as it was last saved
+// before it, and a panel offers the file, the morning's spare and a reload (crash(), under the frame loop).
+let crashed = null;
 function saveGame() {
-  if (ui.watch) return; // the session being watched is never saved
+  if (ui.watch || crashed) return; // the session being watched is never saved, nor a keep after something broke
   dirty = false;
+  s.build = BUILD;
   if (saveSlot(store, saves, saves.current, s, Date.now()) || saveWarned) return;
   saveWarned = true;
   toast("The keep couldn't be saved: this browser's storage is full or blocked. Export it from Menu, then Saves.", 'bad');
 }
 
-let s = listen(loadGame(saves.current) || newSeason());
+// A keep that throws as it loads is left in its slot as it is, and the page says so once it's up.
+let bootError = null;
+let s;
+try {
+  s = listen(loadGame(saves.current) || newSeason());
+} catch (e) {
+  bootError = e;
+  s = listen(newSeason());
+}
 // This keep's geometry (it grows as rooms are built), and the top row of its roof.
 const K = () => geo(s);
 const roofTop = () => K().top - 24;
@@ -409,7 +422,7 @@ function raidCard() {
   }
   const T = s.tuning;
   const def = defense(s);
-  if (r.state === 'paid') return `<div class="card"><h3>The raid</h3><p>You paid the Host ${r.paid.food} food and ${r.paid.candles} candles, and they turned back. The season's next raid comes ×${mult(T.raidEmbolden)} harder.</p></div>`;
+  if (r.state === 'paid') return `<div class="card"><h3>The raid</h3><p>You paid the Host ${r.paid.food} food and ${r.paid.candles} candles, and they turned back. ${s.grudge ? `Next season's raids come ×${mult(s.grudge)} harder.` : raidsAhead(s) ? `The season's raids after this one come ×${mult(s.embolden || 1)} harder.` : 'It was the season\'s last raid.'}</p></div>`;
   if (r.crusade && (r.state === 'held' || r.state === 'breached')) {
     const C = s.today.crusade;
     const after = r.state === 'held' ? 'It turned for home, and the Lantern Church gave up: the embargo and the Inquisition are over.' : `They smashed ${C?.smashed ? plural(C.smashed, 'mirror') : 'no mirror: every one was hidden'}${C?.freed ? `, and ${plural(C.freed, 'shade')} went free` : ''}, and left the keep purged.`;
@@ -432,7 +445,7 @@ function raidCard() {
   const fight = r.crusade ? `<p class="note">The crusade takes no tribute and wants none of the stores: it's the mirrors it's after. At the gate you'll have pitch (${T.raidPitchCost} candles for −${fmt(T.raidPitch)}), stone to shore it up, and the bell.</p>`
     : !T.raidFight ? '' : `<div class="row"><button class="btn sm" id="btn-payoff" data-act="payoff"${canPay ? '' : ' disabled'}>Pay them off: ${t.food} food, ${t.candles} candles</button>
       <button class="btn sm" id="btn-bar" data-act="bar-stores"${r.barred ? ' disabled' : ''}>${r.barred ? 'Stores barred' : 'Bar the stores'}</button></div>
-    <p class="note">Paid, they turn back, but the season's next raid comes ×${mult(T.raidEmbolden)} harder. Barred, the Hearth, the Chandlery and the Glazier stop while the Host is at the gate, and a breach carries off half as much. At the gate you'll have pitch (${T.raidPitchCost} candles for −${fmt(T.raidPitch)}), stone to shore it up, and the bell.</p>`;
+    <p class="note">Paid, they turn back${raidsAhead(s) ? `, but the season's raids after it come ×${mult(T.raidEmbolden)} harder` : T.emboldenCarries ? `, but next season's raids come ×${mult(T.raidEmbolden)} harder` : ''}. Barred, the Hearth, the Chandlery and the Glazier stop while the Host is at the gate, and a breach carries off half as much. At the gate you'll have pitch (${T.raidPitchCost} candles for −${fmt(T.raidPitch)}), stone to shore it up, and the bell.</p>`;
   return `<div class="card ${short ? 'warn' : 'ok'}"><h3>${r.crusade ? 'The crusade on the road' : r.camp ? 'The camp comes at the gate' : 'Raiders on the road'}</h3>
     <p>${r.count} ${r.crusade ? 'knights of the Lantern' : 'raiders'}, strength <b class="num">${fmt(r.strength)}</b>, at the gate about ${hhmm(6 + (12 * r.hitAt) / dayTicks(s))}. Your defense: <b class="num" data-live="defense">${fmt(def)}</b>. ${short ? 'Not enough. Move people to the Barracks or ward the gate.' : 'Enough, if nothing changes.'}</p>${laddersDue(s) ? ladderNote(r) : ''}
     <div class="row"><button class="btn sm" id="btn-wardgate" data-act="wardgate"${r.ward || s.res.essence + 1e-9 < s.tuning.wardGateCost ? ' disabled' : ''}>${r.ward ? `Gate warded, +${r.ward}` : `Ward the gate: +${s.tuning.wardGateDefense} for ${s.tuning.wardGateCost} essence`}</button></div>${fight}</div>`;
@@ -1641,6 +1654,7 @@ function exportJSON() {
     {
       game: 'afterglass-season',
       save: SAVE_VERSION,
+      build: BUILD,
       exported: new Date().toISOString(),
       seed: s.seed,
       daily: s.daily || null,
@@ -1706,6 +1720,8 @@ const TUNE = [
   ['whispers', 'Whispers and the great glass: the dead help by day (1 on, 0 off)'],
   ['raidFight', 'Raids fought at the gate, with pitch, stone and the bell (1 on, 0 off: decided at a throw)'],
   ['raidFightStrength', 'A Host you can fight back comes this many times stronger'],
+  ['granaryGuards', 'A Granary halves the food raiders carry off (1 on; 0: every keep\'s food halved, as before)'],
+  ['emboldenCarries', 'Paying off the season\'s last raid makes the next season\'s raids harder (1 on, 0 off)'],
   ['year', 'A year of four seasons, days and nights shifting, ending with the Long Night (1 on, 0 off)'],
   ['longNight', 'The Long Night lasts this many winter nights'],
   ['longNightCreepers', 'The Long Night brings this many times a night\'s Creepers'],
@@ -1802,10 +1818,11 @@ function settingsTab() {
     <dl class="keys">${KEYS.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl>
     ${installHTML('settings')}
     <details class="advanced" id="advanced" data-keep="advanced"${ui.open.advanced ? ' open' : ''}><summary>Advanced: the playtest numbers</summary>
-      <div class="fields">${TUNE.map(([k, label]) => `<label for="tune-${k}">${esc(label)}<input type="number" id="tune-${k}" data-act="tune" data-key="${k}" value="${s.tuning[k]}" min="0" step="any"${s.daily ? ' disabled' : ''}></label>`).join('')}</div>
+      <div class="fields">${TUNE.map(([k, label]) => `<label for="tune-${k}">${esc(label)}<input type="number" id="tune-${k}" data-act="tune" data-key="${k}" value="${esc(String(s.tuning[k]))}" min="0" step="any"${s.daily ? ' disabled' : ''}></label>`).join('')}</div>
       ${s.daily ? `<p class="note">This is the keep of ${esc(dayText(s.daily))}, the same for everyone, so its numbers are locked.</p>` : ''}
       <p class="hint">These are this keep's numbers. Changes apply from the next tick or the next dusk, and are recorded, so exports still replay. A new keep keeps only the ones you set. Seed ${s.seed}.</p>
     </details>
+    <p class="hint build">Build ${esc(BUILD)}${s.build && s.build !== BUILD ? `; this keep was last saved by ${esc(s.build)}` : ''}.</p>
   </section>`;
 }
 // The keeps in their slots: the one being played, and the rest.
@@ -2276,14 +2293,14 @@ function watchHTML() {
   const off = w.idx.off
     ? `<p class="note bad">${esc(offText(w.idx.off))} What shows after that isn't what the tester saw.</p>`
     : w.idx.differs
-      ? `<p class="note bad">From day ${w.idx.differs.day} this replay differs from the session (${esc(w.idx.differs.what)}: ${w.idx.differs.was} then, ${w.idx.differs.now} here): this build's rules have changed since the tester played.</p>`
+      ? `<p class="note bad">From day ${esc(String(w.idx.differs.day))} this replay differs from the session (${esc(w.idx.differs.what)}: ${esc(String(w.idx.differs.was))} then, ${esc(String(w.idx.differs.now))} here): this build's rules have changed since the tester played.</p>`
       : '';
   const A = T?.answers || {};
   const answers = T
     ? `<div class="card"><h3>Their answers</h3><dl class="wans">${QUESTIONS.map(([k, q]) => `<dt>${esc(q)}</dt><dd>${esc(A[k] || '—')}</dd>`).join('')}<dt>Would you keep playing?</dt><dd>${A.again === 'yes' ? 'Yes' : A.again === 'no' ? 'No' : '—'}${A.why ? `. ${esc(A.why)}` : ''}</dd></dl>${T.sent ? '' : '<p class="hint">They never pressed Send: this came some other way.</p>'}</div>`
     : '';
   const asked = (x.seasons || []).filter((e) => e.answer || e.note);
-  const seasonQ = asked.length ? `<div class="card"><h3>The season's question</h3><ul>${asked.map((e) => `<li>Season ${e.season}: ${e.answer === 'again' ? 'would play another' : e.answer === 'stop' ? "would stop" : 'no answer'}${e.note ? `. ${esc(e.note)}` : ''}</li>`).join('')}</ul></div>` : '';
+  const seasonQ = asked.length ? `<div class="card"><h3>The season's question</h3><ul>${asked.map((e) => `<li>Season ${esc(String(e.season))}: ${e.answer === 'again' ? 'would play another' : e.answer === 'stop' ? "would stop" : 'no answer'}${e.note ? `. ${esc(e.note)}` : ''}</li>`).join('')}</ul></div>` : '';
   const stops = stopsOf(w);
   // The list is the same all session long: made once.
   w.list ??= stops.slice(0, 400).map((m) => `<li class="wl-${m.lane}"><button class="linkish" data-act="w-go" data-u="${m.u}">${esc(whenText(m.at))}</button> <span class="wk wk-${m.kind}"></span>${m.lane === 'you' ? 'The tester: ' : ''}${esc(m.text)}</li>`).join('');
@@ -3850,7 +3867,19 @@ function onEclipse() {
   layout();
   saveGame();
 }
+// The frame loop, guarded: an error anywhere in a frame stops the game where it is (crash()), rather than
+// freezing it while the autosave writes whatever the error left behind.
 function frame(now) {
+  if (crashed) return;
+  try {
+    tick(now);
+  } catch (e) {
+    crash(e, 'frame');
+    return;
+  }
+  requestAnimationFrame(frame);
+}
+function tick(now) {
   const dt = lastNow ? Math.min(0.25, (now - lastNow) / 1000) : 0;
   lastNow = now;
   if (ui.watch) watchFrame(dt);
@@ -3897,6 +3926,10 @@ function frame(now) {
     trail('phase');
     onPhase();
     saveGame();
+    if (s.phase === 'day' && !ui.watch) {
+      saveSpare(store, saves.current, s);
+      if (s.day >= 2) askToKeep();
+    }
     bump();
   }
   if (eclipseNow() !== seenEclipse) {
@@ -3911,11 +3944,72 @@ function frame(now) {
   moveCamera(dt);
   ui.guide = tickGuide();
   render(ui.paused || !running() ? 1 : Math.min(1, acc), now);
-  requestAnimationFrame(frame);
 }
 setInterval(() => {
   if (running() && !ui.paused) saveGame();
 }, 5000);
+
+// Once a keep has come through a night, ask the browser to keep this site's storage rather than clear it when
+// space runs short (Chrome decides by itself; Firefox asks the player). Asked once on a device, not each keep.
+function askToKeep() {
+  if (prefs.keepAsked || !navigator.storage?.persist) return;
+  prefs.keepAsked = true;
+  savePrefs();
+  navigator.storage.persisted().then((yes) => yes || navigator.storage.persist()).catch(() => {});
+}
+// An error the page didn't catch, in a frame, a tap or a key: the clock stops, nothing more is saved, and a
+// panel says what happened and what can still be done. The keep in the slot is the last one saved before it
+// (at most a few seconds before, or when the phase last changed), and the spare is this morning's.
+function crash(err, where) {
+  if (crashed) return;
+  crashed = { where, message: String(err?.message || err || 'unknown error'), stack: String(err?.stack || '').slice(0, 3000), build: BUILD, at: s && { season: s.season, day: s.day, phase: s.phase, t: s.t }, w: Date.now() };
+  try {
+    ui.paused = true;
+    sound.hide(true);
+  } catch {
+    // The panel matters more than the sound.
+  }
+  console.error('Afterglass stopped:', err);
+  showCrash();
+}
+window.addEventListener('error', (e) => {
+  // Only the game's own errors: a browser's ResizeObserver notice and extensions' scripts carry no error of ours.
+  if (e.error && (!e.filename || e.filename.startsWith(location.origin))) crash(e.error, 'page');
+});
+function showCrash() {
+  const spare = loadSpare(store, saves.current, s?.seed);
+  const saved = store.get(slotKey(saves.current));
+  const el = document.createElement('div');
+  el.className = 'crash';
+  el.id = 'crash';
+  el.setAttribute('role', 'alertdialog');
+  el.setAttribute('aria-modal', 'true');
+  el.setAttribute('aria-labelledby', 'crash-h');
+  el.innerHTML = `<div class="crash-card">
+    <h2 id="crash-h">Something went wrong, and the game stopped</h2>
+    <p>Nothing from here on is saved. ${saved ? `Keep ${saves.current} is as it was last saved, ${saved.phase === 'night' ? `on night ${saved.day}` : `on day ${saved.day}`} of season ${saved.season}.` : 'This keep had no save yet.'}</p>
+    <p>If it happens again, export the keep and send the file: it says what went wrong, and a fix can load it.</p>
+    <div class="row">
+      ${saved ? '<button type="button" class="btn primary" id="crash-export" data-crash="export">Export the keep</button>' : ''}
+      ${spare ? '<button type="button" class="btn" id="crash-spare" data-crash="spare">Go back to this morning</button>' : ''}
+      <button type="button" class="btn" id="crash-reload" data-crash="reload">Reload</button>
+    </div>
+    <details><summary>What went wrong</summary><pre>${esc(`${crashed.message}\n${crashed.where}, build ${crashed.build}\n${crashed.stack}`)}</pre></details>
+  </div>`;
+  el.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-crash]');
+    if (!b) return;
+    e.stopPropagation();
+    if (b.dataset.crash === 'export') {
+      const g = { ...store.get(slotKey(saves.current)), build: BUILD, crash: crashed };
+      saveFile(new Blob([JSON.stringify(g)], { type: 'application/json' }), `afterglass-keep-${saves.current}-season-${g.season}-day-${g.day}-crash.json`);
+    } else if (b.dataset.crash === 'spare') {
+      if (store.set(slotKey(saves.current), spare)) location.reload();
+    } else location.reload();
+  });
+  document.body.append(el);
+  el.querySelector('button')?.focus();
+}
 
 /* ---------------------------------------------------------------- input */
 
@@ -4081,7 +4175,7 @@ function saveFile(blob, name) {
 }
 // A keep as a file: the save itself, which Load a file (here or on another device) takes back exactly.
 function exportSlot(n) {
-  const g = n === saves.current ? { ...s, alerts: [], cues: undefined } : store.get(slotKey(n));
+  const g = n === saves.current ? { ...s, alerts: [], cues: undefined, build: BUILD } : store.get(slotKey(n));
   if (!g) return undefined;
   const name = `afterglass-keep-${n}-season-${g.season}-day-${g.day}.json`;
   saveFile(new Blob([JSON.stringify(g)], { type: 'application/json' }), name);
@@ -4759,4 +4853,5 @@ else if (params.has('watch')) {
   if (waiting()) openSheet('phase', 'game');
 } else openTitle('game');
 if (retuned) toast(`This version changed ${retuned} of the keep's numbers; yours from Settings are kept.`, 'rite');
+if (bootError) crash(bootError, 'load');
 requestAnimationFrame(frame);

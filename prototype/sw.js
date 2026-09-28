@@ -34,6 +34,7 @@ const CORE = [
   'src/slice/tutorial.js',
   'src/slice/howto.js',
   'src/slice/watch.js',
+  'src/build.js',
   'icons/icon-192.png',
   'icons/icon-512.png',
   'icons/icon-maskable-512.png',
@@ -90,21 +91,38 @@ self.addEventListener('fetch', (e) => {
 });
 
 // Keep a copy without holding up the response; a failed write (a full quota) only means no fresh copy.
-const keep = (e, cache, key, res) => e.waitUntil(cache.put(key, res.clone()).catch(() => {}));
+const keep = (e, cache, key, res) => {
+  try {
+    e.waitUntil(cache.put(key, res.clone()).catch(() => {}));
+  } catch {
+    // The event is over (the cached copy answered first): the copy is only a courtesy.
+  }
+};
+// How long a launch waits on the network for a file it has a copy of (round seven's audit: a weak connection
+// hung the launch). The fetch goes on after the copy answers, and refreshes it for next time.
+const DEADLINE = 3000;
+// Only a whole, direct answer from our own site is ours: a 404, a server error, or a captive portal's page
+// reached by a redirect is not, so it's never cached and the copy answers instead.
+const good = (res) => res && res.ok && !res.redirected && res.type === 'basic';
 
 async function networkFirst(e, path) {
   const cache = await caches.open(CACHE);
-  let res;
+  const hit = await cache.match(path);
+  // Revalidate rather than trust the HTTP cache, so every file on a load comes from the same deploy.
+  const net = fetch(new Request(e.request, { cache: 'no-cache' })).then((res) => {
+    if (good(res)) keep(e, cache, path, res);
+    return res;
+  });
+  if (!hit) return net; // nothing cached yet: the network's answer, whatever it is
+  e.waitUntil(net.catch(() => {})); // let the fetch finish, and refresh the copy, after the copy answers
+  const late = new Promise((r) => setTimeout(() => r(null), DEADLINE));
+  let res = null;
   try {
-    // Revalidate rather than trust the HTTP cache, so every file on a load comes from the same deploy.
-    res = await fetch(new Request(e.request, { cache: 'no-cache' }));
-  } catch (err) {
-    const hit = await cache.match(path);
-    if (hit) return hit;
-    throw err;
+    res = await Promise.race([net, late]);
+  } catch {
+    return hit; // offline
   }
-  if (res.ok) keep(e, cache, path, res);
-  return res;
+  return good(res) ? res : hit;
 }
 
 async function cacheFirst(e) {

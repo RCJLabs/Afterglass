@@ -64,3 +64,18 @@ test('taking your place in the glass: the Keeper wakes Loyal, named and Anchored
   assert.equal(P.dread.keep - ritePreview(cover).dread.keep, s.tuning.dreadPerKeep * s.tuning.keeperDread);
   assert.ok(s.ledger.some((e) => e.id === k.id && e.from === 'keeper'));
 });
+
+test('each keeper who takes the glass after the first is named in turn (round seven)', () => {
+  const s = yearDone();
+  assert.ok(act(s, { type: 'takeGlass' }).ok);
+  assert.deepEqual(s.shades.filter((d) => d.keeper).map((d) => d.name), ['The Keeper']);
+  // The next year's end, under the new keeper.
+  s.season = 8;
+  s.day = s.tuning.seasonDays;
+  s.phase = 'end';
+  s.seasons.push({ season: 8, day: s.day, lost: null, cracks: 0, answer: null, note: '', summary: {} });
+  assert.ok(act(s, { type: 'takeGlass' }).ok);
+  assert.deepEqual(s.shades.filter((d) => d.keeper).map((d) => d.name), ['The Keeper', 'The Second Keeper']);
+  assert.ok(s.log.some((l) => /The Second Keeper is Loyal, named and Anchored/.test(l.text)));
+  assert.equal(s.ledger.filter((e) => e.from === 'keeper').length, 2);
+});

@@ -39,6 +39,9 @@ export const TUNING = {
   raidRiskBreach: 0.3,
   raidRiskMax: 0.6,
   raidLoot: 0.3,
+  // A Granary keeps half the food out of raiders' hands (round seven's audit found it didn't: every keep's food
+  // was halved, Granary or not). granaryGuards 0 is that old rule, for keeps from before.
+  granaryGuards: 1,
   raidInsideHeld: 0.25,
   wardGateCost: 4,
   wardGateDefense: 4,
@@ -57,6 +60,9 @@ export const TUNING = {
   raidTributeFood: 1.5,
   raidTributeCandles: 0.5,
   raidEmbolden: 1.25,
+  // Paying off the season's last raid used to cost nothing, since the season's end forgot it. Now the Host
+  // remembers into the next season. emboldenCarries 0 is the old rule, for keeps from before.
+  emboldenCarries: 1,
   raidAssaultSecs: 15,
   raidBreak: 1,
   raidPitch: 1.5,
