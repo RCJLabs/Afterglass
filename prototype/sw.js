@@ -34,6 +34,7 @@ const CORE = [
   'src/slice/tutorial.js',
   'src/slice/howto.js',
   'src/slice/watch.js',
+  'src/slice/quiz.js',
   'src/build.js',
   'icons/icon-192.png',
   'icons/icon-512.png',

@@ -2,7 +2,7 @@
 
 You asked for a full audit of the game as it stands, from its systems to its screens, and twenty phases after it. This is both.
 
-**Built so far.** Phases 1–4 (stabilise the shell and fix the bugs; the player's game, not the developer's; phone first; fewer words), in the design record as prototype/README.md's problems 44 to 47. The rest wait. The audit below is as it was written, before them.
+**Built so far.** Phases 1–4 (stabilise the shell and fix the bugs; the player's game, not the developer's; phone first; fewer words), and phase 5's kit (play on to the season's end, the questions there, the glass test), in the design record as prototype/README.md's problems 44 to 48. Phase 5's playtest itself waits on testers. The rest wait. The audit below is as it was written, before them.
 
 **How it was done.**
 - I read the design record (prototype/README.md), rounds two to six, and the rules in the code.

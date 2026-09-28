@@ -644,3 +644,14 @@ details.why[open] > summary { color: var(--ink-2); }
 details.why .why-body { display: grid; gap: 4px; margin: 2px 0 6px; }
 details.why .why-more { margin: 0; font-size: 13px; }
 @media (pointer: coarse) { details.why > summary { min-height: 44px; padding-block: 0; } }
+
+/* Round seven, phase 5: the glass test, a still of the Tain as large as the sheet allows, and one thing to tap. */
+.quiz h2 .count { margin-left: 6px; font-size: 14px; color: var(--ink-3); }
+.quiz-cam { margin: 0; font-size: 13px; color: var(--ink-3); }
+.quiz-ask { margin: 2px 0 0; font-size: 18px; font-weight: 700; }
+.quiz-still { display: grid; place-items: center; }
+.quiz-still img { width: 100%; max-width: 448px; height: auto; image-rendering: pixelated; border-radius: 3px; background: #0b0816; cursor: crosshair; touch-action: manipulation; -webkit-user-select: none; user-select: none; }
+.quiz-count .btn { min-width: 48px; }
+.quiz-fb { min-height: 1.4em; margin: 0; font-weight: 700; }
+.quiz-fb.good { color: var(--good); }
+.quiz-fb.bad { color: var(--bad); }

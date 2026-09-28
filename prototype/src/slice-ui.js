@@ -26,6 +26,7 @@ import { SLOTS, slotKey, openIndex, loadSlot, saveSlot, useSlot, deleteSlot, kee
 import { BUILD } from './build.js';
 import { createSound, SOUNDS } from './slice/sound.js';
 import { readExport, indexOf, advance, seek, cloneCursor } from './slice/watch.js';
+import { quizKeep, quizPlan, quizScene, tappedIn, isRight, stillToKeep, keepToStill, figuresOf, quizSummary, QUIZ_ASK, COUNT_CHOICES } from './slice/quiz.js';
 
 const PREF_KEY = 'afterglass-season/prefs/v1';
 const SYS_REDUCED = !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
@@ -1576,7 +1577,7 @@ function endPanel() {
     : yearEnd ? endingsHTML(next)
       : `<div class="row"><button class="btn primary" id="btn-next-season" data-act="next-season">${next}</button><span class="hint">${harderNote()}</span></div>`;
   return `${head}
-    ${playtesting() ? questionHTML(e) : ''}
+    ${devMode() && !s.test ? questionHTML(e) : ''}
     ${s.sealed || s.opened ? '' : reviewHTML(isLongNight(s) ? 'The Long Night in moments' : 'The new moon in moments')}
     <div class="card"><h3>The season</h3>${summaryHTML(e)}<div class="row"><button class="btn sm" id="end-book" data-act="book">Read the Book of the Dead</button></div></div>
     ${recapHTML(e)}
@@ -1661,7 +1662,7 @@ function overPanel() {
   const e = lastSeason(s);
   const why = s.over?.reason === 'veil' ? 'The Veil broke and the Unlit came through into the keep.' : 'No one living was left.';
   return `<header class="ph-head"><h2>The keep is lost</h2><p>${why} Season ${s.season}, ${s.phase === 'over' && s.over.day ? `day ${s.over.day}` : ''}.</p></header>
-    ${e && playtesting() ? questionHTML(e) : ''}
+    ${e && devMode() && !s.test ? questionHTML(e) : ''}
     ${reviewHTML('How the last night went')}
     ${e ? `<div class="card"><h3>The season</h3>${summaryHTML(e)}</div>` : ''}
     ${e ? recapHTML(e) : ''}
@@ -2154,13 +2155,19 @@ const deviceNow = () => ({ vw: window.innerWidth, vh: window.innerHeight, touch:
 /* ---------------------------------------------------------------- the playtest kit: the tester link */
 
 // The tester link (season.html?test, or ?test=name to put a name on the file): the tutorial in a keep of
-// its own, with a note on what the test is. When the tutorial ends, or whenever the tester says they're
-// done, three questions, and one button to send the session back: shared as a file where the device can,
-// saved as one where it can't, or copied as text. There's no server: sessions come back by hand.
+// its own, with a note on what the test is. When the tutorial ends the tester is asked to play on to the
+// season's end (round seven, phase 5), and the questions come there, when the keep falls, or whenever the
+// tester says they're done; then one button to send the session back: shared as a file where the device
+// can, saved as one where it can't, or copied as text. There's no server: sessions come back by hand, so
+// the answers are kept as they're typed, and a tester who comes back to an unsent session is asked to send it.
 const QUESTIONS = [
   ['night', 'In a sentence or two: what are you trying to do at night?'],
+  ['chore', 'Did the nights ever feel like a chore? When?'],
+  ['loss', 'When someone died, did it feel more like losing a person, or like gaining a hand for the night? Or both?'],
+  ['grief', 'How did the grief in the game feel to you: warm, heavy, or something else?'],
   ['stuck', 'Where were you confused, or stuck?'],
 ];
+const answered = () => !!s.test && Object.values(s.test.answers || {}).some((v) => v && String(v).trim());
 // A keep for the test: this one if nothing has been done in it yet, else the first empty slot.
 const freeSlot = () => (untouched() ? saves.current : Array.from({ length: SLOTS }, (_, i) => i + 1).find((n) => n !== saves.current && !saves.slots[n]));
 function startTest(label) {
@@ -2203,14 +2210,26 @@ function testHTML() {
   if (ui.testNote) {
     return `<div class="card test"><h2>Thank you for testing</h2>
       <p>This is Afterglass's tutorial: the first three days and nights of a keep, one thing at a time, about 20 minutes. Play it the way you'd play any game. There's nothing to get right, and you can stop whenever you like.</p>
-      <p>When the tutorial ends, or when you stop (Menu, then Done testing), there are three short questions and a button to send your session back.</p>
+      <p>When the tutorial ends you'll be asked to play on to the season's end, the new moon, about 20 minutes more with no lessons: that part matters most. Then a few short questions, an optional two-minute picture test, and a button to send your session back. If you stop sooner, Menu, then Done testing, takes you there.</p>
       <p class="hint">What you send: your answers, what you did in the game, when you paused, opened a panel or sat idle, and your screen's size. Nothing leaves this device unless you send it.</p>
-      <div class="row"><button class="btn primary" id="test-begin" data-act="test-begin">${s.actions.length || s.day > 1 || s.phase !== 'day' || s.t > 0 ? 'Carry on' : 'Begin'}</button></div></div>`;
+      <div class="row"><button class="btn primary" id="test-begin" data-act="test-begin">${started() ? 'Carry on' : 'Begin'}</button>${started() ? '<button class="btn" id="test-stop-note" data-act="test-open">Stop here: the questions</button>' : ''}</div></div>`;
   }
+  if (ui.testPlayOn) {
+    return `<div class="card test"><h2>That's the tutorial</h2>
+      <p>Thank you. The season ends at the new moon, ${plural(Math.max(1, s.tuning.seasonDays - s.day), 'more day')} and nights from here, with no more lessons. Will you play on to it? It's the part of the test that matters most: the game without a guide.</p>
+      <p class="hint">Your keep is saved as you go. If you stop part way, Menu, then Done testing, takes you to the questions.</p>
+      <div class="row"><button class="btn primary" id="test-playon" data-act="test-playon">Play on to the new moon</button><button class="btn" id="test-stop" data-act="test-stop">Stop here</button></div></div>`;
+  }
+  if (ui.quiz && !ui.quiz.done) return quizHTML();
   const A = T.answers || {};
   const q = ([k, text]) => `<label for="test-${k}">${esc(text)}</label><textarea id="test-${k}" rows="3" data-test="${k}">${esc(A[k] || '')}</textarea>`;
+  const lead = T.sent
+    ? 'Sent: thank you. Play on if you like, and send it again at the end; the new one has everything.'
+    : ui.testBack
+      ? "Welcome back. Your answers are as you left them: send them when you're ready, or play on first."
+      : s.phase === 'over' ? 'The keep has fallen: thank you for playing it this far. A few questions, then one button.' : s.phase === 'end' ? 'The season is over: thank you for playing it through. A few questions, then one button.' : 'Thank you for playing. A few questions, then one button. Answer as many as you like.';
   return `<div class="card test"><h2>Your playtest</h2>
-    <p>${T.sent ? 'Sent: thank you. Play on if you like, and send it again at the end; the new one has everything.' : 'Thank you for playing. Three questions, then one button.'}</p>
+    <p>${lead}</p>
     ${QUESTIONS.map(q).join('')}
     <p id="test-again-q"><b>Would you keep playing?</b></p>
     <div class="row" role="group" aria-labelledby="test-again-q">
@@ -2218,17 +2237,107 @@ function testHTML() {
       <button class="btn" id="test-no" data-act="test-again" data-v="no" aria-pressed="${A.again === 'no'}">No</button>
     </div>
     <label for="test-why">What would make you, or stop you?</label><textarea id="test-why" rows="2" data-test="why">${esc(A.why || '')}</textarea>
+    ${quizCard()}
     <div class="row"><button class="btn primary" id="test-send" data-act="test-send">Send it back</button><button class="btn" id="test-copy" data-act="test-copy">Copy as text</button></div>
     ${ui.testMsg ? `<p class="note" role="status">${esc(ui.testMsg)}</p>` : ''}
     ${ui.testShow ? `<label for="test-text">Your session, as text</label><textarea id="test-text" rows="6" readonly>${esc(exportJSON())}</textarea>` : ''}
     <p class="hint">Send it back shares your session as a file where this device can, and saves the file where it can't: then send that file to whoever asked you to test. Copy as text puts the same thing on the clipboard, to paste into a message.</p>
     <div class="row"><button class="btn" id="test-on" data-act="sheet-close">Keep playing</button></div></div>`;
 }
+// Whether the tester has done anything in the keep yet.
+const started = () => s.actions.length > 0 || s.day > 1 || s.phase !== 'day' || s.t > 0;
+
+/* ---------------------------------------------------------------- the playtest kit: the glass test */
+
+// The glass test (round seven, phase 5): eight stills of a small keep's Tain, half reflected and half upright,
+// each asking one thing (quiz.js). Taken after the questions, if the tester likes. Each answer is kept in the
+// session as it's given, with how long it took and which camera the tester played in.
+let quizBase = null;
+function startQuiz() {
+  quizBase ||= quizKeep();
+  const T = s.test;
+  const seed = ((T.started || 1) % 4294967295) >>> 0 || 1;
+  T.quiz = { seed, played: prefs.mode === 'flipped' ? 'flipped' : 'reflection', results: [], done: false };
+  ui.quiz = { plan: quizPlan(seed), i: 0, shownAt: 0, img: null, feedback: null, done: false };
+  trail('quiz', { start: true });
+  saveGame();
+  bump();
+}
+function quizCurrent() {
+  const Q = ui.quiz;
+  const q = Q.plan[Q.i];
+  if (!Q.img || Q.img.i !== Q.i) {
+    const scene = quizScene(quizBase, q);
+    const cv = document.createElement('canvas');
+    drawMoment(cv, quizBase, { f: scene.f, kind: 'tide', frame: scene.frame }, { flip: q.cam === 'flipped' }); // a tide: no ring
+    Q.img = { i: Q.i, scene, url: cv.toDataURL('image/png'), w: cv.width, h: cv.height };
+    Q.shownAt = performance.now();
+  }
+  return Q.img;
+}
+function quizHTML() {
+  const Q = ui.quiz;
+  const q = Q.plan[Q.i];
+  const im = quizCurrent();
+  const fb = Q.feedback ? `<p class="quiz-fb ${Q.feedback.right ? 'good' : 'bad'}" role="status">${Q.feedback.right ? 'Right.' : 'Not that one.'}</p>` : '<p class="quiz-fb" role="status"></p>';
+  const count = q.type === 'count' ? `<div class="row quiz-count" role="group" aria-label="How many">${COUNT_CHOICES.map((n) => `<button class="btn" id="quiz-n${n}" data-act="quiz-count" data-v="${n}"${Q.feedback ? ' disabled' : ''}>${n}</button>`).join('')}</div>` : '';
+  return `<div class="card test quiz"><h2>The glass test <span class="count">${Q.i + 1} of ${Q.plan.length}</span></h2>
+    <p class="quiz-cam">${q.cam === 'flipped' ? 'The Tain turned upright' : 'The Tain as the lake shows it, upside down'}</p>
+    <p class="quiz-ask" id="quiz-ask">${esc(QUIZ_ASK[q.type])}</p>
+    <div class="quiz-still"><img id="quiz-img" src="${im.url}" width="${im.w}" height="${im.h}" alt="The Tain at night" aria-describedby="quiz-ask"${q.type === 'count' ? '' : ' data-act="quiz-tap"'}></div>
+    ${count}${fb}
+    <div class="row"><button class="btn sm" id="quiz-stop" data-act="quiz-stop">Stop the test</button></div></div>`;
+}
+function quizAnswer(given) {
+  const Q = ui.quiz;
+  if (!Q || Q.feedback) return;
+  const q = Q.plan[Q.i];
+  const right = isRight(Q.img.scene, given);
+  const ms = Math.round(performance.now() - Q.shownAt);
+  s.test.quiz.results.push({ type: q.type, cam: q.cam, right, ms, given: given ?? null });
+  trail('quiz', { type: q.type, cam: q.cam, right, ms });
+  Q.feedback = { right };
+  saveGame();
+  bump();
+  setTimeout(() => {
+    if (ui.quiz !== Q) return;
+    Q.feedback = null;
+    Q.i++;
+    if (Q.i >= Q.plan.length) {
+      Q.done = true;
+      s.test.quiz.done = true;
+      s.test.quiz.summary = quizSummary(s.test.quiz.results);
+      saveGame();
+    }
+    bump();
+  }, 700);
+}
+// A tap on the still: where it landed in the keep, and the figure nearest it.
+function quizTap(el, e) {
+  const Q = ui.quiz;
+  if (!Q || !e || !el.clientWidth) return;
+  const r = el.getBoundingClientRect();
+  const sx = ((e.clientX - r.left) * el.naturalWidth) / r.width;
+  const sy = ((e.clientY - r.top) * el.naturalHeight) / r.height;
+  const p = stillToKeep(quizBase, Q.img.scene, sx, sy, el.naturalHeight);
+  quizAnswer(tappedIn(quizBase, Q.img.scene, p));
+}
+function quizCard() {
+  const Z = s.test?.quiz;
+  if (Z?.done) {
+    const n = Z.results.filter((x) => x.right).length;
+    return `<div class="card quiz-done"><h3>The glass test</h3><p>Done, thank you: ${n} of ${Z.results.length} right.</p></div>`;
+  }
+  return `<div class="card quiz-card"><h3>The glass test</h3>
+    <p>Optional, about two minutes: eight pictures of the Tain at night, four upside down as the lake shows it and four turned upright. Each asks one thing. Tap as quickly as you can while getting it right.</p>
+    <div class="row"><button class="btn" id="quiz-start" data-act="quiz-start">${Z?.results?.length ? 'Start it again' : 'Start the glass test'}</button></div></div>`;
+}
+
 // Where a test keep's Menu and Playtest tab point: the questions.
 function testCard() {
   const T = s.test;
   if (!T) return '';
-  return `<div class="card test-menu"><p><b>You're testing.</b> ${T.sent ? 'Sent: thank you. It can be sent again after playing on.' : 'Done? Three questions, and your session goes back.'}</p>
+  return `<div class="card test-menu"><p><b>You're testing.</b> ${T.sent ? 'Sent: thank you. It can be sent again after playing on.' : answered() ? 'Your answers are kept, not sent yet.' : 'Done? A few questions, and your session goes back.'}</p>
     <div class="row"><button class="btn sm primary" id="test-done" data-act="test-open">${T.sent ? 'Send it again' : 'Done testing'}</button></div></div>`;
 }
 const testFile = () => {
@@ -2450,7 +2559,7 @@ function watchHTML() {
       : '';
   const A = T?.answers || {};
   const answers = T
-    ? `<div class="card"><h3>Their answers</h3><dl class="wans">${QUESTIONS.map(([k, q]) => `<dt>${esc(q)}</dt><dd>${esc(A[k] || '—')}</dd>`).join('')}<dt>Would you keep playing?</dt><dd>${A.again === 'yes' ? 'Yes' : A.again === 'no' ? 'No' : '—'}${A.why ? `. ${esc(A.why)}` : ''}</dd></dl>${T.sent ? '' : '<p class="hint">They never pressed Send: this came some other way.</p>'}</div>`
+    ? `<div class="card"><h3>Their answers</h3><dl class="wans">${QUESTIONS.map(([k, q]) => `<dt>${esc(q)}</dt><dd>${esc(A[k] || '—')}</dd>`).join('')}<dt>Would you keep playing?</dt><dd>${A.again === 'yes' ? 'Yes' : A.again === 'no' ? 'No' : '—'}${A.why ? `. ${esc(A.why)}` : ''}</dd></dl><p class="note">${T.playOn === true ? 'After the tutorial they chose to play on to the new moon.' : T.playOn === false ? 'After the tutorial they chose to stop.' : 'They never reached the end of the tutorial.'}</p>${T.sent ? '' : '<p class="hint">They never pressed Send: this came some other way.</p>'}</div>${quizSeen(T.quiz)}`
     : '';
   const asked = (x.seasons || []).filter((e) => e.answer || e.note);
   const seasonQ = asked.length ? `<div class="card"><h3>The season's question</h3><ul>${asked.map((e) => `<li>Season ${esc(String(e.season))}: ${e.answer === 'again' ? 'would play another' : e.answer === 'stop' ? "would stop" : 'no answer'}${e.note ? `. ${esc(e.note)}` : ''}</li>`).join('')}</ul></div>` : '';
@@ -2465,6 +2574,17 @@ function watchHTML() {
     <div class="card"><h3>What happened</h3><p class="hint">On the timeline, the game's moments are above (deaths, cracks and catches in red) and the tester's below (pauses in blue, idle stretches and time away in violet). Tap one here to go to it; ◀ and ▶ (or [ and ]) step between them.</p>
       ${list ? `<ol class="wlist">${list}</ol>${stops.length > 400 ? `<p class="hint">And ${stops.length - 400} more.</p>` : ''}` : '<p>Nothing marked.</p>'}</div>
   </section>`;
+}
+// The glass test's results, per camera, for the viewer (round seven, phase 5).
+function quizSeen(Z) {
+  if (!Z?.results?.length) return '';
+  const sum = quizSummary(Z.results);
+  const row = (cam, name) => {
+    const c = sum.byCam[cam];
+    return c.n ? `<li>${name}: ${c.right} of ${c.n} right, ${c.ms != null ? `${(c.ms / 1000).toFixed(1)} s` : '—'} each (the median)</li>` : '';
+  };
+  const each = Z.results.map((x) => `${x.cam === 'flipped' ? 'upright' : 'reflected'}, ${x.type}: ${x.right ? 'right' : 'wrong'} in ${(x.ms / 1000).toFixed(1)} s`).join('; ');
+  return `<div class="card"><h3>The glass test</h3><p class="note">They played with the Tain ${Z.played === 'flipped' ? 'turned upright' : 'reflected'}${Z.done ? '' : `, and stopped after ${Z.results.length} of 8`}.</p><ul>${row('reflection', 'Reflected')}${row('flipped', 'Upright')}</ul><p class="hint">${esc(each)}.</p></div>`;
 }
 // In Saves: a tester's session to watch, from their file or as pasted text.
 function watchCard() {
@@ -3001,6 +3121,13 @@ window.__season = {
     return w && { u: w.c.u, total: w.idx.total, playing: w.playing, speed: w.speed, done: w.c.done, marks: w.idx.marks.length, caption: w.caption, off: w.idx.off, differs: w.idx.differs };
   },
   get line() { return lineSpots(); },
+  // The glass test's question on screen: its kind, its answer, and where each figure is on the still.
+  get quiz() {
+    const Q = ui.quiz;
+    if (!Q || Q.done || !Q.img || Q.feedback) return null;
+    const sc = Q.img.scene;
+    return { i: Q.i, type: sc.type, cam: sc.cam, answer: sc.answer, figures: figuresOf(quizBase, sc).map((u) => ({ id: u.id, ...keepToStill(quizBase, sc, u.cx, u.cy, Q.img.h) })) };
+  },
   room(type) {
     const r = roomSpan(K(), type);
     return r ? { f: r.f, x: Math.round((r.x0 + r.x1) / 2) } : null;
@@ -3442,6 +3569,9 @@ function openSheet(name, by = 'you') {
 function closeSheet() {
   markRead();
   const was = ui.sheet;
+  if (was === 'test' && s.test && !s.test.sent && !ui.watch && (answered() || s.test.quiz?.results?.length) && !ui.testNote) toast('Your answers are kept. When you are done, Menu, then Done testing, sends them.', 'rite');
+  ui.quiz = null;
+  ui.testBack = false;
   ui.sheet = null;
   ui.confirmSlot = null;
   ui.slotMsg = '';
@@ -4018,6 +4148,7 @@ function showCoach(step, force = false) {
     s.test.asked = true;
     saveGame();
     ui.testNote = false;
+    ui.testPlayOn = !s.test.sent;
     openSheet('test', 'game');
   }
   bump();
@@ -4173,6 +4304,14 @@ function onPhase() {
     if (s.dusk.step !== 'crypt' && ui.sheet === 'phase') closeSheet();
   } else if (s.phase === 'dawn' || s.phase === 'end' || s.phase === 'over') openSheet('phase', 'game');
   else if (ui.sheet === 'phase') closeSheet();
+  // A tester who played on is asked at the season's end, or when the keep falls, whichever comes first.
+  if ((s.phase === 'end' || s.phase === 'over') && s.test && !s.test.endAsked) {
+    s.test.endAsked = true;
+    ui.testNote = false;
+    ui.testPlayOn = false;
+    ui.quiz = null;
+    openSheet('test', 'game');
+  }
   if (s.phase !== 'night' && s.phase !== 'dusk') ui.selected = null;
   if (!placing()) ui.kb = null;
 }
@@ -4625,7 +4764,7 @@ const toStage = () => {
   if (!wide()) closeSheet();
 };
 
-function onAct(name, el) {
+function onAct(name, el, ev) {
   const id = el.dataset.id;
   switch (name) {
     case 'play': return togglePlay();
@@ -4998,9 +5137,30 @@ function onAct(name, el) {
       return closeSheet();
     case 'test-open':
       ui.testNote = false;
+      ui.testPlayOn = false;
+      ui.quiz = null;
       ui.testMsg = '';
       ui.testShow = false;
       return openSheet('test');
+    case 'test-playon':
+      s.test.playOn = true;
+      ui.testPlayOn = false;
+      trail('test', { playOn: true });
+      saveGame();
+      return closeSheet();
+    case 'test-stop':
+      s.test.playOn = false;
+      ui.testPlayOn = false;
+      trail('test', { playOn: false });
+      saveGame();
+      return bump();
+    case 'quiz-start': return startQuiz();
+    case 'quiz-tap': return quizTap(el, ev);
+    case 'quiz-count': return quizAnswer(Number(el.dataset.v));
+    case 'quiz-stop':
+      ui.quiz = null;
+      trail('quiz', { stop: true });
+      return bump();
     case 'test-here': return beginTest(saves.current, ui.testAsk?.label);
     case 'test-again':
       s.test.answers = { ...(s.test.answers || {}), again: s.test.answers?.again === el.dataset.v ? null : el.dataset.v };
@@ -5055,7 +5215,7 @@ document.addEventListener('click', (e) => {
   const sum = e.target.closest('details[data-keep] > summary');
   if (sum) ui.open[sum.parentElement.dataset.keep] = !sum.parentElement.open;
   const el = e.target.closest('[data-act]');
-  if (el && !el.matches('select, input, textarea')) onAct(el.dataset.act, el);
+  if (el && !el.matches('select, input, textarea')) onAct(el.dataset.act, el, e);
 });
 document.addEventListener('change', (e) => {
   const el = e.target.closest('[data-act]');
@@ -5312,8 +5472,12 @@ else if (params.has('watch')) {
   openSheet('menu', 'game');
   requestAnimationFrame(() => document.getElementById('watch-load')?.scrollIntoView({ block: 'start' }));
 } else if (s.test && !s.test.sent) {
-  // A tester part way through: straight back to the keep under test, as the link itself does.
-  if (waiting()) openSheet('phase', 'game');
+  // A tester part way through: straight back to the keep under test, as the link itself does. One who had
+  // reached the questions, or chosen to stop, is asked to send what they have.
+  if (s.test.endAsked || s.test.playOn === false || answered()) {
+    ui.testBack = true;
+    openSheet('test', 'game');
+  } else if (waiting()) openSheet('phase', 'game');
 } else openTitle('game');
 if (retuned) toast(`This version changed ${retuned} of the keep's numbers; yours from Settings are kept.`, 'rite');
 if (bootError) crash(bootError, 'load');

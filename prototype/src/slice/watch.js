@@ -209,6 +209,7 @@ function trailMarks(x, segs, total) {
     else if (e.k === 'idle') out.push({ ...m, kind: 'idle', ms: e.ms, text: `Sat idle for ${secs(e.ms)} s.` });
     else if (e.k === 'away') out.push({ ...m, kind: 'away', ms: e.ms, text: `Left the page for ${secs(e.ms)} s.` });
     else if (e.k === 'lesson') out.push({ ...m, kind: 'lesson', text: `Lesson: ${e.text || e.id}` });
+    else if (e.k === 'test') out.push({ ...m, kind: 'lesson', text: e.playOn ? 'Chose to play on to the new moon.' : 'Chose to stop after the tutorial.' });
     else if (e.k === 'refused') out.push({ ...m, kind: 'refused', text: `Refused (${e.type}): ${e.error}` });
     else if (e.k === 'skip' || e.k === 'rush') out.push({ ...m, kind: 'skip', text: e.k === 'skip' ? 'Skipped ahead.' : 'Hurried to dusk.' });
   }
