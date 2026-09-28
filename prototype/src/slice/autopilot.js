@@ -10,7 +10,7 @@
 // on the line for the biggest tides when the essence is there, and a fighter to meet a Maw. They move a
 // shade only along a lit floor; where its way is dark it stays.
 
-import { bareHalls, buildSpot, raiseCost, step, act, newSeason, ritePreview, crossingPreview, capacity, canWork, defense, funeralCap, choicesFor, jobCap, jobCount, eatRate, wardCost, livingTrait, shadeTrait, peopleIn, crowded, tradeOf, inGreatGlass, handsAt, seasonIndex, tributeOf, besieged, sallyOdds, embargoed, inquisition, crusadeDaysLeft, canAct, actOf, actCost, NEW_ROOMS, atTheGate, gatehouseOf, decreeOf, undergateMouth } from './sim.js';
+import { bondedShade, postRoom, bareHalls, buildSpot, raiseCost, step, act, newSeason, ritePreview, crossingPreview, capacity, canWork, defense, funeralCap, choicesFor, jobCap, jobCount, eatRate, wardCost, livingTrait, shadeTrait, peopleIn, crowded, tradeOf, inGreatGlass, handsAt, seasonIndex, tributeOf, besieged, sallyOdds, embargoed, inquisition, crusadeDaysLeft, canAct, actOf, actCost, NEW_ROOMS, atTheGate, gatehouseOf, decreeOf, undergateMouth } from './sim.js';
 import { DAY_ROOMS, MIRRORS, KINDS, MAP, TICKS_PER_SEC, VISITORS, STUDIES } from './data.js';
 import { geo, roomSpan, roomAt, roomsOf, lineSpots, lightMap, isLit } from './geo.js';
 
@@ -828,15 +828,33 @@ function rite(s, plan) {
 /* ---------------------------------------------------------------- the loop */
 
 // The eclipse the autopilot has met with its night's posts and candles (round six): it meets one as it meets a
-// night, at the sun's going dark, and tends it as it tends a night, while the day's moves go on.
+// night, at the sun's going dark, and tends it as it tends a night, while the day's moves go on. For measuring:
+// AP_ECLIPSE=ignore leaves it be (the shades at last night's posts, no candles), and AP_SIDE=1 posts each
+// shade bonded to one of the living in the twin of that one's room, side by side, off the line.
 const metEclipse = new WeakMap();
+const ECLIPSE = globalThis.process?.env?.AP_ECLIPSE || '';
+const SIDE = !!globalThis.process?.env?.AP_SIDE;
+function sideBySide(s) {
+  const G = geo(s);
+  const LINE = lineOf(s);
+  for (const p of s.living) {
+    const d = bondedShade(s, p);
+    if (!d || !canWork(d) || !p.job || LINE.some((st) => d.post.f === st.f && Math.abs(d.post.x - st.x) <= 3)) continue;
+    const r = roomsOf(G, p.job)[0];
+    if (!r || postRoom(s, d) === p.job) continue;
+    const x = Math.round((r.x0 + r.x1) / 2);
+    if (!doAct(s, { type: 'move', id: d.id, f: r.f, x })) continue;
+    if (s.res.candles > 2 && !s.night.candles.some((c) => c.f === r.f && roomAt(G, c.f, c.x) === r.id)) doAct(s, { type: 'candle', f: r.f, x });
+  }
+}
 export function autoStep(s, plan = 'balanced') {
   const way = plan === 'double' ? 'balanced' : plan; // how the dead are treated
   if (s.phase === 'day') {
-    if (s.eclipse && plan !== 'idle') {
+    if (s.eclipse && plan !== 'idle' && ECLIPSE !== 'ignore') {
       if (metEclipse.get(s) !== s.eclipse) {
         metEclipse.set(s, s.eclipse);
         placeNight(s, plan);
+        if (SIDE) sideBySide(s);
       } else if (s.t % 10 === 0) tendNight(s, plan);
     }
     if (s.t % 50 === 0 || (s.raid?.warned && s.raid.state === 'coming' && !s.raid.ward)) dayMoves(s);

@@ -14,6 +14,11 @@ const days = (x) => {
 };
 const pct = (x) => `${Math.round(x * 100)}%`;
 const mult = (x) => String(Math.round(x * 100) / 100);
+// A share of the day as the clock shows it, from 06:00 to 18:00.
+const hour = (x) => {
+  const h = 6 + 12 * x;
+  return `${String(Math.floor(h)).padStart(2, '0')}:${String(Math.floor((h % 1) * 6) * 10).padStart(2, '0')}`;
+};
 
 // The weather (round five), in the keep's numbers.
 function weather(T) {
@@ -187,6 +192,7 @@ export function howTo(T) {
         `On the night of the new moon the Hollow rises. It walks to the mirrors whatever the light, eating the light around it. A ward on a stair holds it ${T.wardHold} seconds; shades fighting it drive it back. If it reaches the Veil, it tears through and takes one of the living.`,
         `The seasons turn from spring. Summer's days are ×${mult(T.seasonDay[1])} as long and its nights ×${mult(T.seasonNight[1])}; winter's the other way, ×${mult(T.seasonDay[3])} and ×${mult(T.seasonNight[3])}, and a day's work grows and shrinks with it. Winter's seventh night is the Long Night, ${n1(T.longNight)} winter nights long, with the Hollow and a Maw; at its end the year ends.`,
         `When a year ends you choose how: keep the watch into a harder year; take your own place in the glass, as a Loyal, named, Anchored shade who weighs ${T.keeperDread} shades' Dread at every rite, while a new keeper goes on; or seal the Veil, and every shade goes free and the keep's story ends.`,
+        ...(T.eclipse && T.year ? [`Once a year, at ${T.eclipseAt === 0.5 ? 'noon' : hour(T.eclipseAt)} on midsummer (summer's day ${T.eclipseDay}), the sun goes dark for ${n1(T.eclipseSecs)} seconds and the Tain wakes while the day goes on: the living work and the Host comes to the gate while ${pct(T.eclipseCreepers)} of a night's Creepers climb from the rifts in one tide. The castle shows both halves; tap below the Veil to set candles and move the shades, as at night. A living person and their dead, the shade posted in the twin of the living one's room, work and fight ×${mult(T.eclipseTwin)} while it lasts, and one who stands beside their dead through half of it is at peace after. Anyone who dies in the dark wakes at once, with no funeral. When the sun comes back the Unlit left in the Tain burn away, candles still half whole go back to the store, and the Veil's cracks count at the next rite.`] : []),
         ...(T.plague ? [`Summer brings plague: in a crowded keep, sickness takes one more for every ${T.plagueCrowd} living beyond the beds at once. Beds in Quarters, and healers, are what answer it.`] : []),
         ...(T.generations ? [`From the second year the keep has generations. Each spring the living age: a child comes of age and can work, the young grow up, and an adult grows old ${pct(T.oldChance)} of the time; the unwed pair off. Each season a couple, neither old, has a child ${pct(T.birthChance)} of the time while there's room. Children don't work and shelter inside from the Host, but they starve first. The old die in their sleep and wake Serene, so in time everyone you started with works nights.`] : []),
         ...(T.siege ? [`Autumn brings a siege: unless its day-2 raid is paid off, the Host makes camp outside for ${T.siegeDays} days. The gate is shut, so nobody quarries in the Yard and no one new comes, and on day 3 the camp comes at the gate. The guards can sally out to break it: the better your defense against the camp, the better the odds, and each guard risks ${pct(T.raidPursueRisk)}.`] : []),

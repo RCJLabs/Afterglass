@@ -402,6 +402,8 @@ label.btn { display: inline-flex; align-items: center; }
 .tclock .mk-drowned { background: #6fb6ff; top: 3px; }
 .tclock .mk-sleeper { background: #e8e2d0; top: 3px; }
 .tclock .mk-dawn { background: #f2c14e; margin-left: -3px; }
+.tclock .mk-sun { background: #f2c14e; margin-left: -3px; }
+.tclock.eclipse { border-color: #6a4fc0; }
 /* Tonight's omen at dusk, and the two to choose between. */
 .omen .k { font-weight: 700; }
 .omen-pick { display: grid; gap: 6px; margin-top: 6px; }

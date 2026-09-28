@@ -28,7 +28,8 @@ export function epitaph(e, { traits = false } = {}) {
   out.push(e.from === 'before' ? `${capital(e.how)} before you came.` : `${capital(e.how)} ${whenText(e.season, e.day)}.`);
   const woke = { funeral: 'Was given a funeral and laid to rest.', overflow: 'Woke Restless, for no mirror had room.', restless: 'Woke Restless at the edge of the Deep.', wraith: 'Woke as a Wraith.', taken: 'There was no body to wake.', stolen: 'A grave robber carried the body off before dusk, and it never woke.' }[e.woke];
   if (woke) out.push(woke);
-  else if (e.woke && e.from !== 'before') out.push(`Woke ${KINDS[e.woke]?.name || e.woke} in the glass.`);
+  else if (e.woke && e.from !== 'before') out.push(`Woke ${KINDS[e.woke]?.name || e.woke} in the glass${e.eclipse ? ', at once, in the eclipse' : ''}.`);
+  if (woke && e.eclipse) out.push('It was the eclipse: the dead did not wait for dusk.');
   else if (!e.woke) out.push('Lies in the crypt, waiting for dusk.');
   // Traits: what they were in life, and, if they woke in the glass, what death made of it.
   const T = traits && TRAITS[e.was];

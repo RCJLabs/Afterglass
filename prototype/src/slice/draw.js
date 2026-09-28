@@ -410,6 +410,8 @@ const WINTER_SKY = [[-9999, '#8fa6c8'], [-60, '#b4c6dc'], [40, '#dbe5ef']];
 const SUNSET_SKY = [[-9999, P.indigo], [-120, P.grape], [-30, P.mauve], [30, P.pink], [70, P.amber]];
 const NIGHT_SKY = [[-9999, '#07060d'], [-120, P.void], [-30, P.night], [40, P.ink], [84, P.indigo]];
 // The Tain's own sky, by upright row: the deeper, the darker.
+// The eclipse (round six): noon gone dark, bluer than night, and lightest low down where the sky still glows.
+const ECLIPSE_SKY = [[-9999, '#06050e'], [-150, '#0c0b1e'], [-60, '#171636'], [10, '#27244a'], [64, '#433a5e']];
 const TAIN_SKY = [[-9999, '#040308'], [-60, '#07050c'], [0, '#0e0b18'], [36, '#150f28'], [72, '#1b1430']];
 
 function bands(c, x0, w, y0, y1, stops) {
@@ -1066,7 +1068,7 @@ function lightFor(s, hollow, ambient) {
 // dusk), cursor ({ f, x }, the keyboard's). t is 0 with less motion: nothing marches or blinks, and what
 // blinks stays on.
 // A shade's act as the Tain shows it: what it's doing now, if anything.
-const actNow = (s, d) => (d.act && s.phase === 'night' && s.t < d.act.until ? d.act.what : null);
+const actNow = (s, d) => (d.act && (s.phase === 'night' || !!s.eclipse) && s.t < d.act.until ? d.act.what : null);
 function composeTain(s, t, opts = {}) {
   const L = layers();
   const y0 = L.y0;
@@ -1384,6 +1386,19 @@ function nightScene(c, w, h, s, v) {
     if (skyOf(s) === 'fog') fog(c, cx, w, cy, VEIL, '#3a4150', 0.5);
     c.setTransform(1, 0, 0, 1, 0, 0);
   }
+  tainBelow(c, w, h, s, v);
+  const vy = VEIL - cy;
+  if (vy >= 0 && vy < h) {
+    R(c, 0, vy, w, 1, P.mauve);
+    if (v.veilFlash > 0) A(c, v.veilFlash, () => R(c, 0, vy - 1, w, 3, P.hot));
+  }
+}
+
+// The Tain under the Veil, as the lake reflects it: by night, and in the eclipse.
+function tainBelow(c, w, h, s, v) {
+  const L = layers();
+  const { x: cx, y: cy } = v.cam;
+  const t = v.t;
   const below = cy + h - VEIL;
   if (below > 0) {
     // The rows under the Veil, as the upright Tain has them: world row wy is upright row 2 VEIL - 1 - wy.
@@ -1402,6 +1417,35 @@ function nightScene(c, w, h, s, v) {
     c.drawImage(un, 0, 0);
     c.setTransform(1, 0, 0, 1, 0, 0);
   }
+}
+
+// The sun gone dark: a black disc in a ring of pale fire.
+function darkSun(c, x, y, t) {
+  glow(c, x, y, 18, '#e8dcff', 0.16 + 0.04 * Math.sin(t * 1.3));
+  ellipse(c, x, y, 8, 8, '#fff2d2');
+  ellipse(c, x, y, 7, 7, '#07060d');
+}
+
+// The eclipse (round six): both halves at once. Above the Veil the keep at noon under a dark sun, the living at
+// work and the Host at the gate; below it the Tain, awake.
+function eclipseScene(c, w, h, s, v) {
+  const L = layers();
+  const { x: cx, y: cy } = v.cam;
+  const t = v.t;
+  if (VEIL > cy) {
+    c.setTransform(1, 0, 0, 1, -cx, -cy);
+    bands(c, cx, w, cy, VEIL, ECLIPSE_SKY);
+    A(c, 0.6, () => stars(c, cx, w, cy, VEIL - 40, t, '#b8b0e0'));
+    darkSun(c, W - 20, Math.min(VEIL - 64, L.y0 - 14), t);
+    ridge(c, cx, w, RIDGES.far, '#232a44');
+    ridge(c, cx, w, RIDGES.near, '#29324a');
+    c.drawImage(L.keep, 0, L.y0);
+    A(c, 0.55, () => c.drawImage(L.nightKeep, 0, L.y0));
+    dayActors(c, s, t, 0);
+    if (skyOf(s) === 'rain') A(c, 0.45, () => rain(c, cx, w, cy, VEIL, t, '#6d7f99'));
+    c.setTransform(1, 0, 0, 1, 0, 0);
+  }
+  tainBelow(c, w, h, s, v);
   const vy = VEIL - cy;
   if (vy >= 0 && vy < h) {
     R(c, 0, vy, w, 1, P.mauve);
@@ -1419,7 +1463,8 @@ export function drawScene(out, s, v) {
   c.setTransform(1, 0, 0, 1, 0, 0);
   c.globalAlpha = 1;
   c.clearRect(0, 0, target.width, target.height);
-  if (v.night) nightScene(c, target.width, target.height, s, v);
+  if (v.eclipse) eclipseScene(c, target.width, target.height, s, v);
+  else if (v.night) nightScene(c, target.width, target.height, s, v);
   else dayScene(c, target.width, target.height, s, v);
   if (v.flip) {
     const o = ctxOf(out);

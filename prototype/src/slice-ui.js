@@ -11,6 +11,7 @@ import {
   weatherOf, forecastOf, raining, foggy, drownedDue, keepDefaults, embargoed, inquisition, churchDaysLeft, crusadeDay, crusadeDaysLeft,
   actOf, actCost, canAct, acting, actText, omenText, nextMark, SKIP_LEAD, visitorBlock,
   raiseCost, buildSpot, NEW_ROOMS, learned, decreeOf, gatehouseOf, undergateOpen, laddersDue, actsFor, mirrorGlass, pitchOf,
+  eclipseDue, eclipseSpan, bondedShade,
 } from './slice/sim.js';
 import { geo, feet, floorAtY, roomAt, typeAt, typeOf, roomSpan, roomsOf, lightMap, isLit, unitAt, DEEP_FLOOR, lineSpots as lineOf, guardLit, MAX_FLOORS } from './slice/geo.js';
 import { drawScene, drawMoment } from './slice/draw.js';
@@ -150,6 +151,11 @@ const nightView = () => {
   if (s.phase === 'dusk' && (ui.cross || s.dusk.step === 'crypt')) return false;
   return true;
 };
+// The eclipse (round six): noon on midsummer, when the day goes on and the Tain wakes with it. The castle shows
+// both halves at once, the keep above the Veil and the Tain below, and a tap on either acts there.
+const eclipseNow = () => s.phase === 'day' && !!s.eclipse;
+// The castle's view: the keep by day, the Tain by night, or both in the eclipse.
+const viewMode = () => (eclipseNow() ? 'both' : nightView() ? 'night' : 'day');
 
 /* ---------------------------------------------------------------- words */
 
@@ -221,7 +227,7 @@ function shadeStatus(d, L) {
   if (d.hidden) return 'hidden away with its mirror until the crusade is over';
   if (!canWork(d)) return d.kind === 'wraith' ? 'hunts in the Tain at night' : `Restless, ${s.tuning.restlessNights - d.restless} ${s.tuning.restlessNights - d.restless === 1 ? 'night' : 'nights'} from Wraith`;
   const room = typeAt(K(), d.f, d.x) || postRoom(s, d);
-  if (s.phase !== 'night') return `posted in the ${roomName(postRoom(s, d), true)}`;
+  if (s.phase !== 'night' && !eclipseNow()) return `posted in the ${roomName(postRoom(s, d), true)}`;
   if (d.grabbedBy) return 'caught!';
   if (acting(s, d, 'stand')) return 'standing its ground';
   if (acting(s, d, 'pass')) return 'passing unseen';
@@ -244,10 +250,11 @@ function shadeStatus(d, L) {
 
 // The tide clock (round six): the night from dusk to dawn, a mark for each tide, Maw, the Hollow, each of the
 // Drowned and a sleepwalker's hour, and the night so far filling it.
-const markTime = (m) => hhmm(18 + (12 * m.at) / nightTicks(s));
+const markTime = (m) => (s.phase === 'day' ? hhmm(6 + (12 * m.at) / dayTicks(s)) : hhmm(18 + (12 * m.at) / nightTicks(s)));
 function markText(m) {
   const at = markTime(m);
   return {
+    sun: () => `the sun back at ${at}`,
     tide: () => `a tide of ${m.count} at ${at}`,
     maw: () => `a Maw at ${at}`,
     hollow: () => `the Hollow at ${at}`,
@@ -257,11 +264,13 @@ function markText(m) {
   }[m.kind]();
 }
 function tideClock() {
-  const marks = s.phase === 'night' && s.night?.marks;
+  const e = eclipseNow() && s.eclipse;
+  const marks = (s.phase === 'night' || e) && s.night?.marks;
   if (!marks) return '';
-  const N = nightTicks(s);
-  return `<div class="tclock" role="img" aria-label="Tonight: ${esc(listOf(marks.filter((m) => m.kind !== 'dawn').map(markText)))}, then dawn">
-    <i class="tfill" data-bar="clock"></i>${marks.map((m) => `<b class="mk mk-${m.kind}" style="left:${((100 * m.at) / N).toFixed(2)}%" title="${esc(upper(markText(m)))}"></b>`).join('')}
+  const [a, N] = e ? [e.from, e.to - e.from] : [0, nightTicks(s)];
+  const label = e ? `The eclipse: ${esc(listOf(marks.map(markText)))}` : `Tonight: ${esc(listOf(marks.filter((m) => m.kind !== 'dawn').map(markText)))}, then dawn`;
+  return `<div class="tclock${e ? ' eclipse' : ''}" role="img" aria-label="${label}">
+    <i class="tfill" data-bar="tclock"></i>${marks.map((m) => `<b class="mk mk-${m.kind}" style="left:${((100 * (m.at - a)) / N).toFixed(2)}%" title="${esc(upper(markText(m)))}"></b>`).join('')}
   </div>`;
 }
 
@@ -271,7 +280,7 @@ function hudHTML() {
   const go = running() && !ui.paused;
   const res = (id, long, short, v) => `<div><dt><span class="long">${long}</span><span class="short">${short}</span></dt><dd><b data-live="${id}">${v}</b></dd></div>`;
   return `<div class="ghud-row">
-    <div class="clock ${PH[s.phase]}"><span class="pill">${phaseLabel()}</span><span class="time" data-live="clock">${clockText()}</span><span class="bar" aria-hidden="true"><i data-bar="clock"></i></span></div>
+    <div class="clock ${eclipseNow() ? 'is-night' : PH[s.phase]}"><span class="pill">${eclipseNow() ? 'The eclipse' : phaseLabel()}</span><span class="time" data-live="clock">${clockText()}</span><span class="bar" aria-hidden="true"><i data-bar="clock"></i></span></div>
     <div class="gctl">${ui.watch ? `<span class="pill watching">Watching</span><button class="btn sm" id="w-exit-hud" data-act="w-exit">Exit</button>` : `
       <button class="btn sm" id="btn-play" data-act="play"${running() ? '' : ' disabled'}>${go ? 'Pause' : 'Play'}</button>
       <div class="seg" role="group" aria-label="Speed">${[1, 2, 4].map((v) => `<button class="btn sm" id="speed-${v}" data-act="speed" data-v="${v}" aria-pressed="${prefs.speed === v}">${v}×</button>`).join('')}</div>
@@ -317,11 +326,17 @@ const SHEET_NAME = () =>
 
 function barHTML() {
   if (ui.watch) return watchBarHTML();
-  const place = s.phase === 'night' || (s.phase === 'dusk' && s.dusk.step === 'place');
+  const place = s.phase === 'night' || (s.phase === 'dusk' && s.dusk.step === 'place') || eclipseNow();
   const tool = (id, label) => `<button class="btn sm" id="tool-${id}" data-act="tool" data-tool="${id}" aria-pressed="${ui.tool === id}">${label}</button>`;
   const flip = `<button class="btn sm" id="btn-flip" data-act="flip" aria-pressed="${prefs.mode === 'flipped'}" title="Turn the Tain upright (V)">Flip</button>`;
   let tools = '';
-  if (s.phase === 'day') {
+  if (eclipseNow()) {
+    tools = `${tool('candle', `Candle ${floor1(s.res.candles)}`)}${tool('move', 'Move')}${tool('ward', `Ward ${fmt(wardCost(s))}`)}`;
+    const d = s.tuning.acts ? byId(s.shades, ui.selected) : null;
+    const a = d && canWork(d) && actOf(d);
+    if (a) tools += `<button class="btn sm act" id="btn-act" data-act="shade-act" data-id="${d.id}"${canAct(s, d) ? '' : ' disabled'} title="${ACTS[a].name} (A)">${ACTS[a].name}${(d.acted || 0) >= actsFor(s, d) ? ': spent' : ` −${fmt(actCost(s, d))}`}</button>`;
+    tools += `<button class="btn sm" id="btn-build" data-act="sheet" data-sheet="build" aria-pressed="${ui.sheet === 'build'}" title="Raise, tear down or move a room (B)">Build</button>`;
+  } else if (s.phase === 'day') {
     tools = `<button class="btn sm" id="btn-rush" data-act="rush" aria-pressed="${ui.rush}">${ui.rush ? 'Hurrying…' : 'Hurry to dusk'}</button>`;
     tools += `<button class="btn sm" id="btn-build" data-act="sheet" data-sheet="build" aria-pressed="${ui.sheet === 'build'}" title="Raise, tear down or move a room (B)">Build</button>`;
   }
@@ -346,7 +361,7 @@ function barHTML() {
   const menu = [['phase', SHEET_NAME(), attention()], ['people', 'People', false], ['records', 'Records', false], ['menu', 'Menu', false]]
     .map(([k, label, dot]) => `<button class="btn sm gm" id="open-${k}" data-act="sheet" data-sheet="${k}" aria-pressed="${ui.sheet === k}" aria-controls="sheet">${label}${dot ? '<span class="dot" aria-label="needs you"></span>' : ''}</button>`)
     .join('');
-  return `<div class="gtools ${PH[s.phase]}">${tools}</div><div class="gmenu">${menu}</div>`;
+  return `<div class="gtools ${eclipseNow() ? 'is-night' : PH[s.phase]}">${tools}</div><div class="gmenu">${menu}</div>`;
 }
 
 function hintText() {
@@ -357,7 +372,9 @@ function hintText() {
   if (ui.sheet && !wide()) return '';
   if (s.phase === 'day') {
     const p = byId(s.living, ui.person);
-    return p ? `${p.name}: tap a room to put ${p.name} to work there.` : ui.rush ? '' : 'Jobs are in People. Or pick a name there, then tap a room.';
+    if (p) return `${p.name}: tap a room to put ${p.name} to work there.`;
+    if (!eclipseNow()) return ui.rush ? '' : 'Jobs are in People. Or pick a name there, then tap a room.';
+    if (!kbAt() && !ui.selected && ui.tool === 'move') return 'The eclipse: below the Veil, tap a shade to pick it, then where it should stand. The day goes on above.';
   }
   if (s.phase === 'dusk' && s.dusk.step === 'crypt') return 'The dead wake first. Choose funerals in the Crossing panel, or let them wake.';
   if (s.phase === 'dawn' || s.phase === 'end' || s.phase === 'over') return '';
@@ -365,7 +382,7 @@ function hintText() {
   const d = byId(s.shades, ui.selected);
   if (ui.tool === 'candle') {
     return s.res.candles >= 1
-      ? `Tap a floor to set a candle. It lights its own room; the Unlit can't enter the light.`
+      ? `${eclipseNow() ? 'The eclipse: tap a floor below the Veil' : 'Tap a floor'} to set a candle. It lights its own room; the Unlit can't enter the light.`
       : 'No candles left. The Chandlery makes them by day; the Wick Room saves them at night.';
   }
   if (ui.tool === 'ward') return `Tap a stair or a rift${raining(s) ? ", or an end of the moat's twin under the Veil," : ''} to seal it until dawn (${fmt(wardCost(s))} essence${wardCost(s) < T.wardCost ? ', cheaper while a Bitter shade stays' : ''}). The Hollow breaks a ward in ${T.wardHold} s.`;
@@ -755,6 +772,7 @@ function dayPanel() {
     ${s.day === 1 ? seasonNote() : ''}
     ${s.daily && s.season === 1 && s.day === 1 ? `<p class="note">This is the keep of ${esc(dayText(s.daily))}: everyone who plays it gets this same keep, on the same rules.</p>` : ''}
     ${weatherNotes()}
+    ${eclipseCard()}
     ${fireCards()}
     ${visitorCards()}
     ${siegeCard()}
@@ -772,6 +790,33 @@ function dayPanel() {
     <div class="card"><h3>Work today</h3><ul class="facts">${rows}</ul></div>
     ${deadByDay()}
     <div class="card"><h3>The mirrors</h3><p class="note">Each shade needs a place in a mirror. With no room, the dead wake Restless. Breaking one, in an emergency, frees everyone in it at once and lowers Dread, at the price of the mirror and ${s.tuning.badLuckDays} days of bad luck.</p>${mirrorsHTML()}${buildRow()}</div>`;
+}
+
+// The eclipse (round six): midsummer's morning, the dark itself, and what it left.
+function eclipseCard() {
+  const T = s.tuning;
+  if (!eclipseDue(s)) return '';
+  const e = s.today.eclipse;
+  if (e) {
+    const woke = e.woke.map((id) => byId(s.shades, id)?.name || s.ledger.find((x) => x.id === id)?.name).filter(Boolean);
+    return `<div class="card eclipse"><h3>The eclipse is over</h3><p>${plural(e.spawned, 'Creeper')} climbed in the dark: ${e.killed} cut down${e.burned ? `, ${e.burned} burned away when the sun came back` : ''}${e.cracks ? `, and the Veil cracked ${plural(e.cracks, 'time')}: ${e.cracks === 1 ? 'it counts' : 'they count'} at the next rite` : ''}.${e.back ? ` ${plural(e.back, 'candle')} came back to the store.` : ''}</p>${woke.length ? `<p class="note">Woke at once: ${esc(listOf(woke))}.</p>` : ''}${e.side.length ? `<p class="note good">Stood beside their dead, and at peace: ${esc(listOf(e.side))}.</p>` : ''}</div>`;
+  }
+  // Who stands beside their dead: a living one working a room, their shade posted in its twin.
+  const pairs = s.living.map((p) => [p, bondedShade(s, p)]).filter(([p, d]) => d && canWork(d) && p.job);
+  const side = pairs.filter(([p]) => isTwinnedLiving(s, p));
+  const apart = pairs.filter(([p]) => !isTwinnedLiving(s, p));
+  const pairText = `${side.length ? `Side by side now: ${esc(listOf(side.map(([p, d]) => `${p.name} and ${d.name}`)))}. ` : ''}${apart.length ? `Bonded but apart: ${esc(listOf(apart.map(([p, d]) => `${p.name} (${DAY_ROOMS[p.job].name}) and ${d.name} (${roomName(postRoom(s, d), true)})`)))}; post the shade in the twin of the living one's room.` : ''}`;
+  const rule = `A living person and their dead, the shade posted in the twin of the living one's room, work and fight ×${mult(T.eclipseTwin)} while it lasts, and one who stands beside their dead through half of it is at peace after. Anyone who dies in the dark wakes at once, with no funeral.`;
+  if (!s.eclipse) {
+    const [from] = eclipseSpan(s);
+    if (s.t >= from) return '';
+    return `<div class="card eclipse"><h3>Midsummer</h3><p>At ${hhmm(6 + (12 * from) / dayTicks(s))} the sun goes dark for ${fmt(T.eclipseSecs)} seconds, and the Tain wakes while the day goes on: the dead stand at their posts, and about ${Math.round(T.eclipseCreepers * 100)}% of a night's Creepers climb from the rifts in one tide. Set candles and move the shades below the Veil, as at night. When the sun comes back, the Unlit left burn away.</p><p class="note">${rule}</p>${pairs.length ? `<p class="note">${pairText}</p>` : ''}</div>`;
+  }
+  const n = s.night;
+  const left = Math.max(0, Math.ceil((s.eclipse.to - s.t) / TICKS_PER_SEC));
+  const up = n.foes.filter((f) => f.type !== 'wraith').length;
+  const coming = n.spawns.length;
+  return `<div class="card eclipse warn"><h3>The eclipse</h3><p>The sun is dark for <b data-live="eclipse-left">${left}</b> more seconds. ${up ? `${plural(up, 'of the Unlit', 'of the Unlit')} in the Tain` : 'None of the Unlit in the Tain yet'}${coming ? `, ${coming} still to come` : ''}. Tap below the Veil to set candles and move the shades; the Host and the day's work go on above.</p><p class="note">${rule}</p>${pairs.length ? `<p class="note">${pairText}</p>` : ''}</div>`;
 }
 
 // Whispers and the great glass: which of the dead help today, and what it will cost them at dusk.
@@ -1660,12 +1705,19 @@ const TUNE = [
   ['undergateFrom', 'The season (of the keep) from which the Undergate opens'],
   ['undergateChance', 'Chance the Undergate stirs on a night, from the season it opens'],
   ['undergatePerTide', 'Creepers of each tide that come up the Undergate when it stirs'],
+  ['eclipse', "Midsummer's eclipse, with the year on (1 on, 0 off)"],
+  ['eclipseDay', 'The day of summer the eclipse comes'],
+  ['eclipseAt', 'When the sun goes dark, as a share of the day'],
+  ['eclipseSecs', 'Seconds the sun stays dark'],
+  ['eclipseCreepers', "The eclipse's Creepers, as a share of that night's"],
+  ['eclipseTide', 'When its tide comes, as a share of the eclipse'],
+  ['eclipseTwin', 'How much harder a living person and their dead work and fight side by side in it'],
 ];
 const KEYS = [
   ['Space', 'play or pause'], ['1, 2, 4', 'speed'], ['C, M, W, H', 'candle, move, ward, hush (at night)'], ['V', 'turn the Tain upright'],
   ['+ and −, 0', 'zoom, and fit the castle again'], ['Arrows', 'pan by day; from dusk, move the cursor on the Tain (Shift and the arrows pan)'],
   ['Enter', 'at the cursor: set a candle, pick or send a shade, or ward, by the tool'], ['[ and ]', 'pick the previous or next shade'],
-  ['A', "the picked shade's act, at night"], ['T', "the picked shade's lantern: light it, or set it down"], ['N', 'at night, skip to the next mark on the tide clock'],
+  ['A', "the picked shade's act, at night or in the eclipse"], ['T', "the picked shade's lantern: light it, or set it down"], ['N', 'at night, skip to the next mark on the tide clock'],
   ['K, P, R, B', 'this phase, People, Records, Build'], ['L', 'room names'],
   ['S', 'sound on or off'], ['Esc', 'the Menu, or close a panel'],
 ];
@@ -2218,8 +2270,10 @@ function layout() {
   // The largest whole scale the width allows, and the height too, but never below 3× for height alone:
   // a keep built taller than the screen pans rather than shrinking everyone in it.
   const byWidth = Math.floor((vw - 8) / (W + 4));
-  const byHeight = Math.floor(freeH / (VEIL - roofTop() + 4));
-  ui.fit = Math.max(1, Math.min(6, byWidth, Math.max(byHeight, Math.min(3, byWidth))));
+  // In the eclipse both halves, the keep and the Tain: never below 2× for height alone.
+  const both = eclipseNow();
+  const byHeight = Math.floor(freeH / (both ? 2 * (VEIL - roofTop()) + 8 : VEIL - roofTop() + 4));
+  ui.fit = Math.max(1, Math.min(6, byWidth, Math.max(byHeight, Math.min(both ? 2 : 3, byWidth))));
   ui.scale = Math.max(1, Math.min(MAX_ZOOM, ui.fit + (prefs.zoomStep || 0)));
   view.cw = Math.ceil(vw / ui.scale) + 1;
   view.ch = Math.ceil(vh / ui.scale) + 1;
@@ -2254,14 +2308,14 @@ function autoTarget() {
   const fx = W / 2;
   // A little above the Tain's middle at night, so more of the keep shows than of the empty Deep.
   const h = VEIL - roofTop();
-  const fy = nightView() ? VEIL + h / 2 - 6 : VEIL - h / 2 - 4;
+  const fy = eclipseNow() ? VEIL : nightView() ? VEIL + h / 2 - 6 : VEIL - h / 2 - 4;
   const sx = (fr.left + fr.right) / 2 / ui.scale;
   const sy = (fr.top + fr.bottom) / 2 / ui.scale;
   return { x: fx - sx, y: flipped() ? fy - view.ch + sy : fy - sy };
 }
 // Keeps a dragged camera's centre over the castle (and the Tain at night), so it can't get lost.
 function clampPan(a) {
-  const [y0, y1] = nightView() ? [VEIL / 2, 2 * VEIL - roofTop() + 30] : [roofTop() - 40, VEIL + 20];
+  const [y0, y1] = eclipseNow() ? [roofTop() - 40, 2 * VEIL - roofTop() + 30] : nightView() ? [VEIL / 2, 2 * VEIL - roofTop() + 30] : [roofTop() - 40, VEIL + 20];
   const cx = a.x + view.panX + view.cw / 2;
   const cy = a.y + view.panY + view.ch / 2;
   if (cx < -30) view.panX += -30 - cx;
@@ -2357,7 +2411,7 @@ function worldToScreen(wx, wy) {
   const cy = wy - camY();
   return { x: (wx - camX()) * ui.scale, y: (flipped() ? view.ch - cy : cy) * ui.scale };
 }
-const keepToWorldY = (ky) => (nightView() ? 2 * VEIL - ky : ky);
+const keepToWorldY = (ky, tain = nightView() || eclipseNow()) => (tain ? 2 * VEIL - ky : ky);
 
 // A tap on the screen as a spot in the keep (by day) or the Tain (by night): { f, x, y, room } or null.
 function stageAt(clientX, clientY) {
@@ -2368,7 +2422,8 @@ function stageAt(clientX, clientY) {
   const wx = camX() + x;
   const wy = camY() + y;
   let ky;
-  if (nightView()) {
+  const tain = nightView() || (eclipseNow() && wy >= VEIL);
+  if (tain) {
     if (wy < VEIL) return null;
     ky = 2 * VEIL - wy;
   } else {
@@ -2377,14 +2432,16 @@ function stageAt(clientX, clientY) {
   }
   const f = floorAtY(K(), ky);
   if (f < 0) return null;
-  return { f, x: Math.max(MAP.LEFT, Math.min(MAP.RIGHT - 1, wx)), y: ky, room: typeAt(K(), f, wx), id: roomAt(K(), f, wx) };
+  return { f, x: Math.max(MAP.LEFT, Math.min(MAP.RIGHT - 1, wx)), y: ky, room: typeAt(K(), f, wx), id: roomAt(K(), f, wx), tain };
 }
 
 let drawnLabels = '';
 function placeLabels() {
   const night = nightView();
-  const marked = night ? s.night?.broken || [] : s.haunted || [];
-  const key = `${prefs.labels}|${night}|${prefs.mode}|${ui.scale}|${view.x.toFixed(2)}|${view.y.toFixed(2)}|${view.ch}|${K().key}|${marked.join()}`;
+  const both = eclipseNow();
+  // What a Maw broke in the Tain tonight; what it broke last night haunts the keep today.
+  const markedOf = (tain) => (tain ? s.night?.broken || [] : s.haunted || []);
+  const key = `${prefs.labels}|${night}|${both}|${prefs.mode}|${ui.scale}|${view.x.toFixed(2)}|${view.y.toFixed(2)}|${view.ch}|${K().key}|${markedOf(true).join()}|${markedOf(false).join()}`;
   if (key === drawnLabels) return;
   drawnLabels = key;
   labelsEl.hidden = !prefs.labels;
@@ -2392,14 +2449,16 @@ function placeLabels() {
   const box = canvas.getBoundingClientRect();
   const out = [];
   const G = K();
-  for (let f = 0; f < G.n; f++) {
-    for (const [id, a, b, type] of G.floors[f].rooms) {
-      // Each tag sits on the ceiling side of its room, so it never covers anyone's feet.
-      const ceiling = night ? keepToWorldY(G.floors[f].y) : G.floors[f].y;
-      const p = worldToScreen((a + b) / 2, ceiling);
-      const up = night && !flipped();
-      const mark = marked.includes(id) ? (night ? ', broken' : ', haunted') : '';
-      out.push(`<span class="${up ? 'up' : ''}${mark ? ' marked' : ''}" style="left:${box.left + p.x}px;top:${box.top + p.y}px;max-width:${(b - a) * ui.scale - 6}px">${esc((night ? TWINS[type].name : DAY_ROOMS[type].name) + mark)}</span>`);
+  for (const tain of both ? [false, true] : [night]) {
+    for (let f = 0; f < G.n; f++) {
+      for (const [id, a, b, type] of G.floors[f].rooms) {
+        // Each tag sits on the ceiling side of its room, so it never covers anyone's feet.
+        const ceiling = tain ? keepToWorldY(G.floors[f].y, true) : G.floors[f].y;
+        const p = worldToScreen((a + b) / 2, ceiling);
+        const up = tain && !flipped();
+        const mark = markedOf(tain).includes(id) ? (tain ? ', broken' : ', haunted') : '';
+        out.push(`<span class="${up ? 'up' : ''}${mark ? ' marked' : ''}" style="left:${box.left + p.x}px;top:${box.top + p.y}px;max-width:${(b - a) * ui.scale - 6}px">${esc((tain ? TWINS[type].name : DAY_ROOMS[type].name) + mark)}</span>`);
+      }
     }
   }
   labelsEl.innerHTML = out.join('');
@@ -2442,7 +2501,7 @@ function onStage(e) {
   if (skipCrossing()) return;
   const at = stageAt(e.clientX, e.clientY);
   if (!at) return;
-  if (s.phase === 'day') {
+  if (s.phase === 'day' && !at.tain) {
     const p = byId(s.living, ui.person);
     if (at.room === 'empty') return openSheet('build');
     if (p && at.room && DAY_ROOMS[at.room].out) {
@@ -2503,7 +2562,7 @@ function keyFocused(el) {
 // floor at a time up and down as the screen shows them; Enter does what a tap would there; [ and ] pick the
 // shades in turn. Shift and the arrows pan, as the arrows alone still do by day. A tap, or Esc, puts the
 // cursor away.
-const placing = () => s.phase === 'night' || (s.phase === 'dusk' && s.dusk?.step === 'place');
+const placing = () => s.phase === 'night' || (s.phase === 'dusk' && s.dusk?.step === 'place') || eclipseNow();
 const KB_STEP = 3;
 function kbAt() {
   if (!ui.kb || !placing()) return null;
@@ -2581,11 +2640,12 @@ function kbText() {
 }
 
 // Between day and night the old picture fades out over the new one while the camera travels.
-const fade = { cv: document.createElement('canvas'), until: 0, night: nightView() };
+const fade = { cv: document.createElement('canvas'), until: 0, mode: viewMode() };
 function draw(alpha, now) {
   const night = nightView();
-  if (night !== fade.night) {
-    fade.night = night;
+  const both = eclipseNow();
+  if (viewMode() !== fade.mode) {
+    fade.mode = viewMode();
     view.panX = 0;
     view.panY = 0;
     if (!REDUCED_NOW()) {
@@ -2598,6 +2658,7 @@ function draw(alpha, now) {
   const t = REDUCED_NOW() ? 0 : now / 1000;
   drawScene(canvas, s, {
     night,
+    eclipse: both,
     flip: flipped(),
     cam: { x: camX(), y: camY() },
     t,
@@ -2605,8 +2666,8 @@ function draw(alpha, now) {
     dusk: duskAmount(now),
     souls: soulSpots(now),
     marks: night && ui.guide?.marks ? ui.guide.marks() : null,
-    threats: night && waysOn() && !foggy(s) ? threatsNow() : null,
-    alpha: s.phase === 'night' && !ui.paused ? alpha : 1,
+    threats: (night || both) && waysOn() && !foggy(s) ? threatsNow() : null,
+    alpha: (s.phase === 'night' || both) && !ui.paused ? alpha : 1,
     selected: ui.selected,
     ghost: ghost(),
     cursor: kbAt(),
@@ -2627,9 +2688,10 @@ function draw(alpha, now) {
 
 // For scripted tests: where a spot in the keep or the Tain is on screen, in client pixels.
 window.__season = {
-  spot(f, x) {
+  spot(f, x, half) {
     const box = canvas.getBoundingClientRect();
-    const p = worldToScreen(x + 0.5, keepToWorldY(feet(K(), f) - 5) + (nightView() ? -0.5 : 0.5));
+    const tain = half ? half === 'tain' : nightView() || eclipseNow();
+    const p = worldToScreen(x + 0.5, keepToWorldY(feet(K(), f) - 5, tain) + (tain ? -0.5 : 0.5));
     return { x: box.left + p.x, y: box.top + p.y };
   },
   get crossing() { return !!ui.cross; },
@@ -2803,6 +2865,7 @@ const LIVE = {
   heat: (id) => fireTrend(id),
   assault: () => assaultText(),
   clock: () => clockText(),
+  'eclipse-left': () => (eclipseNow() ? String(Math.max(0, Math.ceil((s.eclipse.to - s.t) / TICKS_PER_SEC))) : '0'),
   food: () => floor1(s.res.food),
   candles: () => floor1(s.res.candles),
   glass: () => floor1(s.res.glass),
@@ -2827,6 +2890,7 @@ const BARS = {
   heat: (id) => s.fires?.find((f) => f.room === id)?.heat ?? 0,
   gate: () => Math.max(0, s.raid?.gate ?? 0),
   clock: () => (s.phase === 'day' ? s.t / dayTicks(s) : s.phase === 'night' ? s.t / nightTicks(s) : s.phase === 'dusk' ? 0 : 1),
+  tclock: () => (eclipseNow() ? (s.t - s.eclipse.from) / (s.eclipse.to - s.eclipse.from) : s.phase === 'night' ? s.t / nightTicks(s) : 0),
   mem: (id) => (byId(s.shades, id)?.memory ?? 0) / 100,
   visit: (id) => {
     const v = s.visitors?.find((x) => x.id === id);
@@ -2985,6 +3049,18 @@ const GUIDE = [
     when: () => s.phase === 'day' && laddersDue(s) && s.raid?.warned && s.raid.state === 'coming',
     done: () => ui.sheet === 'phase',
     text: () => (gatehouseOf(s) ? 'From this season the Host brings ladders. With a gate guard on the Gatehouse’s walls every one is thrown down; each left standing adds to the Host. The Day panel has the numbers.' : 'From this season the Host brings ladders, and only a Gatehouse’s guards throw them down: each left standing adds to the Host. The Day panel has the numbers.'),
+  },
+  {
+    id: 'midsummer', target: '#open-phase',
+    when: () => s.phase === 'day' && eclipseDue(s) && !s.eclipse && !s.today.eclipse,
+    done: () => ui.sheet === 'phase',
+    text: () => `Midsummer: at ${hhmm(6 + (12 * eclipseSpan(s)[0]) / dayTicks(s))} the sun goes dark for ${fmt(s.tuning.eclipseSecs)} seconds and the Tain wakes while the day goes on. The Day panel says who stands beside their dead, and what the eclipse brings.`,
+  },
+  {
+    id: 'eclipse', target: '#tool-candle', pause: true,
+    when: () => eclipseNow(),
+    done: () => !eclipseNow() || !!s.night?.candles.length,
+    text: 'The eclipse: the day goes on above the Veil, and below it the Tain is awake. Set candles and move the shades there, as at night, while the Host is at the gate. Anyone who dies in the dark wakes at once.',
   },
   {
     id: 'undergate', target: '#open-phase',
@@ -3448,8 +3524,8 @@ function toast(text, tone = '', open = null) {
   if (ui.toasts.length > room) ui.toasts.splice(0, ui.toasts.length - room);
   ui.toastRev++;
 }
-const STOPS = /has caught|The Hollow rises|Raiders on the road|^At the gate:|The camp outside stirs|has made camp|The Host is at the gate|inspector|has turned Wraith|A Maw is tearing|A Maw is breaking|^Fire in the|The fire spreads|^Plague/;
-const OPENS = /Raiders on the road|The camp outside stirs|has made camp|The Host is at the gate|The gate gave way|inspector|fallen sick|larder is empty|arrives at the gate|^At the gate:|^Fire in the/;
+const STOPS = /^The eclipse\.|has caught|The Hollow rises|Raiders on the road|^At the gate:|The camp outside stirs|has made camp|The Host is at the gate|inspector|has turned Wraith|A Maw is tearing|A Maw is breaking|^Fire in the|The fire spreads|^Plague/;
+const OPENS = /^The eclipse\.|^Midsummer\.|Raiders on the road|The camp outside stirs|has made camp|The Host is at the gate|The gate gave way|inspector|fallen sick|larder is empty|arrives at the gate|^At the gate:|^Fire in the/;
 function takeAlerts(fromClock) {
   let stop = false;
   if (ui.skip && s.alerts.length) endSkip(); // something happened: back to the clock's own pace
@@ -3555,8 +3631,8 @@ function onPhase() {
 // The bed of sound for the moment, how near the Hollow is to the mirrors (its heart beats only while the night
 // runs), and the danger: how many of the Unlit are about, and how cracked the Veil is.
 function moodNow() {
-  const bed = { day: 'day', dusk: 'dusk', night: 'night', dawn: 'rite', end: 'rite' }[s.phase] || 'none';
-  if (s.phase !== 'night') return { bed };
+  const bed = eclipseNow() ? 'night' : { day: 'day', dusk: 'dusk', night: 'night', dawn: 'rite', end: 'rite' }[s.phase] || 'none';
+  if (s.phase !== 'night' && !eclipseNow()) return { bed };
   const n = s.night;
   const h = !ui.paused && n.foes.find((f) => f.type === 'hollow' && f.hp > 0 && !f.rising);
   return { bed, hollow: h ? h.f / Math.max(1, K().veil) : null, danger: Math.min(1, n.foes.length / 12 + (0.5 * s.cracks) / s.tuning.cracksMax) };
@@ -3584,6 +3660,23 @@ let lastNow = 0;
 let acc = 0;
 let seenPhase = s.phase;
 let seenPhaseWas = s.phase;
+let seenEclipse = eclipseNow();
+// The sun going dark and coming back: the Tain's tools, both halves on the screen, then the day again.
+function onEclipse() {
+  ui.rush = false;
+  ui.skip = null;
+  if (eclipseNow()) {
+    ui.tool = 'candle';
+    ui.person = null;
+  } else {
+    ui.selected = null;
+    ui.kb = null;
+  }
+  view.panX = 0;
+  view.panY = 0;
+  layout();
+  saveGame();
+}
 function frame(now) {
   const dt = lastNow ? Math.min(0.25, (now - lastNow) / 1000) : 0;
   lastNow = now;
@@ -3594,7 +3687,13 @@ function frame(now) {
     acc -= n;
     while (n-- > 0 && running()) {
       const ph = s.phase;
+      const ecl = !!s.eclipse;
       step(s);
+      if (!!s.eclipse !== ecl) {
+        takeAlerts(true);
+        acc = 0;
+        break;
+      }
       if (ui.skip && s.t >= ui.skip.to) {
         endSkip();
         acc = 0;
@@ -3625,6 +3724,12 @@ function frame(now) {
     trail('phase');
     onPhase();
     saveGame();
+    bump();
+  }
+  if (eclipseNow() !== seenEclipse) {
+    seenEclipse = eclipseNow();
+    if (!ui.watch) onEclipse();
+    else layout();
     bump();
   }
   const before = ui.toasts.length;
@@ -4276,7 +4381,7 @@ document.addEventListener('keydown', (e) => {
     showHint();
     bump();
   } else if (k === 'h' && s.phase === 'night') game({ type: 'hush', on: !s.night.hush });
-  else if (k === 'a' && s.phase === 'night' && s.tuning.acts) {
+  else if (k === 'a' && (s.phase === 'night' || eclipseNow()) && s.tuning.acts) {
     if (ui.selected) game({ type: 'shadeAct', id: ui.selected });
     else toast('Pick a shade first: its act is on the bar.', 'bad');
   } else if (k === 't' && placing() && s.tuning.lanterns) {

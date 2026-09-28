@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { newSeason, step, act, upgrade, replay, eclipseDue, eclipseSpan, eclipsing, livingMult, isTwinnedLiving, bondedShade, canWork, byId, dayTicks, ledgerOf, addFoe, hard } from '../src/slice/sim.js';
 import { runSeasonAuto, autoStep } from '../src/slice/autopilot.js';
 import { MAP } from '../src/slice/data.js';
+import { epitaph } from '../src/slice/book.js';
 import { geo, roomAt, roomSpan, DEEP_FLOOR } from '../src/slice/geo.js';
 
 // Nothing by day to get in the way: no sickness, deaths of age, raids, fire, visitors or weather.
@@ -119,6 +120,7 @@ test('anyone who dies in the dark wakes at once, with no funeral, and a Wraith r
   assert.equal(d.kind, 'loyal');
   assert.ok(canWork(d), 'in a mirror, and at work in the Tain at once');
   assert.equal(ledgerOf(s, p.id).eclipse, true);
+  assert.match(epitaph(ledgerOf(s, p.id)), /Woke Loyal in the glass, at once, in the eclipse\./);
   assert.match(s.log.at(-1).text, new RegExp(`^${p.name} wakes Loyal in the .*In the eclipse the dead don't wait for dusk\\.$`));
   ok(s, { type: 'debug', what: 'kill', id: q.id, cause: 'yours' });
   assert.equal(byId(s.shades, q.id).kind, 'wraith');
