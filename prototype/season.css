@@ -31,7 +31,7 @@ body.game-page {
 .glabels span {
   position: absolute;
   transform: translate(-50%, 3px);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   line-height: 1;
   padding: 3px 5px;
@@ -67,15 +67,19 @@ body.game-page {
 .ghud .clock { gap: 8px; }
 .ghud .time { font-size: 16px; min-width: 3em; }
 .gctl { display: flex; gap: 6px; margin-left: auto; }
-.gres { display: flex; flex-wrap: wrap; gap: 2px 14px; margin: 0; font-size: 13px; }
+.gres-row { display: flex; align-items: center; gap: 8px; }
+.gres { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; gap: 2px 14px; margin: 0; font-size: 13px; }
 .gres > div { display: flex; align-items: center; gap: 5px; }
-.gres dt { font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); }
+.gres dt { font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-3); }
 .gres dd { margin: 0; font-family: var(--font-num); font-variant-numeric: tabular-nums; }
-.gres dd .cap { color: var(--ink-3); font-size: 0.85em; }
-.gres .short { display: none; }
+.gres dd .cap { color: var(--ink-3); font-size: 12px; }
+.gres .pips { margin-left: 6px; }
 .gres .pips i { width: 8px; height: 8px; }
+/* More: a phone's HUD keeps the rest of the stores behind it; a wide screen shows them all. One speed button
+   that steps 1×, 2×, 4× stands in for the three on a phone. */
+.gmore, .speed1 { display: none; }
 /* The weather: today's, then tomorrow's; rain, and rain coming, stand out. */
-.gres .wx .fc { color: var(--ink-3); font-family: inherit; font-size: 11px; }
+.gres .wx .fc { color: var(--ink-3); font-family: inherit; font-size: 12px; }
 .gres .wx-rain b { color: #9fcfff; }
 .gres .wx-fog b { color: #c9ced8; }
 .gres .wx-coming .fc { color: #9fcfff; }
@@ -241,6 +245,10 @@ body.game-page {
 .game .toasts { top: calc(var(--hud-h) + 10px); bottom: auto; right: calc(var(--free-right, 0px) + 12px); z-index: 8; }
 .toast .row { display: flex; gap: 6px; flex-wrap: nowrap; }
 
+/* Nothing on the game's screens is under 12 px (round seven): the shared sheet's log times, table heads and
+   kind tags were 11. */
+.log .when, .ledger th, .kind { font-size: 12px; }
+
 /* Bits of the old layout the panels still use. */
 .linkish {
   font: inherit;
@@ -275,14 +283,18 @@ table.days { min-width: 680px; }
   .ghud { padding-block: calc(env(safe-area-inset-top, 0px) + 5px) 5px; gap: 3px; }
   .ghud-row { flex-wrap: nowrap; gap: 6px; }
   .ghud .clock { gap: 6px; min-width: 0; }
-  .ghud .pill { font-size: 11px; padding: 2px 6px; }
+  .ghud .pill { font-size: 12px; padding: 2px 6px; }
   .ghud .time { font-size: 14px; min-width: 0; }
   .ghud .bar { display: none; }
   .gctl { gap: 4px; }
   .gctl .btn.sm { min-height: 32px; padding: 3px 8px; }
-  .gres { gap: 0 10px; font-size: 12px; }
-  .gres .long { display: none; }
-  .gres .short { display: inline; }
+  .gctl .speeds { display: none; }
+  .gctl .speed1 { display: inline-flex; align-items: center; justify-content: center; }
+  .gres { gap: 0 12px; font-size: 14px; }
+  .gres dt { letter-spacing: 0.04em; }
+  .gres .pips { display: none; }
+  .gres:not(.all) .rest { display: none; }
+  .gmore { display: inline-flex; align-items: center; flex: none; }
   .gbar { gap: 6px; }
   .gtools, .gmenu { width: 100%; }
   .gmenu .btn { flex: 1; }
@@ -441,6 +453,10 @@ label.btn { display: inline-flex; align-items: center; }
 /* The tide clock (round six): the night from dusk to dawn, a mark for each tide, Maw, the Hollow, each of the
    Drowned and a sleepwalker's hour. Marks differ in height as well as colour: tides full, Maws and the Hollow
    taller, the rest short. */
+.tide { display: flex; align-items: center; gap: 10px; }
+.tide .tclock { flex: 1; min-width: 0; }
+.tnext { font-size: 12px; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 60%; }
+.tnext:empty { display: none; }
 .tclock { position: relative; height: 8px; margin: 3px 0 1px; background: var(--box-2, #1a1622); border: 1px solid var(--line, #3a3446); border-radius: 3px; }
 .tclock .tfill { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: rgb(255 255 255 / 0.14); border-radius: 2px; }
 .tclock .mk { position: absolute; top: 0; bottom: 0; width: 3px; margin-left: -1px; border-radius: 1px; }
@@ -568,3 +584,20 @@ details.custom .custom-parts legend { font-weight: 700; margin-bottom: 4px; }
 }
 details.custom .custom-parts .row { flex-wrap: nowrap; align-items: flex-start; }
 details.custom .custom-parts .row input { flex: none; margin-top: 0.25em; }
+
+/* Round seven, phase 3: on a touch screen every control is at least 44 px each way, the least a fingertip
+   should be asked to hit (the audit found 1,925 of the phone's 1,949 under it). Selectors match the ones
+   they outgrow. */
+@media (pointer: coarse) {
+  .btn, .btn.sm, .gbar .btn.sm, .gctl .btn.sm, .gzoom .btn.sm, .title-row .btn { min-height: 44px; min-width: 44px; }
+  .btn.sm { padding-inline: 12px; }
+  .tab { min-height: 44px; min-width: 44px; }
+  .toast button { min-height: 44px; min-width: 44px; }
+  .linkish { min-height: 44px; }
+  select, input[type="text"], input[type="number"] { min-height: 44px; }
+  input[type="range"], .settings .slider input[type="range"] { height: 44px; }
+  summary, .hear summary, .advanced summary, details.custom > summary { padding-block: 12px; }
+  label.row, .settings label.row, .title-check, .place, details.custom .custom-parts .row { min-height: 44px; align-items: center; }
+  .settings label.row input, .title-check input, details.custom .custom-parts .row input, .place input { margin-top: 0; }
+  input[type="checkbox"], input[type="radio"] { width: 22px; height: 22px; }
+}

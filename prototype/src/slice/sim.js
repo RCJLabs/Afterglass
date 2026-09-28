@@ -3981,10 +3981,34 @@ const ACTIONS = {
     if (s.res.essence + EPS < cost) return `A ward costs ${fmt(cost)} essence.`;
     s.res.essence -= cost;
     s.night.wards.push(target);
+    (s.night.wardPaid ||= {})[target] = cost;
     if (geo(s).stairs.some((x) => x.id === target)) s.night.wardHold[target] = wardHoldOf(s);
     s.night.stats.wards++;
     for (const c of s.night.foes) c.replan = 0;
     cue(s, 'ward');
+  },
+  // Round seven: a candle or a ward set at dusk can be taken back, whole, until the night begins: the candle
+  // goes back to the store and the ward's essence to the keep. Once the night is under way, what's lit burns
+  // and what's sealed holds.
+  uncandle(s, { id }) {
+    if (!(s.phase === 'dusk' && s.dusk.step === 'place')) return 'A candle can be taken back only at dusk, before the night begins.';
+    const k = s.night.candles.find((c) => c.id === id);
+    if (!k) return 'No such candle.';
+    if (k.carrier) return 'That candle is a lantern: set it down first.';
+    s.night.candles.splice(s.night.candles.indexOf(k), 1);
+    s.res.candles++;
+    s.night.stats.candles--;
+    cue(s, 'snuff', k.f, k.x);
+  },
+  unward(s, { target }) {
+    if (!(s.phase === 'dusk' && s.dusk.step === 'place')) return 'A ward can be taken back only at dusk, before the night begins.';
+    if (!s.night.wards.includes(target)) return 'Nothing is warded there.';
+    s.night.wards.splice(s.night.wards.indexOf(target), 1);
+    s.res.essence += s.night.wardPaid?.[target] ?? wardCost(s);
+    delete s.night.wardPaid?.[target];
+    delete s.night.wardHold[target];
+    s.night.stats.wards--;
+    cue(s, 'snuff');
   },
   // Breaking a mirror, in an emergency: everyone in it is freed at once, as if covered (remembrance, and
   // peace for their kin), even out of a Creeper's grip at night. Dread falls for each, which covering at
