@@ -290,8 +290,8 @@ table.days { min-width: 680px; }
   .gctl .btn.sm { min-height: 32px; padding: 3px 8px; }
   .gctl .speeds { display: none; }
   .gctl .speed1 { display: inline-flex; align-items: center; justify-content: center; }
-  .gres { gap: 0 12px; font-size: 14px; }
-  .gres dt { letter-spacing: 0.04em; }
+  .gres { gap: 0 10px; font-size: 14px; }
+  .gres dt { font-size: 13px; letter-spacing: 0; text-transform: none; }
   .gres .pips { display: none; }
   .gres:not(.all) .rest { display: none; }
   .gmore { display: inline-flex; align-items: center; flex: none; }
@@ -600,4 +600,37 @@ details.custom .custom-parts .row input { flex: none; margin-top: 0.25em; }
   label.row, .settings label.row, .title-check, .place, details.custom .custom-parts .row { min-height: 44px; align-items: center; }
   .settings label.row input, .title-check input, details.custom .custom-parts .row input, .place input { margin-top: 0; }
   input[type="checkbox"], input[type="radio"] { width: 22px; height: 22px; }
+}
+
+/* The Dusk panel on a phone: half the free height, so the Tain shows above it while the black mirror is
+   read (round seven, phase 3). Its lines are taps that bring their spot into view. */
+@media (max-width: 899px) {
+  .gsheet.is-half { max-height: calc((100% - var(--hud-h) - var(--bar-h)) * 0.5); }
+}
+.scry .ways .way {
+  display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; width: 100%;
+  margin: 0 -8px; padding: 6px 8px; border: 0; border-radius: 4px; background: none;
+  font: inherit; color: inherit; text-align: left; cursor: pointer;
+}
+.scry .ways .way:hover { background: rgb(255 255 255 / 0.05); }
+.scry .ways .way:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+.scry .ways .go { flex: none; padding-top: 1px; font-size: 12px; font-weight: 400; color: var(--ink-3); text-decoration: underline; text-underline-offset: 3px; }
+
+/* The emergency strip, under the HUD's stores (round seven, phase 3). */
+.estrip { display: grid; gap: 5px; margin-top: 2px; padding: 6px 8px; border: 1px solid var(--bad); border-radius: 6px; background: rgb(96 24 34 / 0.55); }
+.estrip.is-visit { border-color: var(--day); background: rgb(96 70 14 / 0.5); }
+.estrip.is-road { border-color: var(--day); background: rgb(96 70 14 / 0.5); }
+.estrip .etext { margin: 0; font-size: 13px; line-height: 1.35; color: var(--ink); }
+.estrip .emore { color: var(--ink-2); }
+.estrip .ebar { display: block; height: 4px; border-radius: 2px; background: rgb(255 255 255 / 0.12); overflow: hidden; }
+.estrip .ebar i { display: block; height: 100%; width: 0; background: #ff8a6a; }
+.estrip.is-visit .ebar i { background: var(--day); }
+.estrip .ehead { display: flex; align-items: flex-start; gap: 8px; }
+.estrip .ehead .etext { flex: 1; min-width: 0; }
+.estrip .eacts { gap: 6px; flex-wrap: nowrap; }
+.estrip .eacts .btn { flex: 1 1 0; min-width: 0; }
+@media (pointer: coarse) { .scry .ways .way { min-height: 44px; } }
+@media (min-width: 561px) {
+  .estrip { max-width: 44rem; }
+  .estrip .eacts .btn { flex: 0 1 auto; }
 }

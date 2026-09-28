@@ -151,7 +151,8 @@ export function howTo(T) {
         'Then the camera goes down into the Tain. The Unlit climb from the red rifts in the Deep to the mirrors under the Veil, and they can’t cross candlelight. The line is the light between them: in a small keep, a candle between each rift and its mirror; in a taller one, candles at the feet of the stairs up to the Veil, with a shade in each.',
         `A candle burns ${n1(T.candleWax / 60)} minutes of the night, and candles you don't set carry over. Each room's twin in the Tain has a night job, which a shade posted there works only in the light: ${twins.join('; ')}.`,
         `A bonded pair split across the Veil both work ×${mult(T.twinMult)} when the shade is posted in the twin of the living one's room.`,
-        `The Dusk panel's black mirror reads tonight's threats: how many will come and when, from which rift, and where each tide will get past your candles. The red chevrons on the Tain are their ways. A ward (${n1(T.wardCost)} essence) seals a rift, or holds a stair.`,
+        `The Dusk panel's black mirror reads tonight's threats: how many will come and when, from which rift, and where each tide will get past your candles. The red chevrons on the Tain are their ways, and a tap on one of its lines shows you where. A ward (${n1(T.wardCost)} essence) seals a rift, or holds a stair.`,
+        'Dusk opens on Move: tap a shade, then where it should stand. Choose Candle to set candles, and Ward for wards. Until the night begins, a tap on a candle or a ward you set takes it back, whole. With Candle out, a tap on a shade already in light picks it.',
       ],
     },
     {

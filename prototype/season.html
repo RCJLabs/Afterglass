@@ -28,7 +28,8 @@
   <canvas id="stage" aria-label="The castle. By day the keep stands on its lake with the living at work in eight rooms. By night the Tain, the keep's reflection under the Veil, holds the shades, the candles and the Unlit."></canvas>
   <div class="glabels" id="labels" aria-hidden="true"></div>
   <header class="ghud" id="hud"></header>
-  <p class="ghint" id="stage-hint"></p>
+  <p class="ghint" id="stage-hint" aria-live="polite"></p>
+  <p class="visually-hidden" id="sr-status" aria-live="polite"></p>
   <div class="gcoach" id="coach" role="status" aria-live="polite" hidden></div>
   <div class="gzoom" id="zoom" role="group" aria-label="Zoom">
     <button class="btn sm" id="zoom-in" data-act="zoom-in" aria-label="Zoom in" title="Zoom in (+)">+</button>

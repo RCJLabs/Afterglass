@@ -341,7 +341,75 @@ function hudHTML() {
     ${skyHUD()}
   </dl>
   <button class="btn sm gmore" id="hud-more" data-act="hud-more" aria-expanded="${all}" aria-controls="gres">${all ? 'Less' : 'More'}</button>
-  </div>`;
+  </div>
+  ${stripHTML()}`;
+}
+
+// The emergency strip (round seven, phase 3): under the HUD, the one thing by day that won't wait, with its
+// countdown and the two or three things to do about it, so a phone needn't dig for them in the Day panel.
+// The Host at the gate comes first, then a fire, then a visitor waiting on an answer, then raiders on the
+// road when the gate is short. It stands aside while the Day panel is open, where the same cards are.
+function emergencies() {
+  if (ui.watch || ui.title || (s.phase !== 'day' && !eclipseNow())) return [];
+  const out = [];
+  const r = s.raid;
+  if (r?.state === 'assault') out.push('assault');
+  for (const f of s.fires || []) out.push(`fire:${f.room}`);
+  for (const v of (s.tuning.visitors && s.visitors) || []) if (v.here && !v.done) out.push(`visit:${v.id}`);
+  if (r?.state === 'coming' && r.warned && defense(s) + 1e-9 < r.strength) out.push('road');
+  return out;
+}
+function stripHTML() {
+  const all = emergencies();
+  if (!all.length || ui.sheet === 'phase') return '';
+  const [kind, id] = all[0].split(':');
+  const T = s.tuning;
+  const r = s.raid;
+  const more = all.length > 1 ? `<span class="emore">, and ${plural(all.length - 1, 'more thing', 'more things')} in the Day panel</span>` : '';
+  const open = `<button class="btn sm" id="e-open" data-act="strip-open" data-card="${kind}" aria-label="Details, in the Day panel">Details</button>`;
+  const head = (text, more = true) => `<div class="ehead"><p class="etext">${text}</p>${more ? open : ''}</div>`;
+  let body;
+  if (kind === 'assault') {
+    const hands = s.living.filter((p) => p.job !== 'barracks' && p.job !== 'gatehouse' && !p.fighting && !p.walls && !(p.sick > 0)).length;
+    body = `${head(`<b>${r.crusade ? 'The crusade is at the gate.' : 'The Host is at the gate.'}</b> <span data-live="estrip">${esc(stripText())}</span>${more}`)}
+      <span class="ebar" aria-hidden="true"><i data-bar="gate"></i></span>
+      <div class="row eacts"><button class="btn sm primary" id="e-pitch" data-act="pitch"${s.res.candles + 1e-9 < T.raidPitchCost ? ' disabled' : ''}>Pour pitch: ${T.raidPitchCost} candles</button>
+        <button class="btn sm" id="e-bell" data-act="raid-bell"${r.bell || !hands ? ' disabled' : ''}>${r.bell ? 'The bell has rung' : `Ring the bell (${hands})`}</button></div>`;
+  } else if (kind === 'fire') {
+    const yard = s.living.filter((p) => p.job === 'yard' && !p.fighting).length;
+    const burning = s.fires.flatMap((x) => peopleIn(s, x.room));
+    const hands = s.living.filter((p) => !p.fighting && !(p.sick > 0) && !burning.includes(p)).length;
+    body = `${head(`<b>Fire in the ${esc(roomName(id))}.</b> <span data-live="heat" data-arg="${id}">${esc(fireTrend(id))}</span>${more}`)}
+      <span class="ebar" aria-hidden="true"><i data-bar="heat" data-arg="${id}"></i></span>
+      <div class="row eacts"><button class="btn sm primary" id="e-yard" data-act="fight-fire" data-room="${id}"${yard ? '' : ' disabled'}>${yard ? `Send the Yard (${yard})` : 'Nobody in the Yard'}</button>
+        <button class="btn sm" id="e-firebell" data-act="fight-fire" data-room="${id}" data-bell="1"${hands ? '' : ' disabled'}>Ring the bell (${hands})</button></div>`;
+  } else if (kind === 'visit') {
+    const v = s.visitors.find((x) => x.id === id);
+    const V = VISITORS[v.kind];
+    const last = V.answers.at(-1);
+    body = `${head(`<b>${esc(V.name)} at the gate.</b> Answer by ${untilText(v)}; with no answer, it's “${esc(last.text)}”.${more}`, false)}
+      <span class="ebar" aria-hidden="true"><i data-bar="visit" data-arg="${v.id}"></i></span>
+      <div class="row eacts"><button class="btn sm primary" id="e-answer" data-act="strip-open" data-card="visit">Answer</button>
+        <button class="btn sm" id="e-last" data-act="visitor" data-id="${v.id}" data-answer="${last.id}"${visitorBlock(s, v, last.id) ? ' disabled' : ''}>${esc(last.text)}</button></div>`;
+  } else {
+    body = `${head(`<b>${r.crusade ? 'The crusade is on the road.' : 'Raiders on the road.'}</b> At the gate about ${hhmm(6 + (12 * r.hitAt) / dayTicks(s))}: strength ${fmt(r.strength)} against your defense <span data-live="defense">${fmt(defense(s))}</span>.${more}`)}
+      <div class="row eacts">${r.ward ? '' : `<button class="btn sm primary" id="e-wardgate" data-act="wardgate"${s.res.essence + 1e-9 < T.wardGateCost ? ' disabled' : ''}>Ward the gate: ${T.wardGateCost} essence</button>`}
+        <button class="btn sm" id="e-people" data-act="sheet" data-sheet="people">Guards, in People</button></div>`;
+  }
+  return `<section class="estrip is-${kind}" aria-label="Now">${body}</section>`;
+}
+// The strip's countdown for the Host at the gate, shorter than the Day panel's.
+function stripText() {
+  const r = s.raid;
+  if (r?.state !== 'assault') return '';
+  const def = defense(s);
+  return `The gate is ${Math.round(100 * Math.max(0, r.gate))}% whole and ${r.host > def + 1e-9 ? 'giving' : 'holding'}, ${fmt(r.host)} against ${fmt(def)}; they give up in ${Math.ceil(r.left / TICKS_PER_SEC)} s.`;
+}
+// More, from the strip: the Day panel, at the card.
+const STRIP_CARD = { assault: '.card.raid', fire: '.card.fire', visit: '.card.visit', road: '.card.raid-road' };
+function stripOpen(kind) {
+  openSheet('phase');
+  requestAnimationFrame(() => document.querySelector(`#sheet-body ${STRIP_CARD[kind] || ''}`)?.scrollIntoView({ block: 'start' }));
 }
 // The weather (round five): today's, and tomorrow's forecast.
 const WX = { clear: 'Clear', rain: 'Rain', fog: 'Fog' };
@@ -423,7 +491,7 @@ function hintText() {
   const back = takingBack();
   if (ui.tool === 'candle') {
     return s.res.candles >= 1
-      ? `${eclipseNow() ? 'The eclipse: tap a floor below the Veil' : 'Tap a floor'} to set a candle. It lights its own room; the Unlit can't enter the light.${back && s.night.candles.length ? ' Tap a candle to take it back.' : ''}`
+      ? `${eclipseNow() ? 'The eclipse: tap a floor below the Veil' : 'Tap a floor'} to set a candle. It lights its own room; the Unlit can't enter the light. A tap on a shade in the light picks it.${back && s.night.candles.length ? ' Tap a candle to take it back.' : ''}`
       : `No candles left. The Chandlery makes them by day; the Wick Room saves them at night.${back && s.night.candles.length ? ' Tap a candle to take it back.' : ''}`;
   }
   if (ui.tool === 'ward') return `Tap a stair or a rift${raining(s) ? ", or an end of the moat's twin under the Veil," : ''} to seal it until dawn (${fmt(wardCost(s))} essence${wardCost(s) < T.wardCost ? ', cheaper while a Bitter shade stays' : ''}). ${back && s.night.wards.length ? 'Tap a ward to lift it.' : `The Hollow breaks a ward in ${T.wardHold} s.`}`;
@@ -474,7 +542,7 @@ function raidCard() {
     : !T.raidFight ? '' : `<div class="row"><button class="btn sm" id="btn-payoff" data-act="payoff"${canPay ? '' : ' disabled'}>Pay them off: ${t.food} food, ${t.candles} candles</button>
       <button class="btn sm" id="btn-bar" data-act="bar-stores"${r.barred ? ' disabled' : ''}>${r.barred ? 'Stores barred' : 'Bar the stores'}</button></div>
     <p class="note">Paid, they turn back${raidsAhead(s) ? `, but the season's raids after it come ×${mult(T.raidEmbolden)} harder` : T.emboldenCarries ? `, but next season's raids come ×${mult(T.raidEmbolden)} harder` : ''}. Barred, the Hearth, the Chandlery and the Glazier stop while the Host is at the gate, and a breach carries off half as much. At the gate you'll have pitch (${T.raidPitchCost} candles for −${fmt(T.raidPitch)}), stone to shore it up, and the bell.</p>`;
-  return `<div class="card ${short ? 'warn' : 'ok'}"><h3>${r.crusade ? 'The crusade on the road' : r.camp ? 'The camp comes at the gate' : 'Raiders on the road'}</h3>
+  return `<div class="card raid-road ${short ? 'warn' : 'ok'}"><h3>${r.crusade ? 'The crusade on the road' : r.camp ? 'The camp comes at the gate' : 'Raiders on the road'}</h3>
     <p>${r.count} ${r.crusade ? 'knights of the Lantern' : 'raiders'}, strength <b class="num">${fmt(r.strength)}</b>, at the gate about ${hhmm(6 + (12 * r.hitAt) / dayTicks(s))}. Your defense: <b class="num" data-live="defense">${fmt(def)}</b>. ${short ? 'Not enough. Move people to the Barracks or ward the gate.' : 'Enough, if nothing changes.'}</p>${laddersDue(s) ? ladderNote(r) : ''}
     <div class="row"><button class="btn sm" id="btn-wardgate" data-act="wardgate"${r.ward || s.res.essence + 1e-9 < s.tuning.wardGateCost ? ' disabled' : ''}>${r.ward ? `Gate warded, +${r.ward}` : `Ward the gate: +${s.tuning.wardGateDefense} for ${s.tuning.wardGateCost} essence`}</button></div>${fight}</div>`;
 }
@@ -973,6 +1041,7 @@ function duskPlace() {
   const maws = n.spawns.filter((x) => x.type === 'maw').length;
   const wraiths = s.shades.filter((d) => d.kind === 'wraith');
   return `<header class="ph-head"><h2>Dusk: set the night</h2><p>${plural(creepers, 'Creeper')} will climb out of the Deep tonight, most of them in tides around ${tidesText()}.${maws ? ` ${maws === 1 ? 'A Maw comes' : `${maws} Maws come`} with the last tide.` : ''}${isLongNight(s) ? ` <b>Tonight is the Long Night: ${longTimes()} as long as a winter night, with the Hollow and a Maw. At dawn the year ends.</b>` : isNewMoon(s) ? ' <b>Tonight is the new moon: the Hollow rises.</b>' : ''} Set candles and post the shades, then begin.</p></header>
+    ${blackMirror()}
     ${nightTicks(s) > s.tuning.candleWax * TICKS_PER_SEC ? `<p class="note">Tonight lasts ${minsSecs(nightTicks(s) / TICKS_PER_SEC)} at 1×, and a candle burns ${minsSecs(s.tuning.candleWax)}. Keep candles back to relight before dawn.</p>` : ''}
     <ul class="facts">
       <li><span>Candles set tonight</span><b class="num">${n.candles.length}, ${floor1(s.res.candles)} left</b></li>
@@ -989,7 +1058,6 @@ function duskPlace() {
     ${drownedDusk()}
     ${moonNote()}
     ${deepCard()}
-    ${blackMirror()}
     <details class="card"><summary><b>How the Tain works</b></summary>
       <ul class="facts">
         <li><span>Creepers rise from the two rifts on the deepest floor and make for the two mirrors on the floor under the Veil, climbing the stairs between. The more floors the keep has, the longer their way.</span></li>
@@ -1088,6 +1156,16 @@ function blackMirror() {
     return `the candle ${stair ? 'at the stair up to the Veil, in' : 'in'} the ${roomName(roomAt(K(), k.f, k.x), true)}`;
   };
   const shadeName = (id) => esc(s.shades.find((d) => d.id === id)?.name || 'a shade');
+  // Where a line points on the Tain, for a tap to bring into view: where a way ends, or a rift or a room.
+  const endOf = (w) => w?.pts?.at(-1) || null;
+  const riftSpot = (id) => {
+    const r = MAP.rifts.find((x) => x.id === id);
+    return r ? { f: DEEP_FLOOR, x: r.x } : undergateMouthOf();
+  };
+  const roomSpot = (id) => {
+    const r = roomSpan(K(), id);
+    return r ? { f: r.f, x: Math.round((r.x0 + r.x1) / 2) } : null;
+  };
   const goes = (w) => {
     if (w.end === 'gnaw') return { text: `gnaw ${candleName(w.candle)}`, bad: false };
     if (w.end === 'veil') return { text: `reach the ${side(MAP.mirrors.find((m) => m.id === w.mirror).x)} mirror: nothing lit bars their way`, bad: true };
@@ -1100,7 +1178,7 @@ function blackMirror() {
     const when = listOf(D.at.map((t) => at(t)));
     lines.push(D.warded
       ? { bad: false, text: `The moat's twin is warded: the Drowned stay under.` }
-      : { bad: D.way?.end === 'veil' || D.way?.end === 'catch', text: `${D.count === 1 ? 'One of the Drowned comes' : `${D.count} of the Drowned come`} up at ${esc(moatEnd(D.x))} around ${when}. As things stand, ${D.count === 1 ? 'it' : 'they'} would ${goes(D.way || { end: 'none' }).text.replace('find no way up', 'find nothing to go for')}.` });
+      : { bad: D.way?.end === 'veil' || D.way?.end === 'catch', spot: endOf(D.way) || { f: D.f, x: D.x }, text: `${D.count === 1 ? 'One of the Drowned comes' : `${D.count} of the Drowned come`} up at ${esc(moatEnd(D.x))} around ${when}. As things stand, ${D.count === 1 ? 'it' : 'they'} would ${goes(D.way || { end: 'none' }).text.replace('find no way up', 'find nothing to go for')}.` });
   }
   // Fog: how many come and when, and not their ways.
   if (th.fog) {
@@ -1121,31 +1199,31 @@ function blackMirror() {
     if (same) {
       same.n += n;
       same.from.push(e.rift);
-    } else tides.push({ ...g, n, from: [e.rift] });
+    } else tides.push({ ...g, n, from: [e.rift], spot: endOf(e.way) });
   }
-  for (const x of tides) lines.push({ bad: x.bad, text: `${x.from.length > 2 ? 'From both rifts and the Undergate' : x.from.length > 1 ? (x.from.includes('undergate') ? `From ${riftName(x.from.find((r) => r !== 'undergate'))} and the Undergate` : 'From both rifts') : `From ${riftName(x.from[0])}`}, ${plural(x.n, 'Creeper')} will ${x.text}.` });
+  for (const x of tides) lines.push({ bad: x.bad, spot: x.spot, text: `${x.from.length > 2 ? 'From both rifts and the Undergate' : x.from.length > 1 ? (x.from.includes('undergate') ? `From ${riftName(x.from.find((r) => r !== 'undergate'))} and the Undergate` : 'From both rifts') : `From ${riftName(x.from[0])}`}, ${plural(x.n, 'Creeper')} will ${x.text}.` });
   for (const e of th.rises) {
     if (!e.hunt || (e.way && goes(e.hunt).text === goes(e.way).text)) continue;
     const g = goes(e.hunt);
-    lines.push({ bad: g.bad, text: `${plural(e.snuff, 'candle hunter')} from ${riftName(e.rift)} will ${g.text}.` });
+    lines.push({ bad: g.bad, spot: endOf(e.hunt), text: `${plural(e.snuff, 'candle hunter')} from ${riftName(e.rift)} will ${g.text}.` });
   }
   if (th.seep) {
     const rooms = [...new Set(th.seepRooms.map((id) => roomName(id, true)))];
-    lines.push({ bad: false, text: `${plural(th.seep, 'Creeper')} may seep up in a room with no candle${rooms.length && rooms.length <= 4 ? `: ${listOf(rooms.map((r) => `the ${r}`))}` : rooms.length ? ` (${rooms.length} such rooms)` : ''}.` });
+    lines.push({ bad: false, spot: th.seepRooms.length ? roomSpot(th.seepRooms[0]) : null, text: `${plural(th.seep, 'Creeper')} may seep up in a room with no candle${rooms.length && rooms.length <= 4 ? `: ${listOf(rooms.map((r) => `the ${r}`))}` : rooms.length ? ` (${rooms.length} such rooms)` : ''}.` });
   }
   for (const m of th.maws) {
     const tg = m.target;
     const what = !tg ? 'nothing it can reach' : tg.kind === 'room' ? `the ${roomName(tg.id, true)} (bracketed)` : `${candleName(tg.id)} (ringed)`;
-    lines.push({ bad: false, text: `A Maw rises from ${riftName(m.rift)} around ${at(m.at)}. As things stand it would go for ${what}: what's worth most for the least fight on its way.` });
+    lines.push({ bad: false, spot: tg ? { f: tg.f, x: tg.x } : riftSpot(m.rift), text: `A Maw rises from ${riftName(m.rift)} around ${at(m.at)}. As things stand it would go for ${what}: what's worth most for the least fight on its way.` });
   }
   if (th.weepers) {
     const W = th.weepers;
     const why = !W.curse ? `${plural(W.count, 'Weeper')} will rise for the day's dead` : W.curse === W.count ? `${W.count === 1 ? 'A Weeper' : plural(W.count, 'Weeper')} will rise on the hedge-witch's curse` : `${plural(W.count, 'Weeper')} will rise, for the day's dead and on the hedge-witch's curse,`;
-    lines.push({ bad: W.dark, text: `${why} and make for the dark of the ${roomName(W.rooms[0], true)}. ${W.dark ? `It has dark to weep in: each one that weeps there ${fmt(T.nightmareSecs)} seconds gives someone a nightmare. A shade in its light cuts them down, and a Keening shade on its floor sings them quiet.` : "It's lit wall to wall: they can't weep there while the candles last."}` });
+    lines.push({ bad: W.dark, spot: roomSpot(W.rooms[0]), text: `${why} and make for the dark of the ${roomName(W.rooms[0], true)}. ${W.dark ? `It has dark to weep in: each one that weeps there ${fmt(T.nightmareSecs)} seconds gives someone a nightmare. A shade in its light cuts them down, and a Keening shade on its floor sings them quiet.` : "It's lit wall to wall: they can't weep there while the candles last."}` });
   }
   if (th.hollow) {
     const held = th.hollow.held.length;
-    lines.push({ bad: !held, text: `The Hollow rises from ${riftName(th.hollow.rift)} around ${at(th.hollow.at)} and walks to the Veil whatever the light. ${held ? `${plural(held, 'ward')} on its way will hold it${s.tuning.wardDraw ? ` while the essence lasts (${rate(wardDrawOf(s))} a second), then` : ''} ${fmt(wardHoldOf(s))} seconds each.` : `No ward stands on its way yet: each one there holds it${s.tuning.wardDraw ? ` while the essence lasts (${rate(wardDrawOf(s))} a second), then` : ''} ${fmt(wardHoldOf(s))} seconds.`}` });
+    lines.push({ bad: !held, spot: riftSpot(th.hollow.rift), text: `The Hollow rises from ${riftName(th.hollow.rift)} around ${at(th.hollow.at)} and walks to the Veil whatever the light. ${held ? `${plural(held, 'ward')} on its way will hold it${s.tuning.wardDraw ? ` while the essence lasts (${rate(wardDrawOf(s))} a second), then` : ''} ${fmt(wardHoldOf(s))} seconds each.` : `No ward stands on its way yet: each one there holds it${s.tuning.wardDraw ? ` while the essence lasts (${rate(wardDrawOf(s))} a second), then` : ''} ${fmt(wardHoldOf(s))} seconds.`}` });
   }
   const tideText = th.tides.map((t) => `${at(t.at)} (${t.count})`);
   const r = th.raid;
@@ -1153,8 +1231,8 @@ function blackMirror() {
     ? `<p class="note${r.defense < r.hi ? ' bad' : ''}">Tomorrow, raiders: strength ${fmt(r.lo)} to ${fmt(r.hi)}. The gate holds ${fmt(r.defense)} with the guards you have now; tonight's Watch and tomorrow's guards add to it.</p>`
     : '';
   return `<details class="card scry" data-keep="scry"${ui.open.scry !== false ? ' open' : ''}><summary><b>The black mirror</b></summary>
-      <p class="note">What tonight holds as the candles, posts and wards stand now. Candles burn down and shades move once it begins, so it can still turn out otherwise.</p>
-      <ul class="ways">${lines.map((l) => `<li${l.bad ? ' class="bad"' : ''}>${l.text}</li>`).join('')}</ul>
+      <p class="note">What tonight holds as the candles, posts and wards stand now. Candles burn down and shades move once it begins, so it can still turn out otherwise. Tap a line to see where on the Tain.</p>
+      <ul class="ways">${lines.map((l, i) => `<li${l.bad ? ' class="bad"' : ''}>${l.spot ? `<button class="way" id="way-${i}" data-act="way-spot" data-f="${l.spot.f}" data-x="${Math.round(l.spot.x)}" title="Show it on the Tain">${l.text}<span class="go" aria-hidden="true">Show</span></button>` : l.text}</li>`).join('')}</ul>
       ${tideText.length ? `<p class="note">Tides at ${listOf(tideText)}${th.alone ? `; ${plural(th.alone, 'Creeper')} ${th.alone === 1 ? 'comes' : 'come'} alone` : ''}.</p>` : ''}
       ${errandsAtDusk()}
       ${raidText}
@@ -1969,7 +2047,7 @@ function menuHTML() {
   const tab = MENU_TABS.some(([k]) => k === ui.menuTab) ? ui.menuTab : 'settings';
   const body = { settings: settingsTab, saves: savesTab, howto: howtoTab }[tab]();
   const back = ui.watch || ui.title ? '' : '<div class="row"><button class="btn" id="btn-title" data-act="title-open">Main menu</button><span class="hint">Continue, a new keep, the tutorial, today\'s keep.</span></div>';
-  return `${testCard()}${back}<div class="tabs" role="tablist" aria-label="Menu">${MENU_TABS.map(([k, l]) => `<button class="tab" role="tab" id="menu-tab-${k}" data-act="menu-tab" data-tab="${k}" aria-selected="${k === tab}" aria-controls="menupanel">${l}</button>`).join('')}</div>
+  return `${testCard()}${back}<div class="tabs" role="tablist" aria-label="Menu">${MENU_TABS.map(([k, l]) => `<button class="tab" role="tab" id="menu-tab-${k}" data-act="menu-tab" data-tab="${k}" aria-selected="${k === tab}" tabindex="${k === tab ? 0 : -1}" aria-controls="menupanel">${l}</button>`).join('')}</div>
     <div class="tabpanel" role="tabpanel" id="menupanel" aria-labelledby="menu-tab-${tab}">${body}</div>`;
 }
 const ALL_TABS = [['book', 'Book of the Dead'], ['log', 'Log'], ['days', 'Days'], ['playtest', 'Playtest']];
@@ -1978,7 +2056,7 @@ function recordsHTML() {
   const TABS = TABS_NOW();
   const tab = TABS.some(([k]) => k === prefs.tab) ? prefs.tab : 'log';
   const body = { book: bookTab, log: logTab, days: daysTab, playtest: playtestTab }[tab]();
-  return `<div class="tabs" role="tablist" aria-label="Records">${TABS.map(([k, l]) => `<button class="tab" role="tab" id="tab-${k}" data-act="tab" data-tab="${k}" aria-selected="${k === tab}" aria-controls="tabpanel">${l}</button>`).join('')}</div>
+  return `<div class="tabs" role="tablist" aria-label="Records">${TABS.map(([k, l]) => `<button class="tab" role="tab" id="tab-${k}" data-act="tab" data-tab="${k}" aria-selected="${k === tab}" tabindex="${k === tab ? 0 : -1}" aria-controls="tabpanel">${l}</button>`).join('')}</div>
     <div class="tabpanel" role="tabpanel" id="tabpanel" aria-labelledby="tab-${tab}">${body}</div>`;
 }
 
@@ -2629,41 +2707,53 @@ function onStage(e) {
   ui.kb = null; // a tap puts the keyboard's cursor away
   return actAt(at);
 }
-// Whatever the tool does at a spot on the Tain, from a tap or from the keyboard's cursor. Round seven made it
-// safe to tap: a tap on a shade picks it whatever the tool (at dusk the Candle tool used to spend a candle on
-// every tap meant for a shade), and at dusk a tap on a candle or a ward set then takes it back, whole.
+// Whatever the tool does at a spot on the Tain, from a tap or from the keyboard's cursor.
 function actAt(at) {
   if (!placing()) return undefined;
-  const hit = pickNear(at);
-  if (hit) {
-    const again = hit.id === ui.selected && ui.tool === 'move';
-    ui.selected = hit.id;
+  const i = tapIntent(at);
+  if (i.kind === 'pick') {
+    ui.selected = i.d.id;
     ui.tool = 'move';
-    if (!again) return bump();
+    return bump();
   }
-  if (ui.tool === 'candle') {
-    const k = duskCandleNear(at);
-    if (k) return k.id === ui.lastSet?.id && performance.now() - ui.lastSet.at < TAKE_BACK_WAIT ? undefined : takeBack({ type: 'uncandle', id: k.id }, 'The candle is back in the store.');
-    if (!at.room) return toast('That is inside a wall.', 'bad');
+  if (i.kind === 'uncandle') return i.k.id === ui.lastSet?.id && performance.now() - ui.lastSet.at < TAKE_BACK_WAIT ? undefined : takeBack({ type: 'uncandle', id: i.k.id }, 'The candle is back in the store.');
+  if (i.kind === 'wall') return toast('That is inside a wall.', 'bad');
+  if (i.kind === 'candle') {
     const n = s.night?.candles.length;
     const ok = game({ type: 'candle', f: at.f, x: Math.round(at.x * 2) / 2 });
     if (ok && s.night?.candles.length > n) ui.lastSet = { id: s.night.candles.at(-1).id, at: performance.now() };
     return ok;
   }
-  if (ui.tool === 'ward') {
-    const w = wardNear(at);
-    if (!w) return toast(`Tap closer to a stair or a rift${raining(s) ? ", or an end of the moat's twin" : ''}.`, 'bad');
-    if (takingBack() && s.night.wards.includes(w.id)) return takeBack({ type: 'unward', target: w.id }, `The ward on ${wardName(w.id)} is lifted, and its essence back.`);
-    return game({ type: 'ward', target: w.id });
-  }
-  if (ui.selected && at.room) game({ type: 'move', id: ui.selected, f: at.f, x: Math.round(at.x * 2) / 2 });
+  if (i.kind === 'far') return toast(`Tap closer to a stair or a rift${raining(s) ? ", or an end of the moat's twin" : ''}.`, 'bad');
+  if (i.kind === 'unward') return takeBack({ type: 'unward', target: i.w.id }, `The ward on ${wardName(i.w.id)} is lifted, and its essence back.`);
+  if (i.kind === 'ward') return game({ type: 'ward', target: i.w.id });
+  if (i.kind === 'move') game({ type: 'move', id: ui.selected, f: at.f, x: Math.round(at.x * 2) / 2 });
   return undefined;
 }
-// The shade a tap there picks: any that can take a post, except one held in the dark while the Candle tool
-// is out, whose spot the tap lights instead (the light is what frees it).
-function pickNear(at) {
+// What a tap there does with the tool in hand (round seven, phase 3). Dusk opens on Move, and the tool decides,
+// with three kindnesses. Until the night begins, a tap on a candle or a ward set that dusk takes it back, whole,
+// so nothing a tap spends there is lost. Candle out, a tap on a shade already standing in light picks it, since
+// a second candle there would be wasted, while one in the dark, or caught, gets the candle (light on the one
+// holding it is what frees it). Ward out, a tap away from any stair or rift picks the shade there. (Round seven's audit had a tap
+// on a shade always pick it; that took away relighting the line where the shades stand, every dusk from the
+// second, and warding the stair a shade guards.)
+function tapIntent(at) {
   const d = shadeNear(at);
-  return d && !(d.grabbedBy && ui.tool === 'candle' && s.res.candles >= 1) ? d : null;
+  if (ui.tool === 'candle') {
+    const k = duskCandleNear(at);
+    if (k) return { kind: 'uncandle', k };
+    // A caught shade is freed when the one holding it stands in light: until then a tap lights, and after, picks.
+    const holder = d?.grabbedBy && byId(s.night?.foes || [], d.grabbedBy);
+    if (d && (holder ? litAt(holder.f, holder.x) : litAt(d.f, d.x))) return { kind: 'pick', d };
+    return at.room ? { kind: 'candle' } : { kind: 'wall' };
+  }
+  if (ui.tool === 'ward') {
+    const w = wardNear(at);
+    if (w) return takingBack() && s.night.wards.includes(w.id) ? { kind: 'unward', w } : { kind: 'ward', w };
+    return d ? { kind: 'pick', d } : { kind: 'far' };
+  }
+  if (d && d.id !== ui.selected) return { kind: 'pick', d };
+  return ui.selected && at.room ? { kind: 'move' } : { kind: 'none' };
 }
 // Taking back what was set this dusk (sim.js: uncandle and unward).
 const takingBack = () => s.phase === 'dusk' && s.dusk?.step === 'place';
@@ -2686,12 +2776,10 @@ function takeBack(a, said) {
 
 function ghost() {
   const h = kbAt() || ui.hover;
-  if (!h || !h.room || !placing() || pickNear(h)) return null;
-  if (ui.tool === 'candle' && s.res.candles >= 1 && !duskCandleNear(h)) return { tool: 'candle', f: h.f, x: Math.round(h.x) };
-  if (ui.tool === 'ward') {
-    const w = wardNear(h);
-    return w && !(takingBack() && s.night.wards.includes(w.id)) ? { tool: 'ward', target: w } : null;
-  }
+  if (!h || !h.room || !placing()) return null;
+  const i = tapIntent(h);
+  if (i.kind === 'candle' && s.res.candles >= 1) return { tool: 'candle', f: h.f, x: Math.round(h.x) };
+  if (i.kind === 'ward') return { tool: 'ward', target: i.w };
   return null;
 }
 
@@ -2755,6 +2843,18 @@ function kbPick(dir) {
   ui.kb = { f: d.f, x: unitAt(K(), d, 1).x };
   return kbShown();
 }
+// The Dusk panel on a phone (round seven, phase 3) takes half the free height rather than two thirds, so the
+// Tain stays in view while the black mirror is read, and a tap on one of its lines brings that spot to the
+// middle of what's left, ringed a moment.
+const halfSheet = () => ui.sheet === 'phase' && s.phase === 'dusk' && s.dusk?.step === 'place' && !wide();
+function showSpot(f, x) {
+  const fr = freeRect();
+  const box = canvas.getBoundingClientRect();
+  const p = worldToScreen(x, keepToWorldY(feet(K(), f) - 6));
+  panBy((fr.left + fr.right) / 2 - (box.left + p.x), (fr.top + fr.bottom) / 2 - (box.top + p.y));
+  ui.spot = { f, x, until: performance.now() + 2400 };
+  bump();
+}
 // After the cursor moves: in view, the hint said, and Enter free for it (a button clicked a moment ago
 // would otherwise keep it).
 function kbShown() {
@@ -2777,15 +2877,18 @@ function kbText() {
   const where = at.room ? `the ${TWINS[at.room].name}` : 'inside a wall';
   const here = shadeNear(at);
   const d = byId(s.shades, ui.selected);
-  const pick = pickNear(at);
-  let enter;
-  if (pick && !(pick.id === ui.selected && ui.tool === 'move')) enter = `pick ${pick.name}`;
-  else if (ui.tool === 'candle') enter = duskCandleNear(at) ? 'take the candle back' : !at.room ? 'nothing here' : s.res.candles >= 1 ? 'set a candle' : 'nothing (no candles left)';
-  else if (ui.tool === 'ward') {
-    const w = wardNear(at);
-    enter = !w ? 'nothing (no stair or rift near)' : takingBack() && s.night.wards.includes(w.id) ? `lift the ward on ${wardName(w.id)}` : `ward ${wardName(w.id)} (${fmt(wardCost(s))} essence)`;
-  } else if (d && at.room) enter = `${s.phase === 'dusk' ? 'post' : 'send'} ${d.name} here`;
-  else enter = d ? 'nothing here' : 'nothing ([ and ] pick a shade)';
+  const i = tapIntent(at);
+  const enter = {
+    pick: () => `pick ${i.d.name}`,
+    uncandle: () => 'take the candle back',
+    candle: () => (s.res.candles >= 1 ? 'set a candle' : 'nothing (no candles left)'),
+    wall: () => 'nothing here',
+    far: () => 'nothing (no stair or rift near)',
+    unward: () => `lift the ward on ${wardName(i.w.id)}`,
+    ward: () => `ward ${wardName(i.w.id)} (${fmt(wardCost(s))} essence)`,
+    move: () => `${s.phase === 'dusk' ? 'post' : 'send'} ${d.name} here`,
+    none: () => (d ? 'nothing here' : 'nothing ([ and ] pick a shade)'),
+  }[i.kind]();
   return `Cursor: ${where}${here ? `, ${here.name}` : ''}. Enter: ${enter}. Esc puts it away.`;
 }
 
@@ -2815,7 +2918,7 @@ function draw(alpha, now) {
     sunset: s.phase === 'day' ? Math.max(0, (s.t / dayTicks(s) - 0.82) / 0.18) : s.phase === 'end' ? 0.35 : 0,
     dusk: duskAmount(now),
     souls: soulSpots(now),
-    marks: night && ui.guide?.marks ? ui.guide.marks() : null,
+    marks: night ? [...(ui.guide?.marks ? ui.guide.marks() : []), ...(ui.spot && ui.spot.until > now ? [ui.spot] : [])] : null,
     threats: (night || both) && waysOn() && !foggy(s) ? threatsNow() : null,
     alpha: (s.phase === 'night' || both) && !ui.paused ? alpha : 1,
     selected: ui.selected,
@@ -3072,7 +3175,7 @@ function titleHTML() {
 function openTitle(by = 'you') {
   if (ui.skip) endSkip();
   if (running() && !ui.paused) trail('pause', { by: 'title' });
-  Object.assign(ui, { paused: true, rush: false, resume: false, title: true, titleView: null, titleFor: null, titleAsk: null, installHelp: false });
+  Object.assign(ui, { paused: true, rush: false, resume: false, title: true, titleView: null, titleFor: null, titleAsk: null, installHelp: false, titleBack: by === 'you' });
   closeSheet();
   showCoach(null);
   trail('panel', { name: 'title', ...(by === 'you' ? {} : { by }) });
@@ -3124,6 +3227,7 @@ let drawnToasts = -1;
 const LIVE = {
   heat: (id) => fireTrend(id),
   assault: () => assaultText(),
+  estrip: () => stripText(),
   clock: () => clockText(),
   'eclipse-left': () => (eclipseNow() ? String(Math.max(0, Math.ceil((s.eclipse.to - s.t) / TICKS_PER_SEC))) : '0'),
   food: () => floor1(s.res.food),
@@ -3180,7 +3284,7 @@ function render(alpha, now) {
     host.innerHTML = html();
     if (id === 'sheet') {
       host.hidden = !ui.sheet;
-      host.className = `gsheet${ui.sheet ? ` is-${ui.sheet}` : ''}`;
+      host.className = `gsheet${ui.sheet ? ` is-${ui.sheet}` : ''}${halfSheet() ? ' is-half' : ''}`;
     }
     if (id === 'title') {
       host.hidden = !ui.title;
@@ -3201,6 +3305,7 @@ function render(alpha, now) {
     liveEls = [...document.querySelectorAll('[data-live]')];
     barEls = [...document.querySelectorAll('[data-bar]')];
     showHint();
+    syncBack();
     const hh = `${hudEl.offsetHeight}|${barEl.offsetHeight}`;
     if (hh !== layout.last) {
       layout.last = hh;
@@ -3217,6 +3322,7 @@ function render(alpha, now) {
     const w = `${(Math.max(0, Math.min(1, f(el.dataset.arg))) * 100).toFixed(1)}%`;
     if (el.style.width !== w) el.style.width = w;
   }
+  srNight(now);
   if (drawnToasts !== ui.toastRev) {
     drawnToasts = ui.toastRev;
     document.getElementById('toasts').innerHTML = ui.toasts
@@ -3224,6 +3330,28 @@ function render(alpha, now) {
       .join('');
   }
   draw(alpha, now);
+}
+
+// The night in one line for a screen reader (round seven, phase 3), since the Tain is a picture: the Unlit out
+// and to come, the Veil, and who is caught. Read out when any of that changes, at most every eight seconds,
+// with the time; the clock alone going round isn't news.
+const srEl = document.getElementById('sr-status');
+const sr = { key: '', at: -Infinity };
+function srNight(now) {
+  const n = s.night;
+  const on = n && (s.phase === 'night' || eclipseNow()) && !ui.watch && !ui.title;
+  if (!on) {
+    if (sr.key) srEl.textContent = sr.key = '';
+    sr.at = -Infinity;
+    return;
+  }
+  if (ui.paused || now - sr.at < 8000) return;
+  const caught = s.shades.filter((d) => d.grabbedBy).map((d) => d.name);
+  const key = `The Unlit: ${n.foes.length} out, ${n.spawns.length} to come. The Veil: ${s.cracks} of ${s.tuning.cracksMax} cracked.${caught.length ? ` Caught in the dark: ${listOf(caught)}.` : ''}`;
+  if (key === sr.key) return;
+  sr.key = key;
+  sr.at = now;
+  srEl.textContent = `${clockText()}. ${key}`;
 }
 
 function openSheet(name, by = 'you') {
@@ -3255,6 +3383,41 @@ function closeSheet() {
   bump();
   if (was) requestAnimationFrame(() => document.getElementById(`open-${was}`)?.focus({ preventScroll: true }));
 }
+
+/* ---------------------------------------------------------------- Back */
+
+// Android's Back button, and the browser's (round seven, phase 3). While a panel, one of the main screen's
+// lists, or the main screen opened from the keep is up, the page holds one step of the browser's history, so
+// Back closes the topmost of them, as Escape does, instead of leaving the game. Closed any other way, the step
+// is taken back out, so the next Back isn't spent on nothing.
+const backStep = { held: false, skip: 0 };
+const backable = () => !crashed && !!(ui.sheet || (ui.title && (ui.titleView || (ui.titleBack && continuable()))));
+function syncBack() {
+  const want = backable();
+  if (want === backStep.held) return;
+  try {
+    if (want) history.pushState({ afterglass: 'back' }, '');
+    else {
+      backStep.skip++;
+      history.back();
+    }
+    backStep.held = want;
+  } catch {
+    // A frame that won't let the page into its history: Back does what it always did.
+  }
+}
+window.addEventListener('popstate', () => {
+  if (backStep.skip) {
+    backStep.skip--;
+    return;
+  }
+  if (!backStep.held) return;
+  backStep.held = false;
+  trail('back');
+  if (ui.sheet) closeSheet();
+  else if (ui.title && ui.titleView) titleView(null);
+  else if (ui.title && continuable()) titleContinue();
+});
 
 /* ---------------------------------------------------------------- the guide */
 
@@ -3376,7 +3539,7 @@ const GUIDE = [
     when: () => first() && seen('tain') && s.phase === 'dusk' && s.dusk.step === 'place' && nightView(),
     marks: () => lineSpots().filter((p) => !litAt(p.f, p.x)),
     done: () => lineSpots().every((p) => litAt(p.f, p.x)),
-    text: () => `${K().n === 1 ? 'Light the two marked spots between each rift and its mirror' : 'Light the feet of the two stairs up to the Veil (marked)'}, with a shade at each. Creepers stopped there gnaw at the edge of the light, and a shade standing in it cuts them down.${K().n > 1 && s.tuning.lineGuard ? ' A shade in that light guards the line: it can keep the Watch, but does no other work.' : ''}`,
+    text: () => `${K().n === 1 ? 'Light the two marked spots between each rift and its mirror' : 'Light the feet of the two stairs up to the Veil (marked)'} (choose Candle, then tap them), with a shade at each. Creepers stopped there gnaw at the edge of the light, and a shade standing in it cuts them down.${K().n > 1 && s.tuning.lineGuard ? ' A shade in that light guards the line: it can keep the Watch, but does no other work.' : ''}`,
   },
   {
     id: 'begin', target: '#bar-start',
@@ -3577,13 +3740,13 @@ const TUT = [
     text: 'Now a shade in each light. Choose Move, tap one of the dark figures with glowing eyes, then a spot inside one of the lights; then the other, into the other light. They are Garrick and Hesper, the last keeper’s dead. Creepers stopped at the light gnaw its edge, and a shade standing in it cuts them down.',
   },
   {
-    id: 't-post', target: '#tool-move',
+    id: 't-post', target: '#tool-candle',
     when: () => onDay(1, 'dusk') && s.dusk.step === 'place' && tutHas('t-guard') && !!maud(),
     done: () => {
       const d = maud();
       return !!d && !!TWINS[postRoom(s, d)]?.job && litAt(d.post.f, d.post.x);
     },
-    text: () => `Now ${TUTORIAL.servant.name}. Each room's twin has a night job, which a shade works only in the light: ${built('chandlery') ? 'the Wick Room saves candles, ' : ''}${built('barracks') ? 'the Watch adds to tomorrow’s defense, ' : ''}the Cold Hearth rests a shade. Choose Move, tap her in the Waking Room, then a spot in a room, and set a candle there.`,
+    text: () => `Now ${TUTORIAL.servant.name}. Each room's twin has a night job, which a shade works only in the light: ${built('chandlery') ? 'the Wick Room saves candles, ' : ''}${built('barracks') ? 'the Watch adds to tomorrow’s defense, ' : ''}the Cold Hearth rests a shade. Choose Candle and set one in a room; then choose Move, tap her in the Waking Room, and a spot in its light.`,
   },
   {
     id: 't-mirror', target: '#open-phase',
@@ -4345,6 +4508,8 @@ function onAct(name, el) {
   switch (name) {
     case 'play': return togglePlay();
     case 'speed': return setSpeed(Number(el.dataset.v));
+    case 'strip-open': return stripOpen(el.dataset.card);
+    case 'way-spot': return showSpot(Number(el.dataset.f), Number(el.dataset.x));
     case 'hud-more':
       prefs.hudAll = !prefs.hudAll;
       savePrefs();
@@ -4794,6 +4959,18 @@ document.addEventListener('input', (e) => {
   }, 400);
 });
 document.addEventListener('keydown', (e) => {
+  // A tab list's own keys (round seven): the arrows, Home and End go along the tabs and open the one they reach,
+  // rather than panning the castle behind the panel.
+  const tab = e.target.closest?.('[role="tab"]');
+  if (tab && ['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) {
+    const tabs = [...tab.closest('[role="tablist"]').querySelectorAll('[role="tab"]')];
+    const i = tabs.indexOf(tab);
+    const j = e.key === 'Home' ? 0 : e.key === 'End' ? tabs.length - 1 : (i + (e.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length;
+    e.preventDefault();
+    tabs[j].focus();
+    tabs[j].click();
+    return;
+  }
   if (ui.title && !ui.sheet) {
     // Escape steps back, and from the main list, back to the keep. The game's keys wait for it to close.
     if (e.key === 'Escape') {
