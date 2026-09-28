@@ -178,8 +178,10 @@ export const TUNING = {
   // With the year on, hardness compounds through a year's seasons, and each year after the first starts
   // yearHardness times harder than the one before, rather than carrying on from its winter: compounding a
   // season at a time, the second winter came at 3.6 times the first spring and no autopilot plan won it
-  // (README, problem 29). 0 compounds a season at a time into every year, as before.
-  yearHardness: 1.3,
+  // (README, problem 29). 0 compounds a season at a time into every year, as before. At 1.3 every keep
+  // fell by the fifth winter; at 1.06 about half the balanced plan's keeps see a fifth year and a quarter a
+  // tenth, falling a few a year from the third on, nearly all at a Long Night (problem 43).
+  yearHardness: 1.06,
 
   // Building. A season starts with startFloors floors of the original keep, counted from the ground: at 1,
   // only the Hearth and the Crypt stand, and whoever has no room to work in quarries stone in the Yard.
@@ -473,7 +475,8 @@ export const TUNING = {
   // after a censure from year 3; from year 4 the Hollow hollowRises times as hard to drive back and as hungry
   // for light, and hollowRises times the new moon's Creepers. Each sets a goal worth goalReward remembrance,
   // and years 1 to 4 end with a closing choice for the next; year 5 with round three's three endings. Its
-  // years harden by campaignHardness, not yearHardness. 0 is the open year.
+  // five years harden by campaignHardness, not yearHardness, and the years after its ending by yearHardness, as
+  // the open year's do (problem 43). 0 is the open year.
   campaign: 0,
   campaignHardness: 1.1,
   hollowRises: 1.5,
@@ -537,17 +540,19 @@ export const ENDINGS = {
 
 // Difficulty presets (round five): named sets of the Settings numbers, chosen for a new keep. A keep keeps
 // the numbers it was made with: a newer build moves the rest of its numbers to its own, not these.
+// Each year grows as Standard's does (yearHardness): Gentle's and Hard's own rates, ×1.15 and ×1.2, were set
+// against Standard's ×1.3, and would now grow faster than it (problem 43).
 export const PRESETS = {
   gentle: {
     name: 'Gentle',
     text: 'Six cracks break the Veil, not five. Fewer Creepers, weaker raids, more food and candles to start, and each season only a little harder than the last.',
-    tuning: { cracksMax: 6, creepersPerNight: 1.8, raidFightStrength: 0.85, startFood: 18, startCandles: 12, hardness: 1.1, yearHardness: 1.15 },
+    tuning: { cracksMax: 6, creepersPerNight: 1.8, raidFightStrength: 0.85, startFood: 18, startCandles: 12, hardness: 1.1 },
   },
   standard: { name: 'Standard', text: 'The rules as they ship, and as the README measures them.', tuning: {} },
   hard: {
     name: 'Hard',
-    text: 'Four cracks break the Veil. More Creepers, stronger raids and fewer candles to start: harder from the first night, growing through a year as Standard does, and a little less from one year to the next.',
-    tuning: { cracksMax: 4, creepersPerNight: 2.6, raidFightStrength: 1.15, startCandles: 6, hardness: 1.2, yearHardness: 1.2 },
+    text: 'Four cracks break the Veil. More Creepers, stronger raids and fewer candles to start: harder from the first night, and growing through a year and from one year to the next as Standard does.',
+    tuning: { cracksMax: 4, creepersPerNight: 2.6, raidFightStrength: 1.15, startCandles: 6, hardness: 1.2 },
   },
 };
 

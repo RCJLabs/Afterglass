@@ -6,7 +6,7 @@ import { TICKS_PER_SEC, DAY_ROOMS, WORK_ROOMS, TWINS, KINDS, MIRRORS, CAUSES, MA
 import {
   newSeason, step, act, retune, playerTuning, jobCap, jobCount, nextSlot, ritePreview, crossingPreview, capacity, canWork, defense, roomPower, bear, priests, funeralCap, eatRate,
   dayTicks, nightTicks, isNewMoon, choicesFor, byId, isTwinnedLiving, isTwinnedShade, lastSeason, SAVE_VERSION, fmt, mirrorCap, bareHalls, tainPlace,
-  postRoom, wardCost, wardDrawOf, wardHoldOf, hollowNeed, shadeTrait, peopleIn, beds, tradeOf, inGreatGlass, handsAt, whispers, stepsThrough, perf,
+  postRoom, wardCost, wardDrawOf, wardHoldOf, hollowNeed, yearRate, shadeTrait, peopleIn, beds, tradeOf, inGreatGlass, handsAt, whispers, stepsThrough, perf,
   seasonIndex, seasonName, yearOf, dayLength, isLongNight, tributeOf, besieged, sallyOdds, plagueSeason, atGate, gateGuard,
   weatherOf, forecastOf, raining, foggy, drownedDue, keepDefaults, embargoed, inquisition, churchDaysLeft, crusadeDay, crusadeDaysLeft,
   actOf, actCost, canAct, acting, actText, omenText, nextMark, SKIP_LEAD, visitorBlock,
@@ -1411,13 +1411,20 @@ function endPanel() {
     ? newKeepControls()
     : yearEnd && chapterOf(s) ? chapterCloseHTML()
     : yearEnd ? endingsHTML(next)
-      : `<div class="row"><button class="btn primary" id="btn-next-season" data-act="next-season">${next}</button><span class="hint">Raids and the Unlit come ×${T.hardness} harder.</span></div>`;
+      : `<div class="row"><button class="btn primary" id="btn-next-season" data-act="next-season">${next}</button><span class="hint">${harderNote()}</span></div>`;
   return `${head}
     ${questionHTML(e)}
     ${s.sealed || s.opened ? '' : reviewHTML(isLongNight(s) ? 'The Long Night in moments' : 'The new moon in moments')}
     <div class="card"><h3>The season</h3>${summaryHTML(e)}<div class="row"><button class="btn sm" id="end-book" data-act="book">Read the Book of the Dead</button></div></div>
     ${recapHTML(e)}
     ${go}`;
+}
+// How much harder the next season comes. Within a year, each season than the last; at the year's end, the
+// spring after the Long Night is easier than the winter was, and harder than the last spring by the year's rate.
+function harderNote() {
+  const T = s.tuning;
+  if (T.year && yearRate(s) && seasonIndex(s) === 3) return `Raids and the Unlit come easier in the spring than they were this winter, and ×${mult(yearRate(s))} harder than last spring.`;
+  return `Raids and the Unlit come ×${mult(T.hardness)} harder.`;
 }
 // An ending to the year (round five): keep the watch, take your own place in the glass, or seal the Veil,
 // which ends the keep's story and is asked twice.
@@ -1429,7 +1436,7 @@ function endingsHTML(next) {
     : '<button class="btn" id="end-seal" data-act="seal-ask">Seal the Veil</button>';
   return `<div class="card ending"><h3>The year's end</h3><p>The Long Night is over. How does this keep's year end?</p>
     <div class="endings">
-      <div><button class="btn primary" id="btn-next-season" data-act="next-season">Keep the watch</button><p class="note">${esc(next)}. Raids and the Unlit come ×${T.hardness} harder.</p></div>
+      <div><button class="btn primary" id="btn-next-season" data-act="next-season">Keep the watch</button><p class="note">${esc(next)}. ${harderNote()}</p></div>
       <div><button class="btn" id="end-glass" data-act="take-glass">Take your place in the glass</button><p class="note">You wake as a shade, Loyal, named and Anchored: a strong fighter who fades slowly, but weighs ${T.keeperDread} shades' Dread at every rite. A new keeper takes up the keep, and the year goes on.</p></div>
       <div>${seal}<p class="note">${ui.sealAsk ? '' : `Every shade goes free, and the Book closes. The keep's story ends here, with ${plural(n, 'shade')} set free.`}</p></div>
     </div></div>`;

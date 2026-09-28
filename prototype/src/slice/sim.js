@@ -9,7 +9,7 @@
 import {
   TICKS_PER_SEC, TUNING, DAY_ROOMS, WORK_ROOMS, TWINS, MAP, KINDS, WORKING, CAUSES, GUIDE_UP,
   MIRRORS, START_MIRRORS, MIRROR_PLACES, CAST, BONDS, START_SHADES, BOND_OTHER, NAMES, RAIDER_NAMES, BUILDABLE, TRAITS, TRAIT_KEYS, SHADE_TRAITS, SEASONS,
-  TUTORIAL, REQUESTS, ACTS, OMENS, VISITORS, STUDIES, DECREES, decreeDoes, CHAPTERS,
+  TUTORIAL, REQUESTS, ACTS, OMENS, VISITORS, STUDIES, DECREES, decreeDoes, CHAPTERS, PRESETS,
 } from './data.js';
 import {
   geo, FULL_KEEP, startKeep, lineSpots, MAX_FLOORS, roomsOf, roomAt, roomSpan, typeOf, typeAt, lightMap, isLit, spanAt, darkBetween, darkRooms, darkGaps, route, firstLight, fleePath, touching,
@@ -37,12 +37,21 @@ const nightLength = (s) => (s.tuning.year ? s.tuning.seasonNight[seasonIndex(s)]
 export const dayTicks = (s) => Math.round(s.tuning.daySecs * dayLength(s) * TICKS_PER_SEC);
 export const nightTicks = (s) => Math.round(s.tuning.nightSecs * nightLength(s) * TICKS_PER_SEC);
 export const perf = (d) => 0.4 + (0.6 * Math.max(0, d.memory)) / 100;
+// How much harder year y starts than the one before: yearHardness in the open year, campaignHardness through
+// a campaign's five chapters, and yearHardness again in the years after its ending (README, problem 43).
+const CAMPAIGN_YEARS = 5;
+const rateOfYear = (T, y) => (T.campaign && (y <= CAMPAIGN_YEARS || !T.yearHardness) ? T.campaignHardness : T.yearHardness);
+// The next year's, for the year's end.
+export const yearRate = (s) => rateOfYear(s.tuning, yearOf(s) + 1);
 export const hard = (s, k = 'hardness') => {
   const T = s.tuning;
-  // With the year on, a season's place in its year, and the year: each year yearHardness harder (Maws aside),
-  // or campaignHardness in a campaign.
-  const yh = T.campaign ? T.campaignHardness : T.yearHardness;
-  if (T.year && yh) return Math.pow(T[k], seasonIndex(s)) * (k === 'hardness' ? Math.pow(yh, yearOf(s) - 1) : 1);
+  // With the year on, a season's place in its year, and the year: each year harder by its rate (Maws aside).
+  if (T.year && rateOfYear(T, 2)) {
+    if (k !== 'hardness') return Math.pow(T[k], seasonIndex(s));
+    const years = yearOf(s) - 1;
+    const chapters = !T.campaign ? 0 : T.yearHardness ? Math.min(years, CAMPAIGN_YEARS - 1) : years; // years hardened at the campaign's rate
+    return Math.pow(T[k], seasonIndex(s)) * Math.pow(T.campaignHardness, chapters) * Math.pow(T.yearHardness, years - chapters);
+  }
   return Math.pow(T[k], s.season - 1);
 };
 // The tutorial keep's script for today and tonight, while it lasts (its first three days), and whether the
@@ -4194,6 +4203,7 @@ export const keepDefaults = (s) => ({ ...TUNING, ...(s.defaults || {}) });
 
 // A save from an older build, brought up to this one: what it predates gets what it would have had. Saves
 // from before seasons started from two rooms had the whole original keep.
+const OLD_YEAR_RATES = { gentle: 1.15, hard: 1.2 };
 export function upgrade(g) {
   g.keep ??= { floors: FULL_KEEP.floors.map((fl) => fl.map((r) => ({ ...r }))) };
   for (const t of [g.tuning, g.tuning0]) if (t && !('startFloors' in t)) t.startFloors = FULL_KEEP.floors.length;
@@ -4238,6 +4248,9 @@ export function upgrade(g) {
   for (const t of [g.tuning, g.tuning0]) if (t && !('essenceCap' in t)) t.essenceCap = 0;
   g.eclipse ??= null;
   g.campaign ??= null;
+  // A Gentle or Hard keep made while its years hardened ×1.15 or ×1.2 (Standard's ×1.3) grows as Standard's does
+  // now (README, problem 43): kept, its old rate would harden it faster than a Standard keep, year after year.
+  for (const [p, rate] of Object.entries(OLD_YEAR_RATES)) if (g.preset === p && g.defaults?.yearHardness === rate && !('yearHardness' in PRESETS[p].tuning)) delete g.defaults.yearHardness;
   for (const p of g.living || []) p.trait ??= traitFor(g, p.name);
   for (const b of g.bodies || []) if (b.was === undefined) b.was = b.from === 'raider' ? null : traitFor(g, b.name);
   for (const d of g.shades || []) {

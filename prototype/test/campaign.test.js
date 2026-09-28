@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { newSeason, step, act, upgrade, replay, chapterOf, campaignOn, laddersDue, hollowRisen, boonNow, defense, addFoe, hard, yearsEnd, chapterAgain, isNewMoon, embargoed } from '../src/slice/sim.js';
+import { newSeason, step, act, upgrade, replay, chapterOf, campaignOn, laddersDue, hollowRisen, boonNow, defense, addFoe, hard, yearRate, yearsEnd, chapterAgain, isNewMoon, embargoed } from '../src/slice/sim.js';
 import { runSeasonAuto, autoStep, closeYear } from '../src/slice/autopilot.js';
 import { CHAPTERS, TUNING, MAP } from '../src/slice/data.js';
 import { epitaph } from '../src/slice/book.js';
@@ -64,6 +64,12 @@ test('a campaign is five chapters beside the open year, each told at its year\'s
   const o = newSeason(5, { ...quiet });
   o.season = 9;
   assert.ok(Math.abs(hard(c) / hard(o) - (TUNING.campaignHardness / TUNING.yearHardness) ** 2) < 1e-9);
+  // Its five chapters' years, that is: the years after its ending harden as the open year's do.
+  c.season = 17;
+  assert.ok(Math.abs(hard(c) - TUNING.campaignHardness ** 4) < 1e-9);
+  assert.equal(yearRate(c), TUNING.yearHardness, 'the sixth year comes at the open year\'s rate');
+  c.season = 25;
+  assert.ok(Math.abs(hard(c) - TUNING.campaignHardness ** 4 * TUNING.yearHardness ** 2) < 1e-9);
 });
 
 test('each chapter brings its pressure: the Host\'s ladders, siege and Gatehouse from year 2, the Church\'s escalation from year 3, the Hollow grown from year 4', () => {

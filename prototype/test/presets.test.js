@@ -37,7 +37,7 @@ test('hardness compounds through a year, and each year starts yearHardness above
     s.season = i + 1;
     return Math.round(hard(s) * 1000) / 1000;
   });
-  assert.deepEqual(at(newSeason(1)), [1, 1.2, 1.44, 1.728, 1.3, 1.56, 1.872, 2.246]);
+  assert.deepEqual(at(newSeason(1)), [1, 1.2, 1.44, 1.728, 1.06, 1.272, 1.526, 1.832]);
   assert.deepEqual(at(newSeason(1, { yearHardness: 0 })), [1, 1.2, 1.44, 1.728, 2.074, 2.488, 2.986, 3.583]);
   assert.deepEqual(at(newSeason(1, { year: 0 })), [1, 1.2, 1.44, 1.728, 2.074, 2.488, 2.986, 3.583]);
   const m = newSeason(1);
@@ -47,4 +47,23 @@ test('hardness compounds through a year, and each year starts yearHardness above
   delete old.tuning.yearHardness;
   delete old.tuning0.yearHardness;
   assert.equal(upgrade(old).tuning.yearHardness, 0);
+});
+
+test('a Gentle or Hard keep from when years hardened faster grows as Standard does now', () => {
+  for (const [p, old] of [['gentle', 1.15], ['hard', 1.2]]) {
+    assert.equal(PRESETS[p].tuning.yearHardness, undefined, `${p} sets no yearly rate of its own`);
+    const k = newSeason(7, { ...PRESETS[p].tuning, yearHardness: old });
+    k.preset = p;
+    k.defaults = { ...PRESETS[p].tuning, yearHardness: old };
+    const g = upgrade(JSON.parse(JSON.stringify(k)));
+    assert.equal('yearHardness' in g.defaults, false, p);
+    assert.equal(retune(g, keepDefaults(g)), 1, 'the one number moves');
+    assert.equal(g.tuning.yearHardness, TUNING.yearHardness);
+    assert.equal(g.tuning.hardness, PRESETS[p].tuning.hardness, "the preset's other numbers stay");
+  }
+  // One set some other way keeps it.
+  const k = newSeason(7, { yearHardness: 1.25 });
+  k.preset = 'hard';
+  k.defaults = { ...PRESETS.hard.tuning, yearHardness: 1.25 };
+  assert.equal(upgrade(JSON.parse(JSON.stringify(k))).defaults.yearHardness, 1.25);
 });
