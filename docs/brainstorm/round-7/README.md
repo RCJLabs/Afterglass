@@ -45,17 +45,22 @@ You asked for a full audit of the game as it stands, from its systems to its scr
    - Panels cover the castle they describe.
    - 1,925 of the 1,949 controls are under 44 px.
    - Every dusk has a trap: a tap meant to pick a shade spends a candle, with no undo.
-6. **The player's game still carries the developer's tools.**
+6. **The world doesn't show what happens.**
+   - A kill, a lost shade and a breach have no visual moment; things just stop being drawn.
+   - On a phone, the Host at the gate stands under the zoom buttons.
+   - At night, the Loyal's eyes are the cold flames' cyan.
+   - The tides that drive every night make no sound, and there's no music.
+7. **The player's game still carries the developer's tools.**
    - Every season's end opens with "The playtest question".
    - Settings is 100 raw tuning numbers.
    - Standard is described as "the rules as they ship, and as the README measures them".
-7. **The shell is fragile where the core is sound.**
+8. **The shell is fragile where the core is sound.**
    - One uncaught error stops the game, and autosave then writes the broken keep over the good one.
    - The page, 4,762 lines, has no tests.
    - Nothing records which build made a save.
    - The service worker waits on the network with no deadline.
    - The domain you pick for Google Play decides whether players' keeps follow them into the app.
-8. **Five bugs** (section 7):
+9. **Five bugs** (section 7):
    - the Granary does nothing;
    - paying off the season's last raid costs nothing;
    - The Keeper can be taken again every year;
@@ -74,6 +79,11 @@ You asked for a full audit of the game as it stands, from its systems to its scr
   - The black mirror forecasts the night exactly, from the Unlit's own planner.
 - **The season has a shape.** Summer banks food, winter draws it down, and candles put by in summer carry the long nights.
 - **Dawn tells the night's story**, through the night in moments, the Book of the Dead and the recap card.
+- **It looks good.**
+  - The day castle is furnished room by room, its people dressed by their work.
+  - The Tain is the same art run through a violet palette.
+  - The sunset and the eclipse are real set pieces.
+  - A heartbeat quickens as the Hollow nears the mirrors.
 - **It runs well.** 60 fps, no dependencies, no telemetry, and it plays offline.
 - **The accessibility basics are in.** A whole dusk plays by keyboard, there's a less-motion setting, and the eyes read by shape as well as colour.
 - **No verb kills your own**, so round three's worry about farming death is closed.
@@ -152,7 +162,7 @@ You asked for a full audit of the game as it stands, from its systems to its scr
   - Moves are worth nothing measurable, lanterns are a loss, the omen choice is worth nothing to a plan that reacts, and hush is never used.
 - **N2 (high): the Veil is a switch, not a gauge.**
   - Each Creeper through is one crack, and by autumn a tide is 6–10 Creepers, so one open stair at one tide empties the whole meter.
-  - The balanced plan had no crack in 492 survived nights. On its losing nights, all five came between 61 s and 66 s.
+  - The balanced plan had no crack in 492 survived nights. All ten of its cracks came on its two losing nights; on one, all five came between 61 s and 66 s.
   - So the dawn healing and the Dread that hang on cracks almost never apply.
 - **N3 (high): the finale is the quietest night.**
   - The new moon brings 14 Unlit against 24 on nights 5–6, and 2.6 call-outs against 6.0.
@@ -282,11 +292,96 @@ You asked for a full audit of the game as it stands, from its systems to its scr
 
 ## 3. Art, animation and feel
 
-{ART}
+- **A1 (high): hits, kills and losses have no visual moment.**
+  - A Creeper cut down just loses its eye pair between two frames: no flash, puff or pose.
+  - A named shade lost for good vanishes between two frames 200 ms apart.
+  - After a breach, the Host is simply gone and two bodies pop onto the crypt floor.
+  - The living who die by day just stop being drawn.
+  - The only screen-level effect in the game is the Veil's 600 ms flash. There's no screen shake, no particles, and no hit, hurt or death frame anywhere.
+  - A bell and a toast carry every loss, in a game whose question is whether a death feels like one.
+- **A2 (high): on a phone, the Ashen Host is off-screen or under the zoom buttons.**
+  - Its torches on the road and its camp are drawn east of what a phone shows.
+  - At the assault, the mob and the ram stand under the +, − and Fit buttons (seen).
+  - Where raiders do show, they're the pixel pass's 4×6 figures beside 6×12 defenders, and read as a smudge.
+  - On a phone, the raid's whole story is the turret banners.
+- **A3 (high): at night, friend and foe share eye colours.**
+  - The Loyal's eyes are cyan, and so are the cold flames of the Cold Hearth, the Cold Forge and the Wick Room, drawn after the lighting.
+  - The Drowned's mint is close to both.
+  - A Wraith's white eyes match a Pale shade's.
+  - In a fight, the bodies of shades and Creepers merge into one black mass. A faint violet halo is the only friendly mark.
+  - At 3×, a Creeper is 21×9 px, with eyes of 3 px.
+- **A4 (medium): the set dressing outshines the threats.**
+  - The loudest shapes at night are the two pulsing red rifts, and the brightest warm light is the dark keep's decorative Hearth glow.
+  - The Unlit are pairs of eye pixels, and the Hollow, the season's boss, is a dark blob about a shade's size.
+  - One red (`#ff0044`) marks rifts, caught shades, a Maw's target, broken rooms, low memory, the Veil's flash, open ways, Creepers' eyes, and a friendly Stranger's Lure.
+- **A5 (medium): transitions dissolve instead of landing.**
+  - The crossing's souls are 2×3 px and vanish at the waterline, then a 900 ms crossfade runs over a camera that settles in 0.4 s. It reads as a double exposure, with the room labels jumping ahead of the picture.
+  - The eclipse ends in a hard cut with a jump in scale, and the Unlit "burning away" is only a toast.
+  - There's no sunrise: the rite sits over the night, and mornings look like noon.
+- **A6 (medium): lasting damage is mostly invisible.**
+  - The Veil's cracks are HUD pips; the mirrors never crack.
+  - The gate's cracks are ten 1-px dots.
+  - A lost keep looks unchanged.
+  - The exception to keep: a room a Maw broke gets cracks down its wall, and is haunted the next day.
+- **A7 (medium): seasons, weather and the moon barely read on a phone.**
+  - The seasons differ only in the hills, and a phone shows about 27 px of hill each side.
+  - Rain falls as sparse streaks, with fair-weather clouds still on the grey sky.
+  - No rain or fog reaches the Tain, and no snow at night.
+  - The moon is the same crescent every night, the new moon's included, so the countdown to the Hollow is text only.
+- **A8 (medium): on a phone the play area is small.**
+  - The HUD, the bar and the hint take 25–31% of the screen.
+  - The two-room starting keep gets 7% of it, under about 210 px of empty sky.
+  - Room labels cover a quarter of a room's height, and are cut off in the eclipse.
+- **A9 (medium): the living are anonymous in the world.**
+  - People, the Book and the rite show names but no faces.
+  - A person you pick isn't highlighted on the castle, and grief is a single pixel.
+  - The sprites differ per name, but a player can't match Ada to her figure, which works against the loss.
+- **A10 (medium): the recap card and the shop window leave out the Tain.**
+  - The card draws only the day keep, so no shades and no reflection. A fallen keep looks intact, a tall keep fills a quarter of its width, and generated names like "Ansel 2937" print on it.
+  - The landing page has no images at all.
+  - The title screen puts the menu over the lake, so the reflection is never seen before play.
+  - The icon, the best single image of the game, is on neither.
+- **A11 (medium-low, judgement): the default reflected camera costs readability.**
+  - Helms, hoods and horns hang downward, and so do the candle flames. The upright view reads better.
+  - The pixel pass's quiz, built to settle this, has never run.
+- **A12 (low): smaller seams.**
+  - The Maw's 8-second climb out of its rift is drawn as eyes in the rift's glow, so the night's best warning window has no art.
+  - The raiders use the older figure.
+  - Glows are flat translucent discs, where the lighting elsewhere is dithered and in palette.
+  - The UI is a generic web UI, not round three's pixel-font kit.
+  - The Weeper, a foe, is drawn in the pale blue of the friendly dead.
+  - Animation is thin: 5 poses for the living, none to strike or be hurt, and 1–2 frames for the Unlit.
+- **Strengths.**
+  - **The day castle.** Furnished rooms, people dressed by their work, the lake's reflection: at 3× on a phone it's the game at its best.
+  - **The Tain's look.** One set of art run through a violet palette, with colour saved for actors and lights. It holds even in the 32 px icon.
+  - **The black mirror's marks and the tide clock.** They differ in shape as well as colour, and are the clearest warnings in the game.
+  - **The people.** Outfits, hair and skin come from the name, and the stooped old and small children all read at 3×.
+  - **The two set pieces:** the sunset, and the eclipse's dark sun over both halves.
+  - **The night in moments,** which retells the night in the game's own art.
 
 ## 4. Sound
 
-{SOUND}
+- **S1 (medium): the night's main rhythm is silent.**
+  - The tides make no sound. The spawn loop cues seeps, Weepers, Maws, the Hollow and the Drowned, but not the Creepers' tides; a tide is heard only as the drone opening over about 1.5 s.
+  - A light being gnawed and a candle about to die make no sound.
+  - Holding the gate is silent after the first thud, because the ram sounds only while the gate is losing.
+- **S2 (medium): some sounds are borrowed.**
+  - A Stranger's Lure plays the raid horn, with the raid's vibration.
+  - The ladders play the ram.
+  - The sun's return after the eclipse plays the dawn chime.
+  - Two cracks in the same moment sound once.
+- **S3 (medium): there's no music, and only four beds.**
+  - The four are wind and water by day, the night's drone, a dusk pad and a rite pad.
+  - There's nothing for rain, fog, fire, the seasons or the Host at the gate.
+  - The beds don't dip under alarms.
+- **S4 (unknown): nobody has heard it.** Every level was set by a meter (the README's "Not done"). Whether it sounds good, or wears thin over a season, needs ears.
+- **Strengths.**
+  - 60 sounds made as they play, from 113 cue sites, with no files.
+  - Measured levels, a limiter and a synthesised reverb.
+  - Panning by position, rate limits and an 18-voice cap.
+  - A drone that opens as danger rises.
+  - A heartbeat that quickens as the Hollow nears the mirrors, the best piece of game feel in the build.
+  - Vibration on 22 cues, and a list in Settings to hear every sound.
 
 ## 5. Code, tech and operations
 
@@ -306,7 +401,7 @@ You asked for a full audit of the game as it stands, from its systems to its scr
   - Updates reach an installed copy on its next launch, with no word to the player, and the cache name never changes.
 - **T4 (medium): the page has no tests in the repo.**
   - The rules are 98.5% covered, but `slice-ui.js`, all 4,762 lines, is never loaded by a test, and `card.js` isn't either.
-  - The Chromium checks that "Checked in Chromium" refers to lived in session scratchpads.
+  - The Chromium click-throughs the README cites ("Checked in Chromium") ran from session scratchpads, not the repo.
   - Under jsdom the page loads in 64 ms, and a probe opened every panel of eight keeps without an error.
 - **T5 (medium): the page reacts to the exact English of log lines.**
   - Which alerts stop the clock or open a panel, the Veil's flash, and the replay viewer's marks are all regular expressions over the sim's 145 sentences. Rewording one silently removes a pause.
@@ -440,7 +535,7 @@ The order matters more than the count. Most of 7–18 should wait for what phase
   - offer "Export this keep" and "Reload";
   - keep the previous save as a spare.
 - Fix the five bugs, each with a test:
-  - a Granary that halves food loot;
+  - the food loot halved only when there's a Granary, as promised;
   - the pay-off penalty carried to the next season;
   - The Keeper once per keeper;
   - the trail trimmed outside playtests;
@@ -528,7 +623,7 @@ The order matters more than the count. Most of 7–18 should wait for what phase
 
 ### Stage three: the core loop
 
-**7. Decisions after dusk.** M–L. Answers N1, N4, N5 and U2's cousin.
+**7. Decisions after dusk.** M–L. Answers N1, N4 and N5.
 - Make reacting pay, with problem 36's own levers:
   - tides that go for the thinner stair;
   - a Maw's broken room that costs more the longer it stands unmet;
@@ -622,9 +717,64 @@ The order matters more than the count. Most of 7–18 should wait for what phase
 - A short list of deeds.
 - **Done when:** starting a second keep feels like going on.
 
-**17. Art, animation and feel.** M. {ART_PHASE}
+**17. Art, animation and feel.** M. Answers A1–A12.
+- A hit-and-loss kit:
+  - a strike pose for shades;
+  - a puff when a Creeper dies, bigger for a Maw;
+  - a shade lost for good rising as a soul while its mirror flickers;
+  - the living falling before the body reaches the crypt;
+  - dust and a splintering gate at a breach;
+  - 2–3 px of shake for cracks, breaches, a Maw rising and the Hollow tearing through (none with less motion).
+- A night readability pass:
+  - cyan for shades only, so the cold flames go blue-white;
+  - slit eyes for the Drowned and violet for Wraiths;
+  - a rim on shades standing in light;
+  - dimmer rifts, and a dimmer Hearth glow above the Veil;
+  - a friendly colour for the Lure;
+  - a red that means danger only.
+- The Host framed on phones:
+  - the day camera leans east during a raid or a camp;
+  - the zoom buttons move to the left edge;
+  - raiders drawn with the people's own figure.
+- Draw the state:
+  - cracks on the Veil and the mirrors until dawn;
+  - a moon that wanes through the week, and reddens under a blood moon;
+  - a gate that splinters;
+  - a fallen keep with a shattered Veil.
+- Transitions that land:
+  - the camera follows the souls down, with no crossfade;
+  - souls settle into their mirrors;
+  - a sweep of light ends the eclipse;
+  - dawn brightens the Tain;
+  - the Maw's climb is drawn.
+- Light by season and hour, with the colour lookup already built. Rain darkens the sky and reaches the Tain.
+- Faces for names: each person's figure beside their name in People, the Book, the crypt and the rite, and a picked person highlighted on the castle.
+- The Tain where the game is sold:
+  - the recap card as the eclipse's split view, with the season's shades at their posts;
+  - the icon and screenshots on the landing page;
+  - the reflection on the main screen.
+- The readability quiz (reflected or upright) runs in phase 5.
+- **Done when:**
+  - a kill, a loss and a breach each have a moment you can see;
+  - testers tell friend from foe at night on a phone;
+  - the Host is in view at every raid.
 
-**18. Sound and music.** M, and ears. {SOUND_PHASE}
+**18. Sound and music.** M, and ears. Answers S1–S4.
+- Fill the gaps:
+  - a panned swell for each tide;
+  - a gnawing that quickens as a candle burns down, and a gutter when it's nearly out;
+  - sounds of their own for the Lure, the ladders and the sun's return;
+  - beds for rain, fog, fire and each season, and a battle bed while the Host is at the gate;
+  - beds that dip under alarms.
+- Music, kept small and synthesised like the rest:
+  - a motif for dusk, the new moon and the Long Night;
+  - a theme for the main screen;
+  - a decision on whether the night's drone is its music.
+- Ears: phase 5's testers listen on their phones' speakers and on headphones, and say what grates and what they missed.
+- **Done when:**
+  - every tide is heard;
+  - a tester can tell by ear that a candle is failing;
+  - nothing a player must act on is silent.
 
 ### Stage five: ship
 
