@@ -3351,7 +3351,9 @@ const GUIDE = [
   {
     id: 'moon', target: '#open-phase', pause: true,
     when: () => first() && s.phase === 'day' && isNewMoon(s),
-    text: 'Tonight is the new moon. The Hollow walks to the mirrors whatever the light. A ward on a stair holds it a while; shades fighting it drive it back. If it reaches the Veil, it takes one of the living.',
+    get text() {
+      return `Tonight is the new moon. The Hollow walks to the mirrors whatever the light. A ward on a stair holds it ${s.tuning.wardDraw ? 'while it draws on the essence, and a little while once the store is empty' : 'a while'}; shades fighting it drive it back. If it reaches the Veil, it takes one of the living.`;
+    },
   },
 ];
 

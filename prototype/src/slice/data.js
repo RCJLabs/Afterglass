@@ -841,7 +841,7 @@ export const STUDIES = {
   silvering: { name: 'Silvering', rem: 3, lore: 4, glass: 0.75, text: 'mirrors take a quarter less glass to build or upgrade' },
   herbs: { name: 'Herb-lore', rem: 2, lore: 3, heal: 2, text: 'healers cure twice as many' },
   masonry: { name: 'Masonry', rem: 3, lore: 4, less: 2, text: 'a room costs 2 stone less' },
-  hollow: { name: 'Hollow-lore', rem: 3, lore: 4, hold: 2, text: 'a ward holds the Hollow twice as long' },
+  hollow: { name: 'Hollow-lore', rem: 3, lore: 4, hold: 2, text: 'a ward holds the Hollow on half the essence, and twice as long with none' },
 };
 // The Hall's decrees (round six): one a season, standing until it ends, each with its price.
 export const DECREES = {
