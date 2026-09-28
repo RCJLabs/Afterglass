@@ -63,6 +63,16 @@ const prefs = {
   ...(store.get(PREF_KEY) || {}),
 };
 const savePrefs = () => store.set(PREF_KEY, prefs);
+// The developer's tools (round seven, phase 2): the playtest question and export, the replay viewer and the
+// rules' numbers in Settings are for a tester's keep, or for ?dev on the address, which this device then
+// remembers (?dev=0 forgets it). Players see none of them.
+{
+  const q = new URLSearchParams(location.search);
+  if (q.has('dev')) {
+    prefs.dev = q.get('dev') !== '0';
+    savePrefs();
+  }
+}
 // Less motion: the device's setting, unless the player chose in Settings.
 const REDUCED_NOW = () => (prefs.motion === 'reduce' ? true : prefs.motion === 'full' ? false : SYS_REDUCED);
 // The stylesheets' animations follow the same choice.
@@ -155,6 +165,8 @@ const ui = {
 const bump = () => {
   ui.rev++;
 };
+const devMode = () => !!prefs.dev || !!ui.devLink;
+const playtesting = () => devMode() || !!s.test;
 const running = () => s.phase === 'day' || s.phase === 'night';
 // The castle shows the living keep by day and at the season's end; the Tain from dusk to dawn.
 // The crossing at dusk keeps the living keep in view (sunset, lights out, the dead on the slab) until the
@@ -1407,7 +1419,7 @@ function questionHTML(e) {
     </div>
     <label for="season-note">Why? What would make you (or stop you)?</label>
     <textarea id="season-note" rows="3" data-note="1" placeholder="The moment you decided…">${esc(e.note)}</textarea>
-    <p class="hint">Saved with the playtest export in the Records below.</p></div>`;
+    <p class="hint">Saved with the playtest export, in Records under Playtest.</p></div>`;
 }
 
 function endPanel() {
@@ -1426,7 +1438,7 @@ function endPanel() {
     : yearEnd ? endingsHTML(next)
       : `<div class="row"><button class="btn primary" id="btn-next-season" data-act="next-season">${next}</button><span class="hint">${harderNote()}</span></div>`;
   return `${head}
-    ${questionHTML(e)}
+    ${playtesting() ? questionHTML(e) : ''}
     ${s.sealed || s.opened ? '' : reviewHTML(isLongNight(s) ? 'The Long Night in moments' : 'The new moon in moments')}
     <div class="card"><h3>The season</h3>${summaryHTML(e)}<div class="row"><button class="btn sm" id="end-book" data-act="book">Read the Book of the Dead</button></div></div>
     ${recapHTML(e)}
@@ -1511,7 +1523,7 @@ function overPanel() {
   const e = lastSeason(s);
   const why = s.over?.reason === 'veil' ? 'The Veil broke and the Unlit came through into the keep.' : 'No one living was left.';
   return `<header class="ph-head"><h2>The keep is lost</h2><p>${why} Season ${s.season}, ${s.phase === 'over' && s.over.day ? `day ${s.over.day}` : ''}.</p></header>
-    ${e ? questionHTML(e) : ''}
+    ${e && playtesting() ? questionHTML(e) : ''}
     ${reviewHTML('How the last night went')}
     ${e ? `<div class="card"><h3>The season</h3>${summaryHTML(e)}</div>` : ''}
     ${e ? recapHTML(e) : ''}
@@ -1797,7 +1809,7 @@ function settingsTab() {
   const motion = prefs.motion || 'system';
   return `<section class="settings">
     <h3>Play</h3>
-    <p class="note">This keep is ${PRESETS[s.preset]?.name.toLowerCase() || 'standard'}${s.daily ? ", as today's keep is for everyone" : ''}. A new keep's difficulty is chosen in Saves.</p>
+    <p class="note">This keep is ${PRESETS[s.preset]?.name.toLowerCase() || 'standard'}${s.custom ? ', with custom rules' : ''}${s.daily ? ", as today's keep is for everyone" : ''}. A new keep's difficulty and rules are chosen under New game on the main screen, or in Saves.</p>
     <label class="row" for="autopause"><input type="checkbox" id="autopause" data-act="autopause"${prefs.autoPause ? ' checked' : ''}>Pause for raids, fires, catches, the Hollow and the eclipse</label>
     <label class="row" for="guide-on"><input type="checkbox" id="guide-on" data-act="guide-toggle"${prefs.guide ? ' checked' : ''}>Guide me through the first season (turning it on starts it over)</label>
     <h3>The castle</h3>
@@ -1814,14 +1826,14 @@ function settingsTab() {
       ${prefs.sound ? '' : '<p class="hint">Sound is off.</p>'}
       <div class="hear-list">${Object.entries(SOUNDS).map(([k, S]) => `<button class="btn sm" id="hear-${k}" data-act="hear" data-cue="${k}"${prefs.sound ? '' : ' disabled'}>${esc(S.label)}</button>`).join('')}</div>
     </details>
-    <h3>Keys</h3>
+    <h3 class="keys-h">Keys</h3>
     <dl class="keys">${KEYS.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl>
     ${installHTML('settings')}
-    <details class="advanced" id="advanced" data-keep="advanced"${ui.open.advanced ? ' open' : ''}><summary>Advanced: the playtest numbers</summary>
+    ${devMode() ? `<details class="advanced" id="advanced" data-keep="advanced"${ui.open.advanced ? ' open' : ''}><summary>Advanced: the playtest numbers</summary>
       <div class="fields">${TUNE.map(([k, label]) => `<label for="tune-${k}">${esc(label)}<input type="number" id="tune-${k}" data-act="tune" data-key="${k}" value="${esc(String(s.tuning[k]))}" min="0" step="any"${s.daily ? ' disabled' : ''}></label>`).join('')}</div>
       ${s.daily ? `<p class="note">This is the keep of ${esc(dayText(s.daily))}, the same for everyone, so its numbers are locked.</p>` : ''}
       <p class="hint">These are this keep's numbers. Changes apply from the next tick or the next dusk, and are recorded, so exports still replay. A new keep keeps only the ones you set. Seed ${s.seed}.</p>
-    </details>
+    </details>` : ''}
     <p class="hint build">Build ${esc(BUILD)}${s.build && s.build !== BUILD ? `; this keep was last saved by ${esc(s.build)}` : ''}.</p>
   </section>`;
 }
@@ -1836,7 +1848,7 @@ const agoText = (ms) => {
   return `${d} day${d === 1 ? '' : 's'} ago`;
 };
 // A keep in a line, from its save's summary: what kind it is, and where it stands.
-const keepLine = (m) => `${m.daily ? `The keep of ${dayText(m.daily)}. ` : m.tutorial ? 'The tutorial keep. ' : m.preset && PRESETS[m.preset] ? `${PRESETS[m.preset].name}. ` : ''}${m.chapter ? `Campaign, ${CHAPTERS[m.chapter].name}. ` : ''}Season ${m.season}, ${whereText(m)}`;
+const keepLine = (m) => `${m.daily ? `The keep of ${dayText(m.daily)}. ` : m.tutorial ? 'The tutorial keep. ' : m.preset && PRESETS[m.preset] ? `${PRESETS[m.preset].name}. ` : ''}${m.custom ? 'Custom rules. ' : ''}${m.chapter ? `Campaign, ${CHAPTERS[m.chapter].name}. ` : ''}Season ${m.season}, ${whereText(m)}`;
 function whereText(m) {
   if (m.lost) return `fallen on day ${m.day}`;
   if (m.sealed) return 'the Veil is sealed';
@@ -1925,12 +1937,13 @@ function savesTab() {
   return `<section class="saves">
     ${dailyHTML()}
     ${tutorialHTML()}
-    <p class="note">Each keep saves itself as you play. Export writes a keep to a file you can keep or send; Load a file takes that file back, or a tester's playtest export, which is replayed into the keep it came from.</p>
+    <p class="note">Each keep saves itself as you play. Export writes a keep to a file you can keep or send; Load a file takes that file back${devMode() ? ", or a tester's playtest export, which is replayed into the keep it came from" : ''}.</p>
     ${presetPicker('saves')}
     ${campaignPicker('saves')}
+    ${customPicker('saves')}
     <div class="kslots">${slots}</div>
     ${ui.slotMsg ? `<p class="note bad" role="alert">${esc(ui.slotMsg)}</p>` : ''}
-    ${watchCard()}
+    ${devMode() ? watchCard() : ''}
   </section>`;
 }
 const MENU_TABS = [['settings', 'Settings'], ['saves', 'Saves'], ['howto', 'How to play']];
@@ -1941,8 +1954,10 @@ function menuHTML() {
   return `${testCard()}${back}<div class="tabs" role="tablist" aria-label="Menu">${MENU_TABS.map(([k, l]) => `<button class="tab" role="tab" id="menu-tab-${k}" data-act="menu-tab" data-tab="${k}" aria-selected="${k === tab}" aria-controls="menupanel">${l}</button>`).join('')}</div>
     <div class="tabpanel" role="tabpanel" id="menupanel" aria-labelledby="menu-tab-${tab}">${body}</div>`;
 }
-const TABS = [['book', 'Book of the Dead'], ['log', 'Log'], ['days', 'Days'], ['playtest', 'Playtest']];
+const ALL_TABS = [['book', 'Book of the Dead'], ['log', 'Log'], ['days', 'Days'], ['playtest', 'Playtest']];
+const TABS_NOW = () => ALL_TABS.filter(([k]) => k !== 'playtest' || playtesting());
 function recordsHTML() {
+  const TABS = TABS_NOW();
   const tab = TABS.some(([k]) => k === prefs.tab) ? prefs.tab : 'log';
   const body = { book: bookTab, log: logTab, days: daysTab, playtest: playtestTab }[tab]();
   return `<div class="tabs" role="tablist" aria-label="Records">${TABS.map(([k, l]) => `<button class="tab" role="tab" id="tab-${k}" data-act="tab" data-tab="${k}" aria-selected="${k === tab}" aria-controls="tabpanel">${l}</button>`).join('')}</div>
@@ -2973,6 +2988,7 @@ function titleNewHTML() {
   return `<div class="title-card"><h2 class="title-h">A new keep</h2>
     ${campaignPicker('title')}
     ${presetPicker('title')}
+    ${customPicker('title')}
     <label class="title-check" for="title-guide"><input type="checkbox" id="title-guide" data-act="guide-toggle"${prefs.guide ? ' checked' : ''}><span>The guide: a short card the first time each thing happens</span></label>
     <p class="hint">${n ? `It goes in keep ${n}.` : 'All three keeps are in use: next you choose which one it replaces.'}</p>
     <div class="row"><button class="btn primary" id="title-begin" data-act="title-start" data-what="new">Begin</button><button class="btn" id="title-back" data-act="title-back">Back</button></div></div>`;
@@ -4126,11 +4142,62 @@ function newKeep(n) {
 // numbers from the keep before where the preset has none. The keep keeps them as its own defaults.
 const presetNow = () => (PRESETS[prefs.preset] ? prefs.preset : 'standard');
 function keepWith(p) {
-  const defaults = { ...playerTuning(s), ...PRESETS[p].tuning, campaign: prefs.campaign ? 1 : 0 };
+  const custom = customNow(p);
+  const defaults = { ...playerTuning(s), ...PRESETS[p].tuning, ...custom, campaign: prefs.campaign ? 1 : 0 };
   const k = newSeason(Date.now() >>> 0, defaults);
   k.defaults = defaults;
   if (p !== 'standard') k.preset = p;
+  if (Object.keys(custom).length) k.custom = true;
   return k;
+}
+// Custom rules (round seven, phase 2), beside the difficulty: a few of its numbers, and which parts of the game
+// are in it. A new keep keeps them as its own, as it keeps its preset's; the tutorial and today's keep don't take them.
+const CUSTOM_NUMBERS = [
+  ['cracksMax', 'Cracks that break the Veil', 3, 8, 1, (v) => String(v)],
+  ['creepersPerNight', 'Creepers added each night of a season', 1, 3.4, 0.2, (v) => mult(v)],
+  ['raidFightStrength', "The Host's strength", 0.6, 1.4, 0.05, (v) => `×${mult(v)}`],
+  ['startFood', 'Food to start with', 6, 30, 2, (v) => String(v)],
+  ['startCandles', 'Candles to start with', 4, 20, 2, (v) => String(v)],
+  ['yearHardness', 'Each year starts harder than the last by', 1, 1.2, 0.02, (v) => `×${mult(v)}`],
+];
+const CUSTOM_PARTS = [
+  ['visitors', 'Visitors at the gate'],
+  ['fire', 'Fire by day'],
+  ['weather', 'Weather: rain, fog and the Drowned'],
+  ['omens', 'Omens at dusk'],
+  ['errands', 'Errands in the dark: echoes, relics and sleepwalkers'],
+  ['eclipse', "Midsummer's eclipse"],
+  ['generations', 'Generations: growing old, couples and children'],
+  ['church', "The Church's embargo, Inquisition and crusade"],
+  ['deep', 'Down into the Deep'],
+];
+const presetValue = (p, k) => PRESETS[p].tuning[k] ?? TUNING[k];
+// What the player has changed from the difficulty's rules, as the new keep's own numbers.
+function customNow(p = presetNow()) {
+  const c = prefs.custom || {};
+  const out = {};
+  for (const [k] of CUSTOM_NUMBERS) {
+    if (k === 'yearHardness' && prefs.campaign) continue; // a campaign's years harden by its own rate
+    if (typeof c[k] === 'number' && Math.abs(c[k] - presetValue(p, k)) > 1e-9) out[k] = c[k];
+  }
+  for (const [k] of CUSTOM_PARTS) if (c[k] === 0) out[k] = 0;
+  return out;
+}
+function customPicker(where) {
+  const p = presetNow();
+  const c = prefs.custom || {};
+  const n = Object.keys(customNow(p)).length;
+  const nums = CUSTOM_NUMBERS.filter(([k]) => k !== 'yearHardness' || !prefs.campaign).map(([k, label, min, max, step, fmt]) => {
+    const v = typeof c[k] === 'number' ? c[k] : presetValue(p, k);
+    return `<label class="slider custom-num" for="custom-${where}-${k}"><span>${esc(label)}: <b id="custom-${where}-${k}-v">${esc(fmt(v))}</b></span><input type="range" id="custom-${where}-${k}" data-act="custom-num" data-key="${k}" min="${min}" max="${max}" step="${step}" value="${v}"></label>`;
+  }).join('');
+  const parts = CUSTOM_PARTS.map(([k, label]) => `<label class="row" for="custom-${where}-${k}"><input type="checkbox" id="custom-${where}-${k}" data-act="custom-part" data-key="${k}"${c[k] === 0 ? '' : ' checked'}><span>${esc(label)}</span></label>`).join('');
+  return `<details class="custom" id="custom-${where}" data-keep="custom-${where}"${ui.open[`custom-${where}`] ? ' open' : ''}><summary>Custom rules${n ? `: ${plural(n, 'change')}` : ''}</summary>
+    <p class="hint">${esc(PRESETS[p].name)}'s rules, changed as you like. A new keep keeps them.</p>
+    ${nums}
+    <fieldset class="custom-parts"><legend>In the game</legend>${parts}</fieldset>
+    <div class="row"><button class="btn sm" id="custom-${where}-reset" data-act="custom-reset"${n ? '' : ' disabled'}>Back to ${esc(PRESETS[p].name)}'s rules</button></div>
+  </details>`;
 }
 // A campaign (round six) or the open year, for a new keep.
 function campaignPicker(where) {
@@ -4484,6 +4551,18 @@ function onAct(name, el) {
       prefs.campaign = el.value === 'campaign';
       savePrefs();
       return bump();
+    case 'custom-num':
+      prefs.custom = { ...(prefs.custom || {}), [el.dataset.key]: Math.round(Number(el.value) * 100) / 100 };
+      savePrefs();
+      return bump();
+    case 'custom-part':
+      prefs.custom = { ...(prefs.custom || {}), [el.dataset.key]: el.checked ? 1 : 0 };
+      savePrefs();
+      return bump();
+    case 'custom-reset':
+      prefs.custom = {};
+      savePrefs();
+      return bump();
     case 'tut-end':
       s.tut = { ...(s.tut || {}), off: true };
       saveGame();
@@ -4622,6 +4701,12 @@ document.addEventListener('toggle', (e) => {
 }, true);
 let noteTimer = 0;
 document.addEventListener('input', (e) => {
+  if (e.target.matches('[data-act="custom-num"]')) {
+    const row = CUSTOM_NUMBERS.find(([k]) => k === e.target.dataset.key);
+    const out = document.getElementById(`${e.target.id}-v`);
+    if (row && out) out.textContent = row[5](Number(e.target.value));
+    return;
+  }
   if (e.target.matches('[data-act="volume"]')) {
     prefs[e.target.dataset.key] = Number(e.target.value) / 100;
     sound.set({ fx: prefs.sfx, amb: prefs.amb });
@@ -4839,7 +4924,8 @@ layout();
 trail('load', deviceNow());
 // The tester link, taken off the address once read, so a reload just plays on.
 const params = new URLSearchParams(location.search);
-if (params.has('test') || params.has('watch')) history.replaceState(null, '', location.pathname + location.hash);
+if (params.has('test') || params.has('watch') || params.has('dev')) history.replaceState(null, '', location.pathname + location.hash);
+if (params.has('watch')) ui.devLink = true;
 if (params.has('test')) startTest(params.get('test'));
 else if (params.has('watch')) {
   // The viewer's link (season.html?watch): Saves, where a session is loaded to watch.

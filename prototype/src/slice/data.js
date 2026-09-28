@@ -554,7 +554,7 @@ export const PRESETS = {
     text: 'Six cracks break the Veil, not five. Fewer Creepers, weaker raids, more food and candles to start, and each season only a little harder than the last.',
     tuning: { cracksMax: 6, creepersPerNight: 1.8, raidFightStrength: 0.85, startFood: 18, startCandles: 12, hardness: 1.1 },
   },
-  standard: { name: 'Standard', text: 'The rules as they ship, and as the README measures them.', tuning: {} },
+  standard: { name: 'Standard', text: 'The game as it is meant to be played: five cracks break the Veil, and each season asks a little more of the keep than the last.', tuning: {} },
   hard: {
     name: 'Hard',
     text: 'Four cracks break the Veil. More Creepers, stronger raids and fewer candles to start: harder from the first night, and growing through a year and from one year to the next as Standard does.',

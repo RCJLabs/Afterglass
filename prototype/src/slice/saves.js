@@ -25,6 +25,7 @@ export function summary(s, now) {
     chapter: s.tuning?.campaign && s.tuning?.year && !s.campaign?.ending ? Math.min(5, Math.floor((s.season - 1) / 4) + 1) : 0,
     daily: s.daily || null,
     preset: s.preset || null,
+    custom: !!s.custom,
     tutorial: !!s.tuning?.tutorial,
     tutorialOver: !!(s.tut?.over || s.tut?.off),
     saved: now,

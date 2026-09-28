@@ -554,3 +554,17 @@ label.btn { display: inline-flex; align-items: center; }
 .crash-card .row { flex-wrap: wrap; gap: 8px; margin: 14px 0 10px; }
 .crash-card pre { white-space: pre-wrap; word-break: break-word; font-size: 12px; color: var(--ink-2); max-height: 12rem; overflow: auto; }
 .settings .build { margin-top: 18px; }
+
+/* Custom rules at New game (round seven, phase 2). */
+details.custom { margin: 10px 0 4px; }
+details.custom > summary { cursor: pointer; font-weight: 700; padding: 6px 0; }
+details.custom .custom-num { display: grid; gap: 4px; margin: 10px 0; }
+details.custom .custom-num input { width: 100%; }
+details.custom .custom-parts { margin: 12px 0 8px; border: 0; padding: 0; }
+details.custom .custom-parts legend { font-weight: 700; margin-bottom: 4px; }
+/* The keyboard's keys are for a keyboard: not on a touch screen that has none. */
+@media (hover: none) and (pointer: coarse) {
+  .settings .keys-h, .settings .keys { display: none; }
+}
+details.custom .custom-parts .row { flex-wrap: nowrap; align-items: flex-start; }
+details.custom .custom-parts .row input { flex: none; margin-top: 0.25em; }
