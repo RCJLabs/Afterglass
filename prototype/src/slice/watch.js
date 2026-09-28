@@ -187,7 +187,7 @@ function unitOf(segs, at, total) {
   return RUN[at.phase] ? Math.min(g.u1, g.u0 + Math.max(0, (at.t ?? 0) - g.t0)) : Math.min(total, g.u0);
 }
 const secs = (ms) => Math.max(1, Math.round(ms / 1000));
-const PANELS = { phase: 'the phase panel', people: 'People', records: 'Records', menu: 'the Menu', build: 'Build', intro: 'About', test: 'the playtest', watch: 'the session' };
+const PANELS = { phase: 'the phase panel', people: 'People', records: 'Records', menu: 'the Menu', build: 'Build', title: 'the main screen', intro: 'About', test: 'the playtest', watch: 'the session' };
 // The tester's trail, as marks: a pause with how long it lasted, a panel opened, an idle stretch or a time
 // away from the page, a lesson shown, an action the game refused.
 function trailMarks(x, segs, total) {

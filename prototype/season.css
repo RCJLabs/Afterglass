@@ -189,6 +189,53 @@ body.game-page {
   }
 }
 
+/* The main screen: over the keep as it stands, with the HUD, the bar and the room names put away under it.
+   Dark at the top for the name and at the bottom for the menu, clearer between, where the keep shows. */
+.gtitle {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: max(20px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
+  background: linear-gradient(to bottom, rgb(10 8 18 / 0.9) 0%, rgb(10 8 18 / 0.45) 26%, rgb(10 8 18 / 0.3) 42%, rgb(10 8 18 / 0.9) 64%, rgb(10 8 18 / 0.96) 100%);
+  color: var(--ink);
+  -webkit-user-select: none;
+  user-select: none;
+}
+.gtitle[hidden] { display: none; }
+.game.is-title .ghud, .game.is-title .gbar, .game.is-title .gzoom, .game.is-title .glabels, .game.is-title .ghint, .game.is-title .gcoach { visibility: hidden; }
+.title-wrap { display: flex; flex-direction: column; justify-content: space-between; gap: 28px; min-height: 100%; width: min(440px, 100%); margin: 0 auto; }
+.title-top { text-align: center; padding-top: 3vh; }
+.title-name {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: clamp(46px, 14vw, 80px);
+  line-height: 1;
+  letter-spacing: 0.04em;
+  color: #f4dca8;
+  text-shadow: 0 0 22px rgb(255 186 84 / 0.5), 0 2px 0 rgb(0 0 0 / 0.7);
+}
+.title-tag { margin: 10px auto 0; max-width: 32ch; color: #ddd7f0; font-size: 15px; line-height: 1.45; text-shadow: 0 1px 3px rgb(0 0 0 / 0.9); }
+.title-menu { display: grid; gap: 10px; }
+.title-go { display: grid; gap: 2px; justify-items: start; text-align: left; min-height: 58px; padding: 9px 14px; }
+.title-go span { font-size: 17px; font-weight: 700; }
+.title-go small { font-size: 12.5px; font-weight: 400; opacity: 0.85; }
+.gtitle .btn.primary { background: #efc676; border-color: #efc676; color: #1d1405; }
+.gtitle .btn.primary:hover:not(:disabled) { background: #f5d38e; filter: none; }
+.title-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.title-row .btn { min-height: 46px; justify-content: center; padding-inline: 6px; }
+.title-link { justify-self: center; background: none; border-color: transparent; color: #ddd7f0; text-decoration: underline; text-underline-offset: 3px; }
+@media (hover: hover) { .title-link:hover:not(:disabled) { background: rgb(255 255 255 / 0.06); } }
+.title-install { text-align: center; color: #ddd7f0; }
+.title-h { margin: 0; font-family: var(--font-display); font-size: 24px; color: #f4dca8; }
+.title-card { display: grid; gap: 12px; padding: 14px; border: 1px solid var(--line-2); border-radius: 10px; background: rgb(22 20 32 / 0.95); }
+.title-card .presets { margin: 0; }
+.title-card p { margin: 0; }
+.title-check { display: flex; gap: 10px; align-items: flex-start; }
+.title-check input { flex: none; margin: 3px 0 0; }
+
 /* Toasts sit under the HUD, clear of the bar and the panel. */
 .game .toasts { top: calc(var(--hud-h) + 10px); bottom: auto; right: calc(var(--free-right, 0px) + 12px); z-index: 8; }
 .toast .row { display: flex; gap: 6px; flex-wrap: nowrap; }

@@ -2,7 +2,7 @@
 
 A side-view base-builder in development. You hold a keep on the Veil: by day the living build and hold the walls; anyone who dies inside them wakes at dusk as a shade and works the night in the reflected keep. At dawn you decide which of the dead stay.
 
-**Play and read it:** https://rcjlabs.github.io/Base-Manager/
+**Play and read it:** https://rcjlabs.github.io/Afterglass/
 
 | Folder | What's there |
 |---|---|

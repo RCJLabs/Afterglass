@@ -134,7 +134,7 @@ export function drawCard(out, s, r) {
   // Where it's from, and the keep's seed.
   c.fillStyle = C.ink3;
   c.font = `400 20px ${BODY}`;
-  c.fillText('rcjlabs.github.io/Base-Manager', 60, 1300);
+  c.fillText('rcjlabs.github.io/Afterglass', 60, 1300);
   c.textAlign = 'right';
   c.font = `400 20px ${NUM}`;
   c.fillText(`Seed ${r.seed}`, CARD_W - 60, 1300);

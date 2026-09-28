@@ -401,26 +401,6 @@ function showHint() {
 
 /* ---------------------------------------------------------------- the phase panels */
 
-function introHTML() {
-  return `<div class="card intro">
-    <h2>What this slice tests</h2>
-    <p>Weeks 7–10 of the Afterglass plan: one whole season. Seven days and nights, ending on the new moon, when the Hollow rises. The question is <b>would you play a second season?</b> You'll be asked at the end.</p>
-    <ul>
-      <li><b>By day</b> the living work the keep. Raiders come on days 2, 4 and 6, each time stronger. Anyone who dies inside the walls wakes at dusk as a shade.</li>
-      ${K().n === 1 ? '<li><b>The keep is two rooms</b>, the Hearth and the Crypt. Everyone else quarries stone in the Yard, and you raise the rest of the keep a room at a time: a Barracks before the raid on day 2.</li>' : ''}
-      <li><b>By night</b> the shades work the Tain, the keep's reflection. Creepers climb from the rifts in the Deep toward the mirrors under the Veil. They can't enter candlelight; shades standing in light fight them at its edge.</li>
-      <li><b>At dawn</b> you decide which of the dead stay. Every shade kept adds to the keep's Dread; the living bear some of it.</li>
-      <li><b>The Lantern Church</b> inspects on day 5, and again whenever Dread reaches 5. Low Dread is blessed; high Dread costs you a mirror and the shades in it.</li>
-    </ul>
-    <p class="note">The castle is the screen. The bar at the bottom holds the tools for the moment and opens the panels: this phase, the people, and the records. Pause any time.</p>
-    ${presetPicker('intro')}
-    ${campaignPicker('intro')}
-    <div class="row"><button class="btn primary" id="btn-intro-tutorial" data-act="intro-tutorial">Play the tutorial</button><button class="btn" id="btn-intro-guide" data-act="intro-guide">Begin with a guide</button><button class="btn" id="btn-intro" data-act="intro-close">Begin without</button></div>
-    <p class="hint">The tutorial is a keep whose first three days are set out to teach: one thing at a time, in order, and the Veil can't break before night 4. From day 4 it's an ordinary season. The guide instead shows a short card the first time each thing happens in any keep; you can switch it off in Settings. Every lesson is kept in Menu, under How to play.</p>
-    ${installHTML('intro')}
-  </div>`;
-}
-
 function raidCard() {
   const r = s.raid;
   if (!r) {
@@ -1818,6 +1798,8 @@ const agoText = (ms) => {
   const d = Math.round(h / 24);
   return `${d} day${d === 1 ? '' : 's'} ago`;
 };
+// A keep in a line, from its save's summary: what kind it is, and where it stands.
+const keepLine = (m) => `${m.daily ? `The keep of ${dayText(m.daily)}. ` : m.tutorial ? 'The tutorial keep. ' : m.preset && PRESETS[m.preset] ? `${PRESETS[m.preset].name}. ` : ''}${m.chapter ? `Campaign, ${CHAPTERS[m.chapter].name}. ` : ''}Season ${m.season}, ${whereText(m)}`;
 function whereText(m) {
   if (m.lost) return `fallen on day ${m.day}`;
   if (m.sealed) return 'the Veil is sealed';
@@ -1830,10 +1812,14 @@ function whereText(m) {
 }
 // Today's keep: continue it where a slot holds it, else start it in an empty slot, else offer to put it in
 // place of the keep being played.
+const SLOT_NUMS = () => Array.from({ length: SLOTS }, (_, i) => i + 1);
+const dailyHeld = () => SLOT_NUMS().find((n) => (n === saves.current ? s.daily : saves.slots[n]?.daily) === dayKey()) || null;
+const tutorialHeld = () =>
+  SLOT_NUMS().find((n) => (n === saves.current ? isTutorial(s) && s.season === 1 && !s.tut?.over : saves.slots[n]?.tutorial && saves.slots[n].season === 1 && !saves.slots[n].tutorialOver)) || null;
 function dailyHTML() {
   const key = dayKey();
-  const nums = Array.from({ length: SLOTS }, (_, i) => i + 1);
-  const holds = nums.find((n) => (n === saves.current ? s.daily : saves.slots[n]?.daily) === key);
+  const nums = SLOT_NUMS();
+  const holds = dailyHeld();
   const empty = nums.find((n) => n !== saves.current && !saves.slots[n]);
   let acts;
   if (holds === saves.current) acts = "<p class=\"hint\">It's the keep you're playing.</p>";
@@ -1848,8 +1834,8 @@ function dailyHTML() {
 // The tutorial keep: continue it where a slot holds one still in its first season, else start it in an empty
 // slot, else offer to put it in place of the keep being played.
 function tutorialHTML() {
-  const nums = Array.from({ length: SLOTS }, (_, i) => i + 1);
-  const holds = nums.find((n) => (n === saves.current ? isTutorial(s) && s.season === 1 && !s.tut?.over : saves.slots[n]?.tutorial && saves.slots[n].season === 1 && !saves.slots[n].tutorialOver));
+  const nums = SLOT_NUMS();
+  const holds = tutorialHeld();
   const empty = nums.find((n) => n !== saves.current && !saves.slots[n]);
   let acts;
   if (holds === saves.current) acts = "<p class=\"hint\">It's the keep you're playing.</p>";
@@ -1895,7 +1881,7 @@ function savesTab() {
     else if (m) acts = `<div class="row"><button class="btn sm primary" id="slot-play-${n}" data-act="slot-play" data-n="${n}">Continue</button><button class="btn sm" id="slot-export-${n}" data-act="slot-export" data-n="${n}">Export</button>${file}<button class="btn sm" id="slot-delete-${n}" data-act="slot-delete" data-n="${n}">Delete</button></div>`;
     else acts = `<div class="row"><button class="btn sm primary" id="slot-new-${n}" data-act="slot-new" data-n="${n}">New keep</button>${file}</div>`;
     const what = m
-      ? `<p><b>${m.daily ? `The keep of ${esc(dayText(m.daily))}. ` : m.tutorial ? 'The tutorial keep. ' : m.preset && PRESETS[m.preset] ? `${PRESETS[m.preset].name}. ` : ''}${m.chapter ? `Campaign, ${esc(CHAPTERS[m.chapter].name)}. ` : ''}Season ${m.season}, ${esc(whereText(m))}</b></p><p class="hint">${plural(m.rooms, 'room')} · ${m.living} living · ${plural(m.shades, 'shade')}${here ? '' : ` · played ${esc(agoText(m.saved))}`}</p>`
+      ? `<p><b>${esc(keepLine(m))}</b></p><p class="hint">${plural(m.rooms, 'room')} · ${m.living} living · ${plural(m.shades, 'shade')}${here ? '' : ` · played ${esc(agoText(m.saved))}`}</p>`
       : '<p class="hint">Empty.</p>';
     return `<div class="kslot${here ? ' is-here' : ''}" id="slot-${n}"><div class="kslot-head"><span class="eyebrow">Keep ${n}</span>${here ? '<span class="tag">Playing</span>' : ''}</div>${what}${acts}</div>`;
   }).join('');
@@ -1914,7 +1900,8 @@ const MENU_TABS = [['settings', 'Settings'], ['saves', 'Saves'], ['howto', 'How 
 function menuHTML() {
   const tab = MENU_TABS.some(([k]) => k === ui.menuTab) ? ui.menuTab : 'settings';
   const body = { settings: settingsTab, saves: savesTab, howto: howtoTab }[tab]();
-  return `${testCard()}<div class="tabs" role="tablist" aria-label="Menu">${MENU_TABS.map(([k, l]) => `<button class="tab" role="tab" id="menu-tab-${k}" data-act="menu-tab" data-tab="${k}" aria-selected="${k === tab}" aria-controls="menupanel">${l}</button>`).join('')}</div>
+  const back = ui.watch || ui.title ? '' : '<div class="row"><button class="btn" id="btn-title" data-act="title-open">Main menu</button><span class="hint">Continue, a new keep, the tutorial, today\'s keep.</span></div>';
+  return `${testCard()}${back}<div class="tabs" role="tablist" aria-label="Menu">${MENU_TABS.map(([k, l]) => `<button class="tab" role="tab" id="menu-tab-${k}" data-act="menu-tab" data-tab="${k}" aria-selected="${k === tab}" aria-controls="menupanel">${l}</button>`).join('')}</div>
     <div class="tabpanel" role="tabpanel" id="menupanel" aria-labelledby="menu-tab-${tab}">${body}</div>`;
 }
 const TABS = [['book', 'Book of the Dead'], ['log', 'Log'], ['days', 'Days'], ['playtest', 'Playtest']];
@@ -2792,13 +2779,22 @@ if (INSTALLABLE) {
     bump();
   });
 }
+// Where the browser offers no prompt, what to do instead. Another app's built-in browser can't install
+// anything, and on Android it can't always be told apart from Chrome, so the Android line says so too.
+const ANDROID = /android/i.test(navigator.userAgent);
+const IN_APP = /; wv\)|FBA[NV]|Instagram|Line\/|MicroMessenger|Snapchat|TikTok|musical_ly/i.test(navigator.userAgent);
+function installHelp() {
+  if (IN_APP) return "This is another app's built-in browser, which can't install anything. Open the page in your phone's own browser (the app's menu has Open in browser), then install it there.";
+  if (IOS) return 'On an iPhone or iPad, in Safari: tap Share, then Add to Home Screen.';
+  if (ANDROID) return 'In Chrome: the ⋮ menu, then Install app (or Add to home screen). Other browsers have Install or Add to home screen in their menu. If the menu has neither, the page is open inside another app: choose Open in Chrome first.';
+  return 'In Chrome or Edge: the install icon at the right of the address bar, or the menu, then Install. In Safari on a Mac: File, then Add to Dock.';
+}
 function installHTML(where) {
   if (!INSTALLABLE) return '';
   if (installed()) return where === 'settings' ? '<p class="hint">Running as an installed app. It plays offline.</p>' : '';
   if (installPrompt) return `<div class="row"><button class="btn" id="btn-install-${where}" data-act="install">Install the app</button><span class="hint">Full screen, from your home screen, and it plays offline.</span></div>`;
-  if (IOS) return '<p class="hint">To install it on an iPhone or iPad: Share, then Add to Home Screen.</p>';
-  if (where !== 'settings') return '';
-  return '<p class="hint">This browser hasn\'t offered to install the season here (it may already be installed). In Chrome or Edge, look for Install in the address bar or the menu; in Firefox on Android, the menu has Install; on an iPhone or iPad, Share, then Add to Home Screen.</p>';
+  if (where === 'title' && !ui.installHelp) return '<button class="btn sm title-link" id="btn-install-help" data-act="install-help">Install on this device</button>';
+  return `<p class="hint${where === 'title' ? ' title-install' : ''}" id="install-help-${where}">${esc(installHelp())}${where === 'settings' ? " Installed, it opens full screen from your home screen and plays offline. If it's installed already, open it from there." : ''}</p>`;
 }
 
 /* ---------------------------------------------------------------- the page */
@@ -2898,7 +2894,6 @@ function rearrangeHTML() {
 
 const SHEETS = {
   build: ['Build', buildHTML],
-  intro: ['About', introHTML],
   phase: [null, () => `<section class="phase ${PH[s.phase]}">${phaseHTML()}</section>`],
   people: ['People', rosterHTML],
   records: ['Records', () => `<section class="records">${recordsHTML()}</section>`],
@@ -2912,7 +2907,106 @@ function sheetHTML() {
   return `<div class="gsheet-head"><span class="eyebrow" id="sheet-title">${esc(title || SHEET_NAME())}</span><button class="btn sm" id="sheet-close" data-act="sheet-close">Close</button></div>
     <div class="gsheet-body" id="sheet-body">${body()}</div>`;
 }
-const SECTIONS = { hud: hudHTML, bar: barHTML, sheet: sheetHTML };
+/* ---------------------------------------------------------------- the main screen */
+
+// The game opens on it, over the keep as it stands (but for a tester's link, a test not yet sent, or the
+// replay viewer), and the Menu leads back to it: the keep being played, a new one (the open year or a
+// campaign, its difficulty, the guide), the tutorial, today's keep, the Menu's tabs, and installing. The
+// clock stands still under it.
+const WHAT_STARTS = { new: 'the new keep', tutorial: 'the tutorial', daily: "today's keep" };
+const continuable = () => prefs.introDone || !untouched();
+function titleMainHTML() {
+  const go = continuable();
+  const tut = tutorialHeld();
+  const daily = dailyHeld();
+  const item = (id, act, label, sub, primary = false, extra = '') => `<button class="btn${primary ? ' primary' : ''} title-go" id="${id}" data-act="${act}"${extra}><span>${label}</span><small>${esc(sub)}</small></button>`;
+  return `${go ? item('title-continue', 'title-continue', 'Continue', `Keep ${saves.current}: ${keepLine(summary(s, Date.now()))}`, true) : ''}
+    ${item('title-tutorial', 'title-start', tut ? 'Continue the tutorial' : 'Learn to play', tut ? `In keep ${tut}` : 'The tutorial: three days that teach, one thing at a time', !go, ' data-what="tutorial"')}
+    ${item('title-new', 'title-view', 'New game', 'The open year or a five-year campaign, Gentle to Hard', false, ' data-view="new"')}
+    ${item('title-daily', 'title-start', daily ? "Continue today's keep" : "Today's keep", `${dayText(dayKey())}: the same keep for everyone who plays today`, false, ' data-what="daily"')}
+    <div class="title-row">
+      <button class="btn" id="title-saves" data-act="title-tab" data-tab="saves">Saves</button>
+      <button class="btn" id="title-howto" data-act="title-tab" data-tab="howto">How to play</button>
+      <button class="btn" id="title-settings" data-act="title-tab" data-tab="settings">Settings</button>
+    </div>
+    ${installHTML('title')}`;
+}
+function titleNewHTML() {
+  const n = freeSlot();
+  return `<div class="title-card"><h2 class="title-h">A new keep</h2>
+    ${campaignPicker('title')}
+    ${presetPicker('title')}
+    <label class="title-check" for="title-guide"><input type="checkbox" id="title-guide" data-act="guide-toggle"${prefs.guide ? ' checked' : ''}><span>The guide: a short card the first time each thing happens</span></label>
+    <p class="hint">${n ? `It goes in keep ${n}.` : 'All three keeps are in use: next you choose which one it replaces.'}</p>
+    <div class="row"><button class="btn primary" id="title-begin" data-act="title-start" data-what="new">Begin</button><button class="btn" id="title-back" data-act="title-back">Back</button></div></div>`;
+}
+function titleReplaceHTML() {
+  const what = WHAT_STARTS[ui.titleFor] || WHAT_STARTS.new;
+  const rows = SLOT_NUMS().map((n) => {
+    const m = n === saves.current ? summary(s, Date.now()) : saves.slots[n];
+    const acts = ui.titleAsk === n
+      ? `<p class="note bad">Keep ${n} is gone for good unless you exported it (Saves, then Export). Put ${what} in its place?</p><div class="row"><button class="btn sm primary" id="title-replace-yes" data-act="title-replace-yes" data-n="${n}">Replace keep ${n}</button><button class="btn sm" id="title-replace-no" data-act="title-replace-no">Cancel</button></div>`
+      : `<div class="row"><button class="btn sm" id="title-replace-${n}" data-act="title-replace" data-n="${n}">Replace keep ${n}</button></div>`;
+    return `<div class="kslot"><div class="kslot-head"><span class="eyebrow">Keep ${n}</span></div><p>${m ? esc(keepLine(m)) : 'Empty.'}</p>${acts}</div>`;
+  }).join('');
+  return `<div class="title-card"><h2 class="title-h">Which keep does ${esc(what)} replace?</h2><p class="hint">All three keeps are in use.</p><div class="kslots">${rows}</div>
+    <div class="row"><button class="btn" id="title-back" data-act="title-back">Back</button></div></div>`;
+}
+function titleHTML() {
+  if (!ui.title) return '';
+  const body = ui.titleView === 'new' ? titleNewHTML() : ui.titleView === 'replace' ? titleReplaceHTML() : titleMainHTML();
+  return `<div class="title-wrap">
+    <div class="title-top"><h1 class="title-name" id="title-name">Afterglass</h1><p class="title-tag">A keep on the Veil. The living hold it by day; the dead hold its reflection by night.</p></div>
+    <div class="title-menu" id="title-menu">${body}</div>
+  </div>`;
+}
+function openTitle(by = 'you') {
+  if (ui.skip) endSkip();
+  if (running() && !ui.paused) trail('pause', { by: 'title' });
+  Object.assign(ui, { paused: true, rush: false, resume: false, title: true, titleView: null, titleFor: null, titleAsk: null, installHelp: false });
+  closeSheet();
+  showCoach(null);
+  trail('panel', { name: 'title', ...(by === 'you' ? {} : { by }) });
+  bump();
+  requestAnimationFrame(() => document.querySelector('#title-menu .title-go')?.focus({ preventScroll: true }));
+}
+function closeTitle() {
+  if (!ui.title) return;
+  Object.assign(ui, { title: false, titleView: null, titleFor: null, titleAsk: null });
+  trail('close', { name: 'title' });
+}
+function titleContinue() {
+  closeTitle();
+  if (waiting()) openSheet('phase', 'game');
+  return bump();
+}
+function titleView(view) {
+  ui.titleView = view;
+  ui.titleAsk = null;
+  bump();
+  requestAnimationFrame(() => document.querySelector('#title-menu button, #title-menu input')?.focus({ preventScroll: true }));
+}
+// A new keep, the tutorial or today's keep: where one is already under way, back to it; else into a free
+// slot, or, with all three in use, the player chooses which one it replaces.
+function titleStart(what) {
+  const held = what === 'tutorial' ? tutorialHeld() : what === 'daily' ? dailyHeld() : null;
+  if (held) return held === saves.current ? titleContinue() : playSlot(held);
+  const n = freeSlot();
+  if (n) return startIn(what, n);
+  ui.titleFor = what;
+  return titleView('replace');
+}
+function startIn(what, n) {
+  prefs.introDone = true;
+  savePrefs();
+  if (what === 'tutorial') {
+    prefs.guideSeen = {};
+    return startTutorial(n);
+  }
+  return what === 'daily' ? startDaily(n) : newKeep(n);
+}
+
+const SECTIONS = { hud: hudHTML, bar: barHTML, title: titleHTML, sheet: sheetHTML };
 const drawn = {};
 let liveEls = [];
 let barEls = [];
@@ -2975,6 +3069,10 @@ function render(alpha, now) {
     if (id === 'sheet') {
       host.hidden = !ui.sheet;
       host.className = `gsheet${ui.sheet ? ` is-${ui.sheet}` : ''}`;
+    }
+    if (id === 'title') {
+      host.hidden = !ui.title;
+      host.parentElement.classList.toggle('is-title', !!ui.title);
     }
     for (const [sid, st, sl] of scrolls) {
       const el = document.getElementById(sid);
@@ -3042,10 +3140,6 @@ function closeSheet() {
     }
   }
   if (was) trail('close', { name: was });
-  if (was === 'intro') {
-    prefs.introDone = true;
-    savePrefs();
-  }
   bump();
   if (was) requestAnimationFrame(() => document.getElementById(`open-${was}`)?.focus({ preventScroll: true }));
 }
@@ -3492,7 +3586,7 @@ function tutMark(id) {
 let coachId = null;
 const coachEl = document.getElementById('coach');
 function guideStep() {
-  if (ui.sheet === 'intro' || ui.sheet === 'test') return null; // one thing at a time: the note, then the lesson
+  if (ui.title || ui.sheet === 'test') return null; // one thing at a time: the main screen or the note, then the lesson
   if (tutOn()) return tutStep();
   if (!prefs.guide) return null;
   return GUIDE.find((g) => !seen(g.id) && g.when()) || null;
@@ -3883,6 +3977,7 @@ function playKeep(n, g, lead) {
     ui.watch = null;
     freshKeep(loadGame(saves.current) || newSeason());
   }
+  closeTitle();
   if (n !== saves.current) saveGame();
   useSlot(store, saves, n);
   freshKeep(g);
@@ -3896,7 +3991,11 @@ function playKeep(n, g, lead) {
   return bump();
 }
 function playSlot(n) {
-  if (n === saves.current) return closeSheet();
+  if (n === saves.current) {
+    closeTitle();
+    closeSheet();
+    return titleContinue();
+  }
   const g = loadGame(n);
   if (g) return playKeep(n, g, `Keep ${n}.`);
   ui.slotMsg = `Keep ${n} couldn't be read.`;
@@ -3930,14 +4029,8 @@ function presetPicker(where) {
       <div class="seg">${Object.entries(PRESETS).map(([k, P]) => `<input type="radio" class="visually-hidden" name="preset-${where}" id="preset-${where}-${k}" data-act="preset" value="${k}"${cur === k ? ' checked' : ''}><label class="btn sm" for="preset-${where}-${k}">${P.name}</label>`).join('')}</div>
       <p class="hint">${esc(PRESETS[cur].text)}</p></fieldset>`;
 }
-// A keep nothing has been done in yet can take the difficulty chosen at the intro.
+// A keep nothing has been done in yet, which a new one can take the place of.
 const untouched = () => !s.actions.length && s.season === 1 && s.day === 1 && s.phase === 'day' && s.t === 0 && !s.daily && !s.tuning.tutorial;
-function takePreset() {
-  const p = presetNow();
-  if (!untouched() || ((s.preset || 'standard') === p && !!s.tuning.campaign === !!prefs.campaign)) return;
-  s = listen(keepWith(p));
-  saveGame();
-}
 function confirmSlot(n) {
   const ask = ui.confirmSlot;
   ui.confirmSlot = null;
@@ -4267,15 +4360,6 @@ function onAct(name, el) {
       prefs.autoPause = el.checked;
       savePrefs();
       return bump();
-    case 'intro-close':
-      prefs.guide = false;
-      takePreset();
-      return closeSheet();
-    case 'intro-guide':
-      prefs.guide = true;
-      prefs.guideSeen = {};
-      takePreset();
-      return closeSheet();
     case 'preset':
       prefs.preset = el.value;
       savePrefs();
@@ -4284,9 +4368,6 @@ function onAct(name, el) {
       prefs.campaign = el.value === 'campaign';
       savePrefs();
       return bump();
-    case 'intro-tutorial':
-      prefs.guideSeen = {};
-      return startTutorial(saves.current);
     case 'tut-end':
       s.tut = { ...(s.tut || {}), off: true };
       saveGame();
@@ -4305,6 +4386,29 @@ function onAct(name, el) {
       savePrefs();
       showCoach(null);
       return bump();
+    case 'title-open': return openTitle();
+    case 'title-continue': return titleContinue();
+    case 'title-view': return titleView(el.dataset.view);
+    case 'title-back':
+      ui.titleFor = null;
+      return titleView(null);
+    case 'title-start': return titleStart(el.dataset.what);
+    case 'title-replace':
+      ui.titleAsk = Number(el.dataset.n);
+      return bump();
+    case 'title-replace-no':
+      ui.titleAsk = null;
+      return bump();
+    case 'title-replace-yes': return startIn(ui.titleFor || 'new', Number(el.dataset.n));
+    case 'title-tab':
+      ui.menuTab = el.dataset.tab;
+      ui.confirmSlot = null;
+      ui.slotMsg = '';
+      return openSheet('menu');
+    case 'install-help':
+      ui.installHelp = true;
+      bump();
+      return requestAnimationFrame(() => document.getElementById('install-help-title')?.scrollIntoView({ block: 'nearest' }));
     case 'install': {
       const p = installPrompt;
       if (!p) return undefined;
@@ -4425,6 +4529,14 @@ document.addEventListener('input', (e) => {
   }, 400);
 });
 document.addEventListener('keydown', (e) => {
+  if (ui.title && !ui.sheet) {
+    // Escape steps back, and from the main list, back to the keep. The game's keys wait for it to close.
+    if (e.key === 'Escape') {
+      if (ui.titleView) titleView(null);
+      else if (continuable()) titleContinue();
+    }
+    return;
+  }
   if (e.key === 'Escape') {
     if (ui.sheet) closeSheet();
     else if (kbAt()) {
@@ -4434,6 +4546,7 @@ document.addEventListener('keydown', (e) => {
     } else if (!e.target.closest('input, select, textarea')) openSheet('menu');
     return;
   }
+  if (ui.title) return;
   const k = e.key.toLowerCase();
   if (ui.cross && (k === ' ' || k === 'enter') && !e.target.closest('input, select, textarea, button, a')) {
     e.preventDefault();
@@ -4619,8 +4732,9 @@ else if (params.has('watch')) {
   ui.menuTab = 'saves';
   openSheet('menu', 'game');
   requestAnimationFrame(() => document.getElementById('watch-load')?.scrollIntoView({ block: 'start' }));
-} else if (!prefs.introDone) openSheet('intro', 'game');
-else if (waiting()) openSheet('phase', 'game');
-if (!params.has('test') && !params.has('watch') && (s.day > 1 || s.season > 1 || s.phase !== 'day')) toast(`Welcome back. Season ${s.season}: ${phaseLabel()}.`, 'rite');
+} else if (s.test && !s.test.sent) {
+  // A tester part way through: straight back to the keep under test, as the link itself does.
+  if (waiting()) openSheet('phase', 'game');
+} else openTitle('game');
 if (retuned) toast(`This version changed ${retuned} of the keep's numbers; yours from Settings are kept.`, 'rite');
 requestAnimationFrame(frame);

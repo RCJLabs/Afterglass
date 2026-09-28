@@ -1,6 +1,6 @@
 # After the Slice: design round four (September 2026)
 
-Round three's ten-week plan is built: four prototypes, ending in a one-season vertical slice ([`prototype/`](../../../prototype/README.md), [play the season](https://rcjlabs.github.io/Base-Manager/prototype/season.html)). This round asked what to build next, before and after the playtest the slice exists for. Open [`index.html`](index.html) in a browser for the page version: every candidate with its status, what each build showed, and the queue.
+Round three's ten-week plan is built: four prototypes, ending in a one-season vertical slice ([`prototype/`](../../../prototype/README.md), [play the season](https://rcjlabs.github.io/Afterglass/prototype/season.html)). This round asked what to build next, before and after the playtest the slice exists for. Open [`index.html`](index.html) in a browser for the page version: every candidate with its status, what each build showed, and the queue.
 
 ## Where it stands
 

@@ -87,6 +87,19 @@
   .plan li.done .state { color: var(--rite-ink); }
   .plan li.now .state { color: var(--night-ink); }
   footer { color: var(--ink-3); font-size: 14px; }
+  .cta { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; }
+  .cta a {
+    display: inline-block;
+    padding: 12px 22px;
+    border-radius: 6px;
+    background: #efc676;
+    color: #1d1405;
+    font-weight: 700;
+    font-size: 17px;
+    text-decoration: none;
+  }
+  .cta a:hover { background: #f5d38e; }
+  .cta span { color: var(--ink-2); font-size: 14px; max-width: 44ch; }
 </style>
 </head>
 <body>
@@ -96,6 +109,7 @@
     <h1>Afterglass</h1>
     <div class="veil" aria-hidden="true"></div>
     <p class="lede">You hold a keep on the Veil. By day the living build, craft and hold the walls. Anyone who dies inside them wakes at dusk as a shade and works the night shift in the reflected keep. At dawn you decide which of the dead stay.</p>
+    <p class="cta"><a href="prototype/season.html">Play Afterglass</a><span>In the browser, on a phone or a computer. To install it as an app, open it and choose Install on its main screen.</span></p>
   </header>
 
   <section class="play" aria-labelledby="h-play">
@@ -130,7 +144,7 @@
     </ul>
   </section>
 
-  <footer><p>Source on <a href="https://github.com/RCJLabs/Base-Manager">GitHub</a>.</p></footer>
+  <footer><p>Source on <a href="https://github.com/RCJLabs/Afterglass">GitHub</a>.</p></footer>
 </main>
 </body>
 </html>
