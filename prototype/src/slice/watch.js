@@ -9,6 +9,7 @@
 
 import { newSeason, step, act } from './sim.js';
 import { exportTuning0, isExport, isSave, replays, CANT_REPLAY, saneExport, BAD_FILE } from './saves.js';
+import { momentOf } from './alerts.js';
 
 export const WAIT = 20;
 export const CHOICE = 10;
@@ -125,16 +126,7 @@ export function advance(c, x, budget, once = false) {
 }
 
 // What the viewer marks: the moments that mattered, from the keep's own alerts (deaths, cracks, catches,
-// and the rest that called out), and the tester's own page events.
-function momentOf(al) {
-  if (al.tone === 'death') return 'death';
-  if (/slipped through the Veil|tore through the Veil/.test(al.text)) return 'crack';
-  if (/has caught/.test(al.text)) return 'caught';
-  if (al.tone === 'visit') return 'visit'; // a visitor at the gate, and what was answered
-  if (al.tone === 'bad') return 'bad';
-  if (al.tone === 'good') return 'good';
-  return null;
-}
+// and the rest that called out), by their kinds (alerts.js), and the tester's own page events.
 export const BIG = { death: 1, crack: 1, caught: 1, fell: 1 };
 
 // The whole session played through once: its segments (each phase of each day, where it starts on the

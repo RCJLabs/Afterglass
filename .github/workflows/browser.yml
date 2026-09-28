@@ -1,0 +1,36 @@
+name: Browser
+
+# The browser checks (prototype/e2e, round seven, phase 6): the page itself in Chromium, at phone and desktop
+# sizes. Kept apart from Test and Pages, so a check that runs long doesn't hold up a deploy; a failure here is
+# still a failure to fix.
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install Playwright and Chromium
+        working-directory: prototype
+        run: |
+          npm i --no-save playwright@1.56.1
+          npx playwright install --with-deps chromium
+      - name: Run the browser checks
+        working-directory: prototype
+        run: npm run e2e
+      - name: Keep the screenshots
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-shots
+          path: /tmp/afterglass-e2e/shots
+          if-no-files-found: ignore

@@ -26,6 +26,7 @@ import { SLOTS, slotKey, openIndex, loadSlot, saveSlot, useSlot, deleteSlot, kee
 import { BUILD } from './build.js';
 import { createSound, SOUNDS } from './slice/sound.js';
 import { readExport, indexOf, advance, seek, cloneCursor } from './slice/watch.js';
+import { STOPS, OPENS, FLASHES } from './slice/alerts.js';
 import { quizKeep, quizPlan, quizScene, tappedIn, isRight, stillToKeep, keepToStill, figuresOf, quizSummary, QUIZ_ASK, COUNT_CHOICES } from './slice/quiz.js';
 
 const PREF_KEY = 'afterglass-season/prefs/v1';
@@ -3885,7 +3886,8 @@ const maud = () => s.shades.find((d) => d.name === TUTORIAL.servant.name && canW
 const newcomer = () => s.today.arrivals.map((id) => byId(s.living, id)).find(Boolean) || null;
 // A spot on the line is held when a shade stands in its light.
 const guarded = (p) => litAt(p.f, p.x) && s.shades.some((d) => canWork(d) && d.post?.f === p.f && Math.abs(d.post.x - p.x) <= 8 && litAt(d.post.f, d.post.x));
-const churchWord = () => s.log.some((l) => l.season === 1 && l.day === 3 && /^Word comes from the Lantern Church: its inspector/.test(l.text));
+// Keeps saved before alerts had kinds (round seven, phase 6) have only the words in their log.
+const churchWord = () => s.log.some((l) => l.season === 1 && l.day === 3 && (l.kind === 'church-word' || (!l.kind && /^Word comes from the Lantern Church/.test(l.text))));
 // The guide's words for the dead's requests, which the tutorial uses too.
 const requestText = () => `The dead ask for things. A shade that has served ${s.tuning.askAfter} nights asks one thing at the rite: a Loyal one to stand the gate by day, a Stranger a name, a Pale one to be remembered, and a Serene one, as its memory fails, to be let go. Granted, it asks no more; refused ${s.tuning.refusals === 2 ? 'twice' : `${s.tuning.refusals} times`}, it turns Restless and leaves its mirror.`;
 const TUT = [
@@ -4204,15 +4206,14 @@ function toast(text, tone = '', open = null) {
   if (ui.toasts.length > room) ui.toasts.splice(0, ui.toasts.length - room);
   ui.toastRev++;
 }
-const STOPS = /^The eclipse\.|has caught|The Hollow rises|Raiders on the road|^At the gate:|The camp outside stirs|has made camp|The Host is at the gate|inspector|has turned Wraith|A Maw is tearing|A Maw is breaking|^Fire in the|The fire spreads|^Plague/;
-const OPENS = /^The eclipse\.|^Midsummer\.|Raiders on the road|The camp outside stirs|has made camp|The Host is at the gate|The gate gave way|inspector|fallen sick|larder is empty|arrives at the gate|^At the gate:|^Fire in the/;
+// What an alert does is decided by its kind (alerts.js), not its words.
 function takeAlerts(fromClock) {
   let stop = false;
   if (ui.skip && s.alerts.length) endSkip(); // something happened: back to the clock's own pace
   for (const a of s.alerts.splice(0)) {
-    toast(a.text, a.tone, OPENS.test(a.text) ? 'phase' : null);
-    if (/slipped through the Veil|tore through the Veil/.test(a.text)) ui.flash = performance.now() + 600;
-    if (fromClock && prefs.autoPause && STOPS.test(a.text)) stop = a.text;
+    toast(a.text, a.tone, OPENS.has(a.kind) ? 'phase' : null);
+    if (FLASHES.has(a.kind)) ui.flash = performance.now() + 600;
+    if (fromClock && prefs.autoPause && STOPS.has(a.kind)) stop = a.text;
   }
   if (stop) {
     ui.paused = true;

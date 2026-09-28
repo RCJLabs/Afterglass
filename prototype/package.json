@@ -11,6 +11,8 @@
     "bundle": "node tools/bundle.mjs dist/afterglass-greybox.html && node tools/bundle.mjs dist/afterglass-night.html --page night.html && node tools/bundle.mjs dist/afterglass-pixel.html --page pixel.html && node tools/bundle.mjs dist/afterglass-season.html --page season.html",
     "serve": "python3 -m http.server 8080",
     "balance:season": "node tools/balance-season.mjs",
+    "measure": "node tools/measure.mjs",
+    "e2e": "node e2e/run.mjs",
     "icons": "node tools/icons.mjs"
   }
 }

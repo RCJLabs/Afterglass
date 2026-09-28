@@ -6,15 +6,44 @@
 //   double   the balanced plan, but from the first Maw night it posts two fighters on each stair of the
 //            line and never moves anyone: the static answer the Maws are meant to break
 //   idle     works the day but leaves the night alone: no candles, no posts (a baseline)
+//   human    the balanced plan as a person plays it, with a person's lapses (HUMAN, below)
 // All but double and idle react at night: a second fighter to each stair of the line for each tide, a ward
 // on the line for the biggest tides when the essence is there, and a fighter to meet a Maw. They move a
 // shade only along a lit floor; where its way is dark it stays.
 
-import { hollowNeed, chapterOf, yearsEnd, bondedShade, postRoom, bareHalls, buildSpot, raiseCost, step, act, newSeason, ritePreview, crossingPreview, capacity, canWork, defense, funeralCap, choicesFor, jobCap, jobCount, eatRate, wardCost, livingTrait, shadeTrait, peopleIn, crowded, tradeOf, inGreatGlass, handsAt, seasonIndex, tributeOf, besieged, sallyOdds, embargoed, inquisition, crusadeDaysLeft, canAct, actOf, actCost, NEW_ROOMS, atTheGate, gatehouseOf, decreeOf, undergateMouth, roomReady } from './sim.js';
+import { nightTicks, hollowNeed, chapterOf, yearsEnd, bondedShade, postRoom, bareHalls, buildSpot, raiseCost, step, act, newSeason, ritePreview, crossingPreview, capacity, canWork, defense, funeralCap, choicesFor, jobCap, jobCount, eatRate, wardCost, livingTrait, shadeTrait, peopleIn, crowded, tradeOf, inGreatGlass, handsAt, seasonIndex, tributeOf, besieged, sallyOdds, embargoed, inquisition, crusadeDaysLeft, canAct, actOf, actCost, NEW_ROOMS, atTheGate, gatehouseOf, decreeOf, undergateMouth, roomReady } from './sim.js';
 import { DAY_ROOMS, MIRRORS, KINDS, MAP, TICKS_PER_SEC, VISITORS, STUDIES, CHAPTERS } from './data.js';
 import { geo, roomSpan, roomAt, roomsOf, lineSpots, lightMap, isLit } from './geo.js';
 
-export const PLANS = ['balanced', 'keeper', 'mourner', 'double', 'idle'];
+export const PLANS = ['balanced', 'keeper', 'mourner', 'double', 'idle', 'human'];
+
+// The human plan (round seven, phase 6): the balanced player with a person's lapses. It looks at the night only
+// every HUMAN.every ticks, so it reacts up to that late; on HUMAN.lapse of nights it looks away once, for
+// HUMAN.lapseSecs, somewhere in the night; and it doesn't read the forecast: it sends a second fighter to the
+// line only once a tide is in the Tain, never wards ahead of the biggest tides, and takes the first omen it's
+// offered. By day it answers the gate as slowly. These numbers are guesses until playtest trails can set them.
+// Its lapses come from the keep's seed and the day, never the game's own dice, so the keep plays the same
+// underneath.
+const envNum = (k, d) => (globalThis.process?.env?.[k] !== undefined ? Number(globalThis.process.env[k]) : d);
+export const HUMAN = {
+  every: envNum('AP_HUMANEVERY', 30),
+  raidEvery: envNum('AP_HUMANRAID', 20),
+  lapse: envNum('AP_HUMANLAPSE', 0.5),
+  lapseSecs: envNum('AP_HUMANLAPSESECS', 10),
+  forecast: !!globalThis.process?.env?.AP_HUMANFORECAST, // reads the forecast after all (to measure what not reading it costs)
+};
+function hash01(...xs) {
+  let h = 2166136261;
+  for (const x of xs) for (const ch of `${x}|`) h = Math.imul(h ^ ch.charCodeAt(0), 16777619);
+  return (h >>> 0) / 4294967296;
+}
+// Whether the human is looking away right now: at most once a night.
+function lapsed(s) {
+  if (hash01(s.seed, s.season, s.day, 'lapse') >= HUMAN.lapse) return false;
+  const len = HUMAN.lapseSecs * TICKS_PER_SEC;
+  const from = Math.floor(hash01(s.seed, s.season, s.day, 'from') * Math.max(1, nightTicks(s) - len));
+  return s.t >= from && s.t < from + len;
+}
 
 const doAct = (s, a) => act(s, a).ok;
 // AP_NOHIDE=1 never hides a mirror from a crusade (to measure whether hiding pays).
@@ -62,6 +91,16 @@ const WHISPER = !!globalThis.process?.env?.AP_WHISPER;
 // AP_TRIBUTE=1 also pays the Host off when a breach looks certain (to measure whether either pays).
 const RAIDPASSIVE = !!globalThis.process?.env?.AP_RAIDPASSIVE;
 const TRIBUTE = !!globalThis.process?.env?.AP_TRIBUTE;
+// Verbs the autopilot never used until round seven, phase 6, each off by default, to measure what it's worth:
+// AP_HUSH=1 hushes the night while shades stand in the dark with the Unlit close and no candle to spare, and
+// ends it when none do; AP_BIND=1 binds a Restless shade into a free mirror, when the essence can be spared,
+// rather than releasing it; AP_CURFEW=1 proclaims the curfew from the Hall once sleepwalkers or Weepers can come,
+// unless the larder needs rationing; AP_COURT=1 seats a shade in the Court of Shades, lit, on a night before a
+// rite where one of the dead will ask. The Keeper is AP_ENDING=watch, and building by choice AP_TALL=line.
+const HUSH = !!globalThis.process?.env?.AP_HUSH;
+const BIND = !!globalThis.process?.env?.AP_BIND;
+const CURFEW = !!globalThis.process?.env?.AP_CURFEW;
+const COURT = !!globalThis.process?.env?.AP_COURT;
 // One part of the raid policy off at a time, to find what it costs.
 const NO = (k) => !!globalThis.process?.env?.[`AP_NO${k}`];
 // Candles kept back from pitch for the night.
@@ -288,6 +327,7 @@ function hallMoves(s) {
   if (!s.tuning.hall || decreeOf(s) || s.decree?.season === s.season || !roomsOf(geo(s), 'hall').length) return;
   const raids = Object.entries(s.tuning.raidDays).some(([d, b]) => Number(d) >= s.day && b);
   if (s.res.food < eatRate(s)) doAct(s, { type: 'decree', id: 'rationing' });
+  else if (CURFEW && ((s.tuning.errands && s.day >= s.tuning.sleepFrom - 1) || s.tuning.dreamwell)) doAct(s, { type: 'decree', id: 'curfew' });
   else if (raids && s.res.food >= 3 * eatRate(s)) doAct(s, { type: 'decree', id: 'levy' });
 }
 
@@ -497,6 +537,15 @@ function placeNight(s, plan) {
     homes.set(s, new Map(s.shades.filter(canWork).map((d) => [d.id, { ...d.post }])));
     return;
   }
+  // The Court of Shades (AP_COURT): the weakest fighter left sits in the Hall's twin, lit, when one of the dead
+  // will ask at the next rite, so the request is heard free.
+  if (COURT && T.hall && T.requests && ds.length >= 2 && roomsOf(G, 'hall').length && s.shades.some((d) => canWork(d) && !d.granted && d.nights + 1 >= T.askAfter)) {
+    const d = ds.pop();
+    const { f, x0, x1 } = roomSpan(G, 'hall');
+    const x = Math.round((x0 + x1) / 2);
+    doAct(s, { type: 'move', id: d.id, f, x });
+    if (s.res.candles > 1 && !lit.has(roomAt(G, f, x))) doAct(s, { type: 'candle', f, x: x + 3 });
+  }
   for (const [room, group] of postings(s, ds)) {
     const { f, x0, x1 } = roomSpan(G, room);
     // On the line's floor: just behind the line, in its light. With lineGuard on, only to keep the Watch (the
@@ -697,6 +746,12 @@ function tendNight(s, plan) {
     const { f, x } = d.post;
     if (!out.has(d.id) && f !== LINE[0].f && !inRoom(f, x) && s.res.candles > 1) doAct(s, { type: 'candle', f, x });
   }
+  // AP_HUSH: hush while shades stand in the dark with the Unlit close and no candle to spare; end it when none do.
+  if (HUSH) {
+    const L = lightMap(G, T, n.candles);
+    const danger = s.res.candles < 1 && s.shades.some((d) => canWork(d) && !d.grabbedBy && !d.climb && !isLit(L, d.f, d.x) && n.foes.some((u) => u.type === 'creeper' && u.f === d.f && Math.abs(u.x - d.x) <= 10));
+    if (danger !== !!n.hush) doAct(s, { type: 'hush', on: danger });
+  }
   // Free the caught. A sleepwalker gets a candle, which wakes them, once they're caught or on the Deep's floor.
   for (const d of s.shades) if (d.grabbedBy && s.res.candles > 0) doAct(s, { type: 'candle', f: d.f, x: d.x });
   for (const e of n.errands || []) if (!NOFREESLEEPER && e.kind === 'sleeper' && e.out && !e.done && !e.climb && (e.held || e.f === G.deep) && s.res.candles > 0) doAct(s, { type: 'candle', f: e.f, x: e.x });
@@ -726,7 +781,9 @@ function tendNight(s, plan) {
       const tg = m.type === 'maw' && m.target;
       if (tg) for (const d of s.shades) if (d.post.f === tg.f && (tg.kind === 'candle' ? Math.abs(d.post.x - tg.x) <= 8 : roomAt(G, d.post.f, d.post.x) === tg.id)) busy.add(d.id);
     }
-    if (n.tides.some((tt) => s.t >= tt - 50 && s.t <= tt + 350)) {
+    // The human doesn't read the tides' times: it reinforces once one is in the Tain.
+    const tide = plan === 'human' && !HUMAN.forecast ? n.foes.some((u) => u.type === 'creeper') : n.tides.some((tt) => s.t >= tt - 50 && s.t <= tt + 350);
+    if (tide) {
       for (const st of LINE) {
         if (s.shades.filter((d) => canWork(d) && at(d, st)).length >= 2) continue;
         // Only from the stair's own room: nobody crosses a dark floor, or climbs the tide's way, to get there.
@@ -749,7 +806,7 @@ function tendNight(s, plan) {
   const last = n.tides[n.tides.length - 1];
   const unwarded = LINE.filter((st) => st.id && !n.wards.includes(st.id));
   const reserve = moonReserve(s);
-  if (plan !== 'double' && s.day >= T.seasonDays - 2 && s.day < T.seasonDays && s.t >= last - 60 && s.t <= last && unwarded.length && s.res.essence >= unwarded.length * wardCost(s) + reserve) {
+  if (plan !== 'double' && (plan !== 'human' || HUMAN.forecast) && s.day >= T.seasonDays - 2 && s.day < T.seasonDays && s.t >= last - 60 && s.t <= last && unwarded.length && s.res.essence >= unwarded.length * wardCost(s) + reserve) {
     for (const st of unwarded) doAct(s, { type: 'ward', target: st.id });
   }
   // The Hollow: ward the stairs above it while the essence lasts, and meet it with fighters near the top.
@@ -783,7 +840,7 @@ function rite(s, plan) {
   for (const d of s.shades) {
     const cs = choicesFor(d);
     if (d.kind === 'wraith') doAct(s, { type: 'rite', id: d.id, choice: s.res.essence >= T.banishCost ? 'banish' : 'leave' });
-    else if (d.kind === 'restless') doAct(s, { type: 'rite', id: d.id, choice: 'release' });
+    else if (d.kind === 'restless') doAct(s, { type: 'rite', id: d.id, choice: BIND && cs.includes('bind') && capacity(s).free > 0 && s.res.essence >= T.bindCost + moonReserve(s) ? 'bind' : 'release' });
     else doAct(s, { type: 'rite', id: d.id, choice: cs[0] });
   }
   // What a shade is worth keeping, per point of Dread it costs, by its trait: an Anchored one lasts, a
@@ -871,10 +928,10 @@ export function autoStep(s, plan = 'balanced') {
         metEclipse.set(s, s.eclipse);
         placeNight(s, plan);
         if (SIDE) sideBySide(s);
-      } else if (s.t % 10 === 0) tendNight(s, plan);
+      } else if (s.t % (plan === 'human' ? HUMAN.every : 10) === 0) tendNight(s, plan);
     }
     if (s.t % 50 === 0 || (s.raid?.warned && s.raid.state === 'coming' && !s.raid.ward)) dayMoves(s);
-    if (s.raid && s.t % 5 === 0) raidMoves(s);
+    if (s.raid && s.t % (plan === 'human' ? HUMAN.raidEvery : 5) === 0) raidMoves(s);
     if (s.visitors?.some((v) => v.here && !v.done)) visitorMoves(s, way);
     step(s);
   } else if (s.phase === 'dusk') {
@@ -882,26 +939,26 @@ export function autoStep(s, plan = 'balanced') {
       funerals(s, way);
       doAct(s, { type: 'wake' });
     }
-    if (plan !== 'idle' && s.night?.omens) doAct(s, { type: 'omen', i: pickOmen(s, plan) });
+    if (plan !== 'idle' && s.night?.omens) doAct(s, { type: 'omen', i: plan === 'human' && !HUMAN.forecast ? 0 : pickOmen(s, plan) });
     if (plan !== 'idle') placeNight(s, plan);
     doAct(s, { type: 'startNight' });
   } else if (s.phase === 'night') {
-    if (plan !== 'idle' && s.t % 10 === 0) tendNight(s, plan);
+    if (plan !== 'idle' && s.t % (plan === 'human' ? HUMAN.every : 10) === 0 && !(plan === 'human' && lapsed(s))) tendNight(s, plan);
     step(s);
   } else if (s.phase === 'dawn') {
     rite(s, way);
   }
 }
 
-// A campaign's year end (round six): years 1 to 4 close by rule, the lasting help unless AP_CLOSE=goods; the
-// fifth's ending is the player's, unless AP_ENDING names one (seal, open or watch, which plays on). Returns
-// whether it went on.
+// A year's end: a campaign's years 1 to 4 close by rule (round six), the lasting help unless AP_CLOSE=goods; the
+// fifth's ending, and the open year's, are the player's, unless AP_ENDING names one (seal, open or watch, which
+// plays on). Unnamed, the open year's watch goes on. Returns whether it went on.
 const CLOSE = globalThis.process?.env?.AP_CLOSE || 'help';
 const ENDING = globalThis.process?.env?.AP_ENDING || '';
 export function closeYear(s) {
   const k = chapterOf(s);
-  if (!k || !yearsEnd(s)) return false;
-  if (k < 5) {
+  if (!yearsEnd(s)) return false;
+  if (k && k < 5) {
     const c = CHAPTERS[k].close;
     return doAct(s, { type: 'closeChapter', id: (CLOSE === 'goods' ? c.find((x) => x.gain) : c.find((x) => !x.gain)).id });
   }
@@ -916,7 +973,8 @@ export function runSeasonAuto(seed, { plan = 'balanced', seasons = 1, tuning = {
     if (s.phase === 'over') return s;
     if (s.phase === 'end') {
       if (s.season >= seasons) return s;
-      if (!act(s, { type: 'nextSeason' }).ok && !closeYear(s)) return s;
+      // A year's end is closed first (a chapter, or an ending AP_ENDING names); otherwise the watch goes on.
+      if (!closeYear(s) && !act(s, { type: 'nextSeason' }).ok) return s;
       continue;
     }
     autoStep(s, plan);
