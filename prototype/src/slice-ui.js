@@ -1102,7 +1102,7 @@ function blackMirror() {
   }
   if (th.hollow) {
     const held = th.hollow.held.length;
-    lines.push({ bad: !held, text: `The Hollow rises from ${riftName(th.hollow.rift)} around ${at(th.hollow.at)} and walks to the Veil whatever the light. ${held ? `${plural(held, 'ward')} on its way will hold it${s.tuning.wardDraw ? ` while the essence lasts (${fmt(wardDrawOf(s))} a second), then` : ''} ${fmt(wardHoldOf(s))} seconds each.` : `No ward stands on its way yet: each one there holds it${s.tuning.wardDraw ? ` while the essence lasts (${fmt(wardDrawOf(s))} a second), then` : ''} ${fmt(wardHoldOf(s))} seconds.`}` });
+    lines.push({ bad: !held, text: `The Hollow rises from ${riftName(th.hollow.rift)} around ${at(th.hollow.at)} and walks to the Veil whatever the light. ${held ? `${plural(held, 'ward')} on its way will hold it${s.tuning.wardDraw ? ` while the essence lasts (${rate(wardDrawOf(s))} a second), then` : ''} ${fmt(wardHoldOf(s))} seconds each.` : `No ward stands on its way yet: each one there holds it${s.tuning.wardDraw ? ` while the essence lasts (${rate(wardDrawOf(s))} a second), then` : ''} ${fmt(wardHoldOf(s))} seconds.`}` });
   }
   const tideText = th.tides.map((t) => `${at(t.at)} (${t.count})`);
   const r = th.raid;
@@ -1155,6 +1155,8 @@ const minsSecs = (x) => {
   const sec = Math.round(x - m * 60);
   return m ? `${m} min${sec ? ` ${sec} s` : ''}` : `${sec} s`;
 };
+// A small rate, to two places where one would round it off (0.25, not 0.3).
+const rate = (x) => (x < 1 ? x.toFixed(2).replace(/0$/, '') : fmt(x));
 function moonNote() {
   const left = s.tuning.seasonDays - s.day;
   if (left < 1 || left > 2) return '';
@@ -1165,7 +1167,7 @@ function moonNote() {
   const need = hollowNeed(s);
   const cap = s.tuning.essenceCap ? ` (the store holds ${s.tuning.essenceCap} at most)` : '';
   const cost = s.tuning.wardDraw
-    ? `each draws on the essence while the Hollow batters it, about ${fmt(need.rate)} a second now, and it has about ${Math.round(need.secs)} seconds before dawn: holding it off takes about ${Math.round(need.essence)} essence${cap}`
+    ? `each draws on the essence while the Hollow batters it, about ${rate(need.rate)} a second now, and it has about ${Math.round(need.secs)} seconds before dawn: holding it off takes about ${Math.round(need.essence)} essence${cap}`
     : `warding all ${stairs} here would take ${fmt(stairs * wardCost(s))} essence`;
   if (s.tuning.year && seasonIndex(s) === 3) return `<p class="note">${when} comes the Long Night, ${longTimes()} as long as a winter night, with the Hollow, a Maw and more of the Unlit. Put candles by for it.${stairs ? ` Wards on the stairs hold the Hollow back: ${cost}, and you have ${floor1(s.res.essence)}.` : ''}</p>`;
   if (!stairs) return `<p class="note">${when} comes the new moon, and the Hollow. This keep has no stairs yet, so only shades fighting it can stop it.</p>`;

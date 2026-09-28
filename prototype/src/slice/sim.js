@@ -2658,7 +2658,7 @@ function hollowTick(s, L, h) {
       n.stats.drawn = (n.stats.drawn || 0) + draw;
       if (!n.drawing) {
         n.drawing = true;
-        say(s, `The ward on the stair draws on the essence to hold the Hollow back: ${fmt(wardDrawOf(s))} a second.`);
+        say(s, `The ward on the stair draws on the essence to hold the Hollow back: ${wardDrawOf(s) < 1 ? wardDrawOf(s).toFixed(2).replace(/0$/, '') : fmt(wardDrawOf(s))} a second.`);
       }
     } else {
       if (draw > 0 && !n.dry) {
