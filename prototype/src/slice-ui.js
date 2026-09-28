@@ -6,7 +6,7 @@ import { TICKS_PER_SEC, DAY_ROOMS, WORK_ROOMS, TWINS, KINDS, MIRRORS, CAUSES, MA
 import {
   newSeason, step, act, retune, playerTuning, jobCap, jobCount, nextSlot, ritePreview, crossingPreview, capacity, canWork, defense, roomPower, bear, priests, funeralCap, eatRate,
   dayTicks, nightTicks, isNewMoon, choicesFor, byId, isTwinnedLiving, isTwinnedShade, lastSeason, SAVE_VERSION, fmt, mirrorCap, bareHalls, tainPlace,
-  postRoom, wardCost, shadeTrait, peopleIn, beds, tradeOf, inGreatGlass, handsAt, whispers, stepsThrough, perf,
+  postRoom, wardCost, hollowHold, hollowNeed, shadeTrait, peopleIn, beds, tradeOf, inGreatGlass, handsAt, whispers, stepsThrough, perf,
   seasonIndex, seasonName, yearOf, dayLength, isLongNight, tributeOf, besieged, sallyOdds, plagueSeason, atGate, gateGuard,
   weatherOf, forecastOf, raining, foggy, drownedDue, keepDefaults, embargoed, inquisition, churchDaysLeft, crusadeDay, crusadeDaysLeft,
   actOf, actCost, canAct, acting, actText, omenText, nextMark, SKIP_LEAD, visitorBlock,
@@ -1102,7 +1102,7 @@ function blackMirror() {
   }
   if (th.hollow) {
     const held = th.hollow.held.length;
-    lines.push({ bad: !held, text: `The Hollow rises from ${riftName(th.hollow.rift)} around ${at(th.hollow.at)} and walks to the Veil whatever the light. ${held ? `${plural(held, 'ward')} on its way will hold it ${fmt(T.wardHold)} seconds each.` : `No ward stands on its way yet: each one there holds it ${fmt(T.wardHold)} seconds.`}` });
+    lines.push({ bad: !held, text: `The Hollow rises from ${riftName(th.hollow.rift)} around ${at(th.hollow.at)} and walks to the Veil whatever the light. ${held ? `${plural(held, 'ward')} on its way will hold it ${fmt(hollowHold(s))} seconds each.` : `No ward stands on its way yet: each one there holds it ${fmt(hollowHold(s))} seconds.`}` });
   }
   const tideText = th.tides.map((t) => `${at(t.at)} (${t.count})`);
   const r = th.raid;
@@ -1160,9 +1160,15 @@ function moonNote() {
   if (left < 1 || left > 2) return '';
   const stairs = K().stairs.length;
   const when = left === 1 ? 'Tomorrow night' : 'In two nights';
-  if (s.tuning.year && seasonIndex(s) === 3) return `<p class="note">${when} comes the Long Night, ${longTimes()} as long as a winter night, with the Hollow, a Maw and more of the Unlit. Put candles by for it.${stairs ? ` Wards on the stairs hold the Hollow back: warding all ${stairs} would take ${fmt(stairs * wardCost(s))} essence, and you have ${floor1(s.res.essence)}.` : ''}</p>`;
+  // What holding it off until dawn takes: where it wears through wards faster as it grows, the stair it
+  // batters warded again and again; before that, a ward on every stair.
+  const need = hollowNeed(s);
+  const cost = s.tuning.hollowWear
+    ? `each ward holds it about ${fmt(hollowHold(s))} seconds now, and it has about ${Math.round(need.secs)} seconds before dawn: holding it off takes about ${need.wards} wards, ${fmt(need.essence)} essence`
+    : `warding all ${stairs} here would take ${fmt(stairs * wardCost(s))} essence`;
+  if (s.tuning.year && seasonIndex(s) === 3) return `<p class="note">${when} comes the Long Night, ${longTimes()} as long as a winter night, with the Hollow, a Maw and more of the Unlit. Put candles by for it.${stairs ? ` Wards on the stairs hold the Hollow back: ${cost}, and you have ${floor1(s.res.essence)}.` : ''}</p>`;
   if (!stairs) return `<p class="note">${when} comes the new moon, and the Hollow. This keep has no stairs yet, so only shades fighting it can stop it.</p>`;
-  return `<p class="note">${when} comes the new moon. Wards on the stairs are what hold the Hollow back: warding all ${stairs} here would take ${fmt(stairs * wardCost(s))} essence, and you have ${floor1(s.res.essence)}. What you spend tonight won't be there then.</p>`;
+  return `<p class="note">${when} comes the new moon. Wards on the stairs are what hold the Hollow back: ${cost}, and you have ${floor1(s.res.essence)}. What you spend tonight won't be there then.</p>`;
 }
 
 // What a Maw is after, in words.
@@ -1666,7 +1672,8 @@ const TUNE = [
   ['hollowAt', 'When the Hollow rises, as a share of the night'],
   ['hollowReach', 'How far the Hollow eats light, pixels'],
   ['hollowEat', 'Wax the Hollow eats per second'],
-  ['wardHold', 'Seconds a ward holds the Hollow'],
+  ['wardHold', 'Seconds a ward holds the Hollow, in the first spring'],
+  ['hollowWear', 'How much faster the Hollow wears through wards as it grows (0 to 1)'],
   ['newMoonCreepers', 'Creepers on the new moon, as a share of the night before'],
   ['dreadLivingPer', 'Living per point of Dread borne'],
   ['traits', 'Traits: everyone has one, and death turns it over (1 on, 0 off)'],

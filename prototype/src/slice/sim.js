@@ -400,8 +400,19 @@ export const tainAwake = (s) => s.phase === 'night' || eclipsing(s);
 // What a living person and their dead, the shade posted in the twin of the living one's room, each work at;
 // in the eclipse they fight side by side, and fight at it too.
 export const twinMultOf = (s) => (eclipsing(s) ? s.tuning.eclipseTwin : s.tuning.twinMult);
-// How long a ward holds the Hollow.
+// How long a ward holds the Hollow, as set; it wears through it hollowWear times as fast as that.
 export const wardHoldOf = (s) => s.tuning.wardHold * (learned(s, 'hollow') ? STUDIES.hollow.hold : 1);
+export const hollowWear = (s) => Math.pow(hard(s) * (hollowRisen(s) ? s.tuning.hollowRises : 1), s.tuning.hollowWear || 0);
+// How long a ward on a stair holds it tonight, and what holding it off until dawn on this season's new moon
+// takes: the stair it batters warded again and again, and one ward on the other way up from its floor.
+export const hollowHold = (s) => wardHoldOf(s) / hollowWear(s);
+export function hollowNeed(s) {
+  const T = s.tuning;
+  const winter = T.year && seasonIndex(s) === 3;
+  const secs = T.nightSecs * (T.year ? T.seasonNight[seasonIndex(s)] * (winter ? T.longNight : 1) : 1) * (1 - T.hollowAt);
+  const wards = 1 + Math.ceil(secs / hollowHold(s));
+  return { secs, wards, essence: wards * wardCost(s) };
+}
 // What a pour of pitch takes off the Host.
 export const pitchOf = (s) => s.tuning.raidPitch * (learned(s, 'pitch') ? STUDIES.pitch.mult : 1);
 // Round six's rooms, each with its own switch in the tuning (a keep from before has none of them).
@@ -2634,7 +2645,7 @@ function hollowTick(s, L, h) {
   }
   if (h.batter && !h.path.length) {
     h.gnawing = true;
-    n.wardHold[h.batter] = (n.wardHold[h.batter] ?? wardHoldOf(s)) - DT;
+    n.wardHold[h.batter] = (n.wardHold[h.batter] ?? wardHoldOf(s)) - DT * hollowWear(s);
     if (n.wardHold[h.batter] <= EPS) {
       n.wards = n.wards.filter((w) => w !== h.batter);
       delete n.wardHold[h.batter];
@@ -4201,6 +4212,8 @@ export function upgrade(g) {
   g.court ??= false;
   // A keep from before the eclipse never has one.
   for (const t of [g.tuning, g.tuning0]) if (t && !('eclipse' in t)) t.eclipse = 0;
+  // ... or before the Hollow wore through wards faster as it grew.
+  for (const t of [g.tuning, g.tuning0]) if (t && !('hollowWear' in t)) t.hollowWear = 0;
   g.eclipse ??= null;
   g.campaign ??= null;
   for (const p of g.living || []) p.trait ??= traitFor(g, p.name);

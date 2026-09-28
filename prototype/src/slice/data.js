@@ -115,6 +115,11 @@ export const TUNING = {
   hollowAt: 0.3,
   hollowReward: 3,
   wardHold: 20, // seconds a ward on a stair holds the Hollow back
+  // ... in the first spring. The Hollow wears through a ward as much faster as it has grown (the season's
+  // hardness, and the campaign's Deep), to the power hollowWear: past the first spring, holding it off takes
+  // more wards, so the essence banked has a use. 0 is as before, every ward holding it wardHold seconds.
+  // Off while it's measured (the essence fix, in progress): at 1 it kills keeps without spending essence.
+  hollowWear: 0,
   // Maws, the round-three brutes: they walk through light to whatever is worth most for the least fight,
   // the candle holding the way up or a room where the living or the dead work, hitting any shade in their
   // way. A candle they tear down; a room they break. One lone Loyal shade can just about stop one.

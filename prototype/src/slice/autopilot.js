@@ -10,7 +10,7 @@
 // on the line for the biggest tides when the essence is there, and a fighter to meet a Maw. They move a
 // shade only along a lit floor; where its way is dark it stays.
 
-import { chapterOf, yearsEnd, bondedShade, postRoom, bareHalls, buildSpot, raiseCost, step, act, newSeason, ritePreview, crossingPreview, capacity, canWork, defense, funeralCap, choicesFor, jobCap, jobCount, eatRate, wardCost, livingTrait, shadeTrait, peopleIn, crowded, tradeOf, inGreatGlass, handsAt, seasonIndex, tributeOf, besieged, sallyOdds, embargoed, inquisition, crusadeDaysLeft, canAct, actOf, actCost, NEW_ROOMS, atTheGate, gatehouseOf, decreeOf, undergateMouth } from './sim.js';
+import { hollowNeed, chapterOf, yearsEnd, bondedShade, postRoom, bareHalls, buildSpot, raiseCost, step, act, newSeason, ritePreview, crossingPreview, capacity, canWork, defense, funeralCap, choicesFor, jobCap, jobCount, eatRate, wardCost, livingTrait, shadeTrait, peopleIn, crowded, tradeOf, inGreatGlass, handsAt, seasonIndex, tributeOf, besieged, sallyOdds, embargoed, inquisition, crusadeDaysLeft, canAct, actOf, actCost, NEW_ROOMS, atTheGate, gatehouseOf, decreeOf, undergateMouth } from './sim.js';
 import { DAY_ROOMS, MIRRORS, KINDS, MAP, TICKS_PER_SEC, VISITORS, STUDIES, CHAPTERS } from './data.js';
 import { geo, roomSpan, roomAt, roomsOf, lineSpots, lightMap, isLit } from './geo.js';
 
@@ -512,6 +512,12 @@ function placeNight(s, plan) {
 // A rainy night (DROWN above): ward the moat, or light the mirror nearest the end the Drowned come up at and
 // post the best fighter left (ds is strongest first) by it. Returns the rooms it lit, so no second candle
 // goes in them.
+// The essence kept back, late in a season, for the new moon: a ward on every stair, or, where the Hollow
+// wears through wards faster as it grows, what holding it off until dawn will take.
+const moonReserve = (s) => {
+  const every = geo(s).stairs.length * wardCost(s);
+  return s.tuning.hollowWear ? Math.max(every, hollowNeed(s).essence) : every;
+};
 function meetDrowned(s, ds) {
   const T = s.tuning;
   const G = geo(s);
@@ -519,7 +525,7 @@ function meetDrowned(s, ds) {
   const sp = s.night.spawns.find((x) => x.type === 'drowned');
   mirrorGuard.delete(s);
   if (DROWN === 'none' || !sp) return lit;
-  const reserve = DROWN === 'ward' || s.day < T.seasonDays - 2 ? 0 : G.stairs.length * wardCost(s);
+  const reserve = DROWN === 'ward' || s.day < T.seasonDays - 2 ? 0 : moonReserve(s);
   const ward = () => s.res.essence >= wardCost(s) + reserve && doAct(s, { type: 'ward', target: 'moat' });
   if (DROWN === 'guardfirst' && (!ds.length || G.n === 1)) {
     ward();
@@ -550,7 +556,7 @@ function meetUndergate(s, ds, lit) {
     lit.add(roomAt(G, g.f, x));
     return;
   }
-  const reserve = s.day < T.seasonDays - 2 ? 0 : G.stairs.length * wardCost(s);
+  const reserve = s.day < T.seasonDays - 2 ? 0 : moonReserve(s);
   if (s.res.essence >= wardCost(s) + reserve && doAct(s, { type: 'ward', target: 'undergate' })) return;
   const m = MAP.mirrors.reduce((a, b) => (Math.abs(b.x - x) < Math.abs(a.x - x) ? b : a));
   if (!lit.has(roomAt(G, G.veil, m.x)) && doAct(s, { type: 'candle', f: G.veil, x: m.x })) lit.add(roomAt(G, G.veil, m.x));
@@ -739,7 +745,7 @@ function tendNight(s, plan) {
   // Hollow got through 50 times in 180 with it spent, 11 without.)
   const last = n.tides[n.tides.length - 1];
   const unwarded = LINE.filter((st) => st.id && !n.wards.includes(st.id));
-  const reserve = G.stairs.length * wardCost(s);
+  const reserve = moonReserve(s);
   if (plan !== 'double' && s.day >= T.seasonDays - 2 && s.day < T.seasonDays && s.t >= last - 60 && s.t <= last && unwarded.length && s.res.essence >= unwarded.length * wardCost(s) + reserve) {
     for (const st of unwarded) doAct(s, { type: 'ward', target: st.id });
   }
@@ -750,6 +756,10 @@ function tendNight(s, plan) {
     const up = G.stairs.filter((st) => st.f === h.f && !n.wards.includes(st.id));
     const goal = HOLLOWGOAL && chapterOf(s) === 4 && seasonIndex(s) === 0;
     if (!goal && h.f < G.veil && up.length && s.res.essence >= up.length * wardCost(s)) for (const st of up) doAct(s, { type: 'ward', target: st.id });
+    else if (!goal && h.f < G.veil && up.length && T.hollowWear) {
+      // Short of essence for every way up, the nearest first: it has to go round to the other, which is time.
+      for (const st of up.sort((a, b) => Math.abs(a.x - h.x) - Math.abs(b.x - h.x))) if (s.res.essence >= wardCost(s)) doAct(s, { type: 'ward', target: st.id });
+    }
     if (h.f === G.veil) {
       for (const d of s.shades.filter((x) => canWork(x) && fighter(x) >= 1 && x.memory > 30 && !x.grabbedBy && !x.climb)) {
         if (d.f !== h.f || Math.abs(d.x - h.x) > 6) doAct(s, { type: 'move', id: d.id, f: h.f, x: h.x + (d.x < h.x ? -5.5 : 5.5) });
