@@ -97,6 +97,10 @@ export const TUNING = {
 
   // The night, from the weeks 3–4 greybox, in pixels.
   candleWax: 120,
+  // A candle that burns down at the line or where a shade is posted is lit again where it stood, from the store,
+  // keeping one back, unless the Unlit are at it (round seven, phase 7). On in Gentle; any keep can turn it on
+  // or off in Custom rules.
+  autoRelight: 0,
   lightMax: 20,
   lightMin: 11,
   riftGap: 4,
@@ -114,6 +118,10 @@ export const TUNING = {
   // can be driven back by two good fighters, but left alone it still reaches the Veil and takes someone.
   hollowHp: 14,
   hollowSpeed: 3,
+  // Round seven, phase 7: the Hollow hunts lanterns. While a shade carries one it can reach, it goes for the
+  // nearest bearer rather than the mirrors, so a lantern can lead it away from the Veil, at the bearer's risk.
+  // Off: leading it away (AP_LUREHOLLOW) cost 23 keeps of 120 in the first year, and nothing else uses it.
+  hollowLure: 0,
   hollowReach: 10, // candles this close to the Hollow on its floor lose their wax fast
   hollowEat: 8,
   hollowDrain: 4,
@@ -145,6 +153,16 @@ export const TUNING = {
   // seasons through one room, the Chandlery broken the night before the new moon, so haunting costs
   // Dread (dreadPerBroken) and the work stands.
   hauntWork: 1,
+  // Round seven, phase 7: a Maw left unmet costs more the longer it's left. Having broken a room it stays on in
+  // it, and if no shade stands against it for mawRuin more seconds the room is ruined: dreadPerRuin more Dread at
+  // dawn, and tomorrow its workers manage ruinWork of their work. Meeting it at any point stops the ruin.
+  // 0, as before: it breaks the room and moves on. Off: at 12 it cost the human plan 14 keeps of 120 in the
+  // first year, and every answer the autopilot tried (a lantern to it, a fighter from the line, candles in the
+  // room) cost more than the ruin (problem 50).
+  mawRuin: 0,
+  ruinLight: 1, // a candle in the room holds a Maw's ruin while the Maw tears it down (phase 7)
+  dreadPerRuin: 1,
+  ruinWork: 0.5,
   // An experiment, off: at 1, a shade in the light at the foot of a stair up to the Veil guards the line and
   // keeps the Watch, but does no other work. It made every autopilot plan worse and the doubled line no weaker
   // (README, problem 1).
@@ -210,6 +228,11 @@ export const TUNING = {
   // The Unlit take any dark way up, however long, and gnaw only a light that bars every way (1 on, 0 off).
   // Off, they gnaw the first light on their shortest way, so a room lit below the line took a whole tide.
   goAround: 1,
+  // Round seven, phase 7: a tide goes for the thinner stair. A Creeper climbing with a tide rises at the rift on
+  // the side whose stair of the line has the least fight standing in its light when it rises, so a line held
+  // thick in one place draws the tide to the other, and a fighter sent after it has risen counts where it
+  // stands. 0: each rises at its own rift.
+  thinStair: 1,
 
   // Breaking a mirror, an emergency open at any time: everyone in it is freed at once, Dread falls by
   // breakDread for each, and the next badLuckDays days are unlucky: sickness comes badLuck times as often.
@@ -399,6 +422,8 @@ export const TUNING = {
   // candle. lanterns 0 is none.
   lanterns: 1,
   lanternWax: 60,
+  // Round seven, phase 7: what a lantern takes from the store, in candles (half the light, half the price).
+  lanternCost: 0.5,
   // Errands (round six): from night errandFrom, one or two things turn up in the dark rooms below the line
   // each night, shown by the black mirror at dusk: an echo (echoMemory to the shade that reaches it) or a
   // relic (relicGlass glass). From night sleepFrom, on sleepChance of nights, a sleepwalker: one of the
@@ -557,8 +582,8 @@ export const ENDINGS = {
 export const PRESETS = {
   gentle: {
     name: 'Gentle',
-    text: 'Six cracks break the Veil, not five. Fewer Creepers, weaker raids, more food and candles to start, and each season only a little harder than the last.',
-    tuning: { cracksMax: 6, creepersPerNight: 1.8, raidFightStrength: 0.85, startFood: 18, startCandles: 12, hardness: 1.1 },
+    text: 'Six cracks break the Veil, not five. Fewer Creepers, weaker raids, more food and candles to start, a candle that burns down at the line or a post lit again from the store, and each season only a little harder than the last.',
+    tuning: { cracksMax: 6, creepersPerNight: 1.8, raidFightStrength: 0.85, startFood: 18, startCandles: 12, hardness: 1.1, autoRelight: 1 },
   },
   standard: { name: 'Standard', text: 'The game as it is meant to be played: five cracks break the Veil, and each season asks a little more of the keep than the last.', tuning: {} },
   hard: {

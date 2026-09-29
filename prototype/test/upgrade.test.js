@@ -10,8 +10,15 @@ import { TUNING } from '../src/slice/data.js';
 // RULES_SINCE, or a number whose default plays as keeps before it did.
 const KNOWN = new Set(JSON.parse(readFileSync(new URL('./tuning-keys.json', import.meta.url), 'utf8')));
 // Keys added since whose default plays as before in an old keep (say, a number only a switched-off rule reads),
-// each with why. Empty until one is added.
-const DEFAULT_OK = {};
+// each with why.
+const DEFAULT_OK = {
+  mawRuin: 'off (0) by default, as keeps before it played',
+  hollowLure: 'off (0) by default, as keeps before it played',
+  dreadPerRuin: 'read only for a ruined room, and mawRuin is 0 unless a keep sets it, so none is ruined',
+  ruinWork: 'read only for a ruined room, as dreadPerRuin',
+  autoRelight: 'off by default, as every keep before it played; on only in a new Gentle keep, or by Custom rules',
+  ruinLight: 'read only while a Maw ruins a room, as dreadPerRuin',
+};
 
 test('every key in the numbers is decided for old keeps', () => {
   const rules = new Set(RULES_SINCE.map((r) => r.key));

@@ -4,7 +4,7 @@
 // starts, candles burn down and shades move, so it can still turn out otherwise. Tomorrow's raid is rolled
 // when the day begins, so the mirror shows its range.
 
-import { wayOf, preyNear, mawPick, defense, byId, nightTicks, isNewMoon, weeperRooms, weeperSpots, raidStrength, foggy, gatehouseOf, undergateMouth } from './sim.js';
+import { thinRift, wayOf, preyNear, mawPick, defense, byId, nightTicks, isNewMoon, weeperRooms, weeperSpots, raidStrength, foggy, gatehouseOf, undergateMouth } from './sim.js';
 import { MAP } from './data.js';
 import { geo, lightMap, darkRooms, DEEP_FLOOR, route, mirrorGoals, isLit } from './geo.js';
 
@@ -75,7 +75,9 @@ export function threats(s) {
       rises.at(-1)[sp.snuff ? 'snuff' : 'climb']++;
       continue;
     }
-    const rift = riftFor(n, sp);
+    let rift = riftFor(n, sp);
+    // A climber goes for the thinner stair as the line stands now (round seven, phase 7).
+    if (rift && !sp.snuff && !sp.seep) rift = thinRift(s, L, MAP.rifts.filter((r) => !n.wards.includes(r.id)), rift);
     if ((sp.seep && dark.length) || !rift) {
       seep++;
       continue;

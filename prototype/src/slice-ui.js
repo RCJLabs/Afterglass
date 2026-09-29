@@ -461,7 +461,7 @@ function barHTML() {
     const lit = s.tuning.lanterns ? byId(s.shades, ui.selected) : null;
     if (lit && canWork(lit)) {
       const held = s.night?.candles.some((k) => k.carrier === lit.id);
-      tools += `<button class="btn sm" id="btn-lantern" data-act="lantern" data-id="${lit.id}"${held || s.res.candles >= 1 ? '' : ' disabled'} title="A lantern for ${esc(lit.name)} (T)">${held ? 'Set lantern down' : 'Lantern −1 candle'}</button>`;
+      tools += `<button class="btn sm" id="btn-lantern" data-act="lantern" data-id="${lit.id}"${held || s.res.candles + 1e-9 >= (s.tuning.lanternCost ?? 1) ? '' : ' disabled'} title="A lantern for ${esc(lit.name)} (T)">${held ? 'Set lantern down' : `Lantern −${fmt(s.tuning.lanternCost ?? 1)} candle`}</button>`;
     }
     tools += flip;
     if (s.phase === 'dusk') tools += `<button class="btn sm primary" id="bar-start" data-act="start">Begin the night</button>`;
@@ -1084,6 +1084,7 @@ function duskPlace() {
   const maws = n.spawns.filter((x) => x.type === 'maw').length;
   const wraiths = s.shades.filter((d) => d.kind === 'wraith');
   return `<header class="ph-head"><h2>Dusk: set the night</h2><p>${plural(creepers, 'Creeper')} tonight, in tides around ${tidesText()}.${maws ? ` ${maws === 1 ? 'A Maw comes' : `${maws} Maws come`} with the last tide.` : ''}${isLongNight(s) ? ` <b>Tonight is the Long Night: ${longTimes()} as long as a winter night, with the Hollow and a Maw. At dawn the year ends.</b>` : isNewMoon(s) ? ' <b>Tonight is the new moon: the Hollow rises.</b>' : ''} Set candles, post the shades, and begin.</p></header>
+    ${s.lastDusk ? `<div class="row"><button class="btn" id="btn-last" data-act="as-last-night">As last night</button></div>${once('as-last', '<p class="hint">As last night puts the shades back at the posts last night began with, and lights its candles again where they stood, as far as the store goes. Wards you set again yourself.</p>', 'As last night')}` : ''}
     ${blackMirror()}
     ${nightTicks(s) > s.tuning.candleWax * TICKS_PER_SEC ? `<p class="note">Tonight lasts ${minsSecs(nightTicks(s) / TICKS_PER_SEC)} at 1×, and a candle burns ${minsSecs(s.tuning.candleWax)}. Keep candles back to relight before dawn.</p>` : ''}
     <ul class="facts">
@@ -1103,7 +1104,7 @@ function duskPlace() {
     ${deepCard()}
     <details class="card"><summary><b>How the Tain works</b></summary>
       <ul class="facts">
-        <li><span>Creepers rise from the two rifts on the deepest floor and make for the two mirrors on the floor under the Veil, climbing the stairs between. The more floors the keep has, the longer their way.</span></li>
+        <li><span>Creepers rise from the two rifts on the deepest floor and make for the two mirrors on the floor under the Veil, climbing the stairs between. The more floors the keep has, the longer their way.${T.thinStair ? ' A tide rises on the side whose stair up to the Veil has less fight at its foot: leave one thin and it draws them.' : ''}</span></li>
         <li><span>They can't cross light or climb a stair lit at either end.${T.goAround ? " If any way up is dark they take it, however long, and pass lit rooms by. When every way is lit, they gnaw at the edge of the light that bars them." : ' They gnaw at the edge of the first light on their shortest way up.'} Some hunt candles first.</span></li>
         <li><span>A shade standing in light fights anything at its edge. In the dark, shades get caught and drained.</span></li>
         ${T.lineGuard ? '<li><span>A shade in the light at the foot of a stair up to the Veil is guarding the line: it fights, and keeps the Watch if it stands in the Watch of the Dead, but does no other work. To work another room on that floor, light it with a candle of its own, away from the stair.</span></li>' : ''}
@@ -1111,7 +1112,8 @@ function duskPlace() {
         <li><span>From night ${T.seepFrom}, some Unlit seep up in rooms with no candle at all.</span></li>
         ${T.dreamwell ? `<li><span>The night after a death, Weepers come: one for each of the day's dead, for the dark of the sleepers' twin (the Dreamwell, or the Cold Hearth before there are Quarters). One that weeps there ${fmt(T.nightmareSecs)} seconds gives one of the living a nightmare. They can't enter light, a shade cuts them down, and a Keening shade on their floor sings them quiet.</span></li>` : ''}
         ${T.weather ? `<li><span>On a rainy night the Drowned come up out of the moat's twin, at one end of the floor under the Veil, behind the line. They never take a stair: they make for the mirrors on that floor, and one that reaches a mirror cracks the Veil. Light bars them, and they gnaw it ${share(T.drownedGnaw)} as fast as a Creeper. A shade they catch in the dark is drained and dragged to the moat, and pulled under there. A ward on the moat keeps them under.</span></li>` : ''}
-        <li><span>From night ${T.mawFrom}, a Maw comes with the last tide. It walks through light to whatever is worth most for the least fight: the candle barring the way up, or a room where people work, counting every fighter on its way. It tears a candle down. A room it stands in for ${fmt(T.mawBreak)} seconds breaks: no work there that night, and ${T.dreadPerBroken} Dread at dawn. It hits the shades beside it.</span></li>
+        <li><span>From night ${T.mawFrom}, a Maw comes with the last tide. It walks through light to whatever is worth most for the least fight: the candle barring the way up, or a room where people work, counting every fighter on its way. It tears a candle down. A room it stands in for ${fmt(T.mawBreak)} seconds breaks: no work there that night, and ${T.dreadPerBroken} Dread at dawn. It hits the shades beside it.${T.mawRuin ? ` If no shade meets it there, ${fmt(T.mawRuin)} seconds more ruin the room: tomorrow its workers manage ${Math.round(100 * T.ruinWork)}%, and it costs ${T.dreadPerRuin} more Dread.` : ''}</span></li>
+        ${T.lanterns ? `<li><span>A shade can take up a lantern for ${(T.lanternCost ?? 1) === 1 ? 'a candle' : (T.lanternCost ?? 1) === 0.5 ? 'half a candle' : `${fmt(T.lanternCost)} candles`}: its own light for ${fmt(T.lanternWax)} seconds, wherever it goes.${T.hollowLure ? ' On the new moon the Hollow hunts a lantern before it makes for the mirrors.' : ''}</span></li>` : ''}
       </ul></details>
     <div class="row"><button class="btn primary" id="btn-start" data-act="start">Begin the night</button></div>`;
 }
@@ -1845,6 +1847,8 @@ const TUNE = [
   ['mawLine', 'What the candle barring the way up is worth to a Maw, in workers'],
   ['dreadPerBroken', 'Dread at dawn for each room a Maw broke'],
   ['hauntWork', 'Share of the work done the next day in a room a Maw broke'],
+  ['mawRuin', 'Seconds a Maw left unmet in a room it broke takes to ruin it (0: it moves on at once)'],
+  ['ruinLight', 'A candle in the room holds a Maw’s ruin while the Maw tears it down (1 on, 0 off)'],
   ['hollowHp', 'The Hollow’s strength'],
   ['hollowAt', 'When the Hollow rises, as a share of the night'],
   ['hollowReach', 'How far the Hollow eats light, pixels'],
@@ -1867,6 +1871,8 @@ const TUNE = [
   ['steelFight', 'How much harder shades fight with grave-steel'],
   ['lineGuard', 'Shades in the light at the stairs up to the Veil only guard and keep the Watch (1 on, 0 off)'],
   ['goAround', 'The Unlit take any dark way up and gnaw only a light that bars every way (1 on, 0 off)'],
+  ['thinStair', 'A tide rises on the side whose stair to the Veil has less fight at its foot (1 on, 0 off)'],
+  ['autoRelight', 'A candle that burns down at the line or a post is lit again from the store (1 on, 0 off)'],
   ['fire', 'Fire by day in Hearths and Forges (1 on, 0 off)'],
   ['dreamwell', 'Beds and crowding, the Dreamwell and the Weepers (1 on, 0 off)'],
   ['whispers', 'Whispers and the great glass: the dead help by day (1 on, 0 off)'],
@@ -1901,8 +1907,10 @@ const TUNE = [
   ['acts', "Shade acts: each shade's one act a night, paid in its memory (1 on, 0 off)"],
   ['standFight', 'How much harder a Loyal shade strikes while it Stands'],
   ['lureReach', "How far a Stranger's Lure reaches, in pixels"],
-  ['lanterns', 'Lanterns: a shade carries a light of its own, for a candle (1 on, 0 off)'],
+  ['lanterns', 'Lanterns: a shade carries a light of its own (1 on, 0 off)'],
+  ['lanternCost', 'Candles a lantern takes'],
   ['lanternWax', 'Seconds a lantern burns'],
+  ['hollowLure', 'The Hollow hunts a carried lantern before the mirrors (1 on, 0 off)'],
   ['errands', 'Errands: echoes, relics and sleepwalkers in the dark below the line (1 on, 0 off)'],
   ['echoMemory', 'Memory an echo gives the shade that finds it'],
   ['relicGlass', 'Glass a relic brings'],
@@ -4655,6 +4663,8 @@ const CUSTOM_PARTS = [
   ['church', "The Church's embargo, Inquisition and crusade"],
   ['deep', 'Down into the Deep'],
 ];
+// Help, on or off by the difficulty's rules (round seven, phase 7): auto-relight is on in Gentle.
+const CUSTOM_HELPS = [['autoRelight', 'A candle that burns down at the line or a post is lit again from the store']];
 const presetValue = (p, k) => PRESETS[p].tuning[k] ?? TUNING[k];
 // What the player has changed from the difficulty's rules, as the new keep's own numbers.
 function customNow(p = presetNow()) {
@@ -4665,6 +4675,7 @@ function customNow(p = presetNow()) {
     if (typeof c[k] === 'number' && Math.abs(c[k] - presetValue(p, k)) > 1e-9) out[k] = c[k];
   }
   for (const [k] of CUSTOM_PARTS) if (c[k] === 0) out[k] = 0;
+  for (const [k] of CUSTOM_HELPS) if (typeof c[k] === 'number' && c[k] !== presetValue(p, k)) out[k] = c[k];
   return out;
 }
 function customPicker(where) {
@@ -4676,10 +4687,12 @@ function customPicker(where) {
     return `<label class="slider custom-num" for="custom-${where}-${k}"><span>${esc(label)}: <b id="custom-${where}-${k}-v">${esc(fmt(v))}</b></span><input type="range" id="custom-${where}-${k}" data-act="custom-num" data-key="${k}" min="${min}" max="${max}" step="${step}" value="${v}"></label>`;
   }).join('');
   const parts = CUSTOM_PARTS.map(([k, label]) => `<label class="row" for="custom-${where}-${k}"><input type="checkbox" id="custom-${where}-${k}" data-act="custom-part" data-key="${k}"${c[k] === 0 ? '' : ' checked'}><span>${esc(label)}</span></label>`).join('');
+  const helps = CUSTOM_HELPS.map(([k, label]) => `<label class="row" for="custom-${where}-${k}"><input type="checkbox" id="custom-${where}-${k}" data-act="custom-part" data-key="${k}"${(typeof c[k] === 'number' ? c[k] : presetValue(p, k)) ? ' checked' : ''}><span>${esc(label)}</span></label>`).join('');
   return `<details class="custom" id="custom-${where}" data-keep="custom-${where}"${ui.open[`custom-${where}`] ? ' open' : ''}><summary>Custom rules${n ? `: ${plural(n, 'change')}` : ''}</summary>
     <p class="hint">${esc(PRESETS[p].name)}'s rules, changed as you like. A new keep keeps them.</p>
     ${nums}
     <fieldset class="custom-parts"><legend>In the game</legend>${parts}</fieldset>
+    <fieldset class="custom-parts"><legend>Help</legend>${helps}</fieldset>
     <div class="row"><button class="btn sm" id="custom-${where}-reset" data-act="custom-reset"${n ? '' : ' disabled'}>Back to ${esc(PRESETS[p].name)}'s rules</button></div>
   </details>`;
 }
@@ -4987,6 +5000,8 @@ function onAct(name, el, ev) {
       }
       return undefined;
     }
+    case 'as-last-night':
+      return game({ type: 'asLastNight' });
     case 'start':
       if (game({ type: 'startNight' })) {
         ui.paused = false;

@@ -139,6 +139,7 @@ export function newSeason(seed = Date.now() >>> 0, overrides = {}) {
     keep: { floors: startKeep(tuning.startFloors).floors.map((fl) => fl.map((r) => ({ ...r }))) },
     steel: false,
     haunted: [], // rooms (ids) a Maw broke last night, haunted until dusk
+    lastDusk: null, // the posts and candles the last night began with, for As last night: { posts: [[id, f, x]], candles: [[f, x]] }
     badLuck: 0, // unlucky days to come, from a broken mirror
     fires: [], // rooms burning today: { room, heat, full }
     scorched: [], // rooms (ids) burned out yesterday, dead until dusk
@@ -377,7 +378,9 @@ export function roomPower(s) {
     const free = workCap(s, job);
     const all = jobCap(s, job) - (DAY_ROOMS[job]?.outdoors ? 0 : roomsOf(geo(s), job).filter((r) => isAblaze(s, r.id)).length * s.tuning.roomCap);
     if (ms.length > free) ms.sort((a, b) => b - a);
-    for (let i = 0; i < ms.length && i < all; i++) out[job] += i < free ? ms[i] : ms[i] * s.tuning.hauntWork;
+    // A ruined room (round seven, phase 7) is haunted too, and its places come last, at ruinWork.
+    const ruinedCap = DAY_ROOMS[job]?.outdoors ? 0 : roomsOf(geo(s), job).filter((r) => s.ruined?.includes(r.id) && !isAblaze(s, r.id)).length * s.tuning.roomCap;
+    for (let i = 0; i < ms.length && i < all; i++) out[job] += i < free ? ms[i] : ms[i] * (i >= all - ruinedCap ? s.tuning.ruinWork : s.tuning.hauntWork);
   }
   if (raining(s)) out.yard *= s.tuning.rainYard; // the Yard is outdoors
   return out;
@@ -1442,6 +1445,7 @@ function endDay(s) {
   s.events = [];
   s.watchBonus = 0;
   s.haunted = [];
+  s.ruined = [];
   // A fire still burning at dusk burns the night through: its room is dead tomorrow.
   s.scorched = (s.fires || []).map((f) => f.room);
   for (const id of s.scorched) say(s, `The fire in the ${DAY_ROOMS[typeOf(geo(s), id)].name} burns into the night. Nobody can work there tomorrow.`, 'bad', true);
@@ -1887,6 +1891,10 @@ function startNight(s) {
   s.phase = 'night';
   s.t = 0;
   s.dusk = null;
+  s.lastDusk = {
+    posts: s.shades.filter(canWork).map((d) => [d.id, d.post.f, d.post.x]),
+    candles: s.night.candles.filter((c) => !c.carrier).map((c) => [c.f, c.x]),
+  };
   for (const d of s.shades) {
     Object.assign(d, { path: [], climb: 0, grabbedBy: null, rest: 0, sang: 0, watch: 0, drained: 0, forged: 0, court: 0 });
     if (s.tuning.acts) Object.assign(d, { acted: false, act: null });
@@ -1984,7 +1992,32 @@ function tainTick(s) {
   for (const f of n.foes) if (f.hp <= 0) foeDown(s, f);
   n.foes = n.foes.filter((f) => f.hp > 0);
   for (const c of n.candles) if (c.wax <= 0) cue(s, 'snuff', c.f, c.x);
+  const out = n.candles.filter((c) => c.wax <= 0 && !c.carrier);
   n.candles = n.candles.filter((c) => c.wax > 0);
+  // Round seven, phase 7: with autoRelight (help a player turns on), a candle that goes out at the line, or in a
+  // room where a shade is posted, is lit again where it stood, from the store, keeping the last candle back to free
+  // a caught shade, and not while the Unlit are at it: a Maw's smash or a Creeper's gnawing isn't undone for
+  // nothing. Relighting every candle anywhere spent the store on rooms nobody stood in (problem 50).
+  if (T.autoRelight) {
+    const G = geo(s);
+    const line = lineSpots(G);
+    for (const c of out) {
+      if (s.res.candles < 2 || n.foes.some((u) => u.f === c.f && Math.abs(u.x - c.x) <= 12)) continue;
+      const room = roomAt(G, c.f, c.x);
+      const atLine = line.some((p) => p.f === c.f && Math.abs(p.x - c.x) <= 6);
+      const posted = s.shades.some((d) => canWork(d) && d.post.f === c.f && roomAt(G, d.post.f, d.post.x) === room);
+      const lit = n.candles.some((k) => k.f === c.f && (atLine ? Math.abs(k.x - c.x) <= 6 : roomAt(G, k.f, k.x) === room));
+      if ((atLine || posted) && !lit) lightCandle(s, c.f, c.x);
+    }
+  }
+}
+
+function lightCandle(s, f, x) {
+  s.res.candles--;
+  const wax = s.tuning.candleWax * (learned(s, 'tallow') ? STUDIES.tallow.wax : 1);
+  s.night.candles.push({ id: 'k' + s.nextId++, f, x, wax, max: wax });
+  s.night.stats.candles++;
+  cue(s, 'light', f, x);
 }
 
 // Lanterns go where their shades go; one whose shade can't carry it any more (caught, gone, faded) is left
@@ -2082,6 +2115,29 @@ function stood(s, L) {
   return ids;
 }
 
+// A tide goes for the thinner stair (round seven, phase 7, thinStair): the fight standing in the light of each
+// stair of the line, and the rift a climbing Creeper rises at: the one on the side of the thinner stair, or its
+// own on a tie. Pure: the black mirror (threats.js) reads the same.
+export function lineFight(s, L, spot) {
+  const span = spanAt(L, spot.f, spot.x);
+  if (!span) return 0;
+  return s.shades
+    .filter((d) => canWork(d) && !d.climb && !d.grabbedBy && !d.deep && d.f === spot.f && d.x >= span[0] - EPS && d.x <= span[1] + EPS)
+    .reduce((a, d) => a + KINDS[d.kind].fight * perf(d), 0);
+}
+export function thinRift(s, L, open, own) {
+  // Not in the tutorial's scripted nights, which teach the plain line; from its fourth night, as in any keep.
+  if (!s.tuning.thinStair || tutorialNight(s) || open.length < 2 || !own) return own;
+  const mid = MAP.W / 2;
+  const LINE = lineSpots(geo(s));
+  const side = (left) => {
+    const spots = LINE.filter((p) => p.x < mid === left);
+    return spots.length ? Math.min(...spots.map((p) => lineFight(s, L, p))) : null;
+  };
+  const [lf, rf] = [side(true), side(false)];
+  if (lf === null || rf === null || Math.abs(lf - rf) < 1e-6) return own;
+  return open.find((r) => r.x < mid === lf < rf) || own;
+}
 function spawnFoes(s, L) {
   const n = s.night;
   while (n.spawns.length && n.spawns[0].at <= s.t) {
@@ -2091,7 +2147,17 @@ function spawnFoes(s, L) {
       continue;
     }
     const open = MAP.rifts.filter((r) => !n.wards.includes(r.id));
-    const rift = open.find((r) => r.id === (sp.rift === 'undergate' ? sp.from : sp.rift)) || open[0] || null;
+    let rift = open.find((r) => r.id === (sp.rift === 'undergate' ? sp.from : sp.rift)) || open[0] || null;
+    if (sp.type === 'creeper' && !sp.snuff && !sp.seep && sp.rift !== 'undergate') {
+      const own = rift;
+      rift = thinRift(s, L, open, rift);
+      // The first Creeper of a tide (none for 10 seconds): which rift, and whether the line's fight chose it.
+      if (s.tuning.thinStair && !tutorialNight(s) && rift && s.t - (n.lastRise ?? -1e9) > 10 * TICKS_PER_SEC) {
+        const side = rift.x < MAP.W / 2 ? 'left' : 'right';
+        say(s, `A tide rises at the ${side} rift${rift !== own || thinRift(s, L, open, open.find((r) => r !== rift)) === rift ? `, for the thinner stair on the ${side}` : ''}.`, 'night');
+      }
+      n.lastRise = s.t;
+    }
     // Up the Undergate, unless it's warded or its mouth is lit (then at a rift like the rest), or the Gatehouse
     // is gone.
     const gh = sp.rift === 'undergate' && !n.wards.includes('undergate') ? gatehouseOf(s) : null;
@@ -2580,8 +2646,27 @@ function breakRoom(s, m, id) {
   keepMoment(s, 'broken', m, `A Maw broke the ${TWINS[type].name}.`);
   say(s, `A Maw has broken the ${TWINS[type].name}. Nobody works there tonight, and the ${DAY_ROOMS[type].name} is haunted: ${hauntCost(s)}.`, 'bad', true);
   cue(s, 'broken', m.f, m.x);
-  m.target = null;
   m.breaking = 0;
+  // Round seven, phase 7: it stays on to ruin the room, until met (mawRuin); as before, it moves on.
+  if (s.tuning.mawRuin > 0) {
+    m.ruining = id;
+    m.ruin = 0;
+    return;
+  }
+  m.target = null;
+  m.replan = 0;
+}
+// A room a Maw was left alone in: tomorrow's work there is ruinWork, and the rite pays dreadPerRuin more.
+function ruinRoom(s, m, id) {
+  const n = s.night;
+  const T = s.tuning;
+  const type = typeOf(geo(s), id);
+  n.ruined = [...(n.ruined || []), id];
+  keepMoment(s, 'ruined', m, `A Maw was left to ruin the ${TWINS[type].name}.`);
+  say(s, `Left alone, the Maw has ruined the ${TWINS[type].name}: tomorrow the ${DAY_ROOMS[type].name}'s workers manage ${Math.round(100 * T.ruinWork)}%, and it costs ${T.dreadPerRuin} more Dread at dawn.`, 'bad', 'maw');
+  cue(s, 'broken', m.f, m.x);
+  m.ruining = null;
+  m.target = null;
   m.replan = 0;
 }
 function mawTick(s, L, m) {
@@ -2597,6 +2682,25 @@ function mawTick(s, L, m) {
     for (const d of s.shades) {
       if (canWork(d) && s.shades.includes(d) && !d.climb && d.f === m.f && Math.abs(d.x - m.x) <= 3) drainShade(s, d, T.mawHit * DT);
     }
+  }
+  // Ruining a room it broke: while no shade stands against it, the ruin grows; met, it stops. With ruinLight,
+  // a candle in the room holds it too, while the Maw tears the candle down.
+  if (m.ruining) {
+    const met = s.shades.some((d) => canWork(d) && !d.climb && !d.grabbedBy && d.f === m.f && Math.abs(d.x - m.x) <= T.reach + 1);
+    const k = !met && T.ruinLight ? n.candles.find((c) => c.f === m.f && !c.carrier && c.wax > 0 && roomAt(G, c.f, c.x) === m.ruining) : null;
+    if (k) {
+      if (!m.smashing) {
+        m.smashing = true;
+        say(s, `The Maw tears at the candle in the ${twinAt(G, k.f, k.x).name}: the room holds while it burns.`, 'bad');
+        cue(s, 'smash', k.f, k.x);
+      }
+      if (!L.stood?.has(k.id)) k.wax -= T.mawSmash * DT;
+    } else {
+      m.smashing = false;
+      if (!met && ++m.ruin >= Math.round(T.mawRuin * TICKS_PER_SEC)) ruinRoom(s, m, m.ruining);
+    }
+    m.gnawing = true;
+    if (m.ruining) return;
   }
   if (!m.climb && --m.replan <= 0) {
     m.replan = 10;
@@ -2657,7 +2761,16 @@ function hollowTick(s, L, h) {
   if (!h.climb && --h.replan <= 0) {
     h.replan = 10;
     h.batter = null;
-    let r = route(geo(s), L, h, mirrorGoals(geo(s)), { creeper: true, ignoreLight: true, wards: n.wards });
+    // Round seven, phase 7 (hollowLure): a lantern draws it. While a shade carries one it can reach, the nearest
+    // bearer is where it goes, and it drains whoever it comes up with; with none, the mirrors, as before.
+    const bearers = T.hollowLure ? n.candles.filter((k) => k.carrier).map((k) => byId(s.shades, k.carrier)).filter((d) => d && canWork(d) && !d.climb && !d.deep) : [];
+    let r = bearers.length ? route(geo(s), L, h, bearers.map((d) => ({ f: d.f, x: d.x })), { creeper: true, ignoreLight: true, wards: n.wards }) : null;
+    if (r && !h.lured) {
+      say(s, 'The Hollow turns from the mirrors toward the lantern.', 'night', true);
+      cue(s, 'warn', h.f, h.x);
+    }
+    h.lured = !!r;
+    if (!r) r = route(geo(s), L, h, mirrorGoals(geo(s)), { creeper: true, ignoreLight: true, wards: n.wards });
     if (!r) {
       // Every way up is warded: go and break the nearest ward.
       const open = route(geo(s), L, h, mirrorGoals(geo(s)), { creeper: true, ignoreLight: true });
@@ -2741,9 +2854,9 @@ function cross(s, c, m, cracks) {
 // as it stood, for the page to draw. A record like the log; the rules never read it. Each kind has a weight,
 // the Veil breaking the most and the biggest tide the least. A kind is kept once, at its
 // first, except a shade lost (each one) and the biggest tide, which moves to each new height.
-const MOMENTS = { broke: 11, torn: 10, lost: 9, crack: 8, broken: 7, 'hollow-down': 6, smash: 6, caught: 5, 'maw-down': 4, seep: 3, tide: 2 };
+const MOMENTS = { broke: 11, torn: 10, lost: 9, crack: 8, ruined: 7.5, broken: 7, 'hollow-down': 6, smash: 6, caught: 5, 'maw-down': 4, seep: 3, tide: 2 };
 const SHADE_KEYS = ['id', 'name', 'kind', 'climb', 'climbTotal', 'grabbedBy', 'named', 'memory', 'mirror'];
-const FOE_KEYS = ['id', 'type', 'climb', 'climbTotal', 'gnawing', 'temper', 'mode', 'quiet', 'rising', 'smashing', 'target', 'grab', 'hp', 'max'];
+const FOE_KEYS = ['id', 'type', 'climb', 'climbTotal', 'gnawing', 'temper', 'mode', 'quiet', 'rising', 'smashing', 'target', 'grab', 'hp', 'max', 'ruining', 'ruin'];
 function frameOf(s) {
   const n = s.night;
   const unit = (u, keys) => {
@@ -2975,6 +3088,7 @@ function endNight(s) {
   // What a Maw broke tonight is haunted tomorrow; good dreams last the day, and so do nightmares: one for each
   // Weeper that wept its fill in the dark.
   s.haunted = [...n.broken];
+  s.ruined = [...(n.ruined || [])];
   s.dreamt = dreams || 0;
   const bad = decreeOf(s) === 'curfew' ? 0 : Math.min(s.living.length, n.nightmares || 0); // barred in, they sleep
   const dreamers = [];
@@ -2988,7 +3102,7 @@ function endNight(s) {
     say(s, `Nightmares: ${bad}, in the ${where}. ${listNames(dreamers)} ${bad === 1 ? 'works' : 'work'} at ${Math.round(100 * T.nightmareMult)}% today.`, 'bad', true);
   }
   n.stats.nightmares = bad;
-  s.today.night = { ...n.stats, broken: [...n.broken], fading, withdrew, wick, guidance: g, watch: s.watchBonus, ...(n.errands ? { errands: n.errands.map(({ kind, name, by, done }) => ({ kind, name, by, done })) } : {}), ...(n.omen ? { omen: n.omen.id } : {}) };
+  s.today.night = { ...n.stats, broken: [...n.broken], ...(n.ruined?.length ? { ruined: [...n.ruined] } : {}), fading, withdrew, wick, guidance: g, watch: s.watchBonus, ...(n.errands ? { errands: n.errands.map(({ kind, name, by, done }) => ({ kind, name, by, done })) } : {}), ...(n.omen ? { omen: n.omen.id } : {}) };
   const cracks = n.stats.cracks + (s.today.eclipse?.cracks || 0); // the eclipse's count with the night's
   review(s);
   s.night = null;
@@ -3024,7 +3138,7 @@ function toRite(s, cracks) {
   for (const id of Object.keys(asks)) byId(s.shades, id).askedAt = byId(s.shades, id).nights;
   const heard = s.court ? heardAt(s, asks) : null; // the Court of Shades hears one, free
   s.court = false;
-  s.rite = { choice: Object.fromEntries(s.shades.map((d) => [d.id, defaultChoice(d)])), vigils: 0, cracks, broken: (s.haunted || []).length, asks, grant: {}, ...(heard ? { heard } : {}) };
+  s.rite = { choice: Object.fromEntries(s.shades.map((d) => [d.id, defaultChoice(d)])), vigils: 0, cracks, broken: (s.haunted || []).length, ruined: (s.ruined || []).length, asks, grant: {}, ...(heard ? { heard } : {}) };
   say(s, 'Dawn. The shades go back into the glass: decide who stays.', 'rite', true);
   cue(s, 'dawn');
 }
@@ -3071,7 +3185,7 @@ export function ritePreview(s) {
   const free = capacity(s).free + P.cover.length;
   if (P.bind.length > free) P.errors.push(`Only ${free} mirror ${free === 1 ? 'space is' : 'spaces are'} free to bind into.`);
   const crackD = (R.cracks || 0) * T.dreadPerCrack;
-  const brokenD = (R.broken || 0) * T.dreadPerBroken; // the living saw what the Maws broke walk their rooms
+  const brokenD = (R.broken || 0) * T.dreadPerBroken + (R.ruined || 0) * (T.dreadPerRuin || 0); // the living saw what the Maws broke walk their rooms
   const bears = bear(s);
   const delta = keepD + restD + wraithD + crackD + brokenD - bears - R.vigils;
   // In the tutorial's first days Dread stops one short of bringing the Church.
@@ -3167,9 +3281,11 @@ function beginDay(s) {
   cue(s, 'day');
   if (eclipseDue(s)) say(s, `Midsummer. At ${hourOf(s, eclipseSpan(s)[0])} the sun goes dark for ${fmt(T.eclipseSecs)} seconds, and the Tain wakes with the keep: the dead at their posts and the Unlit climbing, while the living work and the Host comes to the gate.`, 'night', 'midsummer');
   weatherNews(s);
-  const haunted = (s.haunted || []).map((id) => DAY_ROOMS[typeOf(geo(s), id)].name);
+  const haunted = (s.haunted || []).filter((id) => !s.ruined?.includes(id)).map((id) => DAY_ROOMS[typeOf(geo(s), id)].name);
   const half = T.hauntWork < 1 ? ` Whoever works there manages ${Math.round(100 * T.hauntWork)}% until dusk.` : '';
   if (haunted.length) say(s, `The ${listNames(haunted)} ${haunted.length === 1 ? 'is' : 'are'} haunted today.${half}`, 'bad', true);
+  const ruined = (s.ruined || []).map((id) => DAY_ROOMS[typeOf(geo(s), id)].name);
+  if (ruined.length) say(s, `The ${listNames(ruined)} ${ruined.length === 1 ? 'was' : 'were'} ruined in the night: whoever works there manages ${Math.round(100 * T.ruinWork)}% until dusk.`, 'bad', true);
   if (haunted.length) cue(s, 'warn');
   return null;
 }
@@ -3339,6 +3455,7 @@ function nextSeason(s) {
   const mended = s.cracks > 0;
   s.cracks = 0;
   s.haunted = [];
+  s.ruined = [];
   toRite(s, cracks);
   const T = s.tuning;
   const turn = !T.year ? '' : seasonIndex(s) === 0 ? ` A new year begins: year ${yearOf(s)}.` : ` ${cap(seasonName(s))}: ${SEASON_TEXT[seasonIndex(s)]}`;
@@ -3514,6 +3631,7 @@ const ACTIONS = {
     s.keep = { floors: keep.floors.map((fl) => fl.map((x) => (x.id === id ? { id: `empty${k}`, type: 'empty' } : x))) };
     s.res.stone = (s.res.stone || 0) + back;
     s.haunted = (s.haunted || []).filter((x) => x !== id);
+    s.ruined = (s.ruined || []).filter((x) => x !== id);
     s.scorched = (s.scorched || []).filter((x) => x !== id);
     const name = DAY_ROOMS[r.type].name;
     const out = [];
@@ -3583,10 +3701,11 @@ const ACTIONS = {
       return undefined;
     }
     if (d.grabbedBy) return `${d.name} is caught: it can't light a lantern now.`;
-    if (s.res.candles < 1) return 'A lantern takes a candle, and the store is empty.';
-    s.res.candles--;
+    const cost = T.lanternCost ?? 1;
+    if (s.res.candles + EPS < cost) return `A lantern takes ${cost === 1 ? 'a candle' : cost === 0.5 ? 'half a candle' : `${fmt(cost)} candles`}, and the store hasn't that.`;
+    s.res.candles -= cost;
     const wax = T.lanternWax * (learned(s, 'tallow') ? STUDIES.tallow.wax : 1);
-    n.candles.push({ id: 'k' + s.nextId++, f: d.f, x: d.x, wax, max: wax, carrier: d.id });
+    n.candles.push({ id: 'k' + s.nextId++, f: d.f, x: d.x, wax, max: wax, carrier: d.id, ...(cost !== 1 ? { paid: cost } : {}) });
     n.stats.candles++;
     say(s, `${d.name} takes up a lantern: its own light for ${fmt(T.lanternWax)} seconds, wherever it goes.`);
     cue(s, 'light', d.f, d.x);
@@ -3954,11 +4073,37 @@ const ACTIONS = {
     if (!onFloor(s, f, x)) return 'That is not a place in the Tain.';
     if (!roomAt(geo(s), f, x)) return 'That is inside a wall.';
     if (s.res.candles < 1) return 'No candles left. The Chandlery makes them by day.';
-    s.res.candles--;
-    const wax = s.tuning.candleWax * (learned(s, 'tallow') ? STUDIES.tallow.wax : 1);
-    s.night.candles.push({ id: 'k' + s.nextId++, f, x, wax, max: wax });
-    s.night.stats.candles++;
-    cue(s, 'light', f, x);
+    lightCandle(s, f, x);
+  },
+  // Round seven, phase 7: at dusk, the shades back at the posts the last night began with, and its candles lit
+  // again where they stood, as far as the store goes. Wards aren't set again: they cost essence, and each night's
+  // tides are its own.
+  asLastNight(s) {
+    if (!(s.phase === 'dusk' && s.dusk.step === 'place')) return 'As last night is for dusk, once the dead have woken.';
+    const was = s.lastDusk;
+    if (!was) return 'There is no last night to go by yet.';
+    const G = geo(s);
+    let moved = 0;
+    for (const [id, f, x] of was.posts) {
+      const d = byId(s.shades, id);
+      if (!d || !canWork(d) || !onFloor(s, f, x) || !roomAt(G, f, x) || (d.post.f === f && d.post.x === x)) continue;
+      Object.assign(d, { post: { f, x }, f, x, ox: x, of: f, path: [], climb: 0 });
+      moved++;
+    }
+    let lit = 0;
+    let short = 0;
+    for (const [f, x] of was.candles) {
+      if (!onFloor(s, f, x) || !roomAt(G, f, x) || s.night.candles.some((c) => c.f === f && Math.abs(c.x - x) <= 3)) continue;
+      if (s.res.candles < 1) short++;
+      else {
+        lightCandle(s, f, x);
+        lit++;
+      }
+    }
+    if (!moved && !lit && !short) return 'Everyone and every candle is already as they were last night.';
+    const unposted = s.shades.filter((d) => canWork(d) && !was.posts.some(([id]) => id === d.id));
+    say(s, `As last night: ${moved === 1 ? 'one shade' : `${moved} shades`} back at their posts, ${lit === 1 ? 'one candle' : `${lit} candles`} lit${short ? `, and ${short === 1 ? 'one' : short} more wanted, but the store is out` : ''}.${unposted.length ? ` ${listNames(unposted.map((d) => d.name))} ${unposted.length === 1 ? 'has' : 'have'} no post from last night.` : ''}`, short ? 'bad' : '');
+    cue(s, 'post');
   },
   move(s, { id, f, x }) {
     const d = byId(s.shades, id);
@@ -4005,7 +4150,7 @@ const ACTIONS = {
     if (!k) return 'No such candle.';
     if (k.carrier) return 'That candle is a lantern: set it down first.';
     s.night.candles.splice(s.night.candles.indexOf(k), 1);
-    s.res.candles++;
+    s.res.candles += k.paid ?? 1; // a lantern set down gives back what it cost (phase 7: half a candle)
     s.night.stats.candles--;
     cue(s, 'snuff', k.f, k.x);
   },
@@ -4291,6 +4436,8 @@ export const RULES_SINCE = [
   { key: 'emboldenCarries', old: 0, since: '2026-09-28', what: 'a Host paid off at the season\'s last raid remembers it next season (phase 1)' },
   { key: 'visitFrom', old: 1, since: '2026-09-28', what: 'no visitors before day 3 (phase 4)' },
   { key: 'lateRoomsFrom', old: 1, since: '2026-09-28', what: 'the Library and the Hall from summer (phase 4)' },
+  { key: 'thinStair', old: 0, since: '2026-09-29', what: 'a tide goes for the thinner stair (phase 7)' },
+  { key: 'lanternCost', old: 1, since: '2026-09-29', what: 'a lantern takes half a candle (phase 7)' },
 ];
 export function upgrade(g) {
   g.keep ??= { floors: FULL_KEEP.floors.map((fl) => fl.map((r) => ({ ...r }))) };
@@ -4317,6 +4464,7 @@ export function upgrade(g) {
   for (const t of [g.tuning, g.tuning0]) if (t) for (const [k, v] of Object.entries(TUNING)) if (!(k in t)) t[k] = v;
   g.res.stone ??= 0;
   g.haunted ??= [];
+  g.ruined ??= [];
   g.badLuck ??= 0;
   g.fires ??= [];
   g.scorched ??= [];

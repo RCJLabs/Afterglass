@@ -23,13 +23,13 @@ const steps = (s, n) => {
   for (let i = 0; i < n; i++) step(s);
 };
 
-test('a lantern takes a candle and carries its light with the shade; set down, it stays', () => {
+test('a lantern takes its price in candles and carries its light with the shade; set down, it stays', () => {
   const s = newSeason(3, quiet);
   emptyNight(s);
   const d = s.shades.find(canWork);
   const store = s.res.candles;
   ok(s, { type: 'lantern', id: d.id });
-  assert.equal(s.res.candles, store - 1);
+  assert.equal(s.res.candles, store - TUNING.lanternCost);
   const k = s.night.candles.find((c) => c.carrier === d.id);
   assert.ok(k && k.wax === TUNING.lanternWax);
   // Walk it across its floor: the light goes with it.

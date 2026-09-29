@@ -3,7 +3,7 @@
 // switches are read when the autopilot loads), and prints the tables; with --readme it writes them into
 // prototype/README.md between their markers, so the tables there come from this file and nothing else.
 //
-//   node tools/measure.mjs [--seeds 200] [--only plans,verbs] [--jobs 4] [--readme]
+//   node tools/measure.mjs [--seeds 200] [--only plans,verbs,night] [--jobs 4] [--readme]
 //
 // Every keep is played by the rules as they are, from the first spring: a plan's first year is its first four
 // seasons. Paired comparisons play the same seeds, so a switch's column says on how many seeds it did better
@@ -55,6 +55,10 @@ if (process.argv[2] === '--worker') {
       raids: E.flatMap((e) => e.summary.raids.map((r) => (r.held ? 1 : 0))),
       verdicts: E.flatMap((e) => e.summary.inspections.map((i) => i.verdict)),
       shadesLost: E.map((e) => e.summary.lost.length),
+      cracks: E.map((e) => e.summary.cracks),
+      caught: s.days.map((d) => d.night?.grabbed ?? 0),
+      broken: s.days.map((d) => d.night?.broken?.length ?? 0),
+      ruined: s.days.map((d) => d.night?.ruined?.length ?? 0),
       hollow: E.filter((e) => !e.lost).map((e) => e.summary.hollow),
       use: { hush: count((a) => a.type === 'hush' && a.on), bind: count((a) => a.type === 'rite' && a.choice === 'bind'), curfew: count((a) => a.type === 'decree' && a.id === 'curfew'), keeper: count((a) => a.type === 'takeGlass'), heard },
     };
@@ -67,7 +71,7 @@ if (process.argv[2] === '--worker') {
 
 const SEEDS = Number(arg('seeds', 200));
 const JOBS = Number(arg('jobs', cpus().length));
-const ONLY = arg('only', 'plans,verbs').split(',');
+const ONLY = arg('only', 'plans,verbs,night').split(',');
 const YEAR = 4;
 // The configurations: each plan's first year, and each verb's switch on the balanced plan, against the balanced
 // plan on the same seeds (The Keeper, which comes at a year's end, over two).
@@ -80,7 +84,26 @@ const VERBS = [
   { key: null, env: { AP_TALL: 'line' }, name: 'Building by choice (`AP_TALL=line`)', what: 'builds tall, with the Chapel on the line’s floor' },
   { key: 'keeper', env: { AP_ENDING: 'watch' }, name: 'The Keeper (`AP_ENDING=watch`)', what: 'takes its own place in the glass at the first year’s end', seasons: 2 * YEAR },
 ];
+// Reacting at night against the static line (round seven, phase 7's test): the balanced plan and Double, each at
+// the autopilot's pace and at a person's (AP_LAPSES), and the balanced plan with its moves taken away.
+// For trying rules and switches before they're settled: --tuning '{"thinStair":0}' starts every keep with those
+// rules, and --env AP_NOTHIN=1,AP_LUREHOLLOW=1 sets those switches for every run. Neither is for --readme.
+const TUNING = JSON.parse(arg('tuning', '{}'));
+const ENV = Object.fromEntries(arg('env', '').split(',').filter(Boolean).map((kv) => kv.split('=')));
+if ((Object.keys(TUNING).length || Object.keys(ENV).length) && process.argv.includes('--readme')) throw new Error('--tuning and --env are for trying things, not for the README');
+const NIGHT_ROWS = [
+  { id: 'night:balanced', plan: 'balanced', env: {}, name: 'Balanced: reacts', vs: 'night:double' },
+  { id: 'night:nomove', plan: 'balanced', env: { AP_NOMOVE: '1' }, name: 'Balanced, never moving a shade at night (`AP_NOMOVE`)', vs: 'night:balanced', vsName: 'Balanced' },
+  { id: 'night:double', plan: 'double', env: {}, name: 'Double: two to a stair, never moves', vs: null },
+  { id: 'night:human', plan: 'human', env: {}, name: 'Human: reacts, at a person\u2019s pace', vs: 'night:double-lapses' },
+  { id: 'night:double-lapses', plan: 'double', env: { AP_LAPSES: '1' }, name: 'Double at a person\u2019s pace (`AP_LAPSES`)', vs: null },
+  { id: 'night:watch', plan: 'balanced', env: { AP_WATCH: '1' }, name: 'Balanced, set at dusk and then only watching (`AP_WATCH`)', vs: 'night:balanced', vsName: 'Balanced' },
+  { id: 'night:human-relight', plan: 'human', env: {}, tuning: { autoRelight: 1 }, name: 'Human, with auto-relight (on in Gentle)', vs: 'night:human', vsName: 'Human' },
+  { id: 'night:watch-relight', plan: 'balanced', env: { AP_WATCH: '1' }, tuning: { autoRelight: 1 }, name: 'Only watching, with auto-relight', vs: 'night:balanced', vsName: 'Balanced' },
+];
 const configs = [];
+const ROWS = arg('rows', '').split(',').filter(Boolean); // --rows balanced,double: only those night rows
+if (ONLY.includes('night')) for (const r of NIGHT_ROWS.filter((r) => !ROWS.length || ROWS.includes(r.id.slice(6)))) configs.push({ id: r.id, plan: r.plan, seasons: YEAR, env: r.env, tuning: r.tuning });
 if (ONLY.includes('plans')) for (const plan of PLAN_ROWS) configs.push({ id: `plan:${plan}`, plan, seasons: YEAR, env: {} });
 if (ONLY.includes('verbs')) {
   if (!ONLY.includes('plans')) configs.push({ id: 'plan:balanced', plan: 'balanced', seasons: YEAR, env: {} });
@@ -101,7 +124,7 @@ function run() {
       while (running < JOBS && queue.length) {
         const { c, from, to } = queue.shift();
         running++;
-        const p = spawn(process.execPath, [HERE, '--worker', JSON.stringify({ plan: c.plan, seasons: c.seasons, from, to })], { env: { ...process.env, ...c.env }, stdio: ['ignore', 'pipe', 'inherit'] });
+        const p = spawn(process.execPath, [HERE, '--worker', JSON.stringify({ plan: c.plan, seasons: c.seasons, from, to, tuning: { ...TUNING, ...c.tuning } })], { env: { ...process.env, ...ENV, ...c.env }, stdio: ['ignore', 'pipe', 'inherit'] });
         let buf = '';
         p.stdout.on('data', (d) => (buf += d));
         p.on('exit', (code) => {
@@ -174,6 +197,20 @@ function verbsTable(R) {
   return lines.join('\n');
 }
 
+function nightTable(R) {
+  const lines = ['| Plan | First year finished | Paired with Double at the same pace, or as it says: better on / worse on (seeds) | Lost to the Veil / with everyone dead | Shades caught a night | Rooms broken / ruined in 10 nights | Cracks a season |', '|---|---|---|---|---|---|---|'];
+  const per10 = (xs) => (xs.length ? ((10 * xs.reduce((a, b) => a + b, 0)) / xs.length).toFixed(1) : '–');
+  for (const r of NIGHT_ROWS) {
+    const mine = R[r.id];
+    if (!mine) continue;
+    const vs = r.vs && R[r.vs] ? bySeed(R[r.vs]) : null;
+    const pair = vs ? `${mine.filter((x) => x.fin > vs.get(x.seed).fin).length} / ${mine.filter((x) => x.fin < vs.get(x.seed).fin).length}${r.vsName ? ` against ${r.vsName}` : ''}` : '–';
+    const lost = (why) => mine.filter((x) => x.lost?.why === why).length;
+    lines.push(`| ${r.name} | ${mine.filter((x) => x.fin >= YEAR).length} of ${mine.length} | ${pair} | ${lost('veil')} / ${lost('fallen')} | ${avg(mine.flatMap((x) => x.caught))} | ${per10(mine.flatMap((x) => x.broken))} / ${per10(mine.flatMap((x) => x.ruined))} | ${avg(mine.flatMap((x) => x.cracks))} |`);
+  }
+  return lines.join('\n');
+}
+
 function humanLine(R) {
   const h = R['plan:human'];
   const b = bySeed(R['plan:balanced'] || []);
@@ -194,13 +231,15 @@ const stamp = `Generated by \`npm run measure\` on seeds 1–${SEEDS}, at build 
 const blocks = {};
 if (ONLY.includes('plans')) blocks.plans = `${plansTable(R)}\n\n${humanLine(R)}\n\n${stamp}`;
 if (ONLY.includes('verbs')) blocks.verbs = `${verbsTable(R)}\n\n${stamp}`;
+if (ONLY.includes('night')) blocks.night = `${nightTable(R)}\n\n${stamp}`;
 for (const [k, v] of Object.entries(blocks)) console.log(`\n== ${k}\n${v}`);
 if (process.argv.includes('--readme')) {
   let text = readFileSync(README, 'utf8');
   for (const [k, v] of Object.entries(blocks)) {
-    const re = new RegExp(`(<!-- measure:${k} -->\\n)[\\s\\S]*?(\\n<!-- /measure:${k} -->)`);
+    // Markers on lines of their own, with the old table between them, or nothing (a new block).
+    const re = new RegExp(`(<!-- measure:${k} -->\\n)(?:[\\s\\S]*?\\n)?(<!-- /measure:${k} -->)`);
     if (!re.test(text)) throw new Error(`README has no <!-- measure:${k} --> markers`);
-    text = text.replace(re, (_, a, b) => `${a}${v}${b}`);
+    text = text.replace(re, (_, a, b) => `${a}${v}\n${b}`);
   }
   writeFileSync(README, text);
   console.log('\nWritten into README.md.');

@@ -169,7 +169,10 @@ const rest = ({ days, actions, actionsFrom, ...x }) => plain(x);
 const json = (x) => JSON.parse(JSON.stringify(x));
 
 test("a long keep's save keeps its last two years of days and actions, and plays on the same", () => {
-  const s = years(3, 9); // the third year's spring: years 2 and 3 are kept
+  // The third year's spring: years 2 and 3 are kept. The first keep from seed 3 on that gets there (the rules'
+  // balance decides which: phase 7's changed it).
+  let s = null;
+  for (let seed = 3; seed < 30 && !(s?.season === 9 && s.phase === 'end'); seed++) s = years(seed, 9);
   assert.equal(s.season, 9);
   assert.equal(s.phase, 'end');
   const store = fakeStore();

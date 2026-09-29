@@ -33,15 +33,19 @@ test('a night left alone: its three weightiest moments, the Veil breaking among 
 });
 
 test('a kind is kept once, at its first; the biggest tide moves to each new height; a held night keeps what there was', () => {
-  const s = newSeason(6);
-  while (!(s.day === 1 && s.phase === 'night')) autoStep(s);
-  const seen = [];
-  while (s.phase === 'night') {
-    autoStep(s);
-    for (const m of s.night?.moments || []) if (!seen.some((x) => x.key === m.key && x.t === m.t)) seen.push({ key: m.key, t: m.t, n: m.kind === 'tide' ? Number(m.text.match(/(\d+) of/)[1]) : 0 });
+  // The first keep from seed 6 on whose first night a tide is kept (the rules decide which: phase 7's moved it).
+  let s, seen, tides;
+  for (let seed = 6; seed < 40 && !tides?.length; seed++) {
+    s = newSeason(seed);
+    while (!(s.day === 1 && s.phase === 'night')) autoStep(s);
+    seen = [];
+    while (s.phase === 'night') {
+      autoStep(s);
+      for (const m of s.night?.moments || []) if (!seen.some((x) => x.key === m.key && x.t === m.t)) seen.push({ key: m.key, t: m.t, n: m.kind === 'tide' ? Number(m.text.match(/(\d+) of/)[1]) : 0 });
+    }
+    tides = seen.filter((x) => x.key === 'tide');
   }
-  const tides = seen.filter((x) => x.key === 'tide');
-  assert.ok(tides.length >= 1);
+  assert.ok(tides.length >= 1, 'a first night with a tide kept');
   for (let i = 1; i < tides.length; i++) assert.ok(tides[i].n > tides[i - 1].n, 'each new tide moment is a new height');
   const keys = s.review.moments.map((m) => m.key);
   assert.equal(new Set(keys).size, keys.length, 'no kind twice');

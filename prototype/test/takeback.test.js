@@ -72,5 +72,5 @@ test('a lantern is set down before its candle can be taken back', () => {
   no(s, { type: 'uncandle', id: k.id }, /lantern/);
   ok(s, { type: 'lantern', id: d.id });
   ok(s, { type: 'uncandle', id: k.id });
-  assert.equal(s.res.candles, had);
+  assert.equal(s.res.candles, had, 'what the lantern cost comes back, and no more (it costs half a candle)');
 });

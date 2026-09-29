@@ -8,7 +8,7 @@ A plan is how it treats the dead, and for two of them, how it plays the night.
 
 | Plan | What it does |
 |---|---|
-| `balanced` | Keeps shades while Dread allows, and aims low before an inspection. Reacts at night: a second fighter to each stair of the line for each tide, a ward on the line for the biggest tides when the essence is there, a fighter to meet a Maw. Moves a shade only along a lit floor. |
+| `balanced` | Keeps shades while Dread allows, and aims low before an inspection. Reacts at night: a ward on the line for the biggest tides when the essence is there, a fighter to meet a Maw, and a second fighter to the line for each tide. Where a tide goes for the thinner stair (round seven, phase 7), it holds one fighter to each stair until a tide is up, then sends the nearest free fighter to the stair on the side it's climbing, and everyone home after; before that, a second fighter to each stair around each tide's time. Moves a shade only along a lit floor. |
 | `keeper` | Keeps every shade it can; funerals only for the dead that would wake wrong. |
 | `mourner` | Holds every funeral it can, and covers shades whenever Dread climbs. |
 | `double` | The balanced plan, but from the first Maw night it posts two fighters on each stair of the line and never moves anyone: the static answer the Maws are meant to break. |
@@ -45,7 +45,14 @@ Each is an environment variable, read once when the file loads, so a measurement
 | `AP_NOUGCANDLE=1` | Never lights the Undergate's mouth. |
 | `AP_UGFREE=1` | Measuring only: a free candle for the Undergate's mouth, by a debug action (such a keep doesn't replay). |
 | `AP_HUSH=1` | Hushes the night while shades stand in the dark with the Unlit close and no candle to spare; ends it when none do (round seven, phase 6). |
+| `AP_LAPSES=1` | Gives any plan the human plan's lapses (its pace and its looking away), to compare Double with the human at a person's pace. |
 | `AP_COURT=1` | Seats the weakest fighter left in the Court of Shades, lit, on a night before a rite where one of the dead will ask (phase 6). |
+| `AP_WATCH=1` | Sets the night at dusk and then does nothing in it: no relighting, no moves, no wards, no acts. The player who only watches, which reacting has to beat (phase 7). |
+| `AP_NOTHIN=1` | Reinforces the line as before the tide went for the thinner stair: a second fighter to each stair around each tide's time, wherever it rises (phase 7). |
+| `AP_RUINCANDLE=1` | Where a Maw left unmet ruins a room (`mawRuin`, off by default), lights a candle in the room to hold the ruin, when a fighter is on the way or the store can hold it until dawn with two to spare (phase 7). |
+| `AP_LANTERNMAW=1` | Where a Maw left unmet ruins a room (`mawRuin`, off by default), takes a lantern to meet a Maw going for a room across the dark (phase 7). |
+| `AP_MAWLINE=1` | Where a Maw left unmet ruins a room, also sends a fighter from the line to meet it, once no Creeper is still climbing, and brings it back after (phase 7). |
+| `AP_LUREHOLLOW=1` | On the new moon, where the Hollow hunts lanterns (`hollowLure`, off by default), gives the strongest shade off the line a lantern and keeps it at the far end of the Hollow's floor, up a stair when cornered, to lead it away from the mirrors (phase 7). |
 
 ### Dusk and dawn
 

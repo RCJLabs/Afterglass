@@ -5,7 +5,7 @@
 
 import { P, MF, rngOf, R, D, A, clip, bricks, crenel, roof, ellipse, ring, room as paintRoom, flame, glow, human } from '../px/kit.js';
 import { UMBRA, applyTain, applyLight } from '../px/lut.js';
-import { MAP } from './data.js';
+import { MAP, TICKS_PER_SEC } from './data.js';
 import { geo, geoOf, feet as feetOf, roomSpan, roomsOf, lightMap, unitAt as unitAtOf } from './geo.js';
 import { figure, livingLook, shadeLook, eyesAt, FIG_H } from './people.js';
 
@@ -1111,6 +1111,16 @@ function composeTain(s, t, opts = {}) {
 
   // Rooms broken tonight, and what each Maw is making for (blinking): brackets on a room, a ring on a candle.
   for (const id of n?.broken || []) if (G.rooms[id]) cracked(c, G.rooms[id], G.floors[G.rooms[id].f].y);
+  // A Maw standing unmet in a room it broke (round seven, phase 7): a bar along the room's top fills toward
+  // its ruin, and stops while a shade meets it.
+  for (const m of n?.foes || []) {
+    const r = m.type === 'maw' && m.ruining && G.rooms[m.ruining];
+    if (!r) continue;
+    const w = r.x1 - r.x0 - 4;
+    const k = Math.min(1, (m.ruin || 0) / Math.round((s.tuning?.mawRuin || 12) * TICKS_PER_SEC));
+    R(c, r.x0 + 2, G.floors[r.f].y + 2, w, 2, UMBRA[0]);
+    R(c, r.x0 + 2, G.floors[r.f].y + 2, Math.max(1, Math.round(w * k)), 2, P.hot);
+  }
   for (const m of n?.foes || []) {
     const tg = m.type === 'maw' && m.target;
     if (!tg || (t && !(MF(t * 3) % 2))) continue;

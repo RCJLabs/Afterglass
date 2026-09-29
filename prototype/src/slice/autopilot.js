@@ -32,6 +32,9 @@ export const HUMAN = {
   lapseSecs: envNum('AP_HUMANLAPSESECS', 10),
   forecast: !!globalThis.process?.env?.AP_HUMANFORECAST, // reads the forecast after all (to measure what not reading it costs)
 };
+// AP_LAPSES=1 gives any plan the human plan's lapses (to compare Double with the human at a person's pace).
+const LAPSES = !!globalThis.process?.env?.AP_LAPSES;
+const lapsing = (plan) => plan === 'human' || LAPSES;
 function hash01(...xs) {
   let h = 2166136261;
   for (const x of xs) for (const ch of `${x}|`) h = Math.imul(h ^ ch.charCodeAt(0), 16777619);
@@ -101,6 +104,19 @@ const HUSH = !!globalThis.process?.env?.AP_HUSH;
 const BIND = !!globalThis.process?.env?.AP_BIND;
 const CURFEW = !!globalThis.process?.env?.AP_CURFEW;
 const COURT = !!globalThis.process?.env?.AP_COURT;
+// Round seven, phase 7. AP_NOTHIN=1 reinforces the line as before thinStair, at each stair around each tide (to
+// measure what meeting the tide where it rose is worth); AP_LUREHOLLOW=1 gives a shade a lantern on the new moon
+// and leads the Hollow away from the mirrors with it, where the Hollow hunts lanterns.
+const NOTHIN = !!globalThis.process?.env?.AP_NOTHIN;
+const LUREHOLLOW = !!globalThis.process?.env?.AP_LUREHOLLOW;
+// AP_LANTERNMAW=1 takes a lantern to meet a Maw going for a room across the dark, where a Maw left unmet ruins
+// the room (it cost the store: 17 keeps of 48 finished the first year with it, 31 without). AP_MAWLINE=1 also
+// sends a fighter from the line, once no Creeper is still climbing (12 of 48). AP_WATCH=1 sets the night at dusk
+// and then only watches: nothing is done in the night at all, the plan phase 7 asks reacting to beat.
+const LANTERNMAW = !!globalThis.process?.env?.AP_LANTERNMAW;
+const MAWLINE = !!globalThis.process?.env?.AP_MAWLINE;
+const WATCH = !!globalThis.process?.env?.AP_WATCH;
+const RUINCANDLE = !!globalThis.process?.env?.AP_RUINCANDLE;
 // One part of the raid policy off at a time, to find what it costs.
 const NO = (k) => !!globalThis.process?.env?.[`AP_NO${k}`];
 // Candles kept back from pitch for the night.
@@ -718,15 +734,47 @@ function pickOmen(s, plan) {
 // lantern it already carries. Otherwise it stays. (Lighting a lantern for the move cost more than staying:
 // README, problem 36.)
 const litAll = (L, f, x1, x2) => L.merged[f].some(([a, b]) => a <= Math.min(x1, x2) + 1e-9 && b >= Math.max(x1, x2) - 1e-9);
-function safeMove(s, L, d, f, x) {
+// A lantern for a dark way where lanterns are on and the store can spare one: with AP_LANTERNMOVE for any move,
+// and with AP_LANTERNMAW (round seven, phase 7) for going to meet a Maw.
+function safeMove(s, L, d, f, x, urgent = false) {
   if (NOMOVE) return false;
   if (RECKLESS) return doAct(s, { type: 'move', id: d.id, f, x });
   const lit = d.f === f && litAll(L, f, d.x, x);
   const carried = s.night.candles.some((k) => k.carrier === d.id);
   if (!lit && !carried) {
-    if (!LANTERNMOVE || !s.tuning.lanterns || s.res.candles < 4 || !doAct(s, { type: 'lantern', id: d.id })) return false;
+    const lantern = (LANTERNMOVE && s.res.candles >= 4) || (urgent && LANTERNMAW && s.res.candles >= 2);
+    if (!lantern || !s.tuning.lanterns || !doAct(s, { type: 'lantern', id: d.id })) return false;
   }
   return doAct(s, { type: 'move', id: d.id, f, x });
+}
+
+// The Hollow led away (AP_LUREHOLLOW): the strongest shade off the line takes a lantern and keeps to the far end
+// of the Hollow's own floor, where the Hollow can reach it past the wards on the stairs above, so the Hollow
+// walks after it rather than battering a ward and drawing on the essence. Cornered, it slips up the nearest
+// stair and comes back down once the Hollow has turned away.
+function leadHollow(s, h) {
+  const n = s.night;
+  const G = geo(s);
+  const LINE = lineOf(s);
+  const k = n.candles.find((c) => c.carrier && s.shades.some((d) => d.id === c.carrier));
+  let d = k && s.shades.find((x) => x.id === k.carrier);
+  if (!d || !canWork(d)) {
+    d = s.shades
+      .filter((x) => canWork(x) && !x.grabbedBy && !x.climb && x.memory > 50 && !LINE.some((st) => x.post.f === st.f && Math.abs(x.post.x - st.x) <= 3))
+      .sort((a, b) => b.memory - a.memory)[0];
+    if (!d || s.res.candles < (s.tuning.lanternCost ?? 1) + 1 || !doAct(s, { type: 'lantern', id: d.id })) return;
+  } else if (k.wax < 8 && s.res.candles >= (s.tuning.lanternCost ?? 1)) {
+    doAct(s, { type: 'lantern', id: d.id }); // set the spent one down
+    doAct(s, { type: 'lantern', id: d.id }); // and take up another
+  }
+  if (d.climb || h.climb) return;
+  const far = h.x < MAP.W / 2 ? MAP.RIGHT - 7 : MAP.LEFT + 6;
+  if (d.f === h.f) {
+    if (Math.abs(d.x - h.x) < 18) {
+      const up = G.stairs.filter((st) => st.f === h.f).sort((a, b) => Math.abs(a.x - d.x) - Math.abs(b.x - d.x))[0];
+      if (up && d.post.f !== h.f + 1) doAct(s, { type: 'move', id: d.id, f: h.f + 1, x: up.x });
+    } else if (Math.abs(d.post.x - far) > 4 || d.post.f !== h.f) doAct(s, { type: 'move', id: d.id, f: h.f, x: far });
+  } else if (d.post.f !== h.f && (d.f !== h.f + 1 || Math.abs(d.x - h.x) > 30)) doAct(s, { type: 'move', id: d.id, f: h.f, x: far });
 }
 
 function tendNight(s, plan) {
@@ -761,14 +809,30 @@ function tendNight(s, plan) {
     const at = (d) => d.f === t.f && (t.kind === 'candle' ? Math.abs(d.x - t.x) <= 8 : roomAt(G, d.f, d.x) === t.id);
     const near = s.shades.filter((d) => canWork(d) && at(d));
     if (near.length >= 2) continue;
+    // Where a Maw left unmet ruins the room it broke (round seven, phase 7): AP_LANTERNMAW and AP_MAWLINE, above.
+    const forRoom = T.mawRuin > 0 && t.kind === 'room';
+    const calm = MAWLINE && forRoom && !n.foes.some((u) => u.type === 'creeper' && u.temper === 'climb' && u.mode !== 'idle' && u.mode !== 'flee');
     const help = s.shades
-      .filter((d) => canWork(d) && !near.includes(d) && !d.grabbedBy && !d.climb && d.memory > 30 && !LINE.some((st) => d.post.f === st.f && d.post.x === st.x) && mirrorGuard.get(s) !== d.id)
-      .sort((a, b) => fighter(b) * b.memory - fighter(a) * a.memory)[0];
+      .filter((d) => canWork(d) && !near.includes(d) && !d.grabbedBy && !d.climb && d.memory > 30 && (calm || !LINE.some((st) => d.post.f === st.f && d.post.x === st.x)) && mirrorGuard.get(s) !== d.id)
+      .sort((a, b) => fighter(b) * b.memory - fighter(a) * a.memory - 0.01 * (Math.abs(a.x - m.x) + 30 * Math.abs(a.f - m.f) - Math.abs(b.x - m.x) - 30 * Math.abs(b.f - m.f)))[0];
     if (!help || (help.post.f === t.f && Math.abs(help.post.x - t.x) <= 8)) continue;
-    const x = t.x + (help.x < t.x ? -2 : 2);
-    if (!safeMove(s, lightMap(G, T, n.candles), help, t.f, x)) continue;
+    const x = m.ruining ? m.x + (help.x < m.x ? -2 : 2) : t.x + (help.x < t.x ? -2 : 2);
+    if (!safeMove(s, lightMap(G, T, n.candles), help, t.f, x, forRoom)) continue;
     // Don't send anyone to stand in the dark: light the spot, with the last candle if need be.
     if (!n.candles.some((c) => c.f === t.f && roomAt(G, c.f, c.x) === roomAt(G, t.f, x) && Math.abs(c.x - x) <= 12 && c.wax > 15)) doAct(s, { type: 'candle', f: t.f, x });
+  }
+  // A Maw ruining a room (phase 7, where mawRuin is set, with ruinLight): AP_RUINCANDLE=1 lights a candle in the
+  // room to hold the ruin while the Maw tears it down, wax ÷ mawSmash seconds a candle, with a fighter on the way
+  // or when the store can hold it off until dawn with two candles to spare. It cost keeps (problem 50).
+  if (plan !== 'double' && T.ruinLight && RUINCANDLE) {
+    for (const m of n.foes.filter((u) => u.type === 'maw' && u.ruining)) {
+      if (n.candles.some((c) => c.f === m.f && !c.carrier && c.wax > 0 && roomAt(G, c.f, c.x) === m.ruining)) continue;
+      const x = [m.x + 2, m.x - 2, m.x].find((xx) => roomAt(G, m.f, xx) === m.ruining);
+      const coming = s.shades.some((d) => canWork(d) && d.post.f === m.f && roomAt(G, d.post.f, d.post.x) === m.ruining);
+      const per = T.candleWax / T.mawSmash;
+      const need = Math.ceil((nightTicks(s) - s.t) / TICKS_PER_SEC / per);
+      if (x !== undefined && (coming || need <= s.res.candles - 2)) doAct(s, { type: 'candle', f: m.f, x });
+    }
   }
   // The tides, announced at dusk: from a few seconds before each until it has spent itself, a second fighter
   // from the rooms stands at each stair of the line; then they go back to work. (Double never moves anyone.)
@@ -781,9 +845,36 @@ function tendNight(s, plan) {
       const tg = m.type === 'maw' && m.target;
       if (tg) for (const d of s.shades) if (d.post.f === tg.f && (tg.kind === 'candle' ? Math.abs(d.post.x - tg.x) <= 8 : roomAt(G, d.post.f, d.post.x) === tg.id)) busy.add(d.id);
     }
+    // Between tides, everyone back to their own posts: a second fighter from the line to its room, and a line
+    // fighter that went to meet a Maw (phase 7) back to its stair once no Maw needs it.
+    const goHome = () => {
+      for (const d of s.shades.filter(canWork)) {
+        const h = home.get(d.id);
+        if (!h) continue;
+        if (onLine(d) && !LINE.some((st) => at({ post: h }, st))) safeMove(s, lightMap(G, T, n.candles), d, h.f, h.x);
+        else if (!onLine(d) && !busy.has(d.id) && LINE.some((st) => at({ post: h }, st))) safeMove(s, lightMap(G, T, n.candles), d, h.f, h.x, true);
+      }
+    };
     // The human doesn't read the tides' times: it reinforces once one is in the Tain.
     const tide = plan === 'human' && !HUMAN.forecast ? n.foes.some((u) => u.type === 'creeper') : n.tides.some((tt) => s.t >= tt - 50 && s.t <= tt + 350);
-    if (tide) {
+    // Round seven, phase 7: where a tide goes for the thinner stair, a second fighter set before it rises only
+    // sends it to the other one. So hold one to a stair until it's up, then send help to the side it's climbing.
+    const rising = T.thinStair ? n.foes.filter((u) => u.type === 'creeper' && u.temper === 'climb' && u.f <= LINE[0].f && !u.grabbed) : [];
+    if (T.thinStair && !NOTHIN) {
+      if (rising.length) {
+        const mid = MAP.W / 2;
+        const left = rising.filter((u) => u.x < mid).length >= rising.length / 2;
+        const st = LINE.find((p) => p.x < mid === left) || LINE[0];
+        if (s.shades.filter((d) => canWork(d) && at(d, st)).length < 2) {
+          const d = s.shades
+            .filter((x) => canWork(x) && !onLine(x) && !busy.has(x.id) && !x.grabbedBy && !x.climb && x.memory > 30 && fighter(x) >= 0.8 && mirrorGuard.get(s) !== x.id)
+            .sort((a, b) => Math.abs(a.x - st.x) + 30 * Math.abs(a.f - st.f) - (Math.abs(b.x - st.x) + 30 * Math.abs(b.f - st.f)))[0];
+          if (d) safeMove(s, lightMap(G, T, n.candles), d, st.f, st.x + (st.x < mid ? 2 : -2));
+        }
+      } else {
+        goHome();
+      }
+    } else if (tide) {
       for (const st of LINE) {
         if (s.shades.filter((d) => canWork(d) && at(d, st)).length >= 2) continue;
         // Only from the stair's own room: nobody crosses a dark floor, or climbs the tide's way, to get there.
@@ -792,12 +883,7 @@ function tendNight(s, plan) {
           .sort((a, b) => fighter(b) * b.memory - fighter(a) * a.memory)[0];
         if (d) safeMove(s, lightMap(G, T, n.candles), d, st.f, st.x + 2);
       }
-    } else {
-      for (const d of s.shades.filter(canWork)) {
-        const h = home.get(d.id);
-        if (h && onLine(d) && !LINE.some((st) => at({ post: h }, st))) safeMove(s, lightMap(G, T, n.candles), d, h.f, h.x);
-      }
-    }
+    } else goHome();
   }
   // The last tide of the two biggest nights before the new moon: ward the stairs of the line if the
   // Choir has sung enough essence, beyond what the new moon needs to ward every stair against the Hollow.
@@ -812,6 +898,7 @@ function tendNight(s, plan) {
   // The Hollow: ward the stairs above it while the essence lasts, and meet it with fighters near the top.
   // AP_HOLLOWGOAL=1 leaves it unwarded on spring's new moon in a campaign's fourth year, for the chapter's goal.
   const h = n.foes.find((f) => f.type === 'hollow');
+  if (LUREHOLLOW && h && T.hollowLure && T.lanterns) leadHollow(s, h);
   if (h && !h.climb) {
     const up = G.stairs.filter((st) => st.f === h.f && !n.wards.includes(st.id));
     const goal = HOLLOWGOAL && chapterOf(s) === 4 && seasonIndex(s) === 0;
@@ -928,10 +1015,10 @@ export function autoStep(s, plan = 'balanced') {
         metEclipse.set(s, s.eclipse);
         placeNight(s, plan);
         if (SIDE) sideBySide(s);
-      } else if (s.t % (plan === 'human' ? HUMAN.every : 10) === 0) tendNight(s, plan);
+      } else if (s.t % (lapsing(plan) ? HUMAN.every : 10) === 0) tendNight(s, plan);
     }
     if (s.t % 50 === 0 || (s.raid?.warned && s.raid.state === 'coming' && !s.raid.ward)) dayMoves(s);
-    if (s.raid && s.t % (plan === 'human' ? HUMAN.raidEvery : 5) === 0) raidMoves(s);
+    if (s.raid && s.t % (lapsing(plan) ? HUMAN.raidEvery : 5) === 0) raidMoves(s);
     if (s.visitors?.some((v) => v.here && !v.done)) visitorMoves(s, way);
     step(s);
   } else if (s.phase === 'dusk') {
@@ -943,7 +1030,7 @@ export function autoStep(s, plan = 'balanced') {
     if (plan !== 'idle') placeNight(s, plan);
     doAct(s, { type: 'startNight' });
   } else if (s.phase === 'night') {
-    if (plan !== 'idle' && s.t % (plan === 'human' ? HUMAN.every : 10) === 0 && !(plan === 'human' && lapsed(s))) tendNight(s, plan);
+    if (plan !== 'idle' && !WATCH && s.t % (lapsing(plan) ? HUMAN.every : 10) === 0 && !(lapsing(plan) && lapsed(s))) tendNight(s, plan);
     step(s);
   } else if (s.phase === 'dawn') {
     rite(s, way);
