@@ -701,10 +701,13 @@ The vertical slice: seven days in one keep, ending on the night of the new moon,
       - **The first year:** 128 of 200 for the balanced plan and 120 for the human plan, against 115 and 98.
       - **Survived nights with a crack:** 1% and 2% (69 of 5,082 and 116 of 4,710), against 2% and 3%. **The first "done when" is only half met.** A losing night now takes a median of 3 cracks and 2 rather than 5 and 3, and a tide cracks each of the two mirrors at most once, so no single tide breaks a whole Veil; but the cracks of a losing night still come about a tenth of the night apart, first to last, as before, and the autopilot's lines hold or collapse, and it rarely loses one tide and holds the rest. Keeps lost with a crack on an earlier night: 33 of 72 and 50 of 80 (46% and 63%, against 48% and 55% before). Whether a person's line fails by halves, and so sees the meter move, needs testers.
       - **The strain comes before the loss:** on 62 of 69 losing nights and 62 of 74 it came before the first crack. It isn't a sign of a keep in trouble: it comes on 38% and 41% of the nights of keeps that finish the year.
+      - **Over seeds 1–400** (the night table): the balanced plan finishes 262 first years against 235 on phase 8's rules, the human plan 229 against 191, and Double 228 against 206. Reacting still beats the static line, 115 seeds better and 65 worse, and at a person's pace 136 and 89. Never moving a shade finishes 270, a tie with reacting (24 and 20). The Long Night now asks the most of any night by more: 11.5 actions for the balanced plan (10.7 before).
+      - **Spring is harder for a line that leaks** (the plans table, seeds 1–200): three cracks that don't mend lose Double 21 keeps in spring against 5, the Mourner 35 against 16, and the human plan 9 against 6; the balanced plan 4 against 3. Their first years still rise (Double 54% against 50%), since later seasons more than make it up, but a first spring lost at the third crack is a harsher lesson than before, and the tutorial's Veil holds only to night 4.
+      - **Winter's goal isn't met more often:** the campaign's 20 candles into winter, 74 of 182 for the balanced plan (74 of 187 before). The autopilot doesn't read the winter card, so this says nothing of whether a person would.
       - **Winter still takes the most:** 47 of the balanced plan's 72 losses and 28 of the human plan's 80. At winter's first dusk the keeps lost later had 5 and 6 candles against 20 in keeps that finished.
     - **In the page.** The Candle tool turns to Wisp when the store is empty, and its hint says why. The Tain draws a wisp as a pale floating light, sinking as it burns. The strain is a call-out. The winter card sits under Work today in the Day panel. The tutorial's lesson on the first crack and How to play say a mirror cracks once a tide, the rest spilling into nightmares, and that cracks don't mend. Custom rules' cracks run from 2.
     - **Old keeps** play as they did: a crack a Creeper, five cracks, mending one a dawn, and no wisps (`crackPerTide`, `cracksMax`, `crackHeal` and `wisp` are in `RULES_SINCE` with 0, 5, 1 and 0). The golden replays play as they were recorded.
-    - **Not done:** the first "done when", as above. The strain is common and may read as noise. The wisp is the autopilot's way back, and it uses it in half its keeps; whether a person finds it with an empty store, and whether 6 essence is the right price, needs testers. Winter's number is a rough forecast from the last week, and says nothing of raids. Scaling the night to the keep, and alms, are left.
+    - **Not done:** the first "done when", as above. The harder first spring for a leaky line, above. The strain is common and may read as noise. The wisp is the autopilot's way back, and it uses it in half its keeps; whether a person finds it with an empty store, and whether 6 essence is the right price, needs testers. Winter's number is a rough forecast from the last week, and says nothing of raids. Scaling the night to the keep, and alms, are left.
 
 **How a season plays**
 
@@ -978,18 +981,18 @@ The vertical slice: seven days in one keep, ending on the night of the new moon,
 <!-- measure:plans -->
 | | Balanced | Human | Keeper | Mourner | Double | Idle |
 |---|---|---|---|---|---|---|
-| First season finished | 99% | 97% | 98% | 92% | 98% | 0% |
-| **First year finished** | **58%** | **49%** | **35%** | **34%** | **50%** | **0%** |
-| Lost in spring / summer / autumn / winter | 3 / 5 / 15 / 62 | 6 / 17 / 20 / 59 | 5 / 12 / 25 / 89 | 16 / 4 / 32 / 81 | 5 / 7 / 14 / 75 | 200 / 0 / 0 / 0 |
-| Your deaths per season | 3.0 | 2.9 | 3.1 | 3.3 | 3.0 | 0.1 |
-| Raids held | 95% | 97% | 93% | 93% | 96% | – |
-| Church: blessed / warned / censured | 710 / 6 / 0 | 686 / 4 / 0 | 448 / 238 / 607 | 642 / 0 / 0 | 711 / 5 / 0 | 0 / 0 / 0 |
-| Shades lost at night per season | 0.3 | 0.4 | 0.7 | 0.4 | 0.5 | 1.6 |
-| The Hollow, in finished seasons: reached the Veil / driven back / withdrew | 2 / 169 / 510 | 8 / 167 / 451 | 7 / 145 / 453 | 60 / 133 / 386 | 4 / 0 / 652 | – |
+| First season finished | 98% | 96% | 97% | 83% | 90% | 0% |
+| **First year finished** | **64%** | **60%** | **42%** | **35%** | **54%** | **0%** |
+| Lost in spring / summer / autumn / winter | 4 / 7 / 14 / 47 | 9 / 24 / 19 / 28 | 7 / 16 / 29 / 64 | 35 / 18 / 35 / 42 | 21 / 10 / 17 / 44 | 200 / 0 / 0 / 0 |
+| Your deaths per season | 3.1 | 3.0 | 3.2 | 3.3 | 3.0 | 0.2 |
+| Raids held | 94% | 96% | 93% | 93% | 95% | 100% |
+| Church: blessed / warned / censured | 728 / 5 / 0 | 686 / 3 / 0 | 448 / 234 / 614 | 595 / 0 / 0 | 682 / 4 / 0 | 0 / 0 / 0 |
+| Shades lost at night per season | 0.3 | 0.3 | 0.7 | 0.4 | 0.4 | 1.5 |
+| The Hollow, in finished seasons: reached the Veil / driven back / withdrew | 1 / 167 / 520 | 4 / 165 / 457 | 4 / 142 / 456 | 25 / 110 / 359 | 3 / 0 / 605 | – |
 
-The human plan finishes its first year on 98 of 200 seeds, against the balanced plan's 115: it loses 48 the balanced plan keeps and keeps 31 it loses. Median seasons finished of the first four: 3, against 4.
+The human plan finishes its first year on 120 of 200 seeds, against the balanced plan's 128: it loses 35 the balanced plan keeps and keeps 27 it loses. Median seasons finished of the first four: 4, against 4.
 
-Generated by `npm run measure` on seeds 1–200, at build f354b3b-dirty (this phase's changes, before they were committed), 2026-09-29.
+Generated by `npm run measure` on seeds 1–200, at build 404caaf, 2026-09-29.
 <!-- /measure:plans -->
 
 **The verbs the autopilot didn't use until round seven's phase 6** (problem 49), each switched on for the balanced plan and paired with it seed by seed (`tools/AUTOPILOT.md` says what each does):
@@ -997,14 +1000,14 @@ Generated by `npm run measure` on seeds 1–200, at build f354b3b-dirty (this ph
 <!-- measure:verbs -->
 | Verb | What the autopilot does with it | Used, per keep | Finished | The balanced plan | Better on / worse on |
 |---|---|---|---|---|---|
-| Hush (`AP_HUSH`) | hushes while shades stand in the dark with the Unlit close and no candle to spare | 1.4 | 111 of 200 the first year | 115 | 2 / 6 |
-| Bind (`AP_BIND`) | binds a Restless shade into a free mirror when the essence can be spared | 0.1 | 115 of 200 the first year | 115 | 4 / 3 |
-| The curfew (`AP_CURFEW`) | proclaims the curfew once sleepwalkers or Weepers can come | 2.0 | 94 of 200 the first year | 115 | 12 / 34 |
-| The Court (`AP_COURT`) | seats a shade in the Court of Shades before a rite where one will ask | 1.1 | 89 of 200 the first year | 115 | 5 / 33 |
-| Building by choice (`AP_TALL=line`) | builds tall, with the Chapel on the line’s floor | – | 127 of 200 the first year | 115 | 43 / 35 |
-| The Keeper (`AP_ENDING=watch`) | takes its own place in the glass at the first year’s end | 0.6 | 104 of 200 two years | 102 | 5 / 4 |
+| Hush (`AP_HUSH`) | hushes while shades stand in the dark with the Unlit close and no candle to spare | 0.9 | 127 of 200 the first year | 128 | 1 / 4 |
+| Bind (`AP_BIND`) | binds a Restless shade into a free mirror when the essence can be spared | 0.1 | 129 of 200 the first year | 128 | 3 / 4 |
+| The curfew (`AP_CURFEW`) | proclaims the curfew once sleepwalkers or Weepers can come | 2.0 | 119 of 200 the first year | 128 | 11 / 20 |
+| The Court (`AP_COURT`) | seats a shade in the Court of Shades before a rite where one will ask | 1.1 | 119 of 200 the first year | 128 | 4 / 13 |
+| Building by choice (`AP_TALL=line`) | builds tall, with the Chapel on the line’s floor | – | 133 of 200 the first year | 128 | 38 / 36 |
+| The Keeper (`AP_ENDING=watch`) | takes its own place in the glass at the first year’s end | 0.6 | 114 of 200 two years | 113 | 5 / 4 |
 
-Generated by `npm run measure` on seeds 1–200, at build f354b3b-dirty (this phase's changes, before they were committed), 2026-09-29.
+Generated by `npm run measure` on seeds 1–200, at build 404caaf, 2026-09-29.
 <!-- /measure:verbs -->
 
 **The night: reacting against the static line** (round seven, phase 7, problem 50). Each plan's first year on today's rules, paired seed by seed with the plan named: Double at the same pace, or as the row says. Human is the balanced plan at a person's pace; Double at a person's pace has the same lapses. Only watching sets the night at dusk and does nothing in it.
@@ -1012,18 +1015,18 @@ Generated by `npm run measure` on seeds 1–200, at build f354b3b-dirty (this ph
 <!-- measure:night -->
 | Plan | First year finished | Paired with Double at the same pace, or as it says: better on / worse on (seeds) | Lost to the Veil / with everyone dead | Shades caught a night | Rooms broken / ruined in 10 nights | Cracks a season |
 |---|---|---|---|---|---|---|
-| Balanced: reacts | 235 of 400 | 112 / 76 | 152 / 13 | 0.1 | 2.7 / 0.0 | 0.7 |
-| Balanced, never moving a shade at night (`AP_NOMOVE`) | 243 of 400 | 25 / 22 against Balanced | 147 / 10 | 0.1 | 2.8 / 0.0 | 0.7 |
-| Double: two to a stair, never moves | 206 of 400 | – | 187 / 7 | 0.1 | 2.6 / 0.0 | 1.1 |
-| Human: reacts, at a person’s pace | 191 of 400 | 125 / 107 | 203 / 6 | 0.3 | 2.6 / 0.0 | 1.1 |
-| Double at a person’s pace (`AP_LAPSES`) | 172 of 400 | – | 218 / 10 | 0.3 | 2.6 / 0.0 | 1.4 |
-| Balanced, set at dusk and then only watching (`AP_WATCH`) | 0 of 400 | 0 / 395 against Balanced | 400 / 0 | 1.0 | 2.1 / 0.0 | 6.3 |
-| Human, with auto-relight (on in Gentle) | 229 of 400 | 104 / 38 against Human | 162 / 9 | 0.2 | 2.7 / 0.0 | 0.8 |
-| Only watching, with auto-relight | 18 of 400 | 14 / 307 against Balanced | 359 / 23 | 0.5 | 2.1 / 0.0 | 3.3 |
-| Balanced, never meeting the Hollow (`AP_MEETHOLLOW=off`) | 233 of 400 | 9 / 15 against Balanced | 155 / 12 | 0.1 | 2.7 / 0.0 | 0.7 |
-| Human, never meeting the Hollow | 191 of 400 | 19 / 22 against Human | 205 / 4 | 0.3 | 2.6 / 0.0 | 1.1 |
+| Balanced: reacts | 262 of 400 | 115 / 65 | 123 / 15 | 0.1 | 2.8 / 0.0 | 0.3 |
+| Balanced, never moving a shade at night (`AP_NOMOVE`) | 270 of 400 | 24 / 20 against Balanced | 117 / 13 | 0.1 | 2.8 / 0.0 | 0.3 |
+| Double: two to a stair, never moves | 228 of 400 | – | 161 / 11 | 0.1 | 2.6 / 0.0 | 0.7 |
+| Human: reacts, at a person’s pace | 229 of 400 | 136 / 89 | 161 / 10 | 0.3 | 2.6 / 0.0 | 0.5 |
+| Double at a person’s pace (`AP_LAPSES`) | 189 of 400 | – | 198 / 13 | 0.3 | 2.6 / 0.0 | 0.8 |
+| Balanced, set at dusk and then only watching (`AP_WATCH`) | 0 of 400 | 0 / 392 against Balanced | 400 / 0 | 0.9 | 1.6 / 0.0 | 3.0 |
+| Human, with auto-relight (on in Gentle) | 264 of 400 | 98 / 31 against Human | 124 / 12 | 0.2 | 2.8 / 0.0 | 0.3 |
+| Only watching, with auto-relight | 17 of 400 | 8 / 360 against Balanced | 376 / 7 | 0.6 | 1.8 / 0.0 | 2.1 |
+| Balanced, never meeting the Hollow (`AP_MEETHOLLOW=off`) | 259 of 400 | 10 / 19 against Balanced | 126 / 15 | 0.1 | 2.7 / 0.0 | 0.4 |
+| Human, never meeting the Hollow | 224 of 400 | 9 / 16 against Human | 167 / 9 | 0.3 | 2.6 / 0.0 | 0.5 |
 
-Generated by `npm run measure` on seeds 1–400, at build f354b3b-dirty (this phase's changes, before they were committed), 2026-09-29.
+Generated by `npm run measure` on seeds 1–400, at build 404caaf, 2026-09-29.
 <!-- /measure:night -->
 
 **The nights of a season** (round seven, phase 8, problem 51). For each night of the season, over each plan's first year: the Unlit it brought, and the actions the plan took in it and the call-outs it made (the page's alerts), a night on average. Where the Hollow rose, how its night ended.
@@ -1031,18 +1034,18 @@ Generated by `npm run measure` on seeds 1–400, at build f354b3b-dirty (this ph
 <!-- measure:moon -->
 | Night | Unlit | Balanced: actions / call-outs | Human: actions / call-outs |
 |---|---|---|---|
-| Night 1 | 8.3 | 3.1 / 1.4 | 3.2 / 1.5 |
-| Night 2 | 11.9 | 5.0 / 3.2 | 5.1 / 3.3 |
-| Night 3 | 15.8 | 6.6 / 8.0 | 6.2 / 8.3 |
-| Night 4 | 18.8 | 6.2 / 8.8 | 5.9 / 9.0 |
-| Night 5 | 21.7 | 6.3 / 7.6 | 5.8 / 8.1 |
-| Night 6 | 25.2 | 6.4 / 8.5 | 5.7 / 8.8 |
-| The new moon (spring to autumn) | 13.4 | 6.8 / 4.8 | 5.9 / 4.8 |
-| The Long Night | 14.2 | 10.7 / 11.5 | 9.0 / 11.8 |
+| Night 1 | 8.3 | 3.1 / 1.4 | 3.3 / 1.6 |
+| Night 2 | 12.0 | 5.1 / 3.3 | 5.1 / 3.4 |
+| Night 3 | 15.8 | 6.7 / 8.4 | 6.3 / 8.7 |
+| Night 4 | 18.9 | 6.5 / 9.3 | 6.2 / 9.4 |
+| Night 5 | 21.8 | 6.3 / 8.3 | 5.8 / 8.9 |
+| Night 6 | 25.3 | 6.5 / 9.4 | 5.9 / 9.8 |
+| The new moon (spring to autumn) | 13.4 | 6.8 / 5.7 | 5.9 / 5.8 |
+| The Long Night | 14.3 | 11.5 / 13.1 | 10.1 / 12.9 |
 
-The Hollow, on the nights it rose (driven back / crossed the Veil / withdrew at dawn): Balanced 331 / 3 / 1039 of 1373; Human 307 / 9 / 917 of 1233. First year finished: Balanced 235 of 400; Human 191 of 400.
+The Hollow, on the nights it rose (driven back / crossed the Veil / withdrew at dawn): Balanced 333 / 1 / 1052 of 1386; Human 322 / 4 / 912 of 1238. First year finished: Balanced 262 of 400; Human 229 of 400.
 
-Generated by `npm run measure` on seeds 1–400, at build f354b3b-dirty (this phase's changes, before they were committed), 2026-09-29.
+Generated by `npm run measure` on seeds 1–400, at build 404caaf, 2026-09-29.
 <!-- /measure:moon -->
 
 **The campaign's goals** (problem 51): each of the first four years' goals met, of the keeps that got as far as its judging (the first year's as winter begins, the others at the year's end).
@@ -1050,12 +1053,12 @@ Generated by `npm run measure` on seeds 1–400, at build f354b3b-dirty (this ph
 <!-- measure:campaign -->
 | Year | Goal | Balanced: met / judged | Human: met / judged |
 |---|---|---|---|
-| 1: The First Winter | go into winter with 20 candles put by | 74 / 187 | 85 / 163 |
-| 2: The Ashen Host | hold the gate against every raid this year | 124 / 132 | 103 / 105 |
-| 3: The Lantern Church | come through every inspection this year without a censure | 126 / 126 | 91 / 91 |
-| 4: The Deep Rises | drive the Hollow back on one of its nights this year | 118 / 118 | 69 / 69 |
+| 1: The First Winter | go into winter with 20 candles put by | 74 / 182 | 80 / 151 |
+| 2: The Ashen Host | hold the gate against every raid this year | 130 / 141 | 109 / 117 |
+| 3: The Lantern Church | come through every inspection this year without a censure | 140 / 140 | 108 / 108 |
+| 4: The Deep Rises | drive the Hollow back on one of its nights this year | 133 / 134 | 97 / 97 |
 
-Generated by `npm run measure` on seeds 1–200, at build f354b3b-dirty (this phase's changes, before they were committed), 2026-09-29.
+Generated by `npm run measure` on seeds 1–200, at build 404caaf, 2026-09-29.
 <!-- /measure:campaign -->
 
 - **Raids with traits** (before raids were fought): when traits went in, 86% held for the balanced plan, against 90% without them (and 58% before the two-room start). Traits first cut it to 75%. No one trait did it: Wil (a Coward) and Nell (Gentle) guarded at half strength, Tam (Devout) at ×0.8 off the Chapel, Ada (Brave) fell twice as often, which thinned the gate for the next raid, and the Greedy ate double. The Gentle's and the Greedy's costs now fall elsewhere: the Gentle grieve harder, and the Greedy work ×0.8 away from the Glazier and the Chandlery. The Coward and the Brave keep theirs, since the gate is what they're about. Guards stand only on raid days, when every free hand goes to the Barracks.
