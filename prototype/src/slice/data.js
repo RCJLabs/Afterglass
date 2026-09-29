@@ -97,6 +97,11 @@ export const TUNING = {
 
   // The night, from the weeks 3–4 greybox, in pixels.
   candleWax: 120,
+  // Round seven, phase 9: a wisp is essence burned as a pale light where a candle would go, for wispSecs (about
+  // a tide), at wispCost essence. For the keep whose candles have run out and whose essence hasn't. 0 is off.
+  wisp: 1,
+  wispCost: 6,
+  wispSecs: 40,
   // A candle that burns down at the line or where a shade is posted is lit again where it stood, from the store,
   // keeping one back, unless the Unlit are at it (round seven, phase 7). On in Gentle; any keep can turn it on
   // or off in Custom rules.
@@ -192,7 +197,21 @@ export const TUNING = {
   tideSpread: 0.08, // how long a tide takes to rise, as a share of the night
   seepFrom: 3,
   seepShare: 0.3,
-  cracksMax: 5,
+  // Round seven, phase 9: with a crack a tide at each mirror (crackPerTide), three break the Veil, and it
+  // mends none by day (crackHeal), so a season's lost tides add up. Before, five Creepers through broke it and a
+  // crack mended each dawn: one open stair at one tide emptied the meter.
+  cracksMax: 3,
+  crackHeal: 0, // cracks the Veil mends each dawn
+  // Round seven, phase 9: a mirror cracks once for each tide that reaches it, and the rest of that tide through
+  // it give the living nightmares the next day (nightmareMult). 0 is as before: every Creeper through a crack.
+  crackPerTide: 1,
+  // Round seven, phase 9: the Veil strains, in the log and a toast, when a stair of the line will be dark as the
+  // next tide comes up it, from strainLead seconds before it rises; a candle lasting strainGrace seconds past the
+  // tide's mark is let be. 0 is off.
+  veilStrains: 1,
+  winterNeed: 1, // from autumn, what winter will take in candles beyond what the keep makes, in the Day panel
+  strainLead: 20,
+  strainGrace: 15,
   wardCost: 5,
   // Night jobs, per second, for a lit shade standing at its post.
   essencePerSec: 0.06,
@@ -600,14 +619,14 @@ export const ENDINGS = {
 export const PRESETS = {
   gentle: {
     name: 'Gentle',
-    text: 'Six cracks break the Veil, not five. Fewer Creepers, weaker raids, more food and candles to start, a candle that burns down at the line or a post lit again from the store, and each season only a little harder than the last.',
-    tuning: { cracksMax: 6, creepersPerNight: 1.8, raidFightStrength: 0.85, startFood: 18, startCandles: 12, hardness: 1.1, autoRelight: 1 },
+    text: 'Four cracks break the Veil, not three, and it mends one each dawn. Fewer Creepers, weaker raids, more food and candles to start, a candle that burns down at the line or a post lit again from the store, and each season only a little harder than the last.',
+    tuning: { cracksMax: 4, crackHeal: 1, creepersPerNight: 1.8, raidFightStrength: 0.85, startFood: 18, startCandles: 12, hardness: 1.1, autoRelight: 1 },
   },
-  standard: { name: 'Standard', text: 'The game as it is meant to be played: five cracks break the Veil, and each season asks a little more of the keep than the last.', tuning: {} },
+  standard: { name: 'Standard', text: 'The game as it is meant to be played: three cracks break the Veil, a tide at a mirror a crack, and each season asks a little more of the keep than the last.', tuning: {} },
   hard: {
     name: 'Hard',
-    text: 'Four cracks break the Veil. More Creepers, stronger raids and fewer candles to start: harder from the first night, and growing through a year and from one year to the next as Standard does.',
-    tuning: { cracksMax: 4, creepersPerNight: 2.6, raidFightStrength: 1.15, startCandles: 6, hardness: 1.2 },
+    text: 'Three cracks break the Veil, as in Standard. More Creepers, stronger raids and fewer candles to start: harder from the first night, and growing through a year and from one year to the next as Standard does.',
+    tuning: { creepersPerNight: 2.6, raidFightStrength: 1.15, startCandles: 6, hardness: 1.2 },
   },
 };
 

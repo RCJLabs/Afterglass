@@ -17,10 +17,10 @@ test('a keep keeps the numbers it was made with when a newer build loads it; the
   k.defaults = PRESETS.hard.tuning;
   k.preset = 'hard';
   assert.equal(retune(k, keepDefaults(k)), 0);
-  assert.equal(k.tuning.cracksMax, 4);
+  assert.equal(k.tuning.startCandles, 6);
   // A newer build with another number of its own: that one moves, the preset's stay.
   assert.equal(retune(k, { ...keepDefaults(k), daySecs: TUNING.daySecs + 10 }), 1);
-  assert.deepEqual([k.tuning.daySecs, k.tuning.cracksMax, k.tuning.creepersPerNight], [TUNING.daySecs + 10, 4, PRESETS.hard.tuning.creepersPerNight]);
+  assert.deepEqual([k.tuning.daySecs, k.tuning.startCandles, k.tuning.creepersPerNight], [TUNING.daySecs + 10, 6, PRESETS.hard.tuning.creepersPerNight]);
   // The same for the player's own numbers carried into a new keep.
   const m = newSeason(2, { nightSecs: 180 });
   m.defaults = { nightSecs: 180 };

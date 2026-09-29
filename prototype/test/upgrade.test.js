@@ -19,6 +19,12 @@ const DEFAULT_OK = {
   autoRelight: 'off by default, as every keep before it played; on only in a new Gentle keep, or by Custom rules',
   ruinLight: 'read only while a Maw ruins a room, as dreadPerRuin',
   greatTideAt: 'read only for the great tide, and an old keep has greatTide 0',
+  wispCost: 'read only for a wisp, and an old keep has wisp 0',
+  wispSecs: 'read only for a wisp, as wispCost',
+  veilStrains: 'a warning in the log only: the Veil strains; it plays the same',
+  strainLead: 'read only for the Veil straining, a warning',
+  strainGrace: 'read only for the Veil straining, a warning',
+  winterNeed: "what the page shows in autumn about winter's candles; it plays the same",
 };
 
 test('every key in the numbers is decided for old keeps', () => {

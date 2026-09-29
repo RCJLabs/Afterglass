@@ -25,6 +25,7 @@ export const ALERT_KINDS = {
   'great-tide': "the Long Night's last great tide rises",
   maw: 'a Maw tears at a candle or breaks a room',
   crack: 'something reached a mirror and cracked the Veil',
+  strain: 'the Veil strains: a stair of the line will be dark as the next tide comes up it',
   wraith: 'a shade has turned Wraith',
 };
 

@@ -155,6 +155,7 @@ function meetHollow(s, h, plan) {
 }
 const RUINCANDLE = !!globalThis.process?.env?.AP_RUINCANDLE;
 const NOBRACE = !!globalThis.process?.env?.AP_NOBRACE;
+const NOWISP = !!globalThis.process?.env?.AP_NOWISP;
 // One part of the raid policy off at a time, to find what it costs.
 const NO = (k) => !!globalThis.process?.env?.[`AP_NO${k}`];
 // Candles kept back from pitch for the night.
@@ -825,6 +826,12 @@ function tendNight(s, plan) {
   // Relight the line first, then any post whose candle is going out.
   const lit = (f, x) => n.candles.some((c) => c.f === f && Math.abs(c.x - x) <= 6 && c.wax > 15);
   for (const st of LINE) if (!lit(st.f, st.x)) doAct(s, { type: 'candle', f: st.f, x: st.x });
+  // Round seven, phase 9: with the store out of candles, a wisp at a dark stair of the line, from essence the new
+  // moon won't want (late in a season, what holding the Hollow off will take stays back). AP_NOWISP=1 doesn't.
+  if (T.wisp && !NOWISP && s.res.candles < 1) {
+    const keep = s.day >= T.seasonDays - 2 ? moonReserve(s) : 0;
+    for (const st of LINE) if (!lit(st.f, st.x) && s.res.essence - keep >= T.wispCost) doAct(s, { type: 'wisp', f: st.f, x: st.x });
+  }
   const inRoom = (f, x) => n.candles.some((c) => c.f === f && roomAt(G, c.f, c.x) === roomAt(G, f, x) && c.wax > 15);
   const run = runners.get(s)?.night === n ? runners.get(s) : null;
   const out = new Set(run ? [...run.by.values(), ...run.home] : []);

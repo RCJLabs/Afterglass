@@ -1729,7 +1729,7 @@ function endEclipse(s) {
   const n = s.night;
   const e = s.eclipse;
   const burned = n.foes.filter((f) => f.type !== 'wraith').length;
-  const back = n.candles.filter((c) => c.wax + EPS >= c.max / 2).length;
+  const back = n.candles.filter((c) => !c.wisp && c.wax + EPS >= c.max / 2).length;
   s.res.candles += back;
   const wick = Math.floor(n.stats.wick + EPS);
   if (wick) s.res.candles += wick;
@@ -1990,6 +1990,7 @@ function tainTick(s) {
   biggestTide(s);
   const burn = (n.omen?.id === 'still' ? T.stillBurn : 1) * (s.charm ? T.charmBurn : 1) * DT;
   for (const c of n.candles) c.wax -= burn;
+  if (T.veilStrains && s.phase === 'night' && s.t % TICKS_PER_SEC === 0) strainCheck(s, burn / DT);
   for (const h of n.foes) {
     if (h.type !== 'hollow' || h.hp <= 0 || h.climb || pinned(s, h)) continue;
     for (const c of n.candles) if (c.f === h.f && Math.abs(c.x - h.x) <= T.hollowReach && !L.stood.has(c.id)) c.wax -= T.hollowEat * (hollowRisen(s) ? T.hollowRises : 1) * DT;
@@ -2211,6 +2212,7 @@ function spawnFoes(s, L) {
     // Wards can't hold the new moon or a Maw: they break up through their rift whatever seals it.
     if (!at) at = { f: DEEP_FLOOR, x: (rift || byId(MAP.rifts, sp.from || sp.rift) || MAP.rifts[0]).x };
     const foe = addFoe(s, sp.type, at.f, at.x, { temper: sp.snuff ? 'snuff' : 'climb' });
+    if (sp.type === 'creeper') foe.tide = tideOf(s, sp.at);
     if (sp.weak) foe.hp = foe.max = foe.hp * sp.weak; // the tutorial's Maw
     if (seeped) keepMoment(s, 'seep', seeped.at, seeped.text);
     n.stats.spawned++;
@@ -2840,10 +2842,84 @@ function hollowTick(s, L, h) {
   if (m) cross(s, h, m, T.hollowCracks);
 }
 
+// Round seven, phase 9: what winter will take in candles, by the keep's own last seven days: what its nights lit
+// and its days (and the Wick Room at night) made, scaled to winter's longer nights and shorter days, over
+// winter's seven nights, the Long Night counting longNight of them. What it gives is the shortfall: candles
+// winter will burn beyond what the keep makes in it. From autumn, with the year on and three days to go by.
+export function winterNeed(s) {
+  const T = s.tuning;
+  if (!T.year || !T.winterNeed || seasonIndex(s) !== 2) return null;
+  const days = s.days.filter((d) => d.night).slice(-7);
+  if (days.length < 3) return null;
+  // Each day scaled from its own season's lengths, so summer's last days count as winter's would.
+  const kOf = (d) => (d.season - 1) % SEASONS.length;
+  const avg = (f) => days.reduce((a, d) => a + f(d), 0) / days.length;
+  const nightF = (d) => T.seasonNight[3] / T.seasonNight[kOf(d)];
+  const lit = avg((d) => (d.night.candles || 0) * nightF(d));
+  const made = avg((d) => (d.made?.candles || 0) * (T.seasonDay[3] / T.seasonDay[kOf(d)]));
+  const wick = avg((d) => (d.night.wick || 0) * nightF(d));
+  const nights = T.seasonDays - 1 + T.longNight;
+  const burn = lit * nights;
+  const make = made * T.seasonDays + wick * nights;
+  return { need: Math.max(0, Math.round(burn - make)), burn: Math.round(burn), make: Math.round(make), have: Math.floor(s.res.candles + EPS) };
+}
+// The hour of a tick of the night, as the page's clock shows it.
+function nightHourOf(s, t) {
+  const h = (18 + (12 * t) / nightTicks(s)) % 24;
+  return `${String(Math.floor(h)).padStart(2, '0')}:${String(Math.floor((h % 1) * 6) * 10).padStart(2, '0')}`;
+}
+// Round seven, phase 9 (veilStrains): the Veil strains when a stair of the line will be dark as the next tide
+// comes up it: its candle out before then (by its wax alone; gnawing only makes it sooner), or no candle at all.
+// Said once a stair and a tide, from strainLead seconds before the tide rises. Its Creepers take a while to climb,
+// so a candle that lasts strainGrace seconds past the tide's mark is let be.
+function strainCheck(s, perSec) {
+  const n = s.night;
+  const T = s.tuning;
+  const next = n.tides.find((t) => t > s.t);
+  if (next === undefined || next - s.t > T.strainLead * TICKS_PER_SEC) return;
+  const G = geo(s);
+  for (const st of lineSpots(G)) {
+    const key = `${st.f}:${st.x}:${next}`;
+    if (n.strained?.includes(key)) continue;
+    const c = n.candles.filter((k) => k.f === st.f && Math.abs(k.x - st.x) <= 6 && !k.carrier).sort((a, b) => b.wax - a.wax)[0];
+    const outAt = c ? s.t + (c.wax / perSec) * TICKS_PER_SEC : s.t;
+    if (outAt >= next + T.strainGrace * TICKS_PER_SEC) continue;
+    (n.strained ||= []).push(key);
+    const side = st.x < MAP.W / 2 ? 'left' : 'right';
+    say(s, c ? `The Veil strains: the candle at the ${side} stair will be out before the tide at ${nightHourOf(s, next)} is up it.` : `The Veil strains: the ${side} stair is dark, and a tide comes at ${nightHourOf(s, next)}.`, 'bad', 'strain');
+  }
+}
+// Which tide a Creeper rose with (round seven, phase 9): the tide on the clock it rose within, or none, a
+// straggler being a tide of its own.
+function tideOf(s, at) {
+  const n = s.night;
+  const w = (s.tuning.tideSpread * nightTicks(s)) / 2 + 1;
+  const i = n.tides.findIndex((t) => Math.abs(t - at) <= w);
+  return i >= 0 ? i : null;
+}
 function cross(s, c, m, cracks) {
   const n = s.night;
   const where = twinAt(geo(s), geo(s).veil, m.x).name;
   const who = c.type === 'drowned' ? 'One of the Drowned' : 'A Creeper';
+  // Round seven, phase 9 (crackPerTide): a mirror cracks once for each tide that reaches it. The rest of that
+  // tide through the same mirror spill into the keep above: each gives one of the living a nightmare tomorrow.
+  if (s.tuning.crackPerTide && c.type === 'creeper') {
+    const key = `${m.id}:${c.tide ?? c.id}`;
+    n.cracked ||= [];
+    if (n.cracked.includes(key)) {
+      n.foes = n.foes.filter((x) => x !== c);
+      n.stats.crossed++;
+      n.stats.spill = (n.stats.spill || 0) + 1;
+      n.spilt ||= [];
+      if (!n.spilt.includes(key)) {
+        n.spilt.push(key);
+        say(s, `More of the tide pours through the mirror in the ${where}. The Veil holds, but the sleepers above will pay for it.`, 'bad', true);
+      }
+      cue(s, 'seep', c.f, m.x);
+      return;
+    }
+    n.cracked.push(key);
+  }
   if (!veilKept(s) && s.cracks + cracks >= s.tuning.cracksMax) keepMoment(s, 'broke', { f: c.f, x: m.x }, `${c.type === 'hollow' ? 'The Hollow' : who} broke the Veil at the mirror in the ${where}.`);
   else keepMoment(s, c.type === 'hollow' ? 'torn' : 'crack', { f: c.f, x: m.x }, c.type === 'hollow' ? `The Hollow reached the mirror in the ${where}.` : `${who} slipped through the Veil at the mirror in the ${where}.`);
   n.foes = n.foes.filter((x) => x !== c);
@@ -3113,7 +3189,8 @@ function endNight(s) {
   s.haunted = [...n.broken];
   s.ruined = [...(n.ruined || [])];
   s.dreamt = dreams || 0;
-  const bad = decreeOf(s) === 'curfew' ? 0 : Math.min(s.living.length, n.nightmares || 0); // barred in, they sleep
+  // Barred in, they sleep through the Weepers; not through the Unlit that came through the Veil (phase 9).
+  const bad = Math.min(s.living.length, (decreeOf(s) === 'curfew' ? 0 : n.nightmares || 0) + (n.stats.spill || 0));
   const dreamers = [];
   for (let i = 0; i < bad; i++) {
     const p = pick(s, s.living.filter((x) => !x.nightmare));
@@ -3122,14 +3199,14 @@ function endNight(s) {
   }
   if (bad) {
     const where = roomsOf(geo(s), 'quarters').length ? 'Quarters' : 'Hearth';
-    say(s, `Nightmares: ${bad}, in the ${where}. ${listNames(dreamers)} ${bad === 1 ? 'works' : 'work'} at ${Math.round(100 * T.nightmareMult)}% today.`, 'bad', true);
+    say(s, `Nightmares: ${bad}, in the ${where}${n.stats.spill ? ', from the Unlit that came through the Veil' : ''}. ${listNames(dreamers)} ${bad === 1 ? 'works' : 'work'} at ${Math.round(100 * T.nightmareMult)}% today.`, 'bad', true);
   }
   n.stats.nightmares = bad;
   s.today.night = { ...n.stats, broken: [...n.broken], ...(n.ruined?.length ? { ruined: [...n.ruined] } : {}), fading, withdrew, wick, guidance: g, watch: s.watchBonus, ...(n.errands ? { errands: n.errands.map(({ kind, name, by, done }) => ({ kind, name, by, done })) } : {}), ...(n.omen ? { omen: n.omen.id } : {}) };
   const cracks = n.stats.cracks + (s.today.eclipse?.cracks || 0); // the eclipse's count with the night's
   review(s);
   s.night = null;
-  if (s.cracks > 0) s.cracks--;
+  s.cracks = Math.max(0, s.cracks - (s.tuning.crackHeal ?? 1)); // the Veil mends a little by day
   if (s.phase === 'over') return;
   if (isNewMoon(s)) {
     endSeason(s, cracks);
@@ -4098,6 +4175,22 @@ const ACTIONS = {
     if (s.res.candles < 1) return 'No candles left. The Chandlery makes them by day.';
     lightCandle(s, f, x);
   },
+  // Round seven, phase 9: a wisp, essence burned as a pale light where a candle would go, for about a tide
+  // (wispSecs), once the store is out of candles: a way back for a keep whose candles ran out before its essence
+  // did. It's light like any candle's: gnawed, eaten and smashed as one, and nothing comes back of it.
+  wisp(s, { f, x }) {
+    const T = s.tuning;
+    if (!T.wisp) return 'There are no wisps in these rules.';
+    if (!tainAwake(s)) return 'A wisp is lit in the night.';
+    if (!onFloor(s, f, x)) return 'That is not a place in the Tain.';
+    if (!roomAt(geo(s), f, x)) return 'That is inside a wall.';
+    if (s.res.candles >= 1) return 'A wisp is for when the store is out of candles. Set a candle.';
+    if (s.res.essence + EPS < T.wispCost) return `A wisp takes ${T.wispCost} essence.`;
+    s.res.essence -= T.wispCost;
+    s.night.candles.push({ id: 'k' + s.nextId++, f, x, wax: T.wispSecs, max: T.wispSecs, wisp: true });
+    s.night.stats.wisps = (s.night.stats.wisps || 0) + 1;
+    cue(s, 'light', f, x);
+  },
   // Round seven, phase 7: at dusk, the shades back at the posts the last night began with, and its candles lit
   // again where they stood, as far as the store goes. Wards aren't set again: they cost essence, and each night's
   // tides are its own.
@@ -4467,6 +4560,10 @@ export const RULES_SINCE = [
   { key: 'hollowPinned', old: 0, since: '2026-09-29', what: 'the Hollow held at a ward eats no light and drains no one (phase 8)' },
   { key: 'hollowWardOnly', old: 0, since: '2026-09-29', what: 'on the Hollow\'s nights a stair\'s ward holds only the Hollow (phase 8)' },
   { key: 'newMoonTides', old: 0, since: '2026-09-29', what: 'the new moon\'s Creepers come in one tide more (phase 8)' },
+  { key: 'crackPerTide', old: 0, since: '2026-09-29', what: 'a mirror cracks once a tide, the rest spilling into nightmares (phase 9)' },
+  { key: 'cracksMax', old: 5, since: '2026-09-29', what: 'three cracks break the Veil, now each is a tide (phase 9)' },
+  { key: 'crackHeal', old: 1, since: '2026-09-29', what: 'the Veil mends no crack by day (phase 9)' },
+  { key: 'wisp', old: 0, since: '2026-09-29', what: 'a wisp of essence where a candle would go, once the store is out (phase 9)' },
 ];
 export function upgrade(g) {
   g.keep ??= { floors: FULL_KEEP.floors.map((fl) => fl.map((r) => ({ ...r }))) };

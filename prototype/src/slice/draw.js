@@ -1084,6 +1084,8 @@ function composeTain(s, t, opts = {}) {
   const candles = n?.candles || [];
   // A candle stands on its stick; a lantern hangs from the hand of the shade carrying it.
   const flames = candles.map((k) => {
+    // A wisp (round seven, phase 9) is essence burning: no stick, a pale light that sinks as it burns out.
+    if (k.wisp) return { k, x: Math.round(k.x), y: feet(k.f) - 2 - Math.ceil((3 * Math.max(0, k.wax)) / k.max), wisp: true };
     if (!k.carrier) return { k, x: Math.round(k.x), y: candleStick(c, k) };
     const x = Math.round(k.x) + 2;
     const y = feet(k.f) - 6;
@@ -1168,7 +1170,13 @@ function composeTain(s, t, opts = {}) {
     R(c, m.x - 1, my + 1, 3, 5, UMBRA[7]);
     D(c, m.x - 1, my + 1, P.white);
   }
-  flames.forEach(({ x, y, lantern }, i) => {
+  flames.forEach(({ x, y, lantern, wisp }, i) => {
+    if (wisp) {
+      glow(c, x, y, 3, P.cyan, 0.3);
+      D(c, x, y, !t || (MF(t * 6) + i) % 3 ? P.white : P.cyan);
+      D(c, x, y - 1, P.cyan);
+      return;
+    }
     glow(c, x, y - 1, 3, P.amber, 0.25);
     if (lantern) D(c, x, y, !t || (MF(t * 8) + i) % 2 ? P.yellow : P.amber);
     else flame(c, x, y, t, i);

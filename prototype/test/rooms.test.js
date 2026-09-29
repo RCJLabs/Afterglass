@@ -206,7 +206,7 @@ test('from the second season the Host brings ladders: a manned Gatehouse throws 
 });
 
 test('from the second season one Creeper of each tide comes up the Undergate, under the Veil, unless it is warded', () => {
-  const s = newSeason(5, { ...calm, creepersBase: 12, undergateChance: 1 }); // it stirs tonight
+  const s = newSeason(5, { ...calm, creepersBase: 12, undergateChance: 1, cracksMax: 99 }); // it stirs tonight, and the Veil lasts to see it
   s.res.stone = 30;
   withGatehouse(s);
   s.season = 2;

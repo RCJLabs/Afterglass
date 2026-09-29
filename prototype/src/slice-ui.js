@@ -6,7 +6,7 @@ import { TICKS_PER_SEC, DAY_ROOMS, WORK_ROOMS, TWINS, KINDS, MIRRORS, CAUSES, MA
 import {
   newSeason, step, act, retune, playerTuning, jobCap, jobCount, nextSlot, ritePreview, crossingPreview, capacity, canWork, defense, roomPower, bear, priests, funeralCap, eatRate,
   dayTicks, nightTicks, isNewMoon, choicesFor, byId, isTwinnedLiving, isTwinnedShade, lastSeason, SAVE_VERSION, fmt, mirrorCap, bareHalls, tainPlace,
-  postRoom, wardCost, wardDrawOf, wardHoldOf, hollowNeed, hollowRewardOf, pinned, yearRate, raidsAhead, shadeTrait, peopleIn, beds, tradeOf, inGreatGlass, handsAt, whispers, stepsThrough, perf,
+  postRoom, wardCost, wardDrawOf, wardHoldOf, hollowNeed, hollowRewardOf, pinned, winterNeed, yearRate, raidsAhead, shadeTrait, peopleIn, beds, tradeOf, inGreatGlass, handsAt, whispers, stepsThrough, perf,
   seasonIndex, seasonName, yearOf, dayLength, isLongNight, tributeOf, besieged, sallyOdds, plagueSeason, atGate, gateGuard,
   weatherOf, forecastOf, raining, foggy, drownedDue, keepDefaults, embargoed, inquisition, churchDaysLeft, crusadeDay, crusadeDaysLeft,
   actOf, actCost, canAct, acting, actText, omenText, nextMark, SKIP_LEAD, visitorBlock,
@@ -443,7 +443,7 @@ function barHTML() {
   const flip = `<button class="btn sm" id="btn-flip" data-act="flip" aria-pressed="${prefs.mode === 'flipped'}" title="Turn the Tain upright (V)">Flip</button>`;
   let tools = '';
   if (eclipseNow()) {
-    tools = `${tool('candle', `Candle ${floor1(s.res.candles)}`)}${tool('move', 'Move')}${tool('ward', `Ward ${fmt(wardCost(s))}`)}`;
+    tools = `${tool('candle', wispNow() ? `Wisp −${fmt(s.tuning.wispCost)}` : `Candle ${floor1(s.res.candles)}`)}${tool('move', 'Move')}${tool('ward', `Ward ${fmt(wardCost(s))}`)}`;
     const d = s.tuning.acts ? byId(s.shades, ui.selected) : null;
     const a = d && canWork(d) && actOf(d);
     if (a) tools += `<button class="btn sm act" id="btn-act" data-act="shade-act" data-id="${d.id}"${canAct(s, d) ? '' : ' disabled'} title="${ACTS[a].name} (A)">${ACTS[a].name}${(d.acted || 0) >= actsFor(s, d) ? ': spent' : ` −${fmt(actCost(s, d))}`}</button>`;
@@ -454,7 +454,7 @@ function barHTML() {
   }
   else if (s.phase === 'dusk' && s.dusk.step === 'crypt') tools = `<button class="btn sm primary" id="bar-wake" data-act="wake">Let them wake</button>`;
   else if (place) {
-    tools = `${tool('candle', `Candle ${floor1(s.res.candles)}`)}${tool('move', 'Move')}${tool('ward', `Ward ${fmt(wardCost(s))}`)}`;
+    tools = `${tool('candle', wispNow() ? `Wisp −${fmt(s.tuning.wispCost)}` : `Candle ${floor1(s.res.candles)}`)}${tool('move', 'Move')}${tool('ward', `Ward ${fmt(wardCost(s))}`)}`;
     tools += s.phase === 'night' ? `<button class="btn sm" id="btn-hush" data-act="hush" aria-pressed="${!!s.night?.hush}">Hush</button>` : '';
     const d = s.phase === 'night' && s.tuning.acts ? byId(s.shades, ui.selected) : null;
     const a = d && canWork(d) && actOf(d);
@@ -494,6 +494,7 @@ function hintText() {
   const d = byId(s.shades, ui.selected);
   const back = takingBack();
   if (ui.tool === 'candle') {
+    if (wispNow()) return `No candles left: a tap burns ${fmt(T.wispCost)} essence as a wisp, a pale light for about a tide (${fmt(T.wispSecs)} s). The Chandlery makes candles by day.`;
     return s.res.candles >= 1
       ? `${eclipseNow() ? 'The eclipse: tap a floor below the Veil' : 'Tap a floor'} to set a candle. It lights its own room; the Unlit can't enter the light. A tap on a shade in the light picks it.${back && s.night.candles.length ? ' Tap a candle to take it back.' : ''}`
       : `No candles left. The Chandlery makes them by day; the Wick Room saves them at night.${back && s.night.candles.length ? ' Tap a candle to take it back.' : ''}`;
@@ -916,6 +917,7 @@ function dayPanel() {
     ${badLuckNote()}
     ${sleepNotes()}
     <div class="card"><h3>Work today</h3>${food}<ul class="facts">${rows}</ul></div>
+    ${winterCard()}
     ${s.day === 1 ? seasonNote() : ''}
     ${s.daily && s.season === 1 && s.day === 1 ? `<p class="note">This is the keep of ${esc(dayText(s.daily))}: everyone who plays it gets this same keep, on the same rules.</p>` : ''}
     ${weatherNotes()}
@@ -927,6 +929,14 @@ function dayPanel() {
     <div class="card"><h3>The mirrors</h3>${once('mirrors', `<p class="note">Each shade needs a place in a mirror; with no room, the dead wake Restless. Breaking one, in an emergency, frees everyone in it at once and lowers Dread, at the price of the mirror and ${s.tuning.badLuckDays} days of bad luck.</p>`, 'Mirrors', 'mirrors')}${mirrorsHTML()}${buildRow()}</div>`;
 }
 
+// Round seven, phase 9: from autumn, winter's candles by the keep's own last week (sim.js: winterNeed), and in
+// the open year the campaign's first goal as the rule of thumb it is.
+function winterCard() {
+  const w = winterNeed(s);
+  if (!w) return '';
+  const goal = chapterOf(s) ? '' : ` A campaign's first year asks for ${CHAPTERS[1].goal.n} put by as winter begins.`;
+  return `<p class="note${w.have < w.need ? ' bad' : ''}">Winter, by this keep's last week: its nights will burn about ${plural(w.burn, 'candle')} and it will make about ${w.make}, so it needs about ${w.need} put by. You have ${w.have}.${goal}</p>`;
+}
 // The campaign (round six): the chapter this year is, what it brings, its goal and how it's going. Told in full
 // at the chapter's first dawn; by day a line.
 function goalSoFar(k) {
@@ -1872,6 +1882,11 @@ const TUNE = [
   ['traits', 'Traits: everyone has one, and death turns it over (1 on, 0 off)'],
   ['fadePerNight', 'Memory every shade loses per night'],
   ['cracksMax', 'Veil cracks that lose the keep'],
+  ['crackPerTide', 'A mirror cracks once a tide, the rest of it giving nightmares (1), or every Creeper through is a crack (0)'],
+  ['crackHeal', 'Cracks the Veil mends each dawn'],
+  ['wisp', 'Wisps: essence burned as light where a candle would go, once the store is out (1 on, 0 off)'],
+  ['wispCost', 'Essence a wisp takes'],
+  ['wispSecs', 'Seconds a wisp burns'],
   ['hardness', 'How much harder each season is (raids, Creepers, the Hollow)'],
   ['yearHardness', 'With the year on, how much harder each year starts than the last (0: each season harder, straight on)'],
   ['mawHardness', 'How much stronger a Maw is each season'],
@@ -2902,7 +2917,7 @@ function actAt(at) {
   if (i.kind === 'wall') return toast('That is inside a wall.', 'bad');
   if (i.kind === 'candle') {
     const n = s.night?.candles.length;
-    const ok = game({ type: 'candle', f: at.f, x: Math.round(at.x * 2) / 2 });
+    const ok = game({ type: wispNow() ? 'wisp' : 'candle', f: at.f, x: Math.round(at.x * 2) / 2 });
     if (ok && s.night?.candles.length > n) ui.lastSet = { id: s.night.candles.at(-1).id, at: performance.now() };
     return ok;
   }
@@ -2939,6 +2954,8 @@ function tapIntent(at) {
 }
 // Taking back what was set this dusk (sim.js: uncandle and unward).
 const takingBack = () => s.phase === 'dusk' && s.dusk?.step === 'place';
+// Round seven, phase 9: with the store out of candles in the night, the Candle tool burns essence as a wisp.
+const wispNow = () => !!s.tuning.wisp && s.res.candles < 1 && (s.phase === 'night' || eclipseNow()) && s.res.essence + 1e-9 >= s.tuning.wispCost;
 const TAKE_BACK_WAIT = 500; // ms: a quick second tap on a candle just set is a double tap, not a change of mind
 function duskCandleNear(at) {
   if (!takingBack()) return null;
@@ -2960,7 +2977,7 @@ function ghost() {
   const h = kbAt() || ui.hover;
   if (!h || !h.room || !placing()) return null;
   const i = tapIntent(h);
-  if (i.kind === 'candle' && s.res.candles >= 1) return { tool: 'candle', f: h.f, x: Math.round(h.x) };
+  if (i.kind === 'candle' && (s.res.candles >= 1 || wispNow())) return { tool: 'candle', f: h.f, x: Math.round(h.x) };
   if (i.kind === 'ward') return { tool: 'ward', target: i.w };
   return null;
 }
@@ -3941,7 +3958,7 @@ const TUT = [
   {
     id: 't-crack', pause: true,
     when: () => s.phase === 'night' && s.day < TUTORIAL.safeUntil && s.night.stats.cracks > 0,
-    text: () => `A Creeper reached a mirror and the Veil cracked: 1 Dread at dawn. ${s.tuning.cracksMax} cracks at once break it and lose the keep, though not before night ${TUTORIAL.safeUntil} here. Light the way it came.`,
+    text: () => `${s.tuning.crackPerTide ? 'A tide reached a mirror' : 'A Creeper reached a mirror'} and the Veil cracked: 1 Dread at dawn.${s.tuning.crackPerTide ? ' A mirror cracks once a tide; the rest of that tide give the sleepers above nightmares.' : ''} ${s.tuning.cracksMax} cracks break it and lose the keep${s.tuning.crackHeal ? '' : ', and it mends none by day'}, though not before night ${TUTORIAL.safeUntil} here. Light the way it came.`,
   },
   {
     id: 't-maw', covers: ['maw'], target: '#tool-move', pause: true,
@@ -4656,7 +4673,7 @@ function keepWith(p) {
 // Custom rules (round seven, phase 2), beside the difficulty: a few of its numbers, and which parts of the game
 // are in it. A new keep keeps them as its own, as it keeps its preset's; the tutorial and today's keep don't take them.
 const CUSTOM_NUMBERS = [
-  ['cracksMax', 'Cracks that break the Veil', 3, 8, 1, (v) => String(v)],
+  ['cracksMax', 'Cracks that break the Veil', 2, 8, 1, (v) => String(v)],
   ['creepersPerNight', 'Creepers added each night of a season', 1, 3.4, 0.2, (v) => mult(v)],
   ['raidFightStrength', "The Host's strength", 0.6, 1.4, 0.05, (v) => `×${mult(v)}`],
   ['startFood', 'Food to start with', 6, 30, 2, (v) => String(v)],
