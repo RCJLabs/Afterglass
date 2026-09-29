@@ -12,7 +12,7 @@ const HERE = fileURLToPath(new URL('.', import.meta.url));
 const ROOT = normalize(join(HERE, '..'));
 const PORT = Number(process.env.E2E_PORT || 8099);
 // Quickest first; the tutorial and the tester's path each play three days through the page.
-const ALL = ['crash', 'dev', 'trail', 'held', 'back', 'dusk', 'lastnight', 'strip', 'quiz', 'phase4', 'taps', 'tutorial', 'tester'];
+const ALL = ['crash', 'dev', 'trail', 'held', 'back', 'dusk', 'lastnight', 'longnight', 'strip', 'quiz', 'phase4', 'taps', 'tutorial', 'tester'];
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.webmanifest': 'application/manifest+json', '.png': 'image/png', '.svg': 'image/svg+xml', '.ico': 'image/x-icon', '.txt': 'text/plain' };
 
 const server = createServer(async (req, res) => {

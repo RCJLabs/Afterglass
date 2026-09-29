@@ -432,6 +432,9 @@ export const hollowGrowth = (s) => (s.tuning.year ? hard(s) / Math.pow(s.tuning.
 export const wardDrawOf = (s) => ((s.tuning.wardDraw || 0) * hollowGrowth(s) * s.tuning.wardHold) / wardHoldOf(s);
 // What holding it off until dawn on this season's new moon takes: its time there, drawn at that rate, and a
 // ward on each of the two ways up from its floor.
+// What driving the Hollow back is worth: remembrance, the more the later the year (round seven, phase 8), for the
+// studies, vigils and names the years after it spend.
+export const hollowRewardOf = (s) => s.tuning.hollowReward + (s.tuning.hollowRewardYear || 0) * ((s.tuning.year ? yearOf(s) : 1) - 1);
 export function hollowNeed(s) {
   const T = s.tuning;
   const winter = T.year && seasonIndex(s) === 3;
@@ -1597,11 +1600,15 @@ function newNight(s) {
   const moon = isNewMoon(s) ? T.newMoonCreepers * (hollowRisen(s) ? T.hollowRises : 1) : 1; // the Deep rising, in a campaign
   const count = tut ? tut.creepers : Math.round((T.creepersBase + T.creepersPerNight * Math.min(s.day, T.seasonDays - 1)) * (long ? T.longNightCreepers : moon) * hard(s));
   // The Unlit come in tides: a few stragglers, and the rest in waves that can swamp one candle. The Long
-  // Night has one tide more.
-  const waves = tut ? tut.tides : 1 + Math.floor(s.day / T.tideEvery) + (long ? 1 : 0);
-  const tides = Array.from({ length: waves }, (_, w) => 0.12 + (0.7 * (w + 0.2 + 0.6 * rand(s))) / waves);
+  // Night has one tide more, and since round seven's phase 8 the new moon newMoonTides more.
+  const waves = tut ? tut.tides : 1 + Math.floor(s.day / T.tideEvery) + (long ? 1 : isNewMoon(s) ? T.newMoonTides || 0 : 0);
+  // Round seven, phase 8: the Long Night ends in a last great tide, greatTide of its Creepers at greatTideAt of the
+  // night, called out when it rises; the rest come in its tides as on any night, all of them before it.
+  const great = long && !tut ? Math.round(count * (T.greatTide || 0)) : 0;
+  const span = great ? Math.min(0.7, T.greatTideAt - T.tideSpread - 0.12) : 0.7;
+  const tides = Array.from({ length: waves }, (_, w) => 0.12 + (span * (w + 0.2 + 0.6 * rand(s))) / waves);
   const spawns = [];
-  for (let i = 0; i < count; i++) {
+  for (let i = 0; i < count - great; i++) {
     const straggler = chance(s, tut?.stragglers ?? T.stragglers);
     const at = straggler ? 0.05 + 0.85 * rand(s) : tides[i % waves] + (rand(s) - 0.5) * T.tideSpread;
     spawns.push({
@@ -1609,6 +1616,7 @@ function newNight(s) {
       snuff: chance(s, tut?.snuff ?? T.snuffShare), rift: tut ? MAP.rifts[i % MAP.rifts.length].id : pick(s, MAP.rifts).id,
     });
   }
+  for (let i = 0; i < great; i++) spawns.push({ at: Math.round(clamp(T.greatTideAt + (rand(s) - 0.5) * T.tideSpread, 0.02, 0.95) * N), type: 'creeper', seep: false, snuff: false, great: true, rift: pick(s, MAP.rifts).id });
   // Maws rise just ahead of the last tide, to open a way for the Creepers behind them, from night mawFrom.
   // The new moon belongs to the Hollow, except the Long Night, which has both.
   if (s.day >= T.mawFrom && (!isNewMoon(s) || long)) {
@@ -1652,7 +1660,7 @@ function newNight(s) {
   spawns.sort((a, b) => a.at - b.at);
   const night = {
     ...(T.errands && !tut ? { errands: rollErrands(s, N) } : {}),
-    candles: [], foes: [], spawns, tides: tides.map((x) => Math.round(x * N)).sort((a, b) => a - b), wards: [], wardHold: {}, hush: false, steel: !!s.steel || (boonNow(s, 'steel') && isNewMoon(s)),
+    candles: [], foes: [], spawns, tides: [...tides, ...(great ? [T.greatTideAt] : [])].map((x) => Math.round(x * N)).sort((a, b) => a - b), ...(great ? { great: Math.round(T.greatTideAt * N) } : {}), wards: [], wardHold: {}, hush: false, steel: !!s.steel || (boonNow(s, 'steel') && isNewMoon(s)),
     broken: [], // twin rooms (ids) a Maw has broken tonight
     stats: nightStats(),
   };
@@ -1802,7 +1810,7 @@ function applyOmen(s, n, o) {
     // Every other Creeper of each tide comes halfway to the next one, or to the night's end.
     const ends = [...n.tides.slice(1), Math.round(0.92 * N)];
     const halves = n.tides.map((at, i) => Math.round((at + ends[i]) / 2));
-    n.tides.forEach((at, i) => n.spawns.filter((sp) => sp.type === 'creeper' && Math.abs(sp.at - at) <= w).forEach((sp, k) => k % 2 && (sp.at = Math.min(Math.round(0.92 * N), sp.at + halves[i] - at))));
+    n.tides.forEach((at, i) => n.spawns.filter((sp) => sp.type === 'creeper' && !sp.great && Math.abs(sp.at - at) <= w).forEach((sp, k) => k % 2 && (sp.at = Math.min(Math.round(0.92 * N), sp.at + halves[i] - at))));
     n.tides = [...n.tides, ...halves].sort((a, b) => a - b);
   }
   n.spawns.sort((a, b) => a.at - b.at);
@@ -1839,7 +1847,8 @@ export function nightMarks(s) {
       }
     } else if (sp.type === 'maw' || sp.type === 'hollow' || sp.type === 'drowned') marks.push({ at: sp.at, kind: sp.type });
   }
-  for (const m of tides) if (m.count) marks.push({ at: m.from, kind: 'tide', count: m.count });
+  // The Long Night's last great tide (round seven, phase 8) is marked as what it is.
+  for (const m of tides) if (m.count) marks.push({ at: m.from, kind: n.great && m.at === n.great ? 'great' : 'tide', count: m.count });
   for (const e of n.errands || []) if (e.kind === 'sleeper') marks.push({ at: e.at, kind: 'sleeper' });
   marks.push({ at: N, kind: 'dawn' });
   return marks.sort((a, b) => a.at - b.at);
@@ -1982,7 +1991,7 @@ function tainTick(s) {
   const burn = (n.omen?.id === 'still' ? T.stillBurn : 1) * (s.charm ? T.charmBurn : 1) * DT;
   for (const c of n.candles) c.wax -= burn;
   for (const h of n.foes) {
-    if (h.type !== 'hollow' || h.hp <= 0 || h.climb) continue;
+    if (h.type !== 'hollow' || h.hp <= 0 || h.climb || pinned(s, h)) continue;
     for (const c of n.candles) if (c.f === h.f && Math.abs(c.x - h.x) <= T.hollowReach && !L.stood.has(c.id)) c.wax -= T.hollowEat * (hollowRisen(s) ? T.hollowRises : 1) * DT;
   }
   for (const d of [...s.shades]) if (canWork(d) && s.shades.includes(d)) shadeTick(s, L, d);
@@ -2142,13 +2151,19 @@ function spawnFoes(s, L) {
   const n = s.night;
   while (n.spawns.length && n.spawns[0].at <= s.t) {
     const sp = n.spawns.shift();
+    if (sp.great && !n.greatRose) {
+      n.greatRose = true;
+      say(s, `The last great tide rises: ${n.spawns.filter((x) => x.great).length + 1} Creepers at once, at both rifts. Hold the line until dawn.`, 'bad', 'great-tide');
+      cue(s, 'warn');
+    }
     if (sp.type === 'drowned') {
       riseDrowned(s, sp);
       continue;
     }
     const open = MAP.rifts.filter((r) => !n.wards.includes(r.id));
     let rift = open.find((r) => r.id === (sp.rift === 'undergate' ? sp.from : sp.rift)) || open[0] || null;
-    if (sp.type === 'creeper' && !sp.snuff && !sp.seep && sp.rift !== 'undergate') {
+    // The great tide rises at both rifts, each Creeper at its own: the whole of it at one stair was a funnel, not a set piece.
+    if (sp.type === 'creeper' && !sp.snuff && !sp.seep && !sp.great && sp.rift !== 'undergate') {
       const own = rift;
       rift = thinRift(s, L, open, rift);
       // The first Creeper of a tide (none for 10 seconds): which rift, and whether the line's fight chose it.
@@ -2388,6 +2403,10 @@ const LIT_COST = 1000;
 // Where a Creeper or Wraith at c would go now: out of the light, after a shade in the dark near it, to a
 // candle's edge (a candle hunter's nearest, or the light that bars its way up), up a dark way to a mirror,
 // or nowhere. Pure: plan() follows it, and the dusk preview (threats.js) shows it.
+// Round seven, phase 8 (hollowWardOnly): on a night the Hollow walks (the new moon, and the Long Night), a ward on
+// a stair is set against it and holds it alone; the rest of the Unlit climb past. A rift, the moat and the
+// Undergate stay sealed to them all, as ever.
+export const unlitWards = (s) => (s.tuning.hollowWardOnly && isNewMoon(s) ? s.night.wards.filter((w) => !geo(s).stairs.some((st) => st.id === w)) : s.night.wards);
 export function wayOf(s, L, c) {
   const T = s.tuning;
   const n = s.night;
@@ -2407,15 +2426,15 @@ export function wayOf(s, L, c) {
     for (let f = 0; f < L.spans.length; f++) {
       for (const [a, b, id] of L.spans[f]) for (const x of [a - GNAW_GAP, b + GNAW_GAP]) if (x >= MAP.LEFT && x <= MAP.RIGHT - 1 && !isLit(L, f, x)) edges.push({ f, x, candle: id });
     }
-    const to = edges.length && route(geo(s), L, c, edges, { creeper: true, wards: n.wards });
+    const to = edges.length && route(geo(s), L, c, edges, { creeper: true, wards: unlitWards(s) });
     if (to) return { mode: 'gnaw', gnaw: to.goal.candle, path: to.path };
   }
   if (c.type === 'wraith') return { mode: 'idle', path: [] };
-  const r = route(geo(s), L, c, mirrorGoals(geo(s)), { creeper: true, wards: n.wards });
+  const r = route(geo(s), L, c, mirrorGoals(geo(s)), { creeper: true, wards: unlitWards(s) });
   if (r) return { mode: 'climb', path: r.path };
   // Cut off: gnaw the light that bars the way. With goAround, the way that crosses the fewest lights, so a
   // light with a dark way around it is passed by; without, whatever light the shortest way meets first.
-  const open = route(geo(s), L, c, mirrorGoals(geo(s)), { creeper: true, ignoreLight: true, wards: n.wards, litCost: T.goAround ? LIT_COST : 0 });
+  const open = route(geo(s), L, c, mirrorGoals(geo(s)), { creeper: true, ignoreLight: true, wards: unlitWards(s), litCost: T.goAround ? LIT_COST : 0 });
   const cut = open && firstLight(L, c, open.path);
   if (!cut) return { mode: 'idle', path: [] };
   return { mode: 'gnaw', gnaw: cut.candle, path: cut.path };
@@ -2561,7 +2580,7 @@ function weeperTick(s, L, c) {
   if (--c.replan <= 0 && !c.climb) {
     c.replan = 10;
     const spots = weeperSpots(s, L);
-    const r = spots.length && route(geo(s), L, c, spots, { creeper: true, wards: n.wards });
+    const r = spots.length && route(geo(s), L, c, spots, { creeper: true, wards: unlitWards(s) });
     c.mode = r ? 'drift' : 'idle';
     c.path = r ? r.path : [];
   }
@@ -2586,7 +2605,7 @@ function mawTargets(s, L, m) {
   const G = geo(s);
   const n = s.night;
   const out = [];
-  const open = route(G, L, m, mirrorGoals(G), { creeper: true, ignoreLight: true, wards: n.wards, litCost: s.tuning.goAround ? LIT_COST : 0 });
+  const open = route(G, L, m, mirrorGoals(G), { creeper: true, ignoreLight: true, wards: unlitWards(s), litCost: s.tuning.goAround ? LIT_COST : 0 });
   const cut = open && firstLight(L, m, open.path);
   const candles = [cut && byId(n.candles, cut.candle), m.target?.kind === 'candle' && byId(n.candles, m.target.id)];
   for (const k of candles) if (k && !out.some((t) => t.id === k.id)) out.push({ kind: 'candle', id: k.id, f: k.f, x: k.x, worth: s.tuning.mawLine });
@@ -2621,7 +2640,7 @@ export function mawPick(s, L, m) {
   const G = geo(s);
   const all = [];
   for (const t of mawTargets(s, L, m)) {
-    const r = route(G, L, m, [{ f: t.f, x: t.x }], { creeper: true, ignoreLight: true, wards: s.night.wards });
+    const r = route(G, L, m, [{ f: t.f, x: t.x }], { creeper: true, ignoreLight: true, wards: unlitWards(s) });
     if (!r) continue;
     const guard = fightOnWay(s, m, r.path, t);
     all.push({ ...t, path: r.path, cost: r.cost, guard, score: t.worth / (1 + guard) });
@@ -2750,10 +2769,13 @@ function mawTick(s, L, m) {
 
 // The Hollow makes for the mirrors whatever the light, eating candles and draining shades as it goes.
 // A ward on a stair only holds it a while; only shades standing and fighting drive it back.
+// Round seven, phase 8 (hollowPinned): the Hollow held at a ward spends itself on the ward, eating no light and
+// draining no one while it batters; shades that come to it there strike it freely.
+export const pinned = (s, h) => !!(s.tuning.hollowPinned && h.batter && !h.path?.length);
 function hollowTick(s, L, h) {
   const T = s.tuning;
   const n = s.night;
-  if (!n.hush) {
+  if (!n.hush && !pinned(s, h)) {
     for (const d of s.shades) {
       if (canWork(d) && s.shades.includes(d) && !d.climb && d.f === h.f && Math.abs(d.x - h.x) <= 5) drainShade(s, d, T.hollowDrain * DT);
     }
@@ -2955,8 +2977,9 @@ function foeDown(s, f) {
   if (f.type === 'hollow') {
     keepMoment(s, 'hollow-down', f, 'The Hollow was driven back into the Deep.');
     n.stats.hollow = 'driven back';
-    gain(s, 'remembrance', s.tuning.hollowReward);
-    say(s, `The Hollow is driven back into the Deep. The keep will tell of it: +${s.tuning.hollowReward} remembrance.`, 'good', true);
+    const reward = hollowRewardOf(s);
+    gain(s, 'remembrance', reward);
+    say(s, `The Hollow is driven back into the Deep. The keep will tell of it: +${reward} remembrance.`, 'good', true);
     cue(s, 'hollow-down', f.f, f.x);
   }
 }
@@ -4438,6 +4461,12 @@ export const RULES_SINCE = [
   { key: 'lateRoomsFrom', old: 1, since: '2026-09-28', what: 'the Library and the Hall from summer (phase 4)' },
   { key: 'thinStair', old: 0, since: '2026-09-29', what: 'a tide goes for the thinner stair (phase 7)' },
   { key: 'lanternCost', old: 1, since: '2026-09-29', what: 'a lantern takes half a candle (phase 7)' },
+  { key: 'longNightCreepers', old: 1, since: '2026-09-29', what: 'the Long Night brings four in ten of a night\'s Creepers, now they climb past the Hollow\'s wards (phase 8)' },
+  { key: 'greatTide', old: 0, since: '2026-09-29', what: 'the Long Night ends in a last great tide (phase 8)' },
+  { key: 'hollowRewardYear', old: 0, since: '2026-09-29', what: 'driving the Hollow back is worth more each year (phase 8)' },
+  { key: 'hollowPinned', old: 0, since: '2026-09-29', what: 'the Hollow held at a ward eats no light and drains no one (phase 8)' },
+  { key: 'hollowWardOnly', old: 0, since: '2026-09-29', what: 'on the Hollow\'s nights a stair\'s ward holds only the Hollow (phase 8)' },
+  { key: 'newMoonTides', old: 0, since: '2026-09-29', what: 'the new moon\'s Creepers come in one tide more (phase 8)' },
 ];
 export function upgrade(g) {
   g.keep ??= { floors: FULL_KEEP.floors.map((fl) => fl.map((r) => ({ ...r }))) };

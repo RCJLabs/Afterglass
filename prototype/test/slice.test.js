@@ -438,7 +438,7 @@ test('Maws come one a night from night 3, but not on the new moon', () => {
 });
 
 test('the Hollow: wards hold it a while, it eats light, and at the Veil it takes one of the living', () => {
-  const s = newSeason(11, quiet);
+  const s = newSeason(11, { ...quiet, hollowPinned: 0 }); // held at a ward it stops feeding since phase 8 (moon.test.js)
   s.day = 7;
   s.night = null;
   toNight(s);

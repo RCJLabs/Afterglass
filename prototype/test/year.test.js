@@ -47,7 +47,7 @@ test("a day's work grows and shrinks with the day", () => {
   assert.ok(Math.abs(candlesInADay(4) / spring - T.seasonDay[3]) < 1e-6, 'winter');
 });
 
-test("winter's seventh night is the Long Night: twice as long, the Hollow and a Maw, more Creepers and one tide more", () => {
+test("winter's seventh night is the Long Night: longer, the Hollow and a Maw, its own share of Creepers, one tide more and a last great tide", () => {
   const s = newSeason(5, quiet);
   s.season = 4;
   s.day = T.seasonDays;
@@ -59,7 +59,8 @@ test("winter's seventh night is the Long Night: twice as long, the Hollow and a 
   assert.equal(count('hollow'), 1);
   assert.equal(count('maw'), Math.round(T.mawsPerNight));
   assert.equal(count('creeper'), Math.round((T.creepersBase + T.creepersPerNight * (T.seasonDays - 1)) * T.longNightCreepers * hard(s)));
-  assert.equal(n.tides.length, 2 + Math.floor(T.seasonDays / T.tideEvery));
+  assert.equal(n.tides.length, 2 + Math.floor(T.seasonDays / T.tideEvery) + (T.greatTide ? 1 : 0));
+  assert.equal(n.spawns.filter((x) => x.great).length, Math.round(count('creeper') * T.greatTide));
   if (s.dusk.step === 'crypt') ok(s, { type: 'wake' });
   ok(s, { type: 'startNight' });
   assert.ok(s.log.some((l) => /Night 7: the Long Night/.test(l.text)));

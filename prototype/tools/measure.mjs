@@ -3,7 +3,8 @@
 // switches are read when the autopilot loads), and prints the tables; with --readme it writes them into
 // prototype/README.md between their markers, so the tables there come from this file and nothing else.
 //
-//   node tools/measure.mjs [--seeds 200] [--only plans,verbs,night] [--jobs 4] [--readme]
+//   node tools/measure.mjs [--seeds 200] [--only plans,verbs,night,moon] [--jobs 4] [--readme]
+//   node tools/measure.mjs --only campaign [--seeds 200] [--readme]   (five years a keep, so not in the default)
 //
 // Every keep is played by the rules as they are, from the first spring: a plan's first year is its first four
 // seasons. Paired comparisons play the same seeds, so a switch's column says on how many seeds it did better
@@ -32,6 +33,7 @@ if (process.argv[2] === '--worker') {
     const s = newSeason(seed, job.tuning || {});
     let heard = 0;
     let dawn = null;
+    const calls = {}; // call-outs (alerts) each night, by season/day
     for (let guard = 0; guard < 2e7; guard++) {
       if (s.phase === 'over') break;
       if (s.phase === 'end') {
@@ -43,9 +45,18 @@ if (process.argv[2] === '--worker') {
         dawn = `${s.season}/${s.day}`;
         if (s.rite?.heard) heard++;
       }
+      const night = s.phase === 'night' ? `${s.season}/${s.day}` : null;
+      const al = s.alerts.length;
       autoStep(s, job.plan);
+      if (night) calls[night] = (calls[night] || 0) + Math.max(0, s.alerts.length - al);
+      if (s.alerts.length > 500) s.alerts.length = 0;
     }
     const E = s.seasons;
+    // Each night played through: which night of its season (the seventh is the new moon, and winter's the Long
+    // Night), the actions taken in it, its call-outs, the Unlit it brought, and the Hollow's end.
+    const acts = {};
+    for (const { at } of s.actions) if (at.phase === 'night') acts[`${at.season}/${at.day}`] = (acts[`${at.season}/${at.day}`] || 0) + 1;
+    const kindOf = (d) => (d.day < s.tuning.seasonDays ? `n${d.day}` : (d.season - 1) % 4 === 3 ? 'long' : 'moon');
     const count = (f) => s.actions.filter(({ a }) => f(a)).length;
     const rec = {
       seed,
@@ -60,6 +71,8 @@ if (process.argv[2] === '--worker') {
       broken: s.days.map((d) => d.night?.broken?.length ?? 0),
       ruined: s.days.map((d) => d.night?.ruined?.length ?? 0),
       hollow: E.filter((e) => !e.lost).map((e) => e.summary.hollow),
+      goals: s.campaign?.goals ? { ...s.campaign.goals } : null,
+      nights: [...s.days, ...(s.today?.night && !s.days.some((d) => d.season === s.season && d.day === s.day) ? [{ season: s.season, day: s.day, ...s.today }] : [])].filter((d) => d.night).map((d) => ({ k: kindOf(d), acts: acts[`${d.season}/${d.day}`] || 0, calls: calls[`${d.season}/${d.day}`] || 0, unlit: d.night.spawned || 0, hollow: d.night.hollow || null })),
       use: { hush: count((a) => a.type === 'hush' && a.on), bind: count((a) => a.type === 'rite' && a.choice === 'bind'), curfew: count((a) => a.type === 'decree' && a.id === 'curfew'), keeper: count((a) => a.type === 'takeGlass'), heard },
     };
     process.stdout.write(`${JSON.stringify(rec)}\n`);
@@ -69,9 +82,11 @@ if (process.argv[2] === '--worker') {
 
 /* ---------------------------------------------------------------- the runs */
 
+const { CHAPTERS } = await import('../src/slice/data.js');
+
 const SEEDS = Number(arg('seeds', 200));
 const JOBS = Number(arg('jobs', cpus().length));
-const ONLY = arg('only', 'plans,verbs,night').split(',');
+const ONLY = arg('only', 'plans,verbs,night,moon').split(',');
 const YEAR = 4;
 // The configurations: each plan's first year, and each verb's switch on the balanced plan, against the balanced
 // plan on the same seeds (The Keeper, which comes at a year's end, over two).
@@ -100,11 +115,22 @@ const NIGHT_ROWS = [
   { id: 'night:watch', plan: 'balanced', env: { AP_WATCH: '1' }, name: 'Balanced, set at dusk and then only watching (`AP_WATCH`)', vs: 'night:balanced', vsName: 'Balanced' },
   { id: 'night:human-relight', plan: 'human', env: {}, tuning: { autoRelight: 1 }, name: 'Human, with auto-relight (on in Gentle)', vs: 'night:human', vsName: 'Human' },
   { id: 'night:watch-relight', plan: 'balanced', env: { AP_WATCH: '1' }, tuning: { autoRelight: 1 }, name: 'Only watching, with auto-relight', vs: 'night:balanced', vsName: 'Balanced' },
+  // Round seven, phase 8: what meeting the Hollow at the line is worth, against warding it at the foot all night.
+  { id: 'night:nomeet', plan: 'balanced', env: { AP_MEETHOLLOW: 'off' }, name: 'Balanced, never meeting the Hollow (`AP_MEETHOLLOW=off`)', vs: 'night:balanced', vsName: 'Balanced' },
+  { id: 'night:human-nomeet', plan: 'human', env: { AP_MEETHOLLOW: 'off' }, name: 'Human, never meeting the Hollow', vs: 'night:human', vsName: 'Human' },
 ];
+// The new moon against the other nights (round seven, phase 8): each night of a season, what it asks of the
+// balanced and the human plans, from their first year (the plans' own runs, when those run too).
+const MOON_PLANS = [['balanced', 'Balanced'], ['human', 'Human']];
+// The campaign's chapters (round seven, phase 8): how often each year's goal is met, of the keeps that reach its
+// end, for the balanced and the human plans over the campaign's first four years.
+const CAMPAIGN_YEARS = 4;
 const configs = [];
 const ROWS = arg('rows', '').split(',').filter(Boolean); // --rows balanced,double: only those night rows
 if (ONLY.includes('night')) for (const r of NIGHT_ROWS.filter((r) => !ROWS.length || ROWS.includes(r.id.slice(6)))) configs.push({ id: r.id, plan: r.plan, seasons: YEAR, env: r.env, tuning: r.tuning });
 if (ONLY.includes('plans')) for (const plan of PLAN_ROWS) configs.push({ id: `plan:${plan}`, plan, seasons: YEAR, env: {} });
+if (ONLY.includes('campaign')) for (const [plan] of MOON_PLANS) configs.push({ id: `campaign:${plan}`, plan, seasons: 4 * CAMPAIGN_YEARS, env: {}, tuning: { campaign: 1 } });
+if (ONLY.includes('moon')) for (const [plan] of MOON_PLANS) if (!configs.some((c) => c.id === `plan:${plan}`)) configs.push({ id: `plan:${plan}`, plan, seasons: YEAR, env: {} });
 if (ONLY.includes('verbs')) {
   if (!ONLY.includes('plans')) configs.push({ id: 'plan:balanced', plan: 'balanced', seasons: YEAR, env: {} });
   configs.push({ id: 'plan:balanced:2y', plan: 'balanced', seasons: 2 * YEAR, env: {} });
@@ -211,6 +237,38 @@ function nightTable(R) {
   return lines.join('\n');
 }
 
+function moonTable(R) {
+  const NIGHTS = [...[1, 2, 3, 4, 5, 6].map((d) => [`n${d}`, `Night ${d}`]), ['moon', 'The new moon (spring to autumn)'], ['long', 'The Long Night']];
+  const plans = MOON_PLANS.filter(([p]) => R[`plan:${p}`]);
+  const of = (p, k) => R[`plan:${p}`].flatMap((x) => x.nights || []).filter((n) => n.k === k);
+  const lines = [`| Night | Unlit | ${plans.map(([, name]) => `${name}: actions / call-outs`).join(' | ')} |`, `|---|---|${plans.map(() => '---|').join('')}`];
+  for (const [k, label] of NIGHTS) {
+    const all = plans.length ? of(plans[0][0], k) : [];
+    lines.push(`| ${label} | ${avg(all.map((n) => n.unlit))} | ${plans.map(([p]) => `${avg(of(p, k).map((n) => n.acts))} / ${avg(of(p, k).map((n) => n.calls))}`).join(' | ')} |`);
+  }
+  const hollow = plans.map(([p, name]) => {
+    const h = R[`plan:${p}`].flatMap((x) => x.nights || []).filter((n) => n.hollow);
+    const c = (v) => h.filter((n) => n.hollow === v).length;
+    return `${name} ${c('driven back')} / ${c('crossed')} / ${c('withdrew')} of ${h.length}`;
+  });
+  const fin = plans.map(([p, name]) => `${name} ${R[`plan:${p}`].filter((x) => x.fin >= YEAR).length} of ${R[`plan:${p}`].length}`);
+  return `${lines.join('\n')}\n\nThe Hollow, on the nights it rose (driven back / crossed the Veil / withdrew at dawn): ${hollow.join('; ')}. First year finished: ${fin.join('; ')}.`;
+}
+
+function campaignTable(R) {
+  const plans = MOON_PLANS.filter(([p]) => R[`campaign:${p}`]);
+  const lines = [`| Year | Goal | ${plans.map(([, name]) => `${name}: met / judged`).join(' | ')} |`, `|---|---|${plans.map(() => '---|').join('')}`];
+  for (let k = 1; k <= CAMPAIGN_YEARS; k++) {
+    const C = CHAPTERS[k];
+    const cell = (p) => {
+      const rs = R[`campaign:${p}`].filter((x) => x.goals && k in x.goals);
+      return `${rs.filter((x) => x.goals[k]).length} / ${rs.length}`;
+    };
+    lines.push(`| ${k}: ${C.name} | ${C.goal.text} | ${plans.map(([p]) => cell(p)).join(' | ')} |`);
+  }
+  return lines.join('\n');
+}
+
 function humanLine(R) {
   const h = R['plan:human'];
   const b = bySeed(R['plan:balanced'] || []);
@@ -232,6 +290,8 @@ const blocks = {};
 if (ONLY.includes('plans')) blocks.plans = `${plansTable(R)}\n\n${humanLine(R)}\n\n${stamp}`;
 if (ONLY.includes('verbs')) blocks.verbs = `${verbsTable(R)}\n\n${stamp}`;
 if (ONLY.includes('night')) blocks.night = `${nightTable(R)}\n\n${stamp}`;
+if (ONLY.includes('moon')) blocks.moon = `${moonTable(R)}\n\n${stamp}`;
+if (ONLY.includes('campaign')) blocks.campaign = `${campaignTable(R)}\n\n${stamp}`;
 for (const [k, v] of Object.entries(blocks)) console.log(`\n== ${k}\n${v}`);
 if (process.argv.includes('--readme')) {
   let text = readFileSync(README, 'utf8');

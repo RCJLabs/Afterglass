@@ -77,7 +77,7 @@ export function threats(s) {
     }
     let rift = riftFor(n, sp);
     // A climber goes for the thinner stair as the line stands now (round seven, phase 7).
-    if (rift && !sp.snuff && !sp.seep) rift = thinRift(s, L, MAP.rifts.filter((r) => !n.wards.includes(r.id)), rift);
+    if (rift && !sp.snuff && !sp.seep && !sp.great) rift = thinRift(s, L, MAP.rifts.filter((r) => !n.wards.includes(r.id)), rift);
     if ((sp.seep && dark.length) || !rift) {
       seep++;
       continue;

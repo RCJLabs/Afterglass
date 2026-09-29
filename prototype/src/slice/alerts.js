@@ -22,13 +22,14 @@ export const ALERT_KINDS = {
   midsummer: 'midsummer: the eclipse is due today',
   caught: 'one of the Unlit has caught a shade or a sleepwalker',
   hollow: 'the Hollow rises',
+  'great-tide': "the Long Night's last great tide rises",
   maw: 'a Maw tears at a candle or breaks a room',
   crack: 'something reached a mirror and cracked the Veil',
   wraith: 'a shade has turned Wraith',
 };
 
 // What stops the clock (when the player lets alerts pause it).
-export const STOPS = new Set(['eclipse', 'caught', 'hollow', 'road', 'visitor', 'siege-camp', 'siege', 'gate', 'church-word', 'church', 'wraith', 'maw', 'fire', 'fire-spread', 'plague']);
+export const STOPS = new Set(['eclipse', 'caught', 'hollow', 'great-tide', 'road', 'visitor', 'siege-camp', 'siege', 'gate', 'church-word', 'church', 'wraith', 'maw', 'fire', 'fire-spread', 'plague']);
 // What the toast offers to open the phase panel for.
 export const OPENS = new Set(['eclipse', 'midsummer', 'road', 'siege-camp', 'siege', 'gate', 'breach', 'church-word', 'church', 'sick', 'plague', 'larder', 'arrival', 'visitor', 'fire']);
 // What flashes the Veil.

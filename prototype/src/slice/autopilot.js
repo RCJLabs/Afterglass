@@ -14,6 +14,7 @@
 import { nightTicks, hollowNeed, chapterOf, yearsEnd, bondedShade, postRoom, bareHalls, buildSpot, raiseCost, step, act, newSeason, ritePreview, crossingPreview, capacity, canWork, defense, funeralCap, choicesFor, jobCap, jobCount, eatRate, wardCost, livingTrait, shadeTrait, peopleIn, crowded, tradeOf, inGreatGlass, handsAt, seasonIndex, tributeOf, besieged, sallyOdds, embargoed, inquisition, crusadeDaysLeft, canAct, actOf, actCost, NEW_ROOMS, atTheGate, gatehouseOf, decreeOf, undergateMouth, roomReady } from './sim.js';
 import { DAY_ROOMS, MIRRORS, KINDS, MAP, TICKS_PER_SEC, VISITORS, STUDIES, CHAPTERS } from './data.js';
 import { geo, roomSpan, roomAt, roomsOf, lineSpots, lightMap, isLit } from './geo.js';
+import { STOPS } from './alerts.js';
 
 export const PLANS = ['balanced', 'keeper', 'mourner', 'double', 'idle', 'human'];
 
@@ -31,7 +32,18 @@ export const HUMAN = {
   lapse: envNum('AP_HUMANLAPSE', 0.5),
   lapseSecs: envNum('AP_HUMANLAPSESECS', 10),
   forecast: !!globalThis.process?.env?.AP_HUMANFORECAST, // reads the forecast after all (to measure what not reading it costs)
+  // The page stops the clock for raids, catches, the Hollow, the great tide and the like (Settings, on by default),
+  // and a person looks then, lapse or no lapse (round seven, phase 8). AP_HUMANNOPAUSE=1 plays as if it didn't.
+  pauses: !globalThis.process?.env?.AP_HUMANNOPAUSE,
 };
+// Whether something that stops the page's clock was called out since the plan last looked.
+const seenAlerts = new WeakMap();
+function newStop(s) {
+  const from = Math.min(seenAlerts.get(s) ?? 0, s.alerts.length);
+  seenAlerts.set(s, s.alerts.length);
+  for (let i = from; i < s.alerts.length; i++) if (STOPS.has(s.alerts[i].kind)) return true;
+  return false;
+}
 // AP_LAPSES=1 gives any plan the human plan's lapses (to compare Double with the human at a person's pace).
 const LAPSES = !!globalThis.process?.env?.AP_LAPSES;
 const lapsing = (plan) => plan === 'human' || LAPSES;
@@ -116,7 +128,33 @@ const LUREHOLLOW = !!globalThis.process?.env?.AP_LUREHOLLOW;
 const LANTERNMAW = !!globalThis.process?.env?.AP_LANTERNMAW;
 const MAWLINE = !!globalThis.process?.env?.AP_MAWLINE;
 const WATCH = !!globalThis.process?.env?.AP_WATCH;
+// Round seven, phase 8: meeting the Hollow. Rather than ward it at the foot of the keep, the reacting plans let it
+// climb to the line, hold it at the line's stair with a ward, and send up to three fighters to strike it there,
+// when the store can't hold it at the foot until dawn anyway, or when three fighters could cut it down in 15
+// seconds (need+weak:15, the default), and in a campaign's fourth year until it has been driven back once, the
+// chapter's goal. AP_MEETHOLLOW=1 always meets it, =need or =weak (weak:10 for 10 seconds) only then, and =off
+// never does, as before. Decided once, when it rises. Double never meets it.
+const MEETHOLLOW = globalThis.process?.env?.AP_MEETHOLLOW || 'need+weak:15';
+const meets = new WeakMap(); // night -> whether this night's Hollow is met at the line
+function meetHollow(s, h, plan) {
+  const n = s.night;
+  if (MEETHOLLOW === 'off' || plan === 'double') return false;
+  if (meets.has(n)) return meets.get(n);
+  const T = s.tuning;
+  const LINE = lineOf(s);
+  const off = s.shades.filter((d) => canWork(d) && fighter(d) >= 1 && d.memory > 50 && !LINE.some((st) => d.post.f === st.f && Math.abs(d.post.x - st.x) <= 3));
+  const dps = off.map((d) => fighter(d) * T.fightDps).sort((a, b) => b - a).slice(0, 3).reduce((a, b) => a + b, 0);
+  const modes = MEETHOLLOW.split(/[+,]/);
+  const weak = modes.find((m) => m.startsWith('weak'));
+  const secs = weak && weak.includes(':') ? Number(weak.split(':')[1]) : 10;
+  // A campaign's fourth year asks for it driven back once: until it has been, every one of its nights.
+  const goal = chapterOf(s) === 4 && !s.days.some((d) => d.night?.hollow === 'driven back' && Math.ceil(d.season / 4) === Math.ceil(s.season / 4));
+  const yes = modes.includes('1') || goal || (modes.includes('need') && s.res.essence < hollowNeed(s).essence) || (!!weak && h.max <= dps * secs);
+  meets.set(n, yes);
+  return yes;
+}
 const RUINCANDLE = !!globalThis.process?.env?.AP_RUINCANDLE;
+const NOBRACE = !!globalThis.process?.env?.AP_NOBRACE;
 // One part of the raid policy off at a time, to find what it costs.
 const NO = (k) => !!globalThis.process?.env?.[`AP_NO${k}`];
 // Candles kept back from pitch for the night.
@@ -790,9 +828,11 @@ function tendNight(s, plan) {
   const inRoom = (f, x) => n.candles.some((c) => c.f === f && roomAt(G, c.f, c.x) === roomAt(G, f, x) && c.wax > 15);
   const run = runners.get(s)?.night === n ? runners.get(s) : null;
   const out = new Set(run ? [...run.by.values(), ...run.home] : []);
+  // Before the Long Night's last great tide (phase 8), keep candles back for the line, a stair's worth each.
+  const keep = !NOBRACE && n.great && s.t < n.great ? 1 + LINE.length : 1;
   for (const d of s.shades.filter(canWork)) {
     const { f, x } = d.post;
-    if (!out.has(d.id) && f !== LINE[0].f && !inRoom(f, x) && s.res.candles > 1) doAct(s, { type: 'candle', f, x });
+    if (!out.has(d.id) && f !== LINE[0].f && !inRoom(f, x) && s.res.candles > keep) doAct(s, { type: 'candle', f, x });
   }
   // AP_HUSH: hush while shades stand in the dark with the Unlit close and no candle to spare; end it when none do.
   if (HUSH) {
@@ -837,7 +877,8 @@ function tendNight(s, plan) {
   // The tides, announced at dusk: from a few seconds before each until it has spent itself, a second fighter
   // from the rooms stands at each stair of the line; then they go back to work. (Double never moves anyone.)
   const home = homes.get(s);
-  if (plan !== 'double' && home && s.day < T.seasonDays) {
+  // (Not on the new moon, whose tides the Hollow's wards used to shut out, unless those wards now hold only it.)
+  if (plan !== 'double' && home && (s.day < T.seasonDays || T.hollowWardOnly)) {
     const at = (d, p) => d.post.f === p.f && Math.abs(d.post.x - p.x) <= 3;
     const onLine = (d) => LINE.some((st) => at(d, st));
     const busy = new Set();
@@ -860,7 +901,10 @@ function tendNight(s, plan) {
     // Round seven, phase 7: where a tide goes for the thinner stair, a second fighter set before it rises only
     // sends it to the other one. So hold one to a stair until it's up, then send help to the side it's climbing.
     const rising = T.thinStair ? n.foes.filter((u) => u.type === 'creeper' && u.temper === 'climb' && u.f <= LINE[0].f && !u.grabbed) : [];
-    if (T.thinStair && !NOTHIN) {
+    // The Long Night's last great tide (phase 8) is announced at dusk and on the clock: brace for it, a second
+    // fighter to each stair before it rises, as for every tide before the thin stair (AP_NOBRACE=1 doesn't).
+    const bracing = !NOBRACE && n.great && s.t >= n.great - 80 && s.t <= n.great + 400;
+    if (T.thinStair && !NOTHIN && !bracing) {
       if (rising.length) {
         const mid = MAP.W / 2;
         const left = rising.filter((u) => u.x < mid).length >= rising.length / 2;
@@ -874,7 +918,7 @@ function tendNight(s, plan) {
       } else {
         goHome();
       }
-    } else if (tide) {
+    } else if (tide || bracing) {
       for (const st of LINE) {
         if (s.shades.filter((d) => canWork(d) && at(d, st)).length >= 2) continue;
         // Only from the stair's own room: nobody crosses a dark floor, or climbs the tide's way, to get there.
@@ -901,7 +945,10 @@ function tendNight(s, plan) {
   if (LUREHOLLOW && h && T.hollowLure && T.lanterns) leadHollow(s, h);
   if (h && !h.climb) {
     const up = G.stairs.filter((st) => st.f === h.f && !n.wards.includes(st.id));
-    const goal = HOLLOWGOAL && chapterOf(s) === 4 && seasonIndex(s) === 0;
+    // AP_MEETHOLLOW: no ward below the line's floor, so it climbs to the line; there, a ward holds it at the stair
+    // while every fighter strikes it.
+    const meet = meetHollow(s, h, plan);
+    const goal = (HOLLOWGOAL && chapterOf(s) === 4 && seasonIndex(s) === 0) || (meet && h.f < G.veil - 1);
     if (!goal && h.f < G.veil && up.length && s.res.essence >= up.length * wardCost(s)) for (const st of up) doAct(s, { type: 'ward', target: st.id });
     else if (!goal && h.f < G.veil && up.length && T.wardDraw) {
       // Short of essence for every way up, the nearest first: it has to go round to the other, which is time.
@@ -911,6 +958,16 @@ function tendNight(s, plan) {
       for (const d of s.shades.filter((x) => canWork(x) && fighter(x) >= 1 && x.memory > 30 && !x.grabbedBy && !x.climb)) {
         if (d.f !== h.f || Math.abs(d.x - h.x) > 6) doAct(s, { type: 'move', id: d.id, f: h.f, x: h.x + (d.x < h.x ? -5.5 : 5.5) });
       }
+    } else if (meet && h.f === G.veil - 1 && h.batter) {
+      // Held at a stair of the line: up to three strong fighters off the line go to stand 5.5 from it, in reach
+      // and past its drain, once; the line's own stay at their stairs.
+      const onLine = (d) => LINE.some((st) => d.post.f === st.f && Math.abs(d.post.x - st.x) <= 3);
+      const near = s.shades.filter((d) => canWork(d) && d.f === h.f && Math.abs(d.x - h.x) <= 7 && !onLine(d));
+      const go = s.shades
+        .filter((x) => canWork(x) && !near.includes(x) && !onLine(x) && fighter(x) >= 1 && x.memory > 50 && !x.grabbedBy && !x.climb && mirrorGuard.get(s) !== x.id)
+        .sort((a, b) => fighter(b) * b.memory - fighter(a) * a.memory)
+        .slice(0, Math.max(0, 3 - near.length));
+      for (const d of go) doAct(s, { type: 'move', id: d.id, f: h.f, x: h.x + (d.x < h.x ? -5.5 : 5.5) });
     }
   }
 }
@@ -1009,16 +1066,17 @@ function sideBySide(s) {
 }
 export function autoStep(s, plan = 'balanced') {
   const way = plan === 'double' ? 'balanced' : plan; // how the dead are treated
+  const stopped = lapsing(plan) && HUMAN.pauses && newStop(s); // the clock stopped: a person looks now
   if (s.phase === 'day') {
     if (s.eclipse && plan !== 'idle' && ECLIPSE !== 'ignore') {
       if (metEclipse.get(s) !== s.eclipse) {
         metEclipse.set(s, s.eclipse);
         placeNight(s, plan);
         if (SIDE) sideBySide(s);
-      } else if (s.t % (lapsing(plan) ? HUMAN.every : 10) === 0) tendNight(s, plan);
+      } else if (s.t % (lapsing(plan) ? HUMAN.every : 10) === 0 || stopped) tendNight(s, plan);
     }
     if (s.t % 50 === 0 || (s.raid?.warned && s.raid.state === 'coming' && !s.raid.ward)) dayMoves(s);
-    if (s.raid && s.t % (lapsing(plan) ? HUMAN.raidEvery : 5) === 0) raidMoves(s);
+    if (s.raid && (s.t % (lapsing(plan) ? HUMAN.raidEvery : 5) === 0 || stopped)) raidMoves(s);
     if (s.visitors?.some((v) => v.here && !v.done)) visitorMoves(s, way);
     step(s);
   } else if (s.phase === 'dusk') {
@@ -1030,7 +1088,7 @@ export function autoStep(s, plan = 'balanced') {
     if (plan !== 'idle') placeNight(s, plan);
     doAct(s, { type: 'startNight' });
   } else if (s.phase === 'night') {
-    if (plan !== 'idle' && !WATCH && s.t % (lapsing(plan) ? HUMAN.every : 10) === 0 && !(lapsing(plan) && lapsed(s))) tendNight(s, plan);
+    if (plan !== 'idle' && !WATCH && ((s.t % (lapsing(plan) ? HUMAN.every : 10) === 0 && !(lapsing(plan) && lapsed(s))) || stopped)) tendNight(s, plan);
     step(s);
   } else if (s.phase === 'dawn') {
     rite(s, way);

@@ -18,6 +18,7 @@ const DEFAULT_OK = {
   ruinWork: 'read only for a ruined room, as dreadPerRuin',
   autoRelight: 'off by default, as every keep before it played; on only in a new Gentle keep, or by Custom rules',
   ruinLight: 'read only while a Maw ruins a room, as dreadPerRuin',
+  greatTideAt: 'read only for the great tide, and an old keep has greatTide 0',
 };
 
 test('every key in the numbers is decided for old keeps', () => {

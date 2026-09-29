@@ -128,6 +128,7 @@ export const TUNING = {
   hollowCracks: 1,
   hollowAt: 0.3,
   hollowReward: 3,
+  hollowRewardYear: 3, // remembrance more for driving the Hollow back, for each year of the keep after the first (phase 8)
   wardHold: 20, // seconds a ward on a stair holds the Hollow back once the store has no essence to draw on
   // While the Hollow batters a ward on a stair, the ward draws wardDraw essence a second to hold it, times as
   // much as the Hollow has grown year on year (and the campaign's Deep); Hollow-lore halves it. With the store
@@ -136,6 +137,13 @@ export const TUNING = {
   // a good part of a full store, most of it on the Long Night. 0.25 is what warding its stair again every
   // wardHold seconds cost before, so the first year costs what it did. 0 turns either off (as before).
   wardDraw: 0.25,
+  // Round seven, phase 8: on a night the Hollow walks, a ward on a stair holds only the Hollow, and the rifts'
+  // Creepers and Maws climb past it. 0 is as before: a stair's ward holds everything, so the Hollow's wards at the
+  // foot of the keep shut out the whole new moon's tides.
+  hollowWardOnly: 1,
+  // Round seven, phase 8: the Hollow held at a ward spends itself on the ward: while it batters, it eats no light
+  // and drains no shade, so shades can come to it and strike it. 0 is as before.
+  hollowPinned: 1,
   essenceCap: 100,
   // Maws, the round-three brutes: they walk through light to whatever is worth most for the least fight,
   // the candle holding the way up or a room where the living or the dead work, hitting any shade in their
@@ -174,7 +182,11 @@ export const TUNING = {
   drainPerSec: 4,
   creepersBase: 4,
   creepersPerNight: 2.2,
-  newMoonCreepers: 0.6, // the new moon brings the Hollow and fewer Creepers than the night before
+  // The new moon's Creepers, as a share of a night's. Since round seven's phase 8 they climb past the Hollow's wards;
+  // a full night's worth (1) cost the balanced plan 11 first years of 200 for little more to do, so it stays 0.6,
+  // and they come in newMoonTides tides more than the night before's: smaller tides, more moments to meet them.
+  newMoonCreepers: 0.6,
+  newMoonTides: 1,
   stragglers: 0.3, // the share that come alone; the rest come in tides
   tideEvery: 3, // one more tide every this many nights
   tideSpread: 0.08, // how long a tide takes to rise, as a share of the night
@@ -295,7 +307,13 @@ export const TUNING = {
   seasonDay: [1, 1.3, 1, 0.7],
   seasonNight: [1, 0.75, 1, 1.35],
   longNight: 1.5,
-  longNightCreepers: 1,
+  // Round seven, phase 8: 1 before, when the Hollow's wards at the foot shut the Long Night's Creepers out; now
+  // they climb past, and four in ten as many come. greatTide of them are held back for the last great tide, which
+  // rises at greatTideAt of the night, the other tides all before it (0 as before: none). Later in the night it
+  // cost more: at 0.85, 9 of the balanced plan's 200 first years against 0.55.
+  longNightCreepers: 0.4,
+  greatTide: 0.4,
+  greatTideAt: 0.55,
 
   // Each season its own trouble (round five). Summer's plague: when sickness comes to a crowded keep, it
   // takes one more for every plagueCrowd living beyond the beds. Autumn's siege: unless its day-2 raid was

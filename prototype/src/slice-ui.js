@@ -6,7 +6,7 @@ import { TICKS_PER_SEC, DAY_ROOMS, WORK_ROOMS, TWINS, KINDS, MIRRORS, CAUSES, MA
 import {
   newSeason, step, act, retune, playerTuning, jobCap, jobCount, nextSlot, ritePreview, crossingPreview, capacity, canWork, defense, roomPower, bear, priests, funeralCap, eatRate,
   dayTicks, nightTicks, isNewMoon, choicesFor, byId, isTwinnedLiving, isTwinnedShade, lastSeason, SAVE_VERSION, fmt, mirrorCap, bareHalls, tainPlace,
-  postRoom, wardCost, wardDrawOf, wardHoldOf, hollowNeed, yearRate, raidsAhead, shadeTrait, peopleIn, beds, tradeOf, inGreatGlass, handsAt, whispers, stepsThrough, perf,
+  postRoom, wardCost, wardDrawOf, wardHoldOf, hollowNeed, hollowRewardOf, pinned, yearRate, raidsAhead, shadeTrait, peopleIn, beds, tradeOf, inGreatGlass, handsAt, whispers, stepsThrough, perf,
   seasonIndex, seasonName, yearOf, dayLength, isLongNight, tributeOf, besieged, sallyOdds, plagueSeason, atGate, gateGuard,
   weatherOf, forecastOf, raining, foggy, drownedDue, keepDefaults, embargoed, inquisition, churchDaysLeft, crusadeDay, crusadeDaysLeft,
   actOf, actCost, canAct, acting, actText, omenText, nextMark, SKIP_LEAD, visitorBlock,
@@ -284,6 +284,7 @@ function markText(m) {
   return {
     sun: () => `the sun back at ${at}`,
     tide: () => `a tide of ${m.count} at ${at}`,
+    great: () => `the last great tide, ${m.count}, at ${at}`,
     maw: () => `a Maw at ${at}`,
     hollow: () => `the Hollow at ${at}`,
     drowned: () => `one of the Drowned at ${at}`,
@@ -895,7 +896,7 @@ function dayPanel() {
   const makes = (pw.hearth || 0) * DAY_ROOMS.hearth.rate * len;
   const eats = eatRate(s);
   const food = `<p class="note${makes + 1e-9 < eats ? ' bad' : ''}">Food ${floor1(s.res.food)}: the keep eats ${fmt(eats)} a day and the Hearth makes ${fmt(makes)}.</p>`;
-  const lunar = isLongNight(s) ? `Tonight is the Long Night: ${longTimes()} as long as a winter night, with the Hollow, a Maw and more of the Unlit. At dawn the year ends.` : moon > 0 ? `The ${T.year && seasonIndex(s) === 3 ? 'Long Night' : 'new moon'} is ${plural(moon, 'night')} off.` : 'Tonight is the new moon. The Hollow will rise.';
+  const lunar = isLongNight(s) ? `Tonight is the Long Night: ${longTimes()} as long as a winter night, with the Hollow, a Maw and more of the Unlit${s.night?.great ? `, and at ${hhmm(18 + (12 * s.night.great) / nightTicks(s))} a last great tide` : ''}. At dawn the year ends.` : moon > 0 ? `The ${T.year && seasonIndex(s) === 3 ? 'Long Night' : 'new moon'} is ${plural(moon, 'night')} off.` : 'Tonight is the new moon. The Hollow will rise.';
   // A raid today, or one on its way, is now; one expected on a later day is what's coming.
   const raid = raidCard();
   const raidNow = s.raid ? raid : '';
@@ -1083,7 +1084,7 @@ function duskPlace() {
   const creepers = n.spawns.filter((x) => x.type === 'creeper').length;
   const maws = n.spawns.filter((x) => x.type === 'maw').length;
   const wraiths = s.shades.filter((d) => d.kind === 'wraith');
-  return `<header class="ph-head"><h2>Dusk: set the night</h2><p>${plural(creepers, 'Creeper')} tonight, in tides around ${tidesText()}.${maws ? ` ${maws === 1 ? 'A Maw comes' : `${maws} Maws come`} with the last tide.` : ''}${isLongNight(s) ? ` <b>Tonight is the Long Night: ${longTimes()} as long as a winter night, with the Hollow and a Maw. At dawn the year ends.</b>` : isNewMoon(s) ? ' <b>Tonight is the new moon: the Hollow rises.</b>' : ''} Set candles, post the shades, and begin.</p></header>
+  return `<header class="ph-head"><h2>Dusk: set the night</h2><p>${plural(creepers, 'Creeper')} tonight, in tides around ${tidesText()}.${maws ? ` ${maws === 1 ? 'A Maw comes' : `${maws} Maws come`} with the ${n.great ? 'tide before the last' : 'last tide'}.` : ''}${isLongNight(s) ? ` <b>Tonight is the Long Night: ${longTimes()} as long as a winter night, with the Hollow and a Maw${n.great ? `, and at ${hhmm(18 + (12 * n.great) / nightTicks(s))} a last great tide of ${n.spawns.filter((x) => x.great).length}` : ''}. At dawn the year ends.</b>` : isNewMoon(s) ? ' <b>Tonight is the new moon: the Hollow rises.</b>' : ''} Set candles, post the shades, and begin.</p></header>
     ${s.lastDusk ? `<div class="row"><button class="btn" id="btn-last" data-act="as-last-night">As last night</button></div>${once('as-last', '<p class="hint">As last night puts the shades back at the posts last night began with, and lights its candles again where they stood, as far as the store goes. Wards you set again yourself.</p>', 'As last night')}` : ''}
     ${blackMirror()}
     ${nightTicks(s) > s.tuning.candleWax * TICKS_PER_SEC ? `<p class="note">Tonight lasts ${minsSecs(nightTicks(s) / TICKS_PER_SEC)} at 1×, and a candle burns ${minsSecs(s.tuning.candleWax)}. Keep candles back to relight before dawn.</p>` : ''}
@@ -1336,9 +1337,11 @@ function moonNote() {
   const cost = s.tuning.wardDraw
     ? `each draws on the essence while the Hollow batters it, about ${rate(need.rate)} a second now, and it has about ${Math.round(need.secs)} seconds before dawn: holding it off takes about ${Math.round(need.essence)} essence${cap}`
     : `warding all ${stairs} here would take ${fmt(stairs * wardCost(s))} essence`;
-  if (s.tuning.year && seasonIndex(s) === 3) return `<p class="note">${when} comes the Long Night, ${longTimes()} as long as a winter night, with the Hollow, a Maw and more of the Unlit. Put candles by for it.${stairs ? ` Wards on the stairs hold the Hollow back: ${cost}, and you have ${floor1(s.res.essence)}.` : ''}</p>`;
+  if (s.tuning.year && seasonIndex(s) === 3) return `<p class="note">${when} comes the Long Night, ${longTimes()} as long as a winter night, with the Hollow, a Maw and more of the Unlit${s.tuning.greatTide ? `, and at about ${hhmm(18 + 12 * s.tuning.greatTideAt)} a last great tide` : ''}. Put candles by for it.${stairs ? ` Wards on the stairs hold the Hollow back: ${cost}, and you have ${floor1(s.res.essence)}.` : ''}</p>`;
   if (!stairs) return `<p class="note">${when} comes the new moon, and the Hollow. This keep has no stairs yet, so only shades fighting it can stop it.</p>`;
-  return `<p class="note">${when} comes the new moon. Wards on the stairs are what hold the Hollow back: ${cost}, and you have ${floor1(s.res.essence)}. What you spend tonight won't be there then.</p>`;
+  const only = s.tuning.hollowWardOnly ? ' (they hold it alone: the tides climb past)' : '';
+  const fight = s.tuning.hollowPinned ? ` Or hold it high, at the line, and send fighters: held, it can't feed, and driving it back is worth ${hollowRewardOf(s)} remembrance.` : '';
+  return `<p class="note">${when} comes the new moon. Wards on the stairs are what hold the Hollow back${only}: ${cost}, and you have ${floor1(s.res.essence)}. What you spend tonight won't be there then.${fight}</p>`;
 }
 
 // What a Maw is after, in words.
@@ -1354,6 +1357,14 @@ function mawNote(m) {
   return `A Maw is ${m.gnawing ? 'breaking' : 'making for'} the ${roomName(tg.id, true)}.${left} Send a fighter to meet it there, with a candle, or pay ${T.dreadPerBroken} Dread at dawn.`;
 }
 
+// The Hollow tonight, in words: where it is, and (round seven, phase 8) whether a ward has it pinned, when
+// fighters sent to it can drive it back for what that's worth.
+function hollowNote(h) {
+  const where = esc(roomName(roomAt(K(), h.f, h.x) || 'chapel', true));
+  if (pinned(s, h)) return `The Hollow is held at a ward in the ${where}. Held, it eats no light and drains no one: fighters sent to it can drive it back, for ${hollowRewardOf(s)} remembrance.`;
+  return `The Hollow is in the ${where}${h.mode === 'batter' ? ', battering a ward' : ''}. It eats light and drains shades near it. Only shades fighting it drive it back${s.tuning.hollowPinned ? ', and a ward holding it keeps it from feeding while they do' : ''}.`;
+}
+
 function nightPanel() {
   const n = s.night;
   const caught = s.shades.filter((d) => d.grabbedBy);
@@ -1365,7 +1376,7 @@ function nightPanel() {
       <li><span>Through the Veil</span><b class="num">${n.stats.crossed}</b></li>
       <li><span>Essence sung, glass silvered</span><b class="num"><span data-live="t-ess">${fmt(n.stats.essence)}</span>, <span data-live="t-glass">${fmt(n.stats.glass)}</span></b></li>
     </ul>
-    ${h ? `<p class="note bad">The Hollow is in the ${esc(roomName(roomAt(K(), h.f, h.x) || 'chapel', true))}${h.mode === 'batter' ? ', battering a ward' : ''}. It eats light and drains shades near it. Only shades fighting it drive it back.</p>` : ''}
+    ${h ? `<p class="note bad">${hollowNote(h)}</p>` : ''}
     ${n.foes.filter((f) => f.type === 'maw').map((m) => `<p class="note bad">${esc(mawNote(m))}</p>`).join('')}
     ${n.broken.length ? `<p class="note">Broken tonight: the ${esc(listOf(n.broken.map((id) => roomName(id, true))))}. Nobody works there until dawn.</p>` : ''}
     ${caught.map((d) => {
@@ -3873,7 +3884,7 @@ const GUIDE = [
     id: 'moon', target: '#open-phase', pause: true,
     when: () => first() && s.phase === 'day' && isNewMoon(s),
     get text() {
-      return `Tonight is the new moon. The Hollow walks to the mirrors whatever the light. A ward on a stair holds it ${s.tuning.wardDraw ? 'while it draws on the essence, and a little while once the store is empty' : 'a while'}; shades fighting it drive it back. If it reaches the Veil, it takes one of the living.`;
+      return `Tonight is the new moon. The Hollow walks to the mirrors whatever the light. A ward on a stair holds it ${s.tuning.wardDraw ? 'while it draws on the essence, and a little while once the store is empty' : 'a while'}${s.tuning.hollowWardOnly ? ', but only it: the tides climb past' : ''}; shades fighting it drive it back${s.tuning.hollowPinned ? ', best while a ward holds it, when it can’t feed' : ''}. If it reaches the Veil, it takes one of the living.`;
     },
   },
 ];

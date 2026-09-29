@@ -7,8 +7,8 @@ import { newTutorial } from '../src/slice/tutorial.js';
 import { ALERT_KINDS, STOPS, OPENS, FLASHES, momentOf } from '../src/slice/alerts.js';
 
 // The page's patterns before kinds, kept here only to check the kinds against (and phase 7's ruined room, which
-// stops the clock as a Maw breaking one does).
-const OLD_STOPS = /^The eclipse\.|has caught|The Hollow rises|Raiders on the road|^At the gate:|The camp outside stirs|has made camp|The Host is at the gate|inspector|has turned Wraith|A Maw is tearing|A Maw is breaking|^Left alone, the Maw has ruined|^Fire in the|The fire spreads|^Plague/;
+// stops the clock as a Maw breaking one does, and phase 8's great tide, as the Hollow rising does).
+const OLD_STOPS = /^The eclipse\.|has caught|The Hollow rises|Raiders on the road|^At the gate:|The camp outside stirs|has made camp|The Host is at the gate|inspector|has turned Wraith|A Maw is tearing|A Maw is breaking|^Left alone, the Maw has ruined|^The last great tide rises|^Fire in the|The fire spreads|^Plague/;
 const OLD_OPENS = /^The eclipse\.|^Midsummer\.|Raiders on the road|The camp outside stirs|has made camp|The Host is at the gate|The gate gave way|inspector|fallen sick|larder is empty|arrives at the gate|^At the gate:|^Fire in the/;
 const OLD_FLASH = /slipped through the Veil|tore through the Veil/;
 // Where the words missed: the crusade on the road and at the gate is a raid, and now pauses and opens as one.
