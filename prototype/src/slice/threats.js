@@ -4,7 +4,7 @@
 // starts, candles burn down and shades move, so it can still turn out otherwise. Tomorrow's raid is rolled
 // when the day begins, so the mirror shows its range.
 
-import { thinRift, wayOf, preyNear, mawPick, defense, byId, nightTicks, isNewMoon, weeperRooms, weeperSpots, raidStrength, foggy, gatehouseOf, undergateMouth } from './sim.js';
+import { thinRift, wayOf, preyNear, mawPick, defense, musterGain, byId, nightTicks, isNewMoon, weeperRooms, weeperSpots, raidStrength, foggy, gatehouseOf, undergateMouth } from './sim.js';
 import { MAP } from './data.js';
 import { geo, lightMap, darkRooms, DEEP_FLOOR, route, mirrorGoals, isLit } from './geo.js';
 
@@ -118,7 +118,7 @@ export function threats(s) {
   const mid = base ? raidStrength(s, base) * (s.raidEdge || 1) : 0;
   const counted = s.raid && (s.raid.state === 'coming' || s.raid.state === 'assault') && !s.raid.crusade;
   const raid = base
-    ? { day: s.day + 1, lo: Math.max(2, mid - T.raidSpread), hi: Math.max(2, mid + T.raidSpread), defense: defense(s) - (s.raid?.ward || 0) - (s.watchBonus || 0) - (s.gateHelp || 0) + (counted ? 0 : s.riders || 0) }
+    ? { day: s.day + 1, lo: Math.max(2, mid - T.raidSpread), hi: Math.max(2, mid + T.raidSpread), defense: defense(s) + musterGain(s) - (s.raid?.ward || 0) - (s.watchBonus || 0) - (s.gateHelp || 0) + (counted ? 0 : s.riders || 0) } // guards posted count in full: they'll have taken their places by then
     : null;
 
   // The Weepers, the night after a death: how many, the room they make for, and whether it has dark to weep in.

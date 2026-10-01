@@ -362,7 +362,7 @@ function emergencies() {
   if (r?.state === 'assault') out.push('assault');
   for (const f of s.fires || []) out.push(`fire:${f.room}`);
   for (const v of (s.tuning.visitors && s.visitors) || []) if (v.here && !v.done) out.push(`visit:${v.id}`);
-  if (r?.state === 'coming' && r.warned && defense(s) + 1e-9 < r.strength) out.push('road');
+  if (r?.state === 'coming' && r.warned && defense(s) + musterGain(s) + 1e-9 < r.strength) out.push('road');
   return out;
 }
 function stripHTML() {
@@ -398,7 +398,7 @@ function stripHTML() {
       <div class="row eacts"><button class="btn sm primary" id="e-answer" data-act="strip-open" data-card="visit">Answer</button>
         <button class="btn sm" id="e-last" data-act="visitor" data-id="${v.id}" data-answer="${last.id}"${visitorBlock(s, v, last.id) ? ' disabled' : ''}>${esc(last.text)}</button></div>`;
   } else {
-    body = `${head(`<b>${r.crusade ? 'The crusade is on the road.' : 'Raiders on the road.'}</b> At the gate about ${hhmm(6 + (12 * r.hitAt) / dayTicks(s))}: strength ${fmt(r.strength)} against your defense <span data-live="defense">${fmt(defense(s))}</span>.${more}`)}
+    body = `${head(`<b>${r.crusade ? 'The crusade is on the road.' : 'Raiders on the road.'}</b> At the gate about ${hhmm(6 + (12 * r.hitAt) / dayTicks(s))}: strength ${fmt(r.strength)} against your defense <span data-live="defense">${fmt(defense(s))}</span>${musterGain(s) > 0.05 ? `, ${fmt(defense(s) + musterGain(s))} once the guards posted have taken their places` : ''}.${more}`)}
       <div class="row eacts">${r.ward ? '' : `<button class="btn sm primary" id="e-wardgate" data-act="wardgate"${s.res.essence + 1e-9 < T.wardGateCost ? ' disabled' : ''}>Ward the gate: ${T.wardGateCost} essence</button>`}
         <button class="btn sm" id="e-people" data-act="sheet" data-sheet="people">Guards, in People</button></div>`;
   }
@@ -431,7 +431,7 @@ function skyHUD() {
 // What needs the player now, for a dot on the panel button.
 function attention() {
   const r = s.raid;
-  if (s.phase === 'day') return !!((r && r.warned && r.state === 'coming' && defense(s) < r.strength) || (s.inspection && !s.inspection.done && s.inspection.day === s.day) || s.hungry || s.visitors?.some((v) => v.here && !v.done));
+  if (s.phase === 'day') return !!((r && r.warned && r.state === 'coming' && defense(s) + musterGain(s) < r.strength) || (s.inspection && !s.inspection.done && s.inspection.day === s.day) || s.hungry || s.visitors?.some((v) => v.here && !v.done));
   if (s.phase === 'dusk') return s.dusk.step === 'crypt';
   return s.phase === 'dawn' || s.phase === 'end' || s.phase === 'over';
 }

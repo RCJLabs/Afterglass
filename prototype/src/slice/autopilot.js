@@ -348,7 +348,7 @@ function raidMoves(s) {
   const hands = s.living.filter((p) => p.job !== 'barracks' && !p.fighting && !p.walls && !(p.sick > 0) && p.age !== 'child').length;
   const pitchable = (c) => Math.max(0, Math.floor((c - PITCH_KEEP) / T.raidPitchCost)) * T.raidPitch;
   if (r.state === 'coming' && r.warned) {
-    const best = defense(s) + (r.ward ? 0 : s.res.essence >= T.wardGateCost ? T.wardGateDefense : 0) + hands * T.raidBellDefense + pitchable(s.res.candles);
+    const best = defense(s) + musterGain(s) + (r.ward ? 0 : s.res.essence >= T.wardGateCost ? T.wardGateDefense : 0) + hands * T.raidBellDefense + pitchable(s.res.candles);
     if (best + EPS < r.strength) {
       const t = tributeOf(s);
       if (TRIBUTE && s.res.food >= t.food + eatRate(s) && s.res.candles >= t.candles + PITCH_KEEP) doAct(s, { type: 'payOff' });
@@ -379,7 +379,7 @@ function deadByDay(s) {
   for (const d of s.shades) if (d.byDay && d.memory - T.stepFade < DAY_KEEP) doAct(s, { type: 'byDay', id: d.id, how: null });
   if (STEP) {
     const r = s.raid;
-    const rooms = [r && r.state === 'coming' && defense(s) < r.strength ? 'barracks' : null, s.res.candles < 10 ? 'chandlery' : null, 'chapel', 'glazier', 'hearth'].filter(Boolean);
+    const rooms = [r && r.state === 'coming' && defense(s) + musterGain(s) < r.strength ? 'barracks' : null, s.res.candles < 10 ? 'chandlery' : null, 'chapel', 'glazier', 'hearth'].filter(Boolean);
     for (const d of s.shades.filter((x) => canWork(x) && inGreatGlass(s, x) && !x.byDay && x.memory - T.stepFade >= DAY_KEEP)) {
       const room = rooms.find((k) => jobCap(s, k) > handsAt(s, k));
       if (room) doAct(s, { type: 'byDay', id: d.id, how: 'step', room });
@@ -523,7 +523,7 @@ function visitorAnswer(s, v, plan) {
     case 'grain': return food < 1.5 * larder && s.res.glass >= 4 ? 'buy' : 'no';
     case 'mason': return !nextBuild(s) || s.res.stone >= T.roomStone ? 'no' : kind('glass', 2) ? 'glass' : spare(4) ? 'hire' : 'no';
     case 'mirrors': return capacity(s).free > 1 ? 'no' : kind('glass', 4) ? 'glass' : spare(8) ? 'buy' : 'no';
-    case 'pilgrims': return spare(0) || (r?.state === 'coming' && defense(s) < r.strength) ? 'take' : 'no';
+    case 'pilgrims': return spare(0) || (r?.state === 'coming' && defense(s) + musterGain(s) < r.strength) ? 'take' : 'no';
     case 'refugees': return spare(9) ? 'take' : 'no'; // 6 to feed them now, and three more mouths
     case 'graverobber': return plan === 'mourner' ? 'go' : 'hang'; // the mourner has funerals enough to give
     case 'knight': {
@@ -534,7 +534,7 @@ function visitorAnswer(s, v, plan) {
     case 'plague': return spare(2) && jobCap(s, 'infirmary') > 0 ? 'take' : 'no';
     case 'wedding': return spare(4) ? 'feast' : 'no';
     case 'bard': return spare(2) ? 'sing' : 'no';
-    case 'deserter': return spare(1) && (!s.raid || s.raid.state !== 'coming' || defense(s) + 3 >= 1.2 * s.raid.strength) ? 'take' : 'no';
+    case 'deserter': return spare(1) && (!s.raid || s.raid.state !== 'coming' || defense(s) + musterGain(s) + 3 >= 1.2 * s.raid.strength) ? 'take' : 'no';
     case 'almoner': return s.dread < ((T.churchLedger || DREADLOW) && !LEDGERBLIND ? 1 : 2) ? 'no' : kind('pray', 2) ? 'pray' : spare(5) ? 'give' : 'no';
     case 'witch': return s.dread >= 3 ? 'church' : s.res.candles < candleTarget(s) && s.res.glass >= 3 + MIRRORS.hand.glass ? 'charm' : 'no';
     case 'physician': return s.res.glass >= 4 && (s.living.filter((p) => p.sick > 0).length >= 2 || !jobCount(s, 'infirmary')) ? 'pay' : 'no';
