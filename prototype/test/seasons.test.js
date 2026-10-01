@@ -66,6 +66,9 @@ test("autumn's siege: the morning after its day-2 raid the Host camps; the Yard 
 test('a sally that wins breaks the camp and calls off its assault; one that loses leaves it; each guard risks the chase', () => {
   const won = reach(3, 3, 3, { sallyOdds: 0.01, raidPursueRisk: 0 }, besieged);
   assert.ok(besieged(won));
+  // A guard at the post, mustered: only those who go out count (guardsGoOut).
+  const guard = won.living.find((p) => p.job === 'barracks' && !(p.sick > 0)) || won.living.find((p) => !(p.sick > 0));
+  Object.assign(guard, { job: 'barracks', muster: 1 });
   assert.equal(sallyOdds(won), 0.9);
   // Force the win: odds 0.9 still leaves a roll, so try until it takes, from the same state each time.
   const snap = JSON.stringify(won);

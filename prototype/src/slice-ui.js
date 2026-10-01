@@ -12,6 +12,7 @@ import {
   actOf, actCost, canAct, acting, actText, omenText, nextMark, SKIP_LEAD, visitorBlock,
   raiseCost, buildSpot, NEW_ROOMS, learned, decreeOf, gatehouseOf, undergateOpen, laddersDue, actsFor, mirrorGlass, pitchOf,
   eclipseDue, eclipseSpan, bondedShade, chapterOf, campaignOn, chapterAgain, boonNow, arrived, roomReady, LATE_ROOMS,
+  isGuard, musterOf, musterGain, armsCap, armedDefense, pursueShare, ledgerDread, judgedDread,
 } from './slice/sim.js';
 import { geo, feet, floorAtY, roomAt, typeAt, typeOf, roomSpan, roomsOf, lightMap, isLit, unitAt, DEEP_FLOOR, lineSpots as lineOf, guardLit, MAX_FLOORS } from './slice/geo.js';
 import { drawScene, drawMoment } from './slice/draw.js';
@@ -340,6 +341,7 @@ function hudHTML() {
     ${res('essence', 'Essence', floor1(s.res.essence), T.essenceCap)}
     ${res('rem', 'Remembrance', floor1(s.res.remembrance))}
     ${s.res.quicksilver ? res('qs', 'Quicksilver', floor1(s.res.quicksilver)) : ''}
+    ${T.forgeArms && (s.arms >= 1 || jobCap(s, 'forge') > 0) ? res('arms', 'Arms', floor1(s.arms || 0), armsCap(s)) : ''}
     <div class="rest"><dt>Living</dt><dd><b>${s.living.length}</b></dd></div>
     <div class="rest"><dt>Shades</dt><dd><b>${cap.used}</b><span class="cap">/${cap.cap}</span></dd></div>
     ${skyHUD()}
@@ -565,13 +567,15 @@ function raidCard() {
     const k = r.loot;
     const guards = s.living.filter((p) => p.job === 'barracks' && !(p.sick > 0)).length;
     const chase = !k || !T.raidFight ? '' : r.pursued ? '<p>The guards went after them.</p>'
-      : `<p>They carried off ${k.food} food, ${k.glass} glass and ${k.candles} candles. Guards sent after them would take back ${Math.round(100 * T.raidRecover)}% of it, and each has a ${Math.round(100 * T.raidPursueRisk)}% chance of not coming back.</p>
+      : `<p>They carried off ${k.food} food, ${k.glass} glass and ${k.candles} candles. Guards sent after them would take back ${Math.round(100 * pursueShare(s))}% of it${T.guardsGoOut ? ' (the more guards, and the better mustered and armed, the more)' : ''}, and each has a ${Math.round(100 * T.raidPursueRisk)}% chance of not coming back.</p>
         <div class="row"><button class="btn sm" id="btn-pursue" data-act="pursue"${guards ? '' : ' disabled'}>${guards ? `Go after them (${plural(guards, 'guard')})` : 'No guards to send'}</button></div>`;
     return `<div class="card warn"><h3>The raid</h3><p>The raiders broke through: strength ${fmt(r.strength)} against defense ${fmt(s.today.raid?.defense ?? def)}.</p>${chase}</div>`;
   }
   if (r.state === 'assault') return assaultCard(r);
-  if (!r.warned) return `<div class="card"><h3>A raid today</h3><p>Scouts expect the Ashen Host before noon. Defense now <b class="num">${fmt(def)}</b>${s.watchBonus ? `, ${fmt(s.watchBonus)} of it from last night's Watch` : ''}.</p>${once('guards', `<p class="note">Guards give ${DAY_ROOMS.barracks.rate} defense each, and the Watch of the Dead adds what it kept the night before.</p>`, 'Defense', 'raids')}</div>`;
-  const short = def + 1e-9 < r.strength;
+  const more = musterGain(s);
+  const rising = more > 0.05 ? `, ${fmt(def + more)} once the guards posted have taken their places` : '';
+  if (!r.warned) return `<div class="card"><h3>A raid today</h3><p>Scouts expect the Ashen Host before noon. Defense now <b class="num">${fmt(def)}</b>${s.watchBonus ? `, ${fmt(s.watchBonus)} of it from last night's Watch` : ''}${rising}.</p>${once('guards', `<p class="note">Guards give ${DAY_ROOMS.barracks.rate} defense each${T.muster ? `, in full once they've stood ${fmt(T.musterHours)} hours at their post: post them before the Host comes, and their work stops while they stand there` : ''}${T.forgeArms ? `, and ${fmt(T.armDefense)} more with arms from the Forge` : ''}. The Watch of the Dead adds what it kept the night before.</p>`, 'Defense', 'raids')}</div>`;
+  const short = def + more + 1e-9 < r.strength;
   const t = tributeOf(s);
   const canPay = s.res.food + 1e-9 >= t.food && s.res.candles + 1e-9 >= t.candles;
   const fight = r.crusade ? `<p class="note">The crusade takes no tribute and wants none of the stores: it's the mirrors it's after. At the gate you'll have pitch (${T.raidPitchCost} candles for −${fmt(T.raidPitch)}), stone to shore it up, and the bell.</p>`
@@ -579,7 +583,7 @@ function raidCard() {
       <button class="btn sm" id="btn-bar" data-act="bar-stores"${r.barred ? ' disabled' : ''}>${r.barred ? 'Stores barred' : 'Bar the stores'}</button></div>
     ${once('raid-choices', `<p class="note">Paid, they turn back${raidsAhead(s) ? `, but the season's raids after it come ×${mult(T.raidEmbolden)} harder` : T.emboldenCarries ? `, but next season's raids come ×${mult(T.raidEmbolden)} harder` : ''}. Barred, the Hearth, the Chandlery and the Glazier stop while the Host is at the gate, and a breach carries off half as much. At the gate you'll have pitch (${T.raidPitchCost} candles for −${fmt(T.raidPitch)}), stone to shore it up, and the bell.</p>`, 'Paying and barring', 'raids')}`;
   return `<div class="card raid-road ${short ? 'warn' : 'ok'}"><h3>${r.crusade ? 'The crusade on the road' : r.camp ? 'The camp comes at the gate' : 'Raiders on the road'}</h3>
-    <p>${r.count} ${r.crusade ? 'knights of the Lantern' : 'raiders'}, strength <b class="num">${fmt(r.strength)}</b>, at the gate about ${hhmm(6 + (12 * r.hitAt) / dayTicks(s))}. Your defense: <b class="num" data-live="defense">${fmt(def)}</b>. ${short ? 'Not enough. Move people to the Barracks or ward the gate.' : 'Enough, if nothing changes.'}</p>${laddersDue(s) ? ladderNote(r) : ''}
+    <p>${r.count} ${r.crusade ? 'knights of the Lantern' : 'raiders'}, strength <b class="num">${fmt(r.strength)}</b>, at the gate about ${hhmm(6 + (12 * r.hitAt) / dayTicks(s))}. Your defense: <b class="num" data-live="defense">${fmt(def)}</b>${rising}. ${short ? (T.muster ? `Not enough. Post guards now: each takes ${fmt(T.musterHours)} hours at the post to count in full. Or ward the gate.` : 'Not enough. Move people to the Barracks or ward the gate.') : 'Enough, if nothing changes.'}</p>${laddersDue(s) ? ladderNote(r) : ''}
     <div class="row"><button class="btn sm" id="btn-wardgate" data-act="wardgate"${r.ward || s.res.essence + 1e-9 < s.tuning.wardGateCost ? ' disabled' : ''}>${r.ward ? `Gate warded, +${r.ward}` : `Ward the gate: +${s.tuning.wardGateDefense} for ${s.tuning.wardGateCost} essence`}</button></div>${fight}</div>`;
 }
 const share = (x) => (x === 0.5 ? 'half' : `${mult(x)} times`);
@@ -616,7 +620,7 @@ function siegeCard() {
   const left = g.until - s.day + 1;
   return `<div class="card warn siege"><h3>The siege</h3><p>The Ashen Host is camped outside the walls, strength ${fmt(g.strength)}, ${left === 1 ? 'until tomorrow' : `for ${left} more days`}. The gate is shut: nobody quarries in the Yard, and no one new can come.</p>
     <div class="row"><button class="btn sm" id="btn-sally" data-act="sally"${guards && s.raid?.state !== 'assault' ? '' : ' disabled'}>${guards ? `Sally out: ${plural(guards, 'guard')}, about ${Math.round(100 * sallyOdds(s))}% to break the camp` : 'No guards to sally out'}</button></div>
-    <p class="note">Broken, the Host scatters and the gate opens${s.raid?.camp && s.raid.state === 'coming' ? ", and today's assault is off" : ''}. Held, they fall back behind it. Either way, each guard has a ${Math.round(100 * T.raidPursueRisk)}% chance of not coming back. More guards, and the watch of the dead, make better odds.</p></div>`;
+    <p class="note">Broken, the Host scatters and the gate opens${s.raid?.camp && s.raid.state === 'coming' ? ", and today's assault is off" : ''}. Held, they fall back behind it. Either way, each guard has a ${Math.round(100 * T.raidPursueRisk)}% chance of not coming back. ${T.guardsGoOut ? 'Only the guards who go out count, as far as they have mustered, and their arms: more guards make better odds.' : 'More guards, and the watch of the dead, make better odds.'}</p></div>`;
 }
 // The Host at the gate: the gate's bar, the fight in numbers, and what can turn it.
 function assaultText() {
@@ -626,7 +630,8 @@ function assaultText() {
   const giving = r.host > def + 1e-9;
   const L = r.ladders;
   const ladders = L && (L.up || L.down) ? ` Ladders: ${L.down} thrown down, ${L.up} standing.` : '';
-  return `${r.crusade ? 'The crusade' : 'The Host'} ${fmt(r.host)} against your defense ${fmt(def)}. The gate is ${Math.round(100 * Math.max(0, r.gate))}% whole and ${giving ? 'giving' : 'holding'}; they give up in ${Math.ceil(r.left / TICKS_PER_SEC)} s.${ladders}`;
+  const more = musterGain(s);
+  return `${r.crusade ? 'The crusade' : 'The Host'} ${fmt(r.host)} against your defense ${fmt(def)}${more > 0.05 ? ` (${fmt(def + more)} as the guards posted take their places)` : ''}. The gate is ${Math.round(100 * Math.max(0, r.gate))}% whole and ${giving ? 'giving' : 'holding'}; they give up in ${Math.ceil(r.left / TICKS_PER_SEC)} s.${ladders}`;
 }
 function assaultCard(r) {
   const T = s.tuning;
@@ -644,15 +649,17 @@ function assaultCard(r) {
 function inspectionCard() {
   const I = s.inspection;
   const T = s.tuning;
-  const verdicts = once('verdicts', '<p class="note">Dread 0–1: blessed (candles and remembrance). 2–3: warned, with a tithe. 4–5: censured, and the fullest mirror is taken with its shades.</p>', "The Church's verdicts", 'church');
+  const ledger = !!T.churchLedger;
+  const verdicts = once('verdicts', `<p class="note">${ledger ? "The Church judges the Dread of every day since it last looked, as it stood at each dusk and at noon on the day, averaged and rounded. " : ''}Dread 0–1: blessed (candles and remembrance). 2–3: warned, with a tithe. 4–5: censured, and the fullest mirror is taken with its shades.</p>`, "The Church's verdicts", 'church');
+  const sofar = () => `Its ledger so far: Dread ${fmt(ledgerDread(s))} on average over ${plural((s.churchLog || []).length + 1, 'day')}, so <b>${judgedDread(s)}</b>.`;
   if (I && !I.done) {
     const when = I.day === s.day ? 'today at noon' : 'tomorrow at noon';
-    return `<div class="card ${s.dread >= 4 ? 'warn' : ''}"><h3>The Lantern Church</h3><p>${I.reason === 'inquisition' ? 'The inquisitor inspects' : 'An inspector comes'} ${when} and judges the keep by its Dread, now <b>${s.dread}</b>.</p>${verdicts}
+    return `<div class="card ${judgedDread(s) >= 4 ? 'warn' : ''}"><h3>The Lantern Church</h3><p>${I.reason === 'inquisition' ? 'The inquisitor inspects' : 'An inspector comes'} ${when} and judges the keep by its Dread${ledger ? `, now ${s.dread}. ${sofar()}` : `, now <b>${s.dread}</b>.`}</p>${verdicts}
       ${s.phase === 'day' ? `<div class="row"><button class="btn sm" id="btn-vigil" data-act="vigil"${s.dread <= 0 || s.res.remembrance + 1e-9 < T.vigilCost ? ' disabled' : ''}>Keep a vigil: Dread −1 for ${T.vigilCost} remembrance</button></div>` : ''}</div>`;
   }
   const done = s.inspections.filter((x) => x.season === s.season && x.day === s.day).pop();
-  if (done) return `<div class="card ${done.verdict === 'blessed' ? 'ok' : 'warn'}"><h3>The Lantern Church</h3><p>The inspector's verdict: <b>${done.verdict}</b> (Dread ${done.dread}).</p></div>`;
-  if (s.phase === 'day' && s.day < T.firstInspection && !crusadeDay(s)) return `<p class="note">The Lantern Church inspects on day ${T.firstInspection}.</p>${verdicts}`;
+  if (done) return `<div class="card ${done.verdict === 'blessed' ? 'ok' : 'warn'}"><h3>The Lantern Church</h3><p>The inspector's verdict: <b>${done.verdict}</b> (Dread ${done.dread}${ledger ? ' on its ledger' : ''}).</p></div>`;
+  if (s.phase === 'day' && s.day < T.firstInspection && !crusadeDay(s)) return `<p class="note">The Lantern Church inspects on day ${T.firstInspection}.${ledger ? ` ${sofar()}` : ''}</p>${verdicts}`;
   return '';
 }
 
@@ -694,6 +701,7 @@ function visitorCards() {
     .map((v) => {
       const V = VISITORS[v.kind];
       const rows = V.answers
+        .filter((A) => !A.rule || s.tuning[A.rule])
         .map((A) => {
           const why = visitorBlock(s, v, A.id);
           const terms = answerTerms(A);
@@ -890,13 +898,14 @@ function dayPanel() {
     const cap = jobCap(s, id);
     const k = s.shades.filter((d) => stepsThrough(s, d) && d.byDay.room === id).length;
     const w = s.shades.find((d) => whispers(s, d) && tradeOf(s, d) === id);
-    const out = id === 'infirmary' ? `heals ${fmt(pw[id] * R.rate * len)}/day` : R.out === 'defense' ? `defense ${fmt(pw[id] * R.rate)}` : `${fmt(pw[id] * R.rate * len)} ${R.out}/day`;
+    const out = id === 'infirmary' ? `heals ${fmt(pw[id] * R.rate * len)}/day` : id === 'forge' && T.forgeArms ? `${fmt(pw[id] * R.rate * len)} arms/day` : R.out === 'defense' ? `defense ${fmt(pw[id] * R.rate)}` : `${fmt(pw[id] * R.rate * len)} ${R.out}/day`;
     return `<li><span>${R.name} <small class="muted">${plural(n, R.role)}${k ? ` and ${plural(k, 'shade')},` : ''}${Number.isFinite(cap) ? ` of ${cap}` : ''}${w ? `, ${esc(w.name)} whispering` : ''}</small></span><span class="num">${out}</span></li>`;
   }).join('');
   // Food in and out, a day at a time (round seven: rates, not only stores).
   const makes = (pw.hearth || 0) * DAY_ROOMS.hearth.rate * len;
   const eats = eatRate(s);
   const food = `<p class="note${makes + 1e-9 < eats ? ' bad' : ''}">Food ${floor1(s.res.food)}: the keep eats ${fmt(eats)} a day and the Hearth makes ${fmt(makes)}.</p>`;
+  const arms = T.forgeArms && (jobCap(s, 'forge') > 0 || s.arms >= 1) ? `<p class="note">Arms ${floor1(s.arms || 0)} of ${armsCap(s)}, one for each guard's post: each makes a guard ${fmt(T.armDefense)} stronger at the gate, and a raid at the gate breaks one in ${Math.round(1 / T.armsBreak)} of those in use. Smiths make ${fmt(DAY_ROOMS.forge.rate)} a day each${T.coldForge ? '; a Forge nobody works is cold, and can\'t catch fire' : ''}.</p>` : '';
   const lunar = isLongNight(s) ? `Tonight is the Long Night: ${longTimes()} as long as a winter night, with the Hollow, a Maw and more of the Unlit${s.night?.great ? `, and at ${hhmm(18 + (12 * s.night.great) / nightTicks(s))} a last great tide` : ''}. At dawn the year ends.` : moon > 0 ? `The ${T.year && seasonIndex(s) === 3 ? 'Long Night' : 'new moon'} is ${plural(moon, 'night')} off.` : 'Tonight is the new moon. The Hollow will rise.';
   // A raid today, or one on its way, is now; one expected on a later day is what's coming.
   const raid = raidCard();
@@ -916,7 +925,7 @@ function dayPanel() {
     ${s.haunted.length ? `<p class="note">Haunted today: the ${esc(listOf(s.haunted.map((id) => roomName(id))))}. A Maw broke ${s.haunted.length === 1 ? 'its twin' : 'their twins'} last night${T.hauntWork < 1 ? `, and whoever works there manages ${Math.round(100 * T.hauntWork)}% of their work` : ''}.</p>` : ''}
     ${badLuckNote()}
     ${sleepNotes()}
-    <div class="card"><h3>Work today</h3>${food}<ul class="facts">${rows}</ul></div>
+    <div class="card"><h3>Work today</h3>${food}<ul class="facts">${rows}</ul>${arms}</div>
     ${winterCard()}
     ${s.day === 1 ? seasonNote() : ''}
     ${s.daily && s.season === 1 && s.day === 1 ? `<p class="note">This is the keep of ${esc(dayText(s.daily))}: everyone who plays it gets this same keep, on the same rules.</p>` : ''}
@@ -1724,6 +1733,7 @@ function livingRows() {
         p.peace > 0 ? '<span class="tag peace">At peace</span>' : '',
         p.nightmare ? `<span class="tag grief">Nightmare: ×${s.tuning.nightmareMult} today</span>` : '',
         isTwinnedLiving(s, p) ? '<span class="tag twin">Twinned</span>' : '',
+        s.phase === 'day' && isGuard(p) && musterOf(s, p) < 1 ? '<span class="tag">Taking the post</span>' : '',
       ].join('');
       const b = p.bond ? byId(s.living, p.bond.with) || byId(s.shades, p.bond.with) : null;
       const bond = b ? `${b.name}'s ${BOND_OTHER[p.bond.rel] || p.bond.rel}${byId(s.shades, b.id) ? ' (a shade)' : ''}` : '';
@@ -1906,6 +1916,13 @@ const TUNE = [
   ['raidFightStrength', 'A Host you can fight back comes this many times stronger'],
   ['granaryGuards', 'A Granary halves the food raiders carry off (1 on; 0: every keep\'s food halved, as before)'],
   ['emboldenCarries', 'Paying off the season\'s last raid makes the next season\'s raids harder (1 on, 0 off)'],
+  ['muster', 'Guards muster: a guard counts in full only after time at the post (1 on, 0 off)'],
+  ['musterHours', 'Hours of the day at the post before a guard counts in full'],
+  ['guardsGoOut', 'A sally or a pursuit counts only the guards who go out (1 on, 0: the whole keep\'s defense, and half the loot back)'],
+  ['forgeArms', 'The Forge makes arms by day, one for each guard\'s post (1 on, 0: a smith is 1 defense at the gate)'],
+  ['armDefense', 'Defense an arm adds to a guard at the gate'],
+  ['armsBreak', 'Share of the arms in use a raid at the gate breaks'],
+  ['coldForge', 'A Forge nobody works can\'t catch fire (1 on, 0 off)'],
   ['year', 'A year of four seasons, days and nights shifting, ending with the Long Night (1 on, 0 off)'],
   ['longNight', 'The Long Night lasts this many winter nights'],
   ['longNightCreepers', 'The Long Night brings this many times a night\'s Creepers'],
@@ -1924,6 +1941,7 @@ const TUNE = [
   ['oldChance', 'Chance each spring that an adult grows old'],
   ['birthChance', 'Chance each season that a couple has a child'],
   ['church', "The Lantern Church's escalation: an embargo after a censure, the Inquisition after a second (1 on, 0 off)"],
+  ['churchLedger', 'The Church judges the Dread of every day since it last looked, averaged (1 on, 0: the Dread at noon)'],
   ['embargoDays', "Days the Church's silver embargo lasts"],
   ['inquisitionDays', 'Days the Inquisition inspects the keep every noon, unless a blessing sends it away sooner'],
   ['donation', 'Remembrance a donation to lift the embargo takes'],
@@ -1948,6 +1966,7 @@ const TUNE = [
   ['huntEssence', 'Essence for each Maw cut down under the Hunt'],
   ['bloodEssence', 'Essence for each Creeper cut down under a blood moon'],
   ['visitors', 'Visitors at the gate, each with answers to choose between (1 on, 0 off)'],
+  ['payInKind', 'Visitors who want food for wares also take glass or remembrance (1 on, 0 off)'],
   ['visitorChance', 'Chance a visitor comes on a day'],
   ['visitorSecond', 'Chance, on a day one comes, that a second does too'],
   ['visitorWait', 'Share of the day a visitor waits for an answer'],
@@ -2898,7 +2917,7 @@ function onStage(e) {
         toast(`${p.name} now works in the ${DAY_ROOMS[at.room].name}.`, 'day');
         ui.person = null;
       }
-    } else if (at.room) toast(DAY_ROOMS[at.room].job(DAY_ROOMS[at.room]), 'day');
+    } else if (at.room) toast(DAY_ROOMS[at.room].job(DAY_ROOMS[at.room], s.tuning), 'day');
     return;
   }
   ui.kb = null; // a tap puts the keyboard's cursor away
@@ -3471,6 +3490,7 @@ const LIVE = {
   candles: () => floor1(s.res.candles),
   glass: () => floor1(s.res.glass),
   stone: () => floor1(s.res.stone || 0),
+  arms: () => floor1(s.arms || 0),
   essence: () => floor1(s.res.essence),
   rem: () => floor1(s.res.remembrance),
   dread: () => String(s.dread),
@@ -3686,7 +3706,7 @@ const GUIDE = [
     id: 'raid', target: '#open-phase', pause: true,
     when: () => first() && s.phase === 'day' && s.raid?.warned && s.raid.state === 'coming',
     done: () => ui.sheet === 'phase',
-    text: () => (s.tuning.raidFight ? "Raiders on the road. Your defense (two for each guard) should match their strength. The Day panel has the numbers: move people to the Barracks, ward the gate with essence, bar the stores, or pay them off. When they reach the gate you'll fight for it, with pitch, stone and the bell." : 'Raiders on the road. Your defense (two for each guard) has to match their strength. The Day panel has the numbers: move people to the Barracks, or ward the gate with essence.'),
+    text: () => `${s.tuning.raidFight ? "Raiders on the road. Your defense (two for each guard) should match their strength. The Day panel has the numbers: move people to the Barracks, ward the gate with essence, bar the stores, or pay them off. When they reach the gate you'll fight for it, with pitch, stone and the bell." : 'Raiders on the road. Your defense (two for each guard) has to match their strength. The Day panel has the numbers: move people to the Barracks, or ward the gate with essence.'}${s.tuning.muster ? ` A guard takes ${fmt(s.tuning.musterHours)} hours at the post to count in full, so post them now, not when the Host is at the gate.` : ''}`,
   },
   {
     id: 'fire', target: '#open-phase', pause: true,

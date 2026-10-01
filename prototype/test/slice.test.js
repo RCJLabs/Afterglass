@@ -283,7 +283,7 @@ test('the rite: keeping costs Dread, the living bear some, vigils and covering b
 
 test('the Lantern Church: announced before day 5, verdict by Dread at noon', () => {
   for (const [dread, verdict] of [[0, 'blessed'], [3, 'warned'], [5, 'censured']]) {
-    const s = newSeason(9, quiet);
+    const s = newSeason(9, { ...quiet, churchLedger: 0 }); // as before the ledger (test/day.test.js)
     while (s.day < 5) {
       if (s.phase === 'dawn') {
         s.shades.forEach((d) => (s.rite.choice[d.id] = 'keep'));

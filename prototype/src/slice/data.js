@@ -74,8 +74,34 @@ export const TUNING = {
   raidShare: 3, // the Host's blows are shared: with more on the walls than this, each is that much safer
   raidRecover: 0.5,
   raidPursueRisk: 0.2,
+  // Round seven, phase 10: guards muster. A guard counts in full only after musterHours of the day's clock at the
+  // post (a Barracks or the Gatehouse; a day is 06:00 to 18:00, so 12.5 seconds at 1× in spring, 16 in summer and
+  // 9 in winter), and for that share of it before, rising as they stand there, at the gate too; whoever leaves
+  // the post starts again. The Host is sighted about 3½ hours before it reaches the gate, so the gate is manned
+  // while it's on the road, at the cost of the guards' work, and not at the last moment for nothing. muster 0 is
+  // the old rule: a guard counts the moment they're posted.
+  muster: 1,
+  musterHours: 2.5,
+  // Sallies and pursuit go by who goes out (guardsGoOut): a sally's odds are the guards' own strength over
+  // sallyOdds times the camp's, not the whole keep's defense with the ward and the levy in it, and a pursuit
+  // takes back the guards' strength over the Host's as a share of what was carried off (a tenth to nine in
+  // ten), where it took back raidRecover however many went. 0 is the old rule.
+  guardsGoOut: 1,
+  // The Forge's day job (forgeArms): smiths make arms, a Forge's rate a day each, stored up to one for each
+  // guard's post. At the gate each arm makes a guard armDefense stronger, as far as the guard has mustered, and
+  // each raid at the gate breaks armsBreak of the arms in use (one at least). Smiths no longer stand at the gate
+  // themselves. 0 is the old rule: a smith is 1 defense at the gate and nothing on other days. A Forge nobody
+  // works is cold (coldForge), and can't catch fire; before, half of year 2's fires broke out in empty Forges.
+  forgeArms: 1,
+  armDefense: 1,
+  armsBreak: 0.25,
+  coldForge: 1,
 
   // The Lantern Church: a first visit on this day, announced the dawn before, then whenever Dread reaches 5.
+  // Round seven, phase 10 (churchLedger): the inspector judges the Dread of every day since the Church last
+  // looked (as it stood at each dusk, and at noon on the day), averaged and rounded, not the Dread at noon
+  // alone, so a keep can't cover its way to a blessing the night before. 0 is the old rule.
+  churchLedger: 1,
   firstInspection: 5,
   inspectAt: 0.5,
 
@@ -501,6 +527,10 @@ export const TUNING = {
   // Round seven, phase 4: a keep's first season meets its visitors from this day, so its first days are only
   // the keep, the Host and the night. 1 is from the first day, as keeps from before.
   visitFrom: 3,
+  // Round seven, phase 10 (payInKind): a visitor who wants food for something the keep could pay for another
+  // way also takes glass or remembrance, which pile up where food runs short (an answer with this rule). 0 as
+  // before: food only.
+  payInKind: 1,
   charmBurn: 0.75, // the hedge-witch's charm: tonight's candles burn at this rate
   // The Library, the Hall and the Gatehouse (round six). library: scholars make lore by day toward one of the
   // STUDIES at a time, begun with remembrance; a lit shade in its twin, the Archive of the Dead, adds
@@ -699,7 +729,7 @@ export const DAY_ROOMS = {
   hearth: { name: 'Hearth', out: 'food', rate: 4, role: 'cook', job: (R) => `Cooks: ${R.rate} food a day each.` },
   crypt: { name: 'Crypt', out: null, job: () => "The day's dead wait here for dusk." },
   // Built rooms and the Yard.
-  forge: { name: 'Forge', out: 'defense', rate: 1, role: 'smith', job: (R) => `Smiths: ${R.rate} defense each, arming the guards.` },
+  forge: { name: 'Forge', out: 'defense', rate: 1, role: 'smith', job: (R, T) => (T?.forgeArms ? `Smiths: ${R.rate} arm a day each, kept up to one for each guard's post. At the gate an arm makes a guard ${T.armDefense} stronger.` : `Smiths: ${R.rate} defense each, arming the guards.`) },
   cellar: { name: 'Cellar', out: null, job: () => 'Stores. Raiders who break in take half as many candles and half as much glass.' },
   quarters: { name: 'Quarters', out: null, beds: 4, job: () => 'Beds for four. With too few beds the living sleep crowded, and sickness comes more often.' },
   // Round six's three.
@@ -813,7 +843,7 @@ export const VISITORS = {
   chandler: {
     name: "A chandler's widow",
     text: "A widow selling the last of what her husband made: good tallow candles.",
-    answers: [{ id: 'buy', text: 'Buy her candles', cost: { food: 6 }, gain: { candles: 4 } }, { id: 'no', text: 'Send her on' }],
+    answers: [{ id: 'buy', text: 'Buy her candles', cost: { food: 6 }, gain: { candles: 4 } }, { id: 'glass', as: 'buy', rule: 'payInKind', text: 'Pay her in glass', cost: { glass: 3 }, gain: { candles: 4 } }, { id: 'no', text: 'Send her on' }],
   },
   grain: {
     name: 'A grain barge',
@@ -823,12 +853,12 @@ export const VISITORS = {
   mason: {
     name: 'A journeyman mason',
     text: 'A mason walking the roads for work, with his own tools.',
-    answers: [{ id: 'hire', text: 'Hire him for the day', cost: { food: 4 }, gain: { stone: 8 } }, { id: 'no', text: 'Send him on' }],
+    answers: [{ id: 'hire', text: 'Hire him for the day', cost: { food: 4 }, gain: { stone: 8 } }, { id: 'glass', as: 'hire', rule: 'payInKind', text: 'Pay him in glass', cost: { glass: 2 }, gain: { stone: 8 } }, { id: 'no', text: 'Send him on' }],
   },
   mirrors: {
     name: 'A mirror-seller',
     text: 'A pedlar of mirrors, one wrapped in sacking: a hand mirror, silvered and whole.',
-    answers: [{ id: 'buy', text: 'Buy the hand mirror', cost: { food: 8 }, does: 'a hand mirror for the dead, room for one more' }, { id: 'no', text: 'Send him on' }],
+    answers: [{ id: 'buy', text: 'Buy the hand mirror', cost: { food: 8 }, does: 'a hand mirror for the dead, room for one more' }, { id: 'glass', as: 'buy', rule: 'payInKind', text: 'Pay in glass', cost: { glass: 4 }, does: 'a hand mirror for the dead, room for one more' }, { id: 'no', text: 'Send him on' }],
   },
   pilgrims: {
     name: 'Pilgrims before the raid',
@@ -873,7 +903,7 @@ export const VISITORS = {
   almoner: {
     name: "The Church's almoner",
     text: 'The Lantern Church asks alms for its poor, and remembers who gives.',
-    answers: [{ id: 'give', text: 'Give alms', cost: { food: 5 }, dread: -1 }, { id: 'no', text: 'Refuse' }],
+    answers: [{ id: 'give', text: 'Give alms', cost: { food: 5 }, dread: -1 }, { id: 'pray', as: 'give', rule: 'payInKind', text: 'Pray for its poor', cost: { remembrance: 2 }, dread: -1 }, { id: 'no', text: 'Refuse' }],
   },
   witch: {
     name: 'A hedge-witch',
@@ -897,7 +927,7 @@ export const VISITORS = {
   reeve: {
     name: "The lord's reeve",
     text: "The lord's reeve, come for his tithe. Paid, the lord's riders stand with you when the Host next comes.",
-    answers: [{ id: 'pay', text: 'Pay the tithe', cost: { food: 6 }, does: 'at the next raid, +3 defense', help: 3 }, { id: 'no', text: 'Refuse' }],
+    answers: [{ id: 'pay', text: 'Pay the tithe', cost: { food: 6 }, does: 'at the next raid, +3 defense', help: 3 }, { id: 'glass', as: 'pay', rule: 'payInKind', text: 'Pay it in glass', cost: { glass: 3 }, does: 'at the next raid, +3 defense', help: 3 }, { id: 'no', text: 'Refuse' }],
   },
   necromancer: {
     name: 'A necromancer',

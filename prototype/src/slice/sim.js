@@ -78,7 +78,7 @@ export const boonNow = (s, id) => s.campaign?.boons?.[id] === yearOf(s);
 export const yearsEnd = (s) => s.phase === 'end' && !!s.tuning.year && seasonIndex(s) === 3 && !s.sealed && !s.opened;
 export const plagueSeason = (s) => !!s.tuning.plague && !!s.tuning.year && seasonIndex(s) === 1;
 export const besieged = (s) => !!s.siege && !s.siege.broken && s.day >= s.siege.from && s.day <= s.siege.until;
-export const sallyOdds = (s) => (s.siege ? clamp(defense(s) / (s.tuning.sallyOdds * s.siege.strength), 0.1, 0.9) : 0);
+export const sallyOdds = (s) => (s.siege ? clamp((s.tuning.guardsGoOut ? guardStrength(s) : defense(s)) / (s.tuning.sallyOdds * s.siege.strength), 0.1, 0.9) : 0);
 // Weather (round five): today's, which holds through the night after it, and tomorrow's, known a day ahead.
 // Every day is clear with the weather off.
 export const weatherOf = (s) => (s.tuning.weather ? s.weather || 'clear' : 'clear');
@@ -180,6 +180,7 @@ export function newSeason(seed = Date.now() >>> 0, overrides = {}) {
   const cast = {};
   for (const c of CAST) {
     const p = newPerson(s, c.name, c.age, roomsOf(geo(s), c.job).length ? c.job : 'yard', c.trait);
+    if (tuning.muster && isGuard(p)) p.muster = 1; // the keep's guards have stood their posts
     s.living.push(p);
     cast[c.name] = p;
   }
@@ -369,7 +370,7 @@ export function roomPower(s) {
   const out = Object.fromEntries(Object.keys(DAY_ROOMS).map((r) => [r, 0]));
   const by = {};
   const coached = whisperedTrades(s);
-  for (const p of s.living) if (p.job && !p.fighting && !p.walls) (by[p.job] ||= []).push(livingMult(s, p) * (coached.has(p.job) ? s.tuning.whisperMult : 1));
+  for (const p of s.living) if (p.job && !p.fighting && !p.walls) (by[p.job] ||= []).push(livingMult(s, p) * (coached.has(p.job) ? s.tuning.whisperMult : 1) * musterOf(s, p));
   for (const d of s.shades) if (stepsThrough(s, d)) (by[d.byDay.room] ||= []).push(perf(d) * s.tuning.stepWork);
   if (storesBarred(s)) for (const k of BARRED) delete by[k];
   if (besieged(s)) delete by.yard; // the gate is shut: nobody quarries outside
@@ -391,7 +392,8 @@ export const defense = (s) => {
   const riders = raiding && !s.raid.crusade ? s.riders || 0 : 0; // the lord's, against the Host only
   const levy = raiding && decreeOf(s) === 'levy' ? DECREES.levy.defense : 0;
   const walls = raiding && !s.raid.crusade && boonNow(s, 'walls') ? 2 : 0; // raised at the First Winter's close
-  return walls + pw.barracks * DAY_ROOMS.barracks.rate + pw.forge * DAY_ROOMS.forge.rate + (pw.gatehouse || 0) * DAY_ROOMS.gatehouse.rate + (s.raid?.ward || 0) + (s.watchBonus || 0) + onWalls(s).length * s.tuning.raidBellDefense + gateGuard(s) + (s.gateHelp || 0) + riders + levy;
+  const smiths = s.tuning.forgeArms ? armedDefense(s) : pw.forge * DAY_ROOMS.forge.rate; // arms the smiths made, or the smiths themselves
+  return walls + pw.barracks * DAY_ROOMS.barracks.rate + smiths + (pw.gatehouse || 0) * DAY_ROOMS.gatehouse.rate + (s.raid?.ward || 0) + (s.watchBonus || 0) + onWalls(s).length * s.tuning.raidBellDefense + gateGuard(s) + (s.gateHelp || 0) + riders + levy;
 };
 // The dead at the gate: Loyal shades granted their request stand guard by day at their night strength.
 export const atGate = (s, d) => !!s.tuning.requests && canWork(d) && d.byDay?.how === 'gate';
@@ -399,6 +401,33 @@ export const atGate = (s, d) => !!s.tuning.requests && canWork(d) && d.byDay?.ho
 // are the keep's for good; the Hall's decree stands for the season it was proclaimed in, while a Hall stands.
 export const GUARD_JOBS = ['barracks', 'gatehouse'];
 export const isGuard = (p) => GUARD_JOBS.includes(p.job);
+// Round seven, phase 10: how far a guard has mustered, 0 to 1, by their time at the post (muster).
+export const musterOf = (s, p) => (s.tuning.muster && isGuard(p) ? clamp(p.muster || 0, 0, 1) : 1);
+// The defense still to come as the guards posted finish mustering.
+export function musterGain(s) {
+  if (!s.tuning.muster) return 0;
+  let g = 0;
+  for (const p of s.living) if (isGuard(p) && !p.fighting && !p.walls) g += DAY_ROOMS[p.job].rate * livingMult(s, p) * (1 - musterOf(s, p));
+  return g;
+}
+// What the raid messages add while guards are still taking their posts.
+const musterNote = (s) => (musterGain(s) > 0.05 ? `, and ${fmt(musterGain(s))} more as the guards posted take their places` : '');
+// The Forge's arms (forgeArms): how many it can store (one for each guard's post), and what they add at the
+// gate, an arm to each guard, the most mustered first, as far as each has mustered.
+export const armsCap = (s) => jobCap(s, 'barracks') + jobCap(s, 'gatehouse');
+const guardsOnPost = (s) => s.living.filter((p) => isGuard(p) && !p.fighting && !p.walls);
+export function armedDefense(s) {
+  const n = Math.floor((s.arms || 0) + EPS);
+  if (!s.tuning.forgeArms || n <= 0) return 0;
+  const ms = guardsOnPost(s).map((p) => musterOf(s, p)).sort((a, b) => b - a).slice(0, n);
+  return ms.reduce((a, m) => a + m, 0) * s.tuning.armDefense;
+}
+const armedCount = (s) => (s.tuning.forgeArms ? Math.min(Math.floor((s.arms || 0) + EPS), guardsOnPost(s).length) : 0);
+// The guards' own strength, the ones who'd go out of the gate: their posts' worth as far as they've mustered,
+// and their arms (guardsGoOut).
+export const guardStrength = (s) => s.living.filter((p) => isGuard(p) && !(p.sick > 0) && !p.fighting).reduce((a, p) => a + DAY_ROOMS[p.job].rate * livingMult(s, p) * musterOf(s, p), 0) + armedDefense(s);
+// What a pursuit takes back, as a share of what was carried off.
+export const pursueShare = (s) => (s.tuning.guardsGoOut && s.raid ? clamp(guardStrength(s) / Math.max(1, s.raid.strength), 0.1, 0.9) : s.tuning.raidRecover);
 export const learned = (s, id) => !!s.tuning.library && !!s.learned?.includes(id);
 export const decreeOf = (s) => (s.decree && s.tuning.hall && s.decree.season === s.season && roomsOf(geo(s), 'hall').length ? s.decree.id : null);
 export const gatehouseOf = (s) => (s.tuning.gatehouse ? roomsOf(geo(s), 'gatehouse')[0] || null : null);
@@ -537,12 +566,24 @@ export function step(s) {
 function dayTick(s) {
   const D = dayTicks(s);
   s.t++;
+  if (s.tuning.muster) {
+    const gain = 12 / (s.tuning.musterHours * D); // a tick's share of musterHours: a day is twelve hours long
+    for (const p of s.living) if (isGuard(p) && (p.muster || 0) < 1) p.muster = Math.min(1, (p.muster || 0) + gain);
+  }
   if (!s.eclipse && eclipseDue(s) && s.t === eclipseSpan(s)[0]) beginEclipse(s);
   const pw = roomPower(s);
   const len = dayLength(s); // a long summer day makes more, a short winter one less
   for (const r of WORK_ROOMS) {
     const R = DAY_ROOMS[r];
     if (R.out in s.res) gain(s, R.out, (pw[r] * R.rate * len) / D);
+  }
+  if (s.tuning.forgeArms && pw.forge > 0) {
+    const room = Math.max(0, armsCap(s) - (s.arms || 0));
+    const add = Math.min(room, (pw.forge * DAY_ROOMS.forge.rate * len) / D);
+    if (add > 0) {
+      s.arms = (s.arms || 0) + add;
+      s.today.made.arms = (s.today.made.arms || 0) + add;
+    }
   }
   heal(s, (pw.infirmary * DAY_ROOMS.infirmary.rate * len * (learned(s, 'herbs') ? STUDIES.herbs.heal : 1)) / D);
   if (pw.library && s.study) study(s, (pw.library * DAY_ROOMS.library.rate * len) / D);
@@ -662,7 +703,8 @@ function rollDay(s) {
     if (p.age === 'old' && chance(s, T.oldAgeChance)) s.events.push({ at: Math.round((0.15 + rand(s) * 0.8) * D), type: 'oldage', id: p.id });
   }
   if (T.fire) {
-    const hot = [...roomsOf(geo(s), 'hearth'), ...roomsOf(geo(s), 'forge')];
+    // A Forge nobody works is cold (coldForge), and can't catch.
+    const hot = [...roomsOf(geo(s), 'hearth'), ...roomsOf(geo(s), 'forge').filter((r) => !T.coldForge || peopleIn(s, r.id).length)];
     if (chance(s, Math.min(1, T.fireChance * luck * (raining(s) ? T.rainFire : 1) * (s.barrels ? 0.5 : 1))) && hot.length) s.events.push({ at: Math.round((0.1 + 0.6 * rand(s)) * D), type: 'fire', room: pick(s, hot).id });
   }
   if (s.inspection && !s.inspection.done && s.inspection.day === s.day) s.events.push({ at: Math.round(T.inspectAt * D), type: 'inspect' });
@@ -796,7 +838,7 @@ function hourOf(s, t) {
 // Why an answer can't be given now, if it can't: what it costs, or what it needs that's gone since.
 export function visitorBlock(s, v, id) {
   const A = VISITORS[v.kind].answers.find((a) => a.id === id);
-  if (!A) return 'No such answer.';
+  if (!A || (A.rule && !s.tuning[A.rule])) return 'No such answer.';
   for (const [k, n] of Object.entries(A.cost || {})) if ((s.res[k] || 0) + EPS < n) return `That takes ${n} ${k}, and the keep has ${fmt(s.res[k] || 0)}.`;
   if (v.kind === 'wedding' && id === 'feast' && v.who.some((pid) => !byId(s.living, pid))) return 'One of them is dead.';
   if (v.kind === 'knight' && id === 'free' && !byId(s.shades, v.shade)) return 'His brother is gone from the glass.';
@@ -819,7 +861,7 @@ function answerVisitor(s, v, id, late = false) {
   if (A.dread) s.dread = clamp(s.dread + A.dread, 0, T.dreadMax);
   let what = '';
   const D = dayTicks(s);
-  const key = `${v.kind}:${id}`;
+  const key = `${v.kind}:${A.as || id}`; // a second price does what the first does
   if (key === 'mirrors:buy') {
     const m = addMirror(s, 'hand', nextPlace(s));
     what = `The ${m.name} hangs with the others.`;
@@ -1011,14 +1053,16 @@ function fire(s, e) {
     const r = s.raid;
     if (!r || r.state !== 'coming') return;
     r.warned = true;
-    if (r.crusade) say(s, `The crusade is on the road: ${r.count} knights of the Lantern, strength ${fmt(r.strength)}, at the gate a little after noon. Your defense is ${fmt(defense(s))}. They take no tribute; if they break in, they will smash every mirror they can find.`, 'bad', 'road');
-    else if (r.camp) say(s, `The camp outside stirs: ${r.count} of the Ashen Host will come at the gate, strength ${fmt(r.strength)}. Your defense is ${fmt(defense(s))}.`, 'bad', 'siege-camp');
-    else say(s, `Raiders on the road: ${r.count} of the Ashen Host, strength ${fmt(r.strength)}. Your defense is ${fmt(defense(s))}.`, 'bad', 'road');
+    if (r.crusade) say(s, `The crusade is on the road: ${r.count} knights of the Lantern, strength ${fmt(r.strength)}, at the gate a little after noon. Your defense is ${fmt(defense(s))}${musterNote(s)}. They take no tribute; if they break in, they will smash every mirror they can find.`, 'bad', 'road');
+    else if (r.camp) say(s, `The camp outside stirs: ${r.count} of the Ashen Host will come at the gate, strength ${fmt(r.strength)}. Your defense is ${fmt(defense(s))}${musterNote(s)}.`, 'bad', 'siege-camp');
+    else say(s, `Raiders on the road: ${r.count} of the Ashen Host, strength ${fmt(r.strength)}. Your defense is ${fmt(defense(s))}${musterNote(s)}.`, 'bad', 'road');
     cue(s, 'horn');
   } else if (e.type === 'raidHit') {
     if (s.tuning.raidFight) startAssault(s);
     else resolveRaid(s);
   } else if (e.type === 'fire') {
+    // A Forge its smiths have left since dawn is cold by now, and doesn't catch (coldForge).
+    if (s.tuning.coldForge && typeOf(geo(s), e.room) === 'forge' && !peopleIn(s, e.room).length) return;
     ignite(s, e.room, !!e.safe);
   } else if (e.type === 'inspect') {
     inspect(s);
@@ -1092,7 +1136,8 @@ function startAssault(s) {
   if (laddersDue(s)) r.ladders = { up: 0, down: 0, next: Math.round(s.tuning.ladderEvery * TICKS_PER_SEC) };
   const def = defense(s);
   const who = r.crusade ? `The crusade is at the gate: ${r.count} knights of the Lantern` : `The Host is at the gate: ${r.count} raiders`;
-  say(s, `${who}, strength ${fmt(r.strength)}, against your defense of ${fmt(def)}. ${def + EPS >= r.strength ? 'The gate should hold.' : 'The gate is giving.'} Pitch, stone and the bell can turn it.`, 'bad', 'gate');
+  const more = musterGain(s);
+  say(s, `${who}, strength ${fmt(r.strength)}, against your defense of ${fmt(def)}${more > 0.05 ? `, rising to ${fmt(def + more)} as the guards posted take their places` : ''}. ${def + EPS >= r.strength ? 'The gate should hold.' : def + more + EPS >= r.strength ? 'The gate is giving until they do.' : 'The gate is giving.'} Pitch, stone and the bell can turn it.`, 'bad', 'gate');
   cue(s, 'ram');
 }
 function assaultTick(s) {
@@ -1137,6 +1182,10 @@ function endAssault(s, held) {
     if (chance(s, clamp((held ? T.raidRiskHeld : T.raidRiskBreach) * ratio * fall, 0.02, T.raidRiskMax)) && fall > 0 && !r.safe) fallen.push({ p: g, how: isGuard(g) ? 'died holding the gate' : 'died on the walls' });
   }
   const raiders = r.safe ? 1 : held ? (chance(s, T.raidInsideHeld) ? 1 : 0) : 1 + randInt(s, Math.ceil(r.count / 2));
+  // The arms in use at the gate: armsBreak of them break (forgeArms).
+  const used = armedCount(s);
+  const broke = used ? Math.min(Math.floor(s.arms + EPS), Math.max(1, Math.round(used * T.armsBreak))) : 0;
+  if (broke) s.arms = Math.max(0, s.arms - broke);
   let loot = '';
   if (!held) {
     const civ = s.living.filter((p) => !isGuard(p) && !p.walls && p.age !== 'child'); // children shelter inside
@@ -1160,7 +1209,8 @@ function endAssault(s, held) {
   s.today.raid = { strength: r.strength, defense: r1(def), held, ...(r.crusade ? { crusade: true } : {}) };
   cue(s, held ? 'held' : 'breached');
   const host = r.crusade ? 'the crusade' : 'the Host';
-  say(s, held ? `${cap(host)} fell back from the gate${r.pitched ? `, burned by ${r.pitched} ${r.pitched === 1 ? 'pour' : 'pours'} of pitch` : ''}.` : `The gate gave way, and ${host} broke in.${loot}`, held ? 'good' : 'bad', held ? true : 'breach');
+  const arms = broke ? ` ${broke === 1 ? 'An arm' : `${broke} arms`} broke at the gate.` : '';
+  say(s, held ? `${cap(host)} fell back from the gate${r.pitched ? `, burned by ${r.pitched} ${r.pitched === 1 ? 'pour' : 'pours'} of pitch` : ''}.${arms}` : `The gate gave way, and ${host} broke in.${loot}${arms}`, held ? 'good' : 'bad', held ? true : 'breach');
   for (const f of fallen) kill(s, f.p, 'duty', f.how);
   const who = r.crusade ? 'crusader' : 'raider';
   const crypt = eclipsing(s) ? '' : raiders === 1 ? ' The body lies in the crypt.' : ' The bodies lie in the crypt.'; // in the eclipse they wake at once
@@ -1201,11 +1251,21 @@ function showMirror(s, m) {
   for (const d of s.shades) if (d.mirror === m.id) delete d.hidden;
 }
 
-// The Lantern Church judges the keep by its Dread at noon.
+// The Lantern Church's ledger (churchLedger): the Dread of each day since it last looked, at dusk, and today's
+// now, averaged; and the Dread it judges by, that average rounded, or else the Dread at noon.
+export const ledgerDread = (s) => {
+  const xs = [...(s.churchLog || []), s.dread];
+  return xs.reduce((a, b) => a + b, 0) / xs.length;
+};
+export const judgedDread = (s) => (s.tuning.churchLedger ? Math.round(ledgerDread(s)) : s.dread);
+// The Lantern Church judges the keep by its Dread at noon, or by its ledger.
 function inspect(s) {
   const I = s.inspection;
   if (!I || I.done) return;
-  const d = s.dread;
+  const d = judgedDread(s);
+  const now = s.dread;
+  const days = (s.churchLog || []).length + 1;
+  const read = s.tuning.churchLedger && days > 1 ? `The inspector reads the keep's ledger: Dread ${fmt(ledgerDread(s))} on average over ${days} days. ` : '';
   let verdict;
   let text;
   if (d <= 1) {
@@ -1235,8 +1295,8 @@ function inspect(s) {
       tithe = `${Math.floor(s.res.remembrance)} remembrance, all you had`;
       s.res.remembrance = 0;
     }
-    s.dread = Math.max(0, d - 1);
-    text = `${forgiven ? 'The Lantern Church inspector remembers the keep\'s tithe, and only warns it' : 'The Lantern Church inspector warns you'} and takes a tithe of ${tithe}. Dread ${d} → ${s.dread}.`;
+    s.dread = Math.max(0, now - 1);
+    text = `${forgiven ? 'The Lantern Church inspector remembers the keep\'s tithe, and only warns it' : 'The Lantern Church inspector warns you'} and takes a tithe of ${tithe}. Dread ${now} → ${s.dread}.`;
   } else {
     verdict = 'censured';
     const groups = s.mirrors.filter((m) => !m.hidden).map((m) => ({ m, ds: s.shades.filter((x) => x.mirror === m.id) })).sort((a, b) => b.ds.length - a.ds.length || MIRRORS[b.m.type].cap - MIRRORS[a.m.type].cap);
@@ -1251,16 +1311,17 @@ function inspect(s) {
     }
     s.dread = 2;
     text = g
-      ? `The Lantern Church inspector censures the keep, covers the ${g.m.name}${g.ds.length ? ` and takes ${listNames(g.ds.map((x) => x.name))}` : ''}, and carries the mirror away. Dread ${d} → 2.`
-      : `The Lantern Church inspector censures the keep. Dread ${d} → 2.`;
+      ? `The Lantern Church inspector censures the keep, covers the ${g.m.name}${g.ds.length ? ` and takes ${listNames(g.ds.map((x) => x.name))}` : ''}, and carries the mirror away. Dread ${now} → 2.`
+      : `The Lantern Church inspector censures the keep. Dread ${now} → 2.`;
     text += escalate(s);
   }
   I.done = true;
   I.verdict = verdict;
   I.dread = d;
-  s.inspections.push({ season: s.season, day: s.day, reason: I.reason, verdict, dread: d });
+  s.inspections.push({ season: s.season, day: s.day, reason: I.reason, verdict, dread: d, ...(s.tuning.churchLedger ? { now } : {}) });
   s.today.inspection = { verdict, dread: d };
-  say(s, text, verdict === 'blessed' ? 'good' : 'bad', 'church');
+  if (s.tuning.churchLedger) s.churchLog = []; // the ledger starts again from the inspection
+  say(s, read + text, verdict === 'blessed' ? 'good' : 'bad', 'church');
   cue(s, verdict === 'blessed' ? 'blessed' : 'censured');
 }
 
@@ -1443,6 +1504,7 @@ function endDay(s) {
     else if (!v.here) v.gone = true;
   }
   s.gateHelp = 0;
+  if (s.tuning.churchLedger) (s.churchLog ||= []).push(s.dread); // the Church's ledger: each day's Dread at dusk
   s.phase = 'dusk';
   s.t = 0;
   s.events = [];
@@ -3546,6 +3608,7 @@ function nextSeason(s) {
   s.season++;
   s.day = 0;
   s.inspection = null;
+  s.churchLog = [];
   // A Host paid off at the season's last raid comes back harder.
   s.embolden = s.tuning.emboldenCarries ? s.grudge || 1 : 1;
   s.grudge = null;
@@ -3631,6 +3694,7 @@ const ACTIONS = {
       if (!cap) return `There is no ${name} yet. Build one first.`;
       if (handsAt(s, room) >= cap) return `The ${name} is full: ${cap} work there. Build another ${name}.`;
     }
+    if (!GUARD_JOBS.includes(room)) delete p.muster; // off the post: they muster again from nothing
     p.job = room;
   },
   // What a shade does by day: rests in the glass (how null), whispers its old trade to whoever works it, or
@@ -4090,7 +4154,8 @@ const ACTIONS = {
     const guards = s.living.filter((p) => isGuard(p) && !(p.sick > 0));
     if (!guards.length) return 'There are no guards to send after them.';
     r.pursued = true;
-    const back = Object.fromEntries(Object.entries(r.loot).map(([k, v]) => [k, Math.floor(v * T.raidRecover)]));
+    const share = pursueShare(s);
+    const back = Object.fromEntries(Object.entries(r.loot).map(([k, v]) => [k, Math.floor(v * share)]));
     for (const [k, v] of Object.entries(back)) s.res[k] += v;
     const fallen = guards.filter(() => chance(s, T.raidPursueRisk));
     say(s, `The guards go after the Host and take back ${back.food} food, ${back.glass} glass and ${back.candles} candles.${fallen.length ? ` ${listNames(fallen.map((p) => p.name))} ${fallen.length === 1 ? 'is' : 'are'} brought home dead.` : ''}`, fallen.length ? 'bad' : 'good', true);
@@ -4107,6 +4172,7 @@ const ACTIONS = {
     const T = s.tuning;
     const won = chance(s, sallyOdds(s));
     const fallen = guards.filter(() => chance(s, T.raidPursueRisk));
+    s.today.sallies = [...(s.today.sallies || []), won ? 1 : 0];
     if (won) {
       g.broken = true;
       if (s.raid?.camp && s.raid.state === 'coming') {
@@ -4564,6 +4630,12 @@ export const RULES_SINCE = [
   { key: 'cracksMax', old: 5, since: '2026-09-29', what: 'three cracks break the Veil, now each is a tide (phase 9)' },
   { key: 'crackHeal', old: 1, since: '2026-09-29', what: 'the Veil mends no crack by day (phase 9)' },
   { key: 'wisp', old: 0, since: '2026-09-29', what: 'a wisp of essence where a candle would go, once the store is out (phase 9)' },
+  { key: 'muster', old: 0, since: '2026-10-01', what: 'a guard counts in full only after time at the post (phase 10)' },
+  { key: 'guardsGoOut', old: 0, since: '2026-10-01', what: 'a sally or a pursuit counts the guards who go out (phase 10)' },
+  { key: 'forgeArms', old: 0, since: '2026-10-01', what: 'the Forge makes arms by day for the guards (phase 10)' },
+  { key: 'coldForge', old: 0, since: '2026-10-01', what: 'a Forge nobody works can\'t catch fire (phase 10)' },
+  { key: 'payInKind', old: 0, since: '2026-10-01', what: 'visitors who want food for wares take glass or remembrance too (phase 10)' },
+  { key: 'churchLedger', old: 0, since: '2026-10-01', what: 'the Church judges the Dread of every day since it last looked (phase 10)' },
 ];
 export function upgrade(g) {
   g.keep ??= { floors: FULL_KEEP.floors.map((fl) => fl.map((r) => ({ ...r }))) };

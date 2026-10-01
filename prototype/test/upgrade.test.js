@@ -25,6 +25,9 @@ const DEFAULT_OK = {
   strainLead: 'read only for the Veil straining, a warning',
   strainGrace: 'read only for the Veil straining, a warning',
   winterNeed: "what the page shows in autumn about winter's candles; it plays the same",
+  musterHours: 'read only while guards muster, and an old keep has muster 0',
+  armDefense: 'read only for the Forge\'s arms, and an old keep has forgeArms 0',
+  armsBreak: 'read only for the Forge\'s arms, as armDefense',
 };
 
 test('every key in the numbers is decided for old keeps', () => {

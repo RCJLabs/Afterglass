@@ -8,7 +8,7 @@ import { TUNING } from '../src/slice/data.js';
 
 // The original four-floor keep with nothing by day to get in the way, and no inspection but the ones a test
 // sends for.
-const quiet = { startFloors: 4, sickChance: 0, oldAgeChance: 0, raidDays: { 2: 0, 4: 0, 6: 0 }, fire: 0, dreamwell: 0, weather: 0, firstInspection: 99 };
+const quiet = { startFloors: 4, sickChance: 0, oldAgeChance: 0, raidDays: { 2: 0, 4: 0, 6: 0 }, fire: 0, dreamwell: 0, weather: 0, firstInspection: 99, churchLedger: 0 }; // the Dread at noon, as it was: test/day.test.js has the ledger
 const ok = (s, a) => {
   const r = act(s, a);
   assert.ok(r.ok, `${a.type}: ${r.error}`);

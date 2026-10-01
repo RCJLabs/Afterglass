@@ -75,6 +75,10 @@ Each is an environment variable, read once when the file loads, so a measurement
 | `AP_TRIBUTE=1` | Also pays the Host off when a breach looks certain and the keep can spare it. |
 | `AP_NOBAR=1`, `AP_NOPITCH=1`, `AP_NOBELL=1`, `AP_NOSHORE=1` | One part of the raid policy off: barring the stores, pitch, the bell, shoring the gate. |
 | `AP_NOSALLY=1` | Waits a siege out rather than sallying. |
+| `AP_JIT=1` | Posts guards only when the Host is at the gate: everyone works until then, every hand it can spare goes into the Gatehouse and the Barracks, and back to work after. The play round seven's audit found cost nothing; with guards mustering (round seven, phase 10) it holds fewer raids. By default every plan posts its spare hands at dawn on a raid day; with muster, once the Host is sighted it wards the gate first if the essence is there, then posts just enough more guards, counting those still taking their places, from the work it can best spare (the Yard first, the Hearth last), and keeps everyone posted until the Host is gone. |
+| `AP_NOARMS=1` | Never staffs the Forge for arms. By default, on a day with no raid, once the keep is built, while the store is short of one arm for each guard's post, every plan sends spare hands to the Forge, as many as it holds (round seven, phase 10). |
+| `AP_LEDGERBLIND=1` | Keeps Dread low only on the eve of an inspection, as before the Church kept a ledger. By default, with the ledger, every plan but the keeper holds Dread at 1 through the days before a season's first inspection, and gives the almoner alms from Dread 1 rather than 2 (round seven, phase 10). |
+| `AP_DREADLOW=1` | Holds Dread at 1 through the days before a season's first inspection, as with the ledger, when the keep has no ledger (to measure what that answer is worth apart from the rule). |
 | `AP_NOHIDE=1` | Never hides a mirror from a crusade. |
 | `AP_BREAK=1` | Breaks a mirror to stop a censure. |
 | `AP_WHISPER=1` | Has a shade whisper to every trade someone works. |

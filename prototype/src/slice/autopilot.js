@@ -11,7 +11,7 @@
 // on the line for the biggest tides when the essence is there, and a fighter to meet a Maw. They move a
 // shade only along a lit floor; where its way is dark it stays.
 
-import { nightTicks, hollowNeed, chapterOf, yearsEnd, bondedShade, postRoom, bareHalls, buildSpot, raiseCost, step, act, newSeason, ritePreview, crossingPreview, capacity, canWork, defense, funeralCap, choicesFor, jobCap, jobCount, eatRate, wardCost, livingTrait, shadeTrait, peopleIn, crowded, tradeOf, inGreatGlass, handsAt, seasonIndex, tributeOf, besieged, sallyOdds, embargoed, inquisition, crusadeDaysLeft, canAct, actOf, actCost, NEW_ROOMS, atTheGate, gatehouseOf, decreeOf, undergateMouth, roomReady } from './sim.js';
+import { nightTicks, hollowNeed, chapterOf, yearsEnd, bondedShade, postRoom, bareHalls, buildSpot, raiseCost, step, act, newSeason, ritePreview, crossingPreview, capacity, canWork, defense, funeralCap, choicesFor, jobCap, jobCount, eatRate, wardCost, livingTrait, shadeTrait, peopleIn, crowded, tradeOf, inGreatGlass, handsAt, seasonIndex, tributeOf, besieged, sallyOdds, embargoed, inquisition, crusadeDaysLeft, canAct, actOf, actCost, NEW_ROOMS, atTheGate, gatehouseOf, decreeOf, undergateMouth, roomReady, isGuard, armsCap, musterGain } from './sim.js';
 import { DAY_ROOMS, MIRRORS, KINDS, MAP, TICKS_PER_SEC, VISITORS, STUDIES, CHAPTERS } from './data.js';
 import { geo, roomSpan, roomAt, roomsOf, lineSpots, lightMap, isLit } from './geo.js';
 import { STOPS } from './alerts.js';
@@ -198,6 +198,17 @@ const TALLLINE = globalThis.process?.env?.AP_TALL === 'line';
 // AP_NOSALLY=1 waits the siege out (to measure whether sallying pays).
 const SALLY_AT = 0.6;
 const NOSALLY = !!globalThis.process?.env?.AP_NOSALLY;
+// AP_JIT=1 plays raids the way round seven's audit found paid best: everyone at work until the Host is at the
+// gate, then every hand it can spare into the Barracks and the Gatehouse, and back to work after (to measure
+// what guarding costs, before muster and after).
+const JIT = !!globalThis.process?.env?.AP_JIT;
+const jitPosted = new WeakSet();
+// AP_LEDGERBLIND=1 keeps Dread as it did before the Church kept a ledger: low only on the eve of an inspection
+// (to measure what the ledger costs a keep that doesn't heed it).
+const LEDGERBLIND = !!globalThis.process?.env?.AP_LEDGERBLIND;
+// AP_DREADLOW=1 holds Dread at 1 through those days with the ledger off too (to measure what the answer is worth
+// on its own, apart from the rule).
+const DREADLOW = !!globalThis.process?.env?.AP_DREADLOW;
 // The dead's requests at the rite. The autopilot grants a Loyal shade the gate when a raid comes tomorrow, a
 // name or a remembering when it has the remembrance, and anything asked a second time (a second refusal turns
 // a shade Restless), except that it lets a Serene shade go only then. AP_GRANT=1 grants every request, and
@@ -245,7 +256,9 @@ const candleTarget = (s) => (s.tuning.year ? CANDLES_BY[seasonIndex(s)] : 8);
 function wantedJobs(s) {
   const n = s.living.length;
   const r = s.raid;
-  const threat = r && (r.state === 'coming' || r.state === 'assault') && r.warned && defense(s) < r.strength;
+  // With guards mustering, a threat doesn't empty the workrooms into the Barracks: staff() posts just enough
+  // (below), and they stay posted.
+  const threat = !JIT && !s.tuning.muster && r && (r.state === 'coming' || r.state === 'assault') && r.warned && defense(s) < r.strength;
   const food = eatRate(s) + (s.res.food < n ? 2 : 0) - (s.res.food > 3 * n ? 3 : 0);
   const want = {
     hearth: Math.max(1, Math.ceil(food / DAY_ROOMS.hearth.rate)),
@@ -263,11 +276,16 @@ function wantedJobs(s) {
 
 function staff(s) {
   const want = wantedJobs(s);
+  // On a raid day a guard taken off the post musters again from nothing (muster): take others first, and until
+  // the Host is gone, nobody posted leaves the post.
+  const keepPosted = s.tuning.muster && !!s.raid && !JIT;
+  const holding = keepPosted && s.raid.warned && (s.raid.state === 'coming' || s.raid.state === 'assault');
   const order = ['hearth', 'chapel', 'infirmary', 'chandlery', 'glazier', 'library', 'yard'];
   const count = Object.fromEntries(order.map((k) => [k, 0]));
   const free = [];
   for (const p of s.living) {
     if (p.age === 'child') continue; // too young to work
+    if (holding && isGuard(p)) continue;
     if (p.job in count && count[p.job] < want[p.job]) count[p.job]++;
     else free.push(p);
   }
@@ -276,8 +294,10 @@ function staff(s) {
   for (const k of order) {
     while (count[k] < want[k] && free.length) {
       // The usual pick, unless someone else's trait suits the job better.
+      const ok = (q) => !keepPosted || !isGuard(q) || free.every(isGuard);
       let i = k === 'chapel' ? free.length - 1 : 0;
-      for (const [j, q] of free.entries()) if (fit(s, q, k) > fit(s, free[i], k) + 1e-9) i = j;
+      while (!ok(free[i])) i = k === 'chapel' ? i - 1 : i + 1;
+      for (const [j, q] of free.entries()) if (ok(q) && fit(s, q, k) > fit(s, free[i], k) + 1e-9) i = j;
       const [p] = free.splice(i, 1);
       if (p.job !== k) doAct(s, { type: 'assign', id: p.id, room: k });
       count[k]++;
@@ -287,10 +307,33 @@ function staff(s) {
   // The rest hold the gate on a raid day, or when there's nothing to build, as many as the barracks hold;
   // everyone else quarries stone.
   // The Gatehouse first: its guards count for more, and throw down the ladders.
-  const gate = !!s.raid || !nextBuild(s);
+  const gate = !JIT && (!!s.raid || !nextBuild(s));
+  // The Forge's arms (forgeArms): on a day with no raid, once the keep is built (a hand taken from the Yard
+  // while it was still building cost more first years than the arms won), as many smiths as the Forge holds
+  // while the store is short of an arm for each guard's post.
+  if (s.tuning.forgeArms && !s.raid && !nextBuild(s) && (s.arms || 0) + 1 <= armsCap(s) && !NO('ARMS')) {
+    const smiths = jobCap(s, 'forge');
+    const at = free.filter((p) => p.job === 'forge');
+    for (const p of free.filter((q) => q.job !== 'forge')) if (at.length < smiths) at.push(p);
+    for (const p of at.slice(0, smiths)) {
+      free.splice(free.indexOf(p), 1);
+      if (p.job !== 'forge') doAct(s, { type: 'assign', id: p.id, room: 'forge' });
+    }
+  }
   for (const p of free) {
     const room = !gate ? 'yard' : p.job === 'gatehouse' || jobCount(s, 'gatehouse') < jobCap(s, 'gatehouse') ? 'gatehouse' : p.job === 'barracks' || jobCount(s, 'barracks') < jobCap(s, 'barracks') ? 'barracks' : 'yard';
     if (p.job !== room) doAct(s, { type: 'assign', id: p.id, room });
+  }
+  // With guards mustering, the Host on the road and the gate short, counting the guards still taking their
+  // places: post just enough more, from the work the keep can best spare.
+  const r = s.raid;
+  if (holding && r.warned && r.state === 'coming') {
+    const spare = ['yard', 'library', 'glazier', 'chandlery', 'chapel', 'infirmary', 'hearth', null];
+    while (defense(s) + musterGain(s) + EPS < r.strength) {
+      const room = jobCount(s, 'gatehouse') < jobCap(s, 'gatehouse') ? 'gatehouse' : jobCount(s, 'barracks') < jobCap(s, 'barracks') ? 'barracks' : null;
+      const p = s.living.filter((q) => !isGuard(q) && !q.fighting && !q.walls && !(q.sick > 0) && q.age !== 'child').sort((a, b) => spare.indexOf(a.job) - spare.indexOf(b.job) || fit(s, b, 'barracks') - fit(s, a, 'barracks'))[0];
+      if (!room || !p || !doAct(s, { type: 'assign', id: p.id, room })) break;
+    }
   }
 }
 
@@ -312,6 +355,12 @@ function raidMoves(s) {
       else if (!r.barred && !NO('BAR')) doAct(s, { type: 'barStores' });
     }
   } else if (r.state === 'assault') {
+    if (JIT && !jitPosted.has(r)) {
+      jitPosted.add(r);
+      const order = ['yard', 'library', 'glazier', 'chandlery', 'chapel', 'infirmary', 'hearth', null];
+      const hands = s.living.filter((p) => !isGuard(p) && !p.fighting && !p.walls && !(p.sick > 0) && p.age !== 'child').sort((a, b) => order.indexOf(a.job) - order.indexOf(b.job));
+      for (const k of ['gatehouse', 'barracks']) while (hands.length && jobCount(s, k) < jobCap(s, k)) doAct(s, { type: 'assign', id: hands.shift().id, room: k });
+    }
     while (!NO('PITCH') && r.host > defense(s) + EPS && s.res.candles >= PITCH_KEEP + T.raidPitchCost && doAct(s, { type: 'pitch' }));
     if (!NO('BELL') && r.host > defense(s) + EPS && !r.bell && hands) doAct(s, { type: 'raidBell' });
     // Stone only if the gate would give before the Host's time is up.
@@ -394,10 +443,14 @@ function dayMoves(s) {
   else if (b && s.res.stone >= raiseCost(s, buildSpot(s, at))) doAct(s, { type: 'raise', room: b, ...(at ? { at } : {}) });
   libraryMoves(s);
   hallMoves(s);
+  // With guards mustering, the ward first, while the essence is there, and then only the guards still wanted
+  // (before muster the ward came after the guards, who could be sent back to work the moment it stood).
+  const w = s.raid;
+  if (s.tuning.muster && w?.warned && w.state === 'coming' && !w.ward && defense(s) + musterGain(s) < w.strength) doAct(s, { type: 'wardGate' });
   if (s.raid?.state !== 'assault') staff(s); // nobody leaves the walls while the Host is at the gate
   if (!NOSALLY && besieged(s) && s.raid?.state !== 'assault' && sallyOdds(s) >= SALLY_AT && s.living.filter((p) => p.job === 'barracks' && !(p.sick > 0)).length >= 2) doAct(s, { type: 'sally' });
   const r = s.raid;
-  if (r && (r.state === 'coming' || r.state === 'assault') && r.warned && !r.ward && defense(s) < r.strength) doAct(s, { type: 'wardGate' });
+  if (r && (r.state === 'coming' || r.state === 'assault') && r.warned && !r.ward && defense(s) + (r.state === 'coming' ? musterGain(s) : 0) < r.strength) doAct(s, { type: 'wardGate' });
   const { free } = capacity(s);
   // The crusade: on the last day to hide, if a full gate (every hand the Barracks hold, the ward, the bell for
   // the rest, and the pitch it can spare) still falls short, hide the fullest mirror, and only that one: the
@@ -456,12 +509,20 @@ function visitorAnswer(s, v, plan) {
   const spare = (n) => food - n >= larder;
   const r = s.raid;
   const fighters = s.shades.filter((d) => canWork(d) && fighter(d)).length;
+  // A second price in glass or remembrance (payInKind), taken when the store can spare it: glass beyond a hand
+  // mirror's worth, remembrance beyond a vigil's.
+  const kind = (id, n) => {
+    const A = VISITORS[v.kind].answers.find((a) => a.id === id);
+    if (!A || (A.rule && !T[A.rule])) return false;
+    const [[res]] = Object.entries(A.cost);
+    return s.res[res] - n >= (res === 'glass' ? MIRRORS.hand.glass : T.vigilCost);
+  };
   switch (v.kind) {
     case 'peddler': return spare(6) && s.res.glass < MIRRORS.pier.glass ? 'buy' : 'no';
-    case 'chandler': return spare(6) && s.res.candles < candleTarget(s) ? 'buy' : 'no';
+    case 'chandler': return s.res.candles >= candleTarget(s) ? 'no' : kind('glass', 3) ? 'glass' : spare(6) ? 'buy' : 'no';
     case 'grain': return food < 1.5 * larder && s.res.glass >= 4 ? 'buy' : 'no';
-    case 'mason': return spare(4) && nextBuild(s) && s.res.stone < T.roomStone ? 'hire' : 'no';
-    case 'mirrors': return spare(8) && capacity(s).free <= 1 ? 'buy' : 'no';
+    case 'mason': return !nextBuild(s) || s.res.stone >= T.roomStone ? 'no' : kind('glass', 2) ? 'glass' : spare(4) ? 'hire' : 'no';
+    case 'mirrors': return capacity(s).free > 1 ? 'no' : kind('glass', 4) ? 'glass' : spare(8) ? 'buy' : 'no';
     case 'pilgrims': return spare(0) || (r?.state === 'coming' && defense(s) < r.strength) ? 'take' : 'no';
     case 'refugees': return spare(9) ? 'take' : 'no'; // 6 to feed them now, and three more mouths
     case 'graverobber': return plan === 'mourner' ? 'go' : 'hang'; // the mourner has funerals enough to give
@@ -474,11 +535,11 @@ function visitorAnswer(s, v, plan) {
     case 'wedding': return spare(4) ? 'feast' : 'no';
     case 'bard': return spare(2) ? 'sing' : 'no';
     case 'deserter': return spare(1) && (!s.raid || s.raid.state !== 'coming' || defense(s) + 3 >= 1.2 * s.raid.strength) ? 'take' : 'no';
-    case 'almoner': return s.dread >= 2 && spare(5) ? 'give' : 'no';
+    case 'almoner': return s.dread < ((T.churchLedger || DREADLOW) && !LEDGERBLIND ? 1 : 2) ? 'no' : kind('pray', 2) ? 'pray' : spare(5) ? 'give' : 'no';
     case 'witch': return s.dread >= 3 ? 'church' : s.res.candles < candleTarget(s) && s.res.glass >= 3 + MIRRORS.hand.glass ? 'charm' : 'no';
     case 'physician': return s.res.glass >= 4 && (s.living.filter((p) => p.sick > 0).length >= 2 || !jobCount(s, 'infirmary')) ? 'pay' : 'no';
     case 'priest': return spare(2) ? 'feed' : 'no';
-    case 'reeve': return spare(6) ? 'pay' : 'no';
+    case 'reeve': return kind('glass', 3) ? 'glass' : spare(6) ? 'pay' : 'no';
     case 'necromancer': return plan !== 'mourner' && s.dread <= 2 ? 'bind' : 'no';
     case 'cooper': return s.res.glass >= 3 + MIRRORS.hand.glass ? 'buy' : 'no';
     default: return VISITORS[v.kind].answers.at(-1).id;
@@ -987,7 +1048,9 @@ function rite(s, plan) {
   const inspectedToday = I && !I.done && I.day === s.day + 1;
   const soon = s.day + 1 === T.firstInspection && !s.inspections.some((x) => x.season === s.season);
   const inquired = ritePreview(s).inquisition; // the inquisitor inspects again tomorrow
-  const target = plan === 'keeper' ? T.dreadMax - 1 : plan === 'mourner' ? 1 : inspectedToday || soon || inquired ? 1 : 3;
+  // With the Church's ledger, every day before the season's first inspection counts, not only its eve.
+  const ledger = (T.churchLedger || DREADLOW) && !LEDGERBLIND && s.day + 1 <= T.firstInspection && !s.inspections.some((x) => x.season === s.season);
+  const target = plan === 'keeper' ? T.dreadMax - 1 : plan === 'mourner' ? 1 : inspectedToday || soon || inquired || ledger ? 1 : 3;
   for (const d of s.shades) {
     const cs = choicesFor(d);
     if (d.kind === 'wraith') doAct(s, { type: 'rite', id: d.id, choice: s.res.essence >= T.banishCost ? 'banish' : 'leave' });

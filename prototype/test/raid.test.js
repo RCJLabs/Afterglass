@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { newSeason, step, act, defense, roomPower, tributeOf, upgrade, replay, granaryShare } from '../src/slice/sim.js';
+import { newSeason, step, act, defense, roomPower, tributeOf, upgrade, replay, granaryShare, pursueShare } from '../src/slice/sim.js';
 import { TUNING } from '../src/slice/data.js';
 
 // The original four-floor keep, a raid on day 1, nothing else by day to get in the way.
@@ -107,17 +107,23 @@ test('paid off, they turn back and the next raid comes harder; barred, the store
   assert.ok(barred.candles <= Math.ceil(open.candles / 2) && barred.food <= Math.ceil(open.food / 2));
 });
 
-test('after a breach, guards can go after them for half of it back', () => {
-  const s = raidDay(7, 12, 1, { raidPursueRisk: 0 });
-  s.res.food = 30;
-  s.res.candles = 20;
-  until(s, () => s.raid.state === 'breached');
-  const { loot } = s.raid;
-  const c0 = s.res.candles;
-  if (!s.living.some((p) => p.job === 'barracks')) ok(s, { type: 'assign', id: s.living[0].id, room: 'barracks' });
-  ok(s, { type: 'pursue' });
-  assert.equal(s.res.candles, c0 + Math.floor(loot.candles * s.tuning.raidRecover));
-  assert.match(act(s, { type: 'pursue' }).error, /no one to go after/);
+test('after a breach, guards can go after them, taking back as much as they are strong against the Host', () => {
+  for (const guardsGoOut of [1, 0]) {
+    const s = raidDay(7, 12, 1, { raidPursueRisk: 0, guardsGoOut });
+    s.res.food = 30;
+    s.res.candles = 20;
+    until(s, () => s.raid.state === 'breached');
+    const { loot } = s.raid;
+    const c0 = s.res.candles;
+    if (!s.living.some((p) => p.job === 'barracks')) ok(s, { type: 'assign', id: s.living[0].id, room: 'barracks' });
+    const share = pursueShare(s);
+    // One guard of 2 against a Host of 12, as it stood at the gate (a tenth at least); before, half however many.
+    if (guardsGoOut) assert.ok(share >= 0.1 && share <= 2 / 12 + 1e-9, `share ${share}`);
+    else assert.equal(share, s.tuning.raidRecover);
+    ok(s, { type: 'pursue' });
+    assert.equal(s.res.candles, c0 + Math.floor(loot.candles * share));
+    assert.match(act(s, { type: 'pursue' }).error, /no one to go after/);
+  }
   // With certain death on the chase, every guard sent is brought home dead.
   const d = raidDay(7, 12, 1, { raidPursueRisk: 1 });
   until(d, () => d.raid.state === 'breached');

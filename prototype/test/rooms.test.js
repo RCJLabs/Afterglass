@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   newSeason, step, act, replay, upgrade, defense, raiseCost, wardCost, pitchOf, wardHoldOf, mirrorGlass, eatRate, decreeOf, gatehouseOf, undergateOpen,
-  laddersDue, actsFor, canAct, canWork, learned, dayTicks, nightTicks, ritePreview,
+  laddersDue, actsFor, canAct, canWork, learned, dayTicks, nightTicks, ritePreview, musterOf,
 } from '../src/slice/sim.js';
 import { geo, roomsOf } from '../src/slice/geo.js';
 import { threats } from '../src/slice/threats.js';
@@ -175,6 +175,7 @@ test('the Gatehouse stands at the gate, on the ground floor, one to a keep; its 
   const p = adults(s).find((x) => x.trait !== 'brave' && x.trait !== 'coward' && x.age === 'adult');
   const def = defense(s);
   ok(s, { type: 'assign', id: p.id, room: 'gatehouse' });
+  while (musterOf(s, p) < 1) step(s); // a guard counts in full once mustered
   s.raid = { strength: 5, state: 'coming', warned: true };
   assert.ok(Math.abs(defense(s) - def - DAY_ROOMS.gatehouse.rate * (p.trait === 'diligent' ? 1.15 : 1)) < 0.05);
 });
