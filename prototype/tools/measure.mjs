@@ -94,6 +94,7 @@ if (process.argv[2] === '--worker') {
       rec.years = {};
       const Y = (y) => (rec.years[y] ||= { days: 0, acts: 0, raids: 0, held: 0, sallies: 0, won: 0, kind: 0, arms: 0, verdicts: [] });
       for (const d of s.days) {
+        if (d.day < 1) continue; // a season after the first leaves a record of its opening dawn as day 0: no day was played
         const y = Y(year(d.season));
         y.days++;
         y.arms += d.made?.arms || 0;

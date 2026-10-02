@@ -708,6 +708,43 @@ The vertical slice: seven days in one keep, ending on the night of the new moon,
     - **In the page.** The Candle tool turns to Wisp when the store is empty, and its hint says why. The Tain draws a wisp as a pale floating light, sinking as it burns. The strain is a call-out. The winter card sits under Work today in the Day panel. The tutorial's lesson on the first crack and How to play say a mirror cracks once a tide, the rest spilling into nightmares, and that cracks don't mend. Custom rules' cracks run from 2.
     - **Old keeps** play as they did: a crack a Creeper, five cracks, mending one a dawn, and no wisps (`crackPerTide`, `cracksMax`, `crackHeal` and `wisp` are in `RULES_SINCE` with 0, 5, 1 and 0). The golden replays play as they were recorded.
     - **Not done:** the first "done when", as above. The harder first spring for a leaky line, above. The strain is common and may read as noise. The wisp is the autopilot's way back, and it uses it in half its keeps; whether a person finds it with an empty store, and whether 6 essence is the right price, needs testers. Winter's number is a rough forecast from the last week, and says nothing of raids. Scaling the night to the keep, and alms, are left.
+53. **Round seven's phase 10: day decisions with teeth.** The audit found the day's choices free or dominated. A guard counted the moment the clock stopped at the gate, so the best play was to work everyone until the Host was there and fill the Barracks then (D3). A sally counted the whole keep's defense, the gate ward and the levy in it, and a pursuit took back half the loot however many went (D6). Visitors wanted food, the one thing that's short (D7). A smith gave 1 defense to a guard's 2, so the Forge stood empty, and fires broke out in it all the same (D8). The Church judged the Dread at noon, so a keep that covered the night before was blessed (D5). And from the second year there was little left to decide by day (D1). The phase asked for guards who muster, sallies and pursuits that scale with who goes, visitors priced in what piles up, a day job for the Forge and an empty Forge that can't burn, and a Church that covering alone can't satisfy, judging a season's average Dread or making each vigil dearer. It's done when raids stop holding 99% of the time for free, and year-2 day actions are back to year 1's. **Where I parted from the plan:** raids weren't holding 99% (94% in the balanced plan's first year; the audit's 214 of 216 was a small sample), so I measured what holding one costs, and what the last-moment play wins. The Church judges a ledger of the days since it last looked, the plan's first option, since the autopilot keeps hardly any vigils (10 by day in 200 first years) and covers instead. The Forge's day job is arms for the guards.
+    - **Before**, on phase 9's rules (seeds 1–200, the first year, traced day by day; the balanced plan, and the human plan's in brackets where it differs): raids held 94% (96%). 35% of the guards at the gate when the Host struck had been posted in the last 10 seconds. Posting guards only when the Host reached the gate (`AP_JIT`) finished 145 first years against 128 (better on 42 seeds, worse on 25) and held 98% of raids: the free hold paid (at a person's pace it didn't, 107 against 120). Sallies broke the autumn camp 169 times in 183. 372 of the year's 1,388 fires broke out in an empty Forge. Food-priced offers were taken 396 times in 1,366, glass-priced ones 343 in 534. The Church blessed 728 inspections of 733 and warned 5; judged by the average Dread since it last looked, it would have warned 205.
+    - **Guards muster** (`muster`, `musterHours`). A guard counts in full only after 2.5 hours of the day's clock at the post (12.5 seconds at 1× in spring, 16 in summer, 9 in winter), and for that share before, still rising at the gate. Whoever leaves the post starts again, and a new keep's first guards have stood theirs. The Host is sighted about three and a half hours before it reaches the gate, so guards posted at the sighting are in their places in time, and guards posted when it's at the gate count for next to nothing. Counted in seconds at first, a winter day left its guards barely the time between the sighting and the hit (12.6 seconds for 12) and a summer one plenty, so it's on the day's clock.
+    - **A sally and a pursuit count the guards who go out** (`guardsGoOut`), as far as they've mustered, with their arms: not the ward, the Watch of the dead, the levy or the lord's riders. A pursuit takes back a share of the loot as great as their strength against the Host's, a tenth to nine in ten, where it took back half however many went.
+    - **The Forge makes arms** (`forgeArms`). By day its smiths make 1 a day each, kept up to one for each guard's post. At the gate each arm makes a guard 1 stronger, as far as the guard has mustered, and each raid at the gate breaks a quarter of those in use, one at least. A smith no longer stands at the gate. **A Forge nobody works is cold** (`coldForge`), and can't catch fire.
+    - **Visitors take glass and remembrance too** (`payInKind`). The chandler's widow takes 3 glass for her candles, the mason 2 for his day's stone, the mirror-seller 4 for the hand mirror and the reeve 3 for his riders: the food price in a worker's days, at the Glazier rather than the Hearth. The Church's almoner takes prayers, 2 remembrance. A hand mirror for 4 glass is cheaper than building one for 6, as it was for 8 food: a trader's bargain, and a rare one.
+    - **The Church keeps a ledger** (`churchLedger`). It judges the Dread of every day since it last looked, as it stood at each dusk and at noon on the day, averaged and rounded. Its card shows the ledger so far, and the inspector reads it out.
+    - **The autopilot** posts its guards at the sighting: it wards the gate first if the essence is there, then posts just enough more, counting those still taking their places, from the work it can best spare, and keeps them posted until the Host is gone. Before, at a threat it emptied the workrooms into the Barracks, and they went back to work once the ward stood. It staffs the Forge on quiet days once the keep is built (a hand taken from the Yard while it was still building cost more first years than the arms won), pays in kind when the glass or the remembrance can be spared, and holds Dread at 1 through the days before a season's first inspection. `AP_JIT`, `AP_NOARMS`, `AP_LEDGERBLIND` and `AP_DREADLOW` measure each (`tools/AUTOPILOT.md`).
+    - **Each rule off in turn, and the autopilot's answers** (first year finished, seeds 1–200):
+
+      | | Balanced | Human |
+      |---|---|---|
+      | Phase 9's rules: all of phase 10's off | 128 | 120 |
+      | **Phase 10's rules (today's)** | **150** | **130** |
+      | … but guards count the moment they're posted | 145 | 135 |
+      | … but no arms | 150 | 133 |
+      | … but sallies and pursuits count the whole keep | 150 | 128 |
+      | … but an empty Forge can burn | 141 | 119 |
+      | … but visitors take food only | 147 | 118 |
+      | … but no ledger (and Dread held as before) | 132 | 99 |
+      | The ledger, the autopilot ignoring it (`AP_LEDGERBLIND`) | 126 | 93 |
+      | No ledger, the autopilot holding Dread at 1 anyway (`AP_DREADLOW`) | 151 | 127 |
+      | Guards posted only when the Host is at the gate (`AP_JIT`) | 127 | 115 |
+      | … on phase 9's rules | 145 | 107 |
+
+      Guards who muster cost a plan that posts them on the road nothing measurable (+5 and −5, about the noise). Sallies and pursuits by who goes out cost nothing either: the autopilot sallies less and wins less (85 of 108, against 169 of 183) and pursues about once in 200 keeps. Arms change nothing in the first year, when the autopilot hardly staffs the Forge. The cold Forge is worth 9 and 11 first years (9 fires broke out in a Forge, all worked, against 372 in empty ones), and paying in kind 3 and 12 (food-priced offers taken 602 times in 1,363).
+    - **The ledger, and the autopilot's answer to it.** Ignored (`AP_LEDGERBLIND`), the ledger warns 30% of inspections, where the Dread at noon warned 1%, and costs 6 first years on each plan: a warning's tithe is small. The autopilot's answer, holding Dread at 1 through the days before the first inspection by covering and keeping vigils as it goes, is blessed at all 760 inspections. But held with no ledger at all (`AP_DREADLOW`), the same answer finishes 151 and 127 against 132 and 99: **it's worth 19 and 28 first years on its own.** It's better play the old autopilot never found (covering a shade early gives a remembrance, and turns its bonded person's grief, work ×0.8, to peace, ×1.1), not something the rule makes. So the Church still blesses every inspection, and **covering alone still satisfies it**: the ledger only stops a keep covering at the last moment.
+    - **What the done-whens come to:**
+      - **Holding a raid isn't free any more.** Guards posted only when the Host is at the gate finish 127 first years against 150 (better on 20 seeds, worse on 43) and hold 90% of raids, where on phase 9's rules the same play finished 145 against 128 and held 98%. At a person's pace it was a loss before (107 against 120) and still is (115 against 130). 6% of the guards at the gate when the Host struck were posted in its last seconds, against 35%.
+      - **But raids still hold 99% of the time** (94% before) for a plan that posts its guards on the road, and their price is the one the autopilot already paid by its own choice: a fifth of the hands on a raid day (20%, against 19%). The first "done when" is met for the last-moment play, and not for the share held.
+      - **Year-2 day actions are not back to year 1's** (the day table, over two years): 2.2 a day in year 1 and 1.4 in year 2 for both plans, against 2.4 and 1.7 before for the balanced plan (2.5 and 1.7 for the human one, traced the same way). Both years fell, by about as much: fewer fires to fight, none of them in an empty Forge, and less pitch at a gate manned in time. Muster, arms and paying in kind make the day's choices dearer, not more of them; more to decide by day in year 2 is phase 12's, things to build and spend on. The Forge does find work in year 2: 11 arms forged a keep, against 3 in year 1.
+      - **The first year is easier:** the balanced plan 128 → 150 of 200 and the human plan 120 → 130; over seeds 1–400 (the night table), 292 and 251, against 262 and 229, and Double 257 against 228. Most of it is the autopilot's new Dread policy, which is worth as much with no ledger; the rules' own share is the cold Forge and paying in kind.
+    - **Side effects I haven't traced:** the Long Night asks 9.7 actions of the balanced plan, against 11.5 (the moon table), and is still the busiest night; the campaign's first-year goal, 20 candles into winter, is met by 103 keeps of 189, against 74 of 182 (the campaign table). My guess for the second is the chandler's widow paid in glass.
+    - **In the page.** The raid card says what the guards posted will add once they've taken their places, and when the gate's short, to post guards now: each takes 2.5 hours. The call-outs on the road and at the gate and the strip say what they'll add too, and the black mirror's forecast of tomorrow's raid counts them in full. People marks a guard taking the post. Work today and the HUD's More show the arms, a visitor offers only the answers in the keep's rules, and the Church's card shows its ledger so far. How to play, the guide's raid card and Settings say the same. A browser check (`e2e/day.cjs`) loads a keep on its first raid morning and checks them on a phone.
+    - **Old keeps** play as they did: `muster`, `guardsGoOut`, `forgeArms`, `coldForge`, `payInKind` and `churchLedger` are in `RULES_SINCE` with 0, and the golden replays play as they were recorded.
+    - **Found on the way:** the autopilot judged the gate short by the defense as it stood, so with guards mustering it barred the stores six times as often as it needed to, and the page's strip and the Day panel's dot called a gate short that would hold. They count what the guards posted will be now, and so does the black mirror's forecast.
+    - **Not done:** the Church as a choice (covering early satisfies it, and pays); raids that are a risk rather than a cost for a keep that mans its gate; and year 2's empty days. Whether a person posts guards on the road, and whether 2.5 hours is the right wait, needs testers.
 
 **How a season plays**
 
@@ -977,24 +1014,25 @@ The vertical slice: seven days in one keep, ending on the night of the new moon,
 39. **Phase 7's shapes are mine.** Round seven's plan named problem 36's four levers, "As last night" and an optional auto-relight on Gentle. Mine are: the thin stair decided per Creeper as it rises, by the fight standing in the light at the foot of each stair up to the Veil, a tie keeping its own rift; the ruin as a threshold (12 seconds unmet after the break) rather than a cost that grows by the second, and a candle in the room holding it while the Maw tears the candle down; the Hollow hunting a carried lantern only where it can reach it past the wards; As last night leaving wards out, since they cost essence and each night's tides are its own; auto-relight kept to the line and the rooms where shades are posted, keeping the last candle back, and on in Gentle and in Custom rules; and, from the measurements, leaving the ruin and the Hollow's hunting off (problem 50).
 40. **Phase 8's shapes are mine.** Round seven's plan asked for a Hollow ward that holds only the Hollow, for driving it back to pay something later years can spend, for a last great tide on the Long Night with its own sound, and for the year-4 goal to be fixed. Mine are: the ward holding only the Hollow on its nights and only on a stair (a rift, the moat and the Undergate still hold everything); the Hollow held at a ward feeding on nothing, so that meeting it can pay; the reward in remembrance, 3 more each year; the new moon keeping six in ten of a night's Creepers, in one tide more; the Long Night at four in ten, four in ten of those held back for a last great tide at about 00:30, after every other tide, at both rifts, stopping the clock; the autopilot's rule for when to meet the Hollow, and meeting it every night of a campaign's fourth year until it's driven back; and the human plan looking when the page stops the clock (problem 51).
 41. **Phase 9's shapes are mine.** Round seven's plan asked for cracks counted per mirror per tide with the rest spilling into the next day's harm, for "the Veil strains", for winter's candle number from autumn, and for a way back for a shrinking keep, naming the night scaled to the keep, alms and refugees, and essence lighting a spot for one tide. Mine are: the spill as nightmares, one a Creeper, and not a room's lost work; a straggler a tide of its own; three cracks that don't mend on Standard and Hard, four that do on Gentle; the strain 20 seconds ahead, once a stair and a tide, not stopping the clock; winter's number from the last seven days, scaled to winter, with the campaign's 20 beside it in the open year; and the way back as a wisp, 6 essence for 40 seconds, only once the store is out of candles (problem 52).
+42. **Phase 10's shapes are mine.** Round seven's plan asked for guards who muster, sallies and pursuits that scale with who goes, visitors priced in what piles up, a day job for the Forge and an empty Forge that can't burn, and a Church that covering alone can't satisfy, by a season's average Dread or dearer vigils. Mine are: muster on the day's clock, 2.5 hours at the post, still rising at the gate and lost off the post, with a new keep's first guards mustered; a sally's and a pursuit's strength the guards' own, mustered and armed, and a pursuit's share of the loot their strength over the Host's; arms as the Forge's day job, a smith's rate a day, stored one for each guard's post, 1 more to a guard at the gate, a quarter of those in use broken at each raid; second prices in glass at the food price in a worker's days, and prayers for remembrance at the almoner; the ledger as each day's Dread at dusk and today's at noon, averaged and rounded, starting again at each inspection and each season; and the autopilot's answers: guards at the sighting, the ward first, just enough guards, the Forge once the keep is built, and Dread held at 1 before a season's first inspection (problem 53).
 
 **What the numbers say so far.** The first year of each plan, from `npm run measure` (`tools/measure.mjs`), which writes the tables below: they come from that file, not from hand (problem 49). The human plan is the balanced one with a person's lapses (`tools/AUTOPILOT.md`). Every plan but Idle builds in the same order (a Barracks, a Chapel, a Chandlery, a Glazier, an Infirmary, a second Barracks, a Quarters once the keep is crowded, a Forge, a Granary, a Cellar), stands guards only on raid days, holds the stairs to the Veil, relights candles, and posts nobody below the line's floor at night except in the Choir, and never has the dead help by day. All but Double and Idle send help against a Maw, and a second fighter to the line for each tide: since the tide goes for the thinner stair (problem 50), they hold one fighter to each stair until a tide is up, then send the nearest free fighter to the stair on the side it's climbing. They move a shade only along a lit floor: a shade whose way is dark stays where it is (problem 36). On the Hollow's nights they ward it at the foot of the keep, unless three fighters could cut it down in 15 seconds or the store can't hold it until dawn: then they hold it at the line's stair and drive it back there, and on the Long Night they keep a candle for each stair of the line back for its great tide and put a second fighter at each stair as it rises (problem 51). They also ward the line for the last tide of nights 5 and 6 when the essence is there, use the shades' acts by rule (problem 33), and fetch echoes and relics in a lull (problem 34). Every plan but Idle drops a candle on a sleepwalker who's caught or has reached the Deep's floor, of two omens takes the one that cost it least (problem 35), answers visitors at the gate by rule (problem 38), builds the Hall, the Library and the Gatehouse last, once its own rooms stand (problem 39), meets the eclipse as it meets a night (problem 40), in a campaign closes each chapter on the help rather than the goods (problem 41), and late in a season keeps back what holding the Hollow off until dawn will take (problem 42). The first three differ in how they treat the dead; Double treats them like Balanced.
 
 <!-- measure:plans -->
 | | Balanced | Human | Keeper | Mourner | Double | Idle |
 |---|---|---|---|---|---|---|
-| First season finished | 98% | 96% | 97% | 83% | 90% | 0% |
-| **First year finished** | **64%** | **60%** | **42%** | **35%** | **54%** | **0%** |
-| Lost in spring / summer / autumn / winter | 4 / 7 / 14 / 47 | 9 / 24 / 19 / 28 | 7 / 16 / 29 / 64 | 35 / 18 / 35 / 42 | 21 / 10 / 17 / 44 | 200 / 0 / 0 / 0 |
-| Your deaths per season | 3.1 | 3.0 | 3.2 | 3.3 | 3.0 | 0.2 |
-| Raids held | 94% | 96% | 93% | 93% | 95% | 100% |
-| Church: blessed / warned / censured | 728 / 5 / 0 | 686 / 3 / 0 | 448 / 234 / 614 | 595 / 0 / 0 | 682 / 4 / 0 | 0 / 0 / 0 |
-| Shades lost at night per season | 0.3 | 0.3 | 0.7 | 0.4 | 0.4 | 1.5 |
-| The Hollow, in finished seasons: reached the Veil / driven back / withdrew | 1 / 167 / 520 | 4 / 165 / 457 | 4 / 142 / 456 | 25 / 110 / 359 | 3 / 0 / 605 | – |
+| First season finished | 99% | 98% | 99% | 88% | 94% | 0% |
+| **First year finished** | **75%** | **65%** | **45%** | **37%** | **63%** | **0%** |
+| Lost in spring / summer / autumn / winter | 2 / 6 / 11 / 31 | 5 / 20 / 14 / 31 | 2 / 12 / 30 / 67 | 24 / 26 / 34 / 43 | 13 / 11 / 14 / 37 | 200 / 0 / 0 / 0 |
+| Your deaths per season | 3.0 | 3.0 | 3.2 | 3.3 | 3.0 | 0.2 |
+| Raids held | 99% | 99% | 97% | 97% | 98% | 100% |
+| Church: blessed / warned / censured | 760 / 0 / 0 | 708 / 0 / 0 | 454 / 498 / 596 | 605 / 0 / 0 | 705 / 0 / 0 | 0 / 0 / 0 |
+| Shades lost at night per season | 0.3 | 0.3 | 0.7 | 0.4 | 0.3 | 1.5 |
+| The Hollow, in finished seasons: reached the Veil / driven back / withdrew | 0 / 162 / 559 | 2 / 162 / 497 | 3 / 89 / 537 | 24 / 112 / 379 | 2 / 0 / 648 | – |
 
-The human plan finishes its first year on 120 of 200 seeds, against the balanced plan's 128: it loses 35 the balanced plan keeps and keeps 27 it loses. Median seasons finished of the first four: 4, against 4.
+The human plan finishes its first year on 130 of 200 seeds, against the balanced plan's 150: it loses 37 the balanced plan keeps and keeps 17 it loses. Median seasons finished of the first four: 4, against 4.
 
-Generated by `npm run measure` on seeds 1–200, at build 404caaf, 2026-09-29.
+Generated by `npm run measure` on seeds 1–200, at build 64b995d, 2026-10-02.
 <!-- /measure:plans -->
 
 **The verbs the autopilot didn't use until round seven's phase 6** (problem 49), each switched on for the balanced plan and paired with it seed by seed (`tools/AUTOPILOT.md` says what each does):
@@ -1002,14 +1040,14 @@ Generated by `npm run measure` on seeds 1–200, at build 404caaf, 2026-09-29.
 <!-- measure:verbs -->
 | Verb | What the autopilot does with it | Used, per keep | Finished | The balanced plan | Better on / worse on |
 |---|---|---|---|---|---|
-| Hush (`AP_HUSH`) | hushes while shades stand in the dark with the Unlit close and no candle to spare | 0.9 | 127 of 200 the first year | 128 | 1 / 4 |
-| Bind (`AP_BIND`) | binds a Restless shade into a free mirror when the essence can be spared | 0.1 | 129 of 200 the first year | 128 | 3 / 4 |
-| The curfew (`AP_CURFEW`) | proclaims the curfew once sleepwalkers or Weepers can come | 2.0 | 119 of 200 the first year | 128 | 11 / 20 |
-| The Court (`AP_COURT`) | seats a shade in the Court of Shades before a rite where one will ask | 1.1 | 119 of 200 the first year | 128 | 4 / 13 |
-| Building by choice (`AP_TALL=line`) | builds tall, with the Chapel on the line’s floor | – | 133 of 200 the first year | 128 | 38 / 36 |
-| The Keeper (`AP_ENDING=watch`) | takes its own place in the glass at the first year’s end | 0.6 | 114 of 200 two years | 113 | 5 / 4 |
+| Hush (`AP_HUSH`) | hushes while shades stand in the dark with the Unlit close and no candle to spare | 0.5 | 149 of 200 the first year | 150 | 0 / 1 |
+| Bind (`AP_BIND`) | binds a Restless shade into a free mirror when the essence can be spared | 0.1 | 148 of 200 the first year | 150 | 1 / 2 |
+| The curfew (`AP_CURFEW`) | proclaims the curfew once sleepwalkers or Weepers can come | 2.1 | 139 of 200 the first year | 150 | 3 / 13 |
+| The Court (`AP_COURT`) | seats a shade in the Court of Shades before a rite where one will ask | 1.3 | 139 of 200 the first year | 150 | 3 / 15 |
+| Building by choice (`AP_TALL=line`) | builds tall, with the Chapel on the line’s floor | – | 140 of 200 the first year | 150 | 26 / 31 |
+| The Keeper (`AP_ENDING=watch`) | takes its own place in the glass at the first year’s end | 0.8 | 137 of 200 two years | 135 | 2 / 2 |
 
-Generated by `npm run measure` on seeds 1–200, at build 404caaf, 2026-09-29.
+Generated by `npm run measure` on seeds 1–200, at build 64b995d, 2026-10-02.
 <!-- /measure:verbs -->
 
 **The night: reacting against the static line** (round seven, phase 7, problem 50). Each plan's first year on today's rules, paired seed by seed with the plan named: Double at the same pace, or as the row says. Human is the balanced plan at a person's pace; Double at a person's pace has the same lapses. Only watching sets the night at dusk and does nothing in it.
@@ -1017,18 +1055,18 @@ Generated by `npm run measure` on seeds 1–200, at build 404caaf, 2026-09-29.
 <!-- measure:night -->
 | Plan | First year finished | Paired with Double at the same pace, or as it says: better on / worse on (seeds) | Lost to the Veil / with everyone dead | Shades caught a night | Rooms broken / ruined in 10 nights | Cracks a season |
 |---|---|---|---|---|---|---|
-| Balanced: reacts | 262 of 400 | 115 / 65 | 123 / 15 | 0.1 | 2.8 / 0.0 | 0.3 |
-| Balanced, never moving a shade at night (`AP_NOMOVE`) | 270 of 400 | 24 / 20 against Balanced | 117 / 13 | 0.1 | 2.8 / 0.0 | 0.3 |
-| Double: two to a stair, never moves | 228 of 400 | – | 161 / 11 | 0.1 | 2.6 / 0.0 | 0.7 |
-| Human: reacts, at a person’s pace | 229 of 400 | 136 / 89 | 161 / 10 | 0.3 | 2.6 / 0.0 | 0.5 |
-| Double at a person’s pace (`AP_LAPSES`) | 189 of 400 | – | 198 / 13 | 0.3 | 2.6 / 0.0 | 0.8 |
-| Balanced, set at dusk and then only watching (`AP_WATCH`) | 0 of 400 | 0 / 392 against Balanced | 400 / 0 | 0.9 | 1.6 / 0.0 | 3.0 |
-| Human, with auto-relight (on in Gentle) | 264 of 400 | 98 / 31 against Human | 124 / 12 | 0.2 | 2.8 / 0.0 | 0.3 |
-| Only watching, with auto-relight | 17 of 400 | 8 / 360 against Balanced | 376 / 7 | 0.6 | 1.8 / 0.0 | 2.1 |
-| Balanced, never meeting the Hollow (`AP_MEETHOLLOW=off`) | 259 of 400 | 10 / 19 against Balanced | 126 / 15 | 0.1 | 2.7 / 0.0 | 0.4 |
-| Human, never meeting the Hollow | 224 of 400 | 9 / 16 against Human | 167 / 9 | 0.3 | 2.6 / 0.0 | 0.5 |
+| Balanced: reacts | 292 of 400 | 100 / 55 | 99 / 9 | 0.1 | 2.7 / 0.0 | 0.3 |
+| Balanced, never moving a shade at night (`AP_NOMOVE`) | 294 of 400 | 19 / 22 against Balanced | 94 / 12 | 0.1 | 2.7 / 0.0 | 0.3 |
+| Double: two to a stair, never moves | 257 of 400 | – | 137 / 6 | 0.1 | 2.6 / 0.0 | 0.6 |
+| Human: reacts, at a person’s pace | 251 of 400 | 118 / 74 | 138 / 11 | 0.3 | 2.7 / 0.0 | 0.4 |
+| Double at a person’s pace (`AP_LAPSES`) | 231 of 400 | – | 161 / 8 | 0.3 | 2.6 / 0.0 | 0.7 |
+| Balanced, set at dusk and then only watching (`AP_WATCH`) | 0 of 400 | 0 / 396 against Balanced | 400 / 0 | 1.0 | 1.7 / 0.0 | 3.0 |
+| Human, with auto-relight (on in Gentle) | 282 of 400 | 82 / 30 against Human | 110 / 8 | 0.2 | 2.7 / 0.0 | 0.3 |
+| Only watching, with auto-relight | 22 of 400 | 9 / 351 against Balanced | 370 / 8 | 0.5 | 1.9 / 0.0 | 2.0 |
+| Balanced, never meeting the Hollow (`AP_MEETHOLLOW=off`) | 289 of 400 | 13 / 14 against Balanced | 102 / 9 | 0.1 | 2.7 / 0.0 | 0.3 |
+| Human, never meeting the Hollow | 248 of 400 | 16 / 19 against Human | 138 / 14 | 0.3 | 2.6 / 0.0 | 0.4 |
 
-Generated by `npm run measure` on seeds 1–400, at build 404caaf, 2026-09-29.
+Generated by `npm run measure` on seeds 1–400, at build 64b995d, 2026-10-01.
 <!-- /measure:night -->
 
 **The nights of a season** (round seven, phase 8, problem 51). For each night of the season, over each plan's first year: the Unlit it brought, and the actions the plan took in it and the call-outs it made (the page's alerts), a night on average. Where the Hollow rose, how its night ended.
@@ -1036,18 +1074,18 @@ Generated by `npm run measure` on seeds 1–400, at build 404caaf, 2026-09-29.
 <!-- measure:moon -->
 | Night | Unlit | Balanced: actions / call-outs | Human: actions / call-outs |
 |---|---|---|---|
-| Night 1 | 8.3 | 3.1 / 1.4 | 3.3 / 1.6 |
-| Night 2 | 12.0 | 5.1 / 3.3 | 5.1 / 3.4 |
-| Night 3 | 15.8 | 6.7 / 8.4 | 6.3 / 8.7 |
-| Night 4 | 18.9 | 6.5 / 9.3 | 6.2 / 9.4 |
-| Night 5 | 21.8 | 6.3 / 8.3 | 5.8 / 8.9 |
-| Night 6 | 25.3 | 6.5 / 9.4 | 5.9 / 9.8 |
-| The new moon (spring to autumn) | 13.4 | 6.8 / 5.7 | 5.9 / 5.8 |
-| The Long Night | 14.3 | 11.5 / 13.1 | 10.1 / 12.9 |
+| Night 1 | 8.4 | 2.9 / 1.4 | 3.0 / 1.6 |
+| Night 2 | 11.9 | 4.8 / 3.1 | 4.8 / 3.3 |
+| Night 3 | 15.9 | 6.4 / 8.5 | 5.9 / 8.8 |
+| Night 4 | 18.9 | 6.3 / 9.1 | 5.8 / 9.3 |
+| Night 5 | 22.0 | 6.5 / 8.3 | 6.0 / 9.0 |
+| Night 6 | 25.4 | 6.6 / 9.3 | 6.0 / 9.8 |
+| The new moon (spring to autumn) | 13.5 | 6.7 / 5.8 | 5.8 / 5.9 |
+| The Long Night | 14.4 | 9.7 / 12.8 | 8.5 / 13.6 |
 
-The Hollow, on the nights it rose (driven back / crossed the Veil / withdrew at dawn): Balanced 333 / 1 / 1052 of 1386; Human 322 / 4 / 912 of 1238. First year finished: Balanced 262 of 400; Human 229 of 400.
+The Hollow, on the nights it rose (driven back / crossed the Veil / withdrew at dawn): Balanced 327 / 1 / 1113 of 1441; Human 323 / 2 / 1013 of 1338. First year finished: Balanced 292 of 400; Human 251 of 400.
 
-Generated by `npm run measure` on seeds 1–400, at build 404caaf, 2026-09-29.
+Generated by `npm run measure` on seeds 1–400, at build 64b995d, 2026-10-01.
 <!-- /measure:moon -->
 
 **The campaign's goals** (problem 51): each of the first four years' goals met, of the keeps that got as far as its judging (the first year's as winter begins, the others at the year's end).
@@ -1055,17 +1093,27 @@ Generated by `npm run measure` on seeds 1–400, at build 404caaf, 2026-09-29.
 <!-- measure:campaign -->
 | Year | Goal | Balanced: met / judged | Human: met / judged |
 |---|---|---|---|
-| 1: The First Winter | go into winter with 20 candles put by | 74 / 182 | 80 / 151 |
-| 2: The Ashen Host | hold the gate against every raid this year | 130 / 141 | 109 / 117 |
-| 3: The Lantern Church | come through every inspection this year without a censure | 140 / 140 | 108 / 108 |
-| 4: The Deep Rises | drive the Hollow back on one of its nights this year | 133 / 134 | 97 / 97 |
+| 1: The First Winter | go into winter with 20 candles put by | 103 / 189 | 88 / 173 |
+| 2: The Ashen Host | hold the gate against every raid this year | 158 / 158 | 143 / 143 |
+| 3: The Lantern Church | come through every inspection this year without a censure | 156 / 156 | 136 / 136 |
+| 4: The Deep Rises | drive the Hollow back on one of its nights this year | 153 / 154 | 128 / 128 |
 
-Generated by `npm run measure` on seeds 1–200, at build 404caaf, 2026-09-29.
+Generated by `npm run measure` on seeds 1–200, at build 64b995d, 2026-10-02.
 <!-- /measure:campaign -->
 
 **The day** (round seven, phase 10, problem 53). Each plan over two years, by year: the day's actions other than jobs (visitors answered, wards, pitch, building, decrees and the rest), raids held at the gate, the guards' share of the hands on a raid day (what holding a raid costs in work), sallies against the autumn camp, visitors paid in glass or remembrance, the Forge's arms and the Church's verdicts. Under it, the same plans posting their guards only when the Host is at the gate.
 
 <!-- measure:day -->
+| Plan | Year | Keeps | Day actions other than jobs, a day | Raids held | Guards, of the hands on a raid day | Sallies won / made | Visitors paid in kind | Arms forged, a keep | Church: blessed / warned / censured |
+|---|---|---|---|---|---|---|---|---|---|
+| Balanced | 1 | 200 | 2.2 | 99% | 20% | 85 / 108 | 367 | 3.1 | 760 / 0 / 0 |
+| Balanced | 2 | 149 | 1.4 | 100% | 28% | 125 / 138 | 261 | 11.2 | 574 / 0 / 0 |
+| Human | 1 | 200 | 2.2 | 99% | 20% | 73 / 96 | 367 | 2.6 | 708 / 0 / 0 |
+| Human | 2 | 130 | 1.4 | 100% | 27% | 100 / 116 | 255 | 10.5 | 470 / 0 / 0 |
+
+Posting guards only when the Host is at the gate (`AP_JIT`), first year finished: Balanced 127 of 200 (against 150; better on 20, worse on 43), raids held 90%; Human 115 of 200 (against 130; better on 37, worse on 52), raids held 90%.
+
+Generated by `npm run measure` on seeds 1–200, at build 64b995d, 2026-10-02.
 <!-- /measure:day -->
 
 - **Raids with traits** (before raids were fought): when traits went in, 86% held for the balanced plan, against 90% without them (and 58% before the two-room start). Traits first cut it to 75%. No one trait did it: Wil (a Coward) and Nell (Gentle) guarded at half strength, Tam (Devout) at ×0.8 off the Chapel, Ada (Brave) fell twice as often, which thinned the gate for the next raid, and the Greedy ate double. The Gentle's and the Greedy's costs now fall elsewhere: the Gentle grieve harder, and the Greedy work ×0.8 away from the Glazier and the Chandlery. The Coward and the Brave keep theirs, since the gate is what they're about. Guards stand only on raid days, when every free hand goes to the Barracks.
