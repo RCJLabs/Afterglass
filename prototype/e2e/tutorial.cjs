@@ -76,7 +76,9 @@ const only = process.argv[2];
     // Speed up to Maud's death at noon: it pauses.
     await page.$eval('#speed-4', (b) => b.click()); // a phone shows one speed button that steps; this is the same
     await lesson(/Maud, the old servant, has died/, 'Maud lesson', 60000);
-    check(/Play/.test(await page.textContent('#btn-play')), `${tag}: Maud's lesson didn't pause`);
+    // The lesson's own pause, from the page's trail: the label turns to Play a frame later, and the wait above
+    // presses Play whenever it reads Play, so the button alone can miss a pause that happened.
+    check(await K(() => (window.__season.keep.trail || []).some((e) => e.k === 'pause' && e.by === 'lesson' && e.id === 't-maud')), `${tag}: Maud's lesson didn't pause`);
     await shot('3-maud');
     await ok();
     // The Chandlery, when there's stone: build it and put Osk in it.
