@@ -4,8 +4,10 @@ import { newSeason, step, act, upgrade, beds, crowded, livingMult, addFoe, weepe
 import { geo, roomsOf, lightMap } from '../src/slice/geo.js';
 import { SHADE_TRAITS, TUNING } from '../src/slice/data.js';
 
-// The original four-floor keep (no Quarters, so the Cold Hearth is the sleepers' twin), nothing by day.
-const quiet = { startFloors: 4, sickChance: 0, oldAgeChance: 0, raidDays: { 2: 0, 4: 0, 6: 0 }, fire: 0 };
+// The original four-floor keep (no Quarters, so the Cold Hearth is the sleepers' twin), nothing by day; with
+// the Weepers and the Dreamwell's dreaming as round five made them (round seven, phase 11 cut both:
+// test/texture.test.js).
+const quiet = { startFloors: 4, sickChance: 0, oldAgeChance: 0, raidDays: { 2: 0, 4: 0, 6: 0 }, fire: 0, weepersMax: 3, dreamRest: 0 };
 const ok = (s, a) => {
   const r = act(s, a);
   assert.ok(r.ok, `${a.type}: ${r.error}`);

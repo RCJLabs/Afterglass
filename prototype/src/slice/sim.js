@@ -9,7 +9,7 @@
 import {
   TICKS_PER_SEC, TUNING, DAY_ROOMS, WORK_ROOMS, TWINS, MAP, KINDS, WORKING, CAUSES, GUIDE_UP,
   MIRRORS, START_MIRRORS, MIRROR_PLACES, CAST, BONDS, START_SHADES, BOND_OTHER, NAMES, RAIDER_NAMES, BUILDABLE, TRAITS, TRAIT_KEYS, SHADE_TRAITS, SEASONS,
-  TUTORIAL, REQUESTS, ACTS, OMENS, VISITORS, STUDIES, DECREES, decreeDoes, CHAPTERS, PRESETS,
+  TUTORIAL, REQUESTS, ACTS, OMENS, VISITORS, STUDIES, DECREES, decreeDoes, decreesOf, twinJob, CHAPTERS, PRESETS,
 } from './data.js';
 import {
   geo, FULL_KEEP, startKeep, lineSpots, MAX_FLOORS, roomsOf, roomAt, roomSpan, typeOf, typeAt, lightMap, isLit, spanAt, darkBetween, darkRooms, darkGaps, route, firstLight, fleePath, touching,
@@ -776,7 +776,7 @@ function visitorCan(s, k, now) {
     case 'reeve': return raidsLeft(s) && !s.riders;
     case 'necromancer': return !!restlessOf(s) && !!freeMirror(s);
     case 'cooper': return !!s.tuning.fire && !s.barrels && roomsOf(geo(s), 'hearth').length + roomsOf(geo(s), 'forge').length > 0;
-    case 'witch': return !!s.tuning.dreamwell; // her curse is a Weeper
+    case 'witch': return !!s.tuning.dreamwell || !s.tuning.weepersMax; // her curse is a Weeper, or the candles
     default: return true;
   }
 }
@@ -927,7 +927,7 @@ function answerVisitor(s, v, id, late = false) {
     what = 'Tonight the candles will burn a quarter slower.';
   } else if (key === 'witch:church') {
     s.curse = true;
-    what = 'The Church thanks you. As she is taken away she curses the keep: a Weeper will come tonight.';
+    what = `The Church thanks you. As she is taken away she curses the keep: ${s.tuning.dreamwell && s.tuning.weepersMax ? 'a Weeper will come tonight' : `tonight the candles will burn ×${Math.round(100 * s.tuning.curseBurn) / 100} as fast`}.`;
   } else if (key === 'physician:pay') {
     const sick = s.living.filter((p) => p.sick > 0);
     for (const p of sick) p.sick = 0;
@@ -1687,15 +1687,19 @@ function newNight(s) {
     for (let i = 0; i < maws; i++) spawns.push({ at: Math.round(clamp(order[i % order.length] - 0.03, 0.02, 0.9) * N), type: 'maw', seep: false, snuff: false, rift: pick(s, MAP.rifts).id, ...(tut?.maw ? { weak: tut.maw } : {}) });
   }
   if (isNewMoon(s)) spawns.push({ at: Math.round(T.hollowAt * N), type: 'hollow', seep: false, snuff: false, rift: pick(s, MAP.rifts).id });
-  // The night after a death, the Weepers: one for each of the day's dead.
+  // The night after a death, the Weepers: one for each of the day's dead (up to weepersMax, 0 since round seven,
+  // phase 11).
+  const weepers = T.dreamwell && T.weepersMax;
   if (T.dreamwell) {
     for (let i = 0; i < Math.min(tut?.weepers ?? T.weepersMax, s.today.deaths.length); i++) spawns.push({ at: Math.round((0.1 + 0.6 * rand(s)) * N), type: 'weeper', seep: true, snuff: false, rift: pick(s, MAP.rifts).id });
-    if (s.curse) {
+    if (s.curse && weepers) {
       // The hedge-witch's curse (a visitor): one more, drawn from the visitors' own stream.
       const r = sideStream(s, VISIT_TAG + 9);
       spawns.push({ at: Math.round((0.1 + 0.6 * rand(r)) * N), type: 'weeper', seep: true, snuff: false, rift: pick(r, MAP.rifts).id, curse: true });
     }
   }
+  // With no Weepers, the hedge-witch's curse is her charm turned round: tonight's candles burn at curseBurn.
+  const cursed = !!s.curse && !weepers;
   s.curse = false;
   // A rainy night: the Drowned come up out of the moat's twin at any hour, all at one end of it (the
   // spawn's rift is its end of the moat). Not on the new moon, which belongs to the Hollow, as for the Maws.
@@ -1725,6 +1729,7 @@ function newNight(s) {
     candles: [], foes: [], spawns, tides: [...tides, ...(great ? [T.greatTideAt] : [])].map((x) => Math.round(x * N)).sort((a, b) => a - b), ...(great ? { great: Math.round(T.greatTideAt * N) } : {}), wards: [], wardHold: {}, hush: false, steel: !!s.steel || (boonNow(s, 'steel') && isNewMoon(s)),
     broken: [], // twin rooms (ids) a Maw has broken tonight
     stats: nightStats(),
+    ...(cursed ? { curse: true } : {}),
   };
   // Tonight's omen, or two to choose between: the night as rolled is kept, so a choice can be changed at dusk.
   const offered = T.omens && !tut && !long && !isNewMoon(s) && s.day >= T.omenFrom ? rollOmens(s, N, night) : [];
@@ -2050,7 +2055,7 @@ function tainTick(s) {
   L.stood = stood(s, L);
   spawnFoes(s, L);
   biggestTide(s);
-  const burn = (n.omen?.id === 'still' ? T.stillBurn : 1) * (s.charm ? T.charmBurn : 1) * DT;
+  const burn = (n.omen?.id === 'still' ? T.stillBurn : 1) * (s.charm ? T.charmBurn : 1) * (n.curse ? T.curseBurn : 1) * DT;
   for (const c of n.candles) c.wax -= burn;
   if (T.veilStrains && s.phase === 'night' && s.t % TICKS_PER_SEC === 0) strainCheck(s, burn / DT);
   for (const h of n.foes) {
@@ -2368,7 +2373,7 @@ function shadeTick(s, L, d) {
   const id = roomAt(geo(s), d.f, d.x);
   if (n.broken.includes(id)) return;
   const room = typeOf(geo(s), id);
-  const job = room && TWINS[room].job;
+  const job = room && twinJob(T, room);
   // Guarding the line is keeping watch: in the guard light the Watch's is the only work a shade does.
   if (T.lineGuard && job !== 'watch' && guardLit(geo(s), L, d.f, d.x)) return;
   const w = K.work * p * (isTwinnedShade(s, d) ? twinMultOf(s) : 1) * (S?.work ?? 1) * DT;
@@ -3445,10 +3450,11 @@ function beginDay(s) {
   weatherNews(s);
   const haunted = (s.haunted || []).filter((id) => !s.ruined?.includes(id)).map((id) => DAY_ROOMS[typeOf(geo(s), id)].name);
   const half = T.hauntWork < 1 ? ` Whoever works there manages ${Math.round(100 * T.hauntWork)}% until dusk.` : '';
-  if (haunted.length) say(s, `The ${listNames(haunted)} ${haunted.length === 1 ? 'is' : 'are'} haunted today.${half}`, 'bad', true);
+  // In the log, not called out (round seven, phase 11): the night called it out as the Maw broke the room, and
+  // the Day panel says it all day.
+  if (haunted.length) say(s, `The ${listNames(haunted)} ${haunted.length === 1 ? 'is' : 'are'} haunted today.${half}`, 'bad');
   const ruined = (s.ruined || []).map((id) => DAY_ROOMS[typeOf(geo(s), id)].name);
-  if (ruined.length) say(s, `The ${listNames(ruined)} ${ruined.length === 1 ? 'was' : 'were'} ruined in the night: whoever works there manages ${Math.round(100 * T.ruinWork)}% until dusk.`, 'bad', true);
-  if (haunted.length) cue(s, 'warn');
+  if (ruined.length) say(s, `The ${listNames(ruined)} ${ruined.length === 1 ? 'was' : 'were'} ruined in the night: whoever works there manages ${Math.round(100 * T.ruinWork)}% until dusk.`, 'bad');
   return null;
 }
 
@@ -3900,7 +3906,7 @@ const ACTIONS = {
     if (s.phase !== 'day') return 'Decrees are proclaimed by day.';
     if (!roomsOf(geo(s), 'hall').length) return 'Build a Hall first.';
     const D = DECREES[id];
-    if (!D) return 'No such decree.';
+    if (!D || !decreesOf(T).includes(id)) return 'No such decree.';
     if (s.decree?.season === s.season) return `${DECREES[s.decree.id].name} stands until the season ends.`;
     s.decree = { id, season: s.season };
     say(s, `${D.name} is proclaimed from the Hall, until the season ends: ${decreeDoes(s.tuning, D)}. The price: ${D.price}.`, 'good', true);
@@ -4636,6 +4642,8 @@ export const RULES_SINCE = [
   { key: 'coldForge', old: 0, since: '2026-10-01', what: 'a Forge nobody works can\'t catch fire (phase 10)' },
   { key: 'payInKind', old: 0, since: '2026-10-01', what: 'visitors who want food for wares take glass or remembrance too (phase 10)' },
   { key: 'churchLedger', old: 0, since: '2026-10-01', what: 'the Church judges the Dread of every day since it last looked (phase 10)' },
+  { key: 'curfew', old: 1, since: '2026-10-02', what: 'the Hall offers no curfew (phase 11)' },
+  { key: 'dreamRest', old: 0, since: '2026-10-02', what: 'the Dreamwell is a place to rest, not to dream (phase 11)' },
 ];
 export function upgrade(g) {
   g.keep ??= { floors: FULL_KEEP.floors.map((fl) => fl.map((r) => ({ ...r }))) };

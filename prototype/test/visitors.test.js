@@ -188,10 +188,10 @@ test('the wedding, the bard, the physician, the priest, the reeve, the necromanc
   assert.ok(co.s.barrels);
 });
 
-test("the hedge-witch: her charm slows tonight's candles; handed to the Church, she curses the keep with a Weeper", () => {
-  const burn = (charm) => {
-    const { s, v } = atGate('witch', {}, (g) => (g.res.glass = 10));
-    answer(s, v, charm ? 'charm' : 'no');
+test("the hedge-witch: her charm slows tonight's candles; handed to the Church, her curse speeds them (a Weeper, before phase 11)", () => {
+  const burn = (said, tuning = {}) => {
+    const { s, v } = atGate('witch', tuning, (g) => (g.res.glass = 10));
+    answer(s, v, said);
     while (s.phase === 'day') step(s);
     if (s.dusk.step === 'crypt') ok(s, { type: 'wake' });
     const at = s.night.candles.length;
@@ -200,21 +200,30 @@ test("the hedge-witch: her charm slows tonight's candles; handed to the Church, 
     const wax = k.wax;
     ok(s, { type: 'startNight' });
     for (let i = 0; i < 50; i++) step(s);
-    return wax - k.wax;
+    return { burnt: wax - k.wax, s };
   };
-  const plain = burn(false);
-  assert.ok(near(burn(true), plain * TUNING.charmBurn));
-  const { s, v } = atGate('witch');
+  const plain = burn('no').burnt;
+  assert.ok(near(burn('charm').burnt, plain * TUNING.charmBurn));
+  const cursed = burn('church');
+  assert.ok(near(cursed.burnt, plain * TUNING.curseBurn), 'her curse: the candles burn faster');
+  assert.equal(cursed.s.night.spawns.filter((sp) => sp.type === 'weeper').length, 0, 'and no Weeper');
+  assert.ok(!cursed.s.curse, 'once');
+  // As before: a Weeper, and the candles as they were.
+  const { s, v } = atGate('witch', { weepersMax: 3 });
   const dread = s.dread;
   answer(s, v, 'church');
   assert.equal(s.dread, Math.max(0, dread - 1));
   while (s.phase === 'day') step(s);
   if (s.dusk.step === 'crypt') ok(s, { type: 'wake' });
   assert.equal(s.night.spawns.filter((sp) => sp.curse).length, 1);
+  assert.ok(!s.night.curse);
   assert.ok(!s.curse, 'once');
-  // No Weepers in the keep, no hedge-witch at the gate.
-  const q = newSeason(3, { ...calm, dreamwell: 0, visitorOnly: 'witch', visitorChance: 1 });
+  // Where her curse would be a Weeper and the keep has none, no hedge-witch at the gate; with no Weepers at all,
+  // her curse is the candles, and she comes.
+  const q = newSeason(3, { ...calm, dreamwell: 0, weepersMax: 3, visitorOnly: 'witch', visitorChance: 1, visitFrom: 1 });
   assert.equal(q.visitors.length, 0);
+  const w = newSeason(3, { ...calm, dreamwell: 0, visitorOnly: 'witch', visitorChance: 1, visitFrom: 1 });
+  assert.equal(w.visitors.length, 1);
 });
 
 test('visitors replay exactly; old saves have none; How to play covers them', () => {

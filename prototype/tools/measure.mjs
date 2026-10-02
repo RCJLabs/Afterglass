@@ -131,7 +131,7 @@ const PLAN_ROWS = ['balanced', 'human', 'keeper', 'mourner', 'double', 'idle'];
 const VERBS = [
   { key: 'hush', env: { AP_HUSH: '1' }, name: 'Hush (`AP_HUSH`)', what: 'hushes while shades stand in the dark with the Unlit close and no candle to spare' },
   { key: 'bind', env: { AP_BIND: '1' }, name: 'Bind (`AP_BIND`)', what: 'binds a Restless shade into a free mirror when the essence can be spared' },
-  { key: 'curfew', env: { AP_CURFEW: '1' }, name: 'The curfew (`AP_CURFEW`)', what: 'proclaims the curfew once sleepwalkers or Weepers can come' },
+  { key: 'curfew', env: { AP_CURFEW: '1' }, tuning: { curfew: 1 }, name: 'The curfew (`AP_CURFEW`, under its old rule)', what: 'proclaims the curfew once sleepwalkers can come; since phase 11 a Hall has no curfew' },
   { key: 'heard', env: { AP_COURT: '1' }, name: 'The Court (`AP_COURT`)', what: 'seats a shade in the Court of Shades before a rite where one will ask' },
   { key: null, env: { AP_TALL: 'line' }, name: 'Building by choice (`AP_TALL=line`)', what: 'builds tall, with the Chapel on the line’s floor' },
   { key: 'keeper', env: { AP_ENDING: 'watch' }, name: 'The Keeper (`AP_ENDING=watch`)', what: 'takes its own place in the glass at the first year’s end', seasons: 2 * YEAR },
@@ -178,7 +178,7 @@ if (ONLY.includes('day')) {
 if (ONLY.includes('verbs')) {
   if (!ONLY.includes('plans')) configs.push({ id: 'plan:balanced', plan: 'balanced', seasons: YEAR, env: {} });
   configs.push({ id: 'plan:balanced:2y', plan: 'balanced', seasons: 2 * YEAR, env: {} });
-  for (const v of VERBS) configs.push({ id: `verb:${v.name}`, plan: 'balanced', seasons: v.seasons || YEAR, env: v.env });
+  for (const v of VERBS) configs.push({ id: `verb:${v.name}`, plan: 'balanced', seasons: v.seasons || YEAR, env: v.env, tuning: v.tuning });
 }
 
 function run() {

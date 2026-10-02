@@ -1,8 +1,9 @@
 // How to play: every lesson of the tutorial and the guide, as a short manual the Menu keeps. Its numbers come
-// from the keep's own rules, so it stays true when they're changed in Settings. Pure.
+// from the keep's own rules, so it stays true when they're changed in Settings. Pure. Round seven, phase 11
+// cut it by a quarter (tools/words.mjs counts it): what the panels say as you play, it leaves to them.
 
-import { DAY_ROOMS, TWINS, KINDS, MIRRORS, TRAITS, SHADE_TRAITS, OMENS, STUDIES, DECREES, decreeDoes, CHAPTERS, ENDINGS } from './data.js';
-import { actText, omenText } from './sim.js';
+import { DAY_ROOMS, TWINS, KINDS, MIRRORS, TRAITS, SHADE_TRAITS, OMENS, STUDIES, DECREES, decreeDoes, decreesOf, CHAPTERS, ENDINGS } from './data.js';
+import { actText } from './sim.js';
 
 const n1 = (x) => (Math.abs(x - Math.round(x)) < 0.05 ? String(Math.round(x)) : x.toFixed(1));
 const times = (x) => (x === 2 ? 'twice' : `${n1(x)} times`);
@@ -14,6 +15,9 @@ const days = (x) => {
 };
 const pct = (x) => `${Math.round(x * 100)}%`;
 const mult = (x) => String(Math.round(x * 100) / 100);
+const and = (xs) => xs.join(', ').replace(/, ([^,]+)$/, ' and $1');
+const or = (xs) => xs.join(', ').replace(/, ([^,]+)$/, ' or $1');
+const nth = (k) => ['', 'first', 'second', 'third', 'fourth'][k] || `${k}th`;
 // A share of the day as the clock shows it, from 06:00 to 18:00.
 const hour = (x) => {
   const h = 6 + 12 * x;
@@ -27,19 +31,20 @@ const nightHour = (x) => {
 
 // The weather (round five), in the keep's numbers.
 function weather(T) {
+  const SEASONS = ['spring', 'summer', 'autumn', 'winter'];
   const odds = T.year
-    ? `rain comes on about ${['spring', 'summer', 'autumn', 'winter'].map((k, i) => `${pct(T.rainChance[i])} of ${k} days`).join(', ').replace(/, ([^,]+)$/, ' and $1')}, and fog on ${['spring', 'summer', 'autumn', 'winter'].map((k, i) => `${pct(T.fogChance[i])}`).join(', ').replace(/, ([^,]+)$/, ' and $1')} of them`
-    : `rain comes on about ${pct(T.rainChance[0])} of days and fog on ${pct(T.fogChance[0])}`;
+    ? `Rain comes on about ${and(SEASONS.map((k, i) => `${pct(T.rainChance[i])} of ${k} days`))}, and fog on ${and(SEASONS.map((k, i) => pct(T.fogChance[i])))} of them.`
+    : `Rain comes on about ${pct(T.rainChance[0])} of days and fog on ${pct(T.fogChance[0])}.`;
   const half = (x) => (x === 0.5 ? 'half' : `${mult(x)} times`);
   return {
     id: 'weather',
     title: 'Weather',
     items: [
-      `Each day and the night after it are clear, rainy or foggy, and the Sky in the HUD shows tomorrow's a day ahead: ${odds}.`,
-      `Rain slows the Yard to ${pct(T.rainYard)} and damps fire: a fire is ${half(T.rainFire)} as likely, and grows ${half(T.rainFire)} as fast.`,
-      `On a rainy night the Drowned come up out of the moat's twin, at one end of the floor under the Veil: behind the line. The Dusk panel says which end. They never take a stair: they make for the mirrors on that floor, and one that reaches a mirror cracks the Veil. ${T.drownedBase === 1 ? 'One comes' : `${T.drownedBase} come`}, and one more every ${T.drownedEvery} nights, but none on the new moon, which belongs to the Hollow${T.year ? ' (the Long Night has them too)' : ''}. Light bars them, and they gnaw it ${times(T.drownedGnaw)} as fast as a Creeper; a shade in the light cuts them down. A shade they catch in the dark is drained and dragged to the moat, and pulled under there: gone.`,
-      `A ward on the moat (${n1(T.wardCost)} essence) keeps them under all night. Or light the mirror on their side and post a fighter by it.`,
-      'Fog clouds the black mirror: at dusk it shows how many come and when, but not their ways.',
+      `Each day and its night are clear, rainy or foggy, and the Sky in the HUD shows tomorrow's. ${odds}`,
+      `Rain slows the Yard to ${pct(T.rainYard)} and damps fire: ${half(T.rainFire)} as likely, and ${half(T.rainFire)} as fast.`,
+      `On a rainy night the Drowned come up out of the moat's twin at one end of the floor under the Veil, behind the line (the Dusk panel says which end). They never take a stair, making for that floor's mirrors, and one that reaches a mirror cracks the Veil. ${T.drownedBase === 1 ? 'One comes' : `${T.drownedBase} come`}, one more every ${T.drownedEvery} nights, none on the new moon${T.year ? ' (the Long Night has them)' : ''}. Light bars them, though they gnaw it ${times(T.drownedGnaw)} as fast as Creepers, and a shade in the light cuts them down. A shade they catch in the dark is dragged under: gone.`,
+      `A ward on the moat (${n1(T.wardCost)} essence) keeps them under all night; or light the mirror on their side and post a fighter there.`,
+      'Fog clouds the black mirror: it shows how many come and when, but not their ways.',
     ],
   };
 }
@@ -49,22 +54,23 @@ export function howTo(T) {
   const R = DAY_ROOMS;
   const rooms = [
     `cooks in the Hearth, ${R.hearth.rate} food a day each`,
-    `chandlers in a Chandlery, ${R.chandlery.rate} candles each`,
-    `glaziers in a Glazier, ${R.glazier.rate} glass each`,
-    `priests in a Chapel, ${R.chapel.rate} remembrance each and a funeral a day`,
-    `healers in an Infirmary, each curing ${R.infirmary.rate} of the sick a day`,
-    `guards in a Barracks, ${R.barracks.rate} defense each`,
+    `chandlers in a Chandlery, ${R.chandlery.rate} candles`,
+    `glaziers in a Glazier, ${R.glazier.rate} glass`,
+    `priests in a Chapel, ${R.chapel.rate} remembrance and a funeral a day`,
+    `healers in an Infirmary, each curing ${R.infirmary.rate} sick a day`,
+    `guards in a Barracks, ${R.barracks.rate} defense`,
   ];
   const twins = [
-    `the ${TWINS.chandlery.name} (the Chandlery) saves wax for the next dusk's candles`,
-    `the ${TWINS.chapel.name} (the Chapel) makes essence, and its singing calms a Restless shade`,
-    `the ${TWINS.barracks.name} (the Barracks) adds to tomorrow's defense`,
-    `the ${TWINS.glazier.name} (the Glazier) makes glass`,
-    `the ${TWINS.infirmary.name} (the Infirmary) makes tomorrow's sick wake one kind better`,
-    `resting in the ${TWINS.hearth.name} halves a shade's fading`,
-    `a shade who forges in the ${TWINS.forge.name} through half the night makes every shade fight ×${mult(T.steelFight)} the next`,
-    `one who dreams in the ${TWINS.quarters.name} (the Quarters) rests the living: ×${mult(T.dreamWork)} the next day`,
+    `the ${TWINS.chandlery.name} (Chandlery) saves wax`,
+    `the ${TWINS.chapel.name} (Chapel) makes essence and calms the Restless`,
+    `the ${TWINS.barracks.name} (Barracks) adds to tomorrow's defense`,
+    `the ${TWINS.glazier.name} (Glazier) makes glass`,
+    `the ${TWINS.infirmary.name} (Infirmary) makes tomorrow's sick wake one kind better`,
+    `resting in the ${TWINS.hearth.name}${T.dreamRest ? ` or the ${TWINS.quarters.name} (Quarters)` : ''} halves fading`,
+    `forging in the ${TWINS.forge.name} through half the night makes every shade fight ×${mult(T.steelFight)} the next`,
+    ...(T.dreamRest ? [] : [`dreaming in the ${TWINS.quarters.name} (Quarters) through half the night makes the living work ×${mult(T.dreamWork)} the next day`]),
   ];
+  const weepers = T.dreamwell && T.weepersMax;
   const chapters = [1, 2, 3, 4, 5].map((k) => CHAPTERS[k]);
   const campaign = T.campaign && T.year
     ? [
@@ -72,12 +78,12 @@ export function howTo(T) {
           id: 'campaign',
           title: 'The campaign',
           items: [
-            `A campaign is five years, each a chapter: ${chapters.map((C, i) => `year ${i + 1}, ${C.name}`).join('; ')}. It sits beside the open year, chosen for a new keep, and if you keep the watch after its fifth year, it plays on with no more chapters.`,
-            "Each chapter brings its pressure. The first has none of these: from year 2 the Host lays siege in autumn and brings ladders to the gate, and a Gatehouse can be raised against it, with its Undergate below; from year 3 a censure brings the Church's embargo, then its Inquisition, then its crusade (before, it covers a mirror and nothing more); from year 4 the Hollow is half again as hard to drive back and eats the light as fast again, and the new moon brings half again as many Creepers.",
-            `Each chapter has a goal, worth ${T.goalReward} remembrance when it's met: ${chapters.map((C) => `to ${C.goal.text}`).join('; ')}. The Day panel says how it's going.`,
+            `A campaign is five years, each a chapter: ${chapters.map((C, i) => `year ${i + 1}, ${C.name}`).join('; ')}. It's chosen for a new keep, beside the open year, and if you keep the watch after its fifth year, it plays on without chapters.`,
+            'Each chapter brings its pressure. From year 2 the Host lays siege in autumn and brings ladders to the gate, and a Gatehouse can be raised against it; from year 3 a censure brings the embargo, then the Inquisition, then the crusade (before, it covers a mirror); from year 4 the Hollow is half again as hard to drive back and eats the light as fast again, and the new moon brings half again as many Creepers.',
+            `Each chapter has a goal, worth ${T.goalReward} remembrance, shown in the Day panel: ${chapters.map((C) => `to ${C.goal.text}`).join('; ')}.`,
             `Years 1 to 4 close on a choice of two, goods now or a help for the next year: ${[1, 2, 3, 4].map((k) => `${CHAPTERS[k].close.map((c) => `${c.name.charAt(0).toLowerCase()}${c.name.slice(1)} (${c.text})`).join(' or ')}`).join('; ')}.`,
             `The fifth year ends in one of three endings: ${Object.values(ENDINGS).map((E) => `${E.name}: ${E.text.charAt(0).toLowerCase()}${E.text.slice(1)}`).join(' ')}`,
-            `A campaign's five years harden ×${mult(T.campaignHardness)} each, not the open year's ×${mult(T.yearHardness)}; the years after its ending harden as the open year's do. When a campaign's keep is lost, its chapter can be begun again from its first dawn, as the keep stood then.`,
+            `A campaign's years harden ×${mult(T.campaignHardness)} each, not the open year's ×${mult(T.yearHardness)}, and as the open year's after its ending. A chapter whose keep is lost can be begun again from its first dawn.`,
           ],
         },
       ]
@@ -88,39 +94,39 @@ export function howTo(T) {
       id: 'keep',
       title: 'The keep',
       items: [
-        `A season is ${T.seasonDays} days and nights, and it ends on the night of the new moon. By day the living work the keep; anyone who dies inside the walls wakes at dusk as a shade. By night the shades hold the Tain, the keep's reflection, against the Unlit. At dawn you decide which of the dead stay.`,
-        'The castle is the screen. The bar at the bottom holds the tools for the moment and opens the panels: this phase, People, Records and the Menu. Pause whenever you like; the clock runs at 1×, 2× or 4×.',
-        'A new keep can be Gentle, Standard or Hard, chosen under New game on the main screen or in the Menu under Saves. Every number any of them sets is in Settings.',
+        `A season is ${T.seasonDays} days and nights, ending on the new moon. By day the living work the keep, and whoever dies inside the walls wakes at dusk as a shade. By night the shades hold the Tain, the keep's reflection, against the Unlit. At dawn you choose which of the dead stay.`,
+        'The bar at the bottom holds the tools of the moment and opens the panels: this phase, People, Records and the Menu. Pause when you like; the clock runs at 1×, 2× or 4×.',
+        'A new keep is Gentle, Standard or Hard, chosen under New game; Settings shows every number it sets.',
       ],
     },
     {
       id: 'day',
       title: 'The day',
       items: [
-        `Everyone has a job, and a job needs its room: ${rooms.join('; ')}. A room holds ${T.roomCap} workers; for more, build another of its kind.`,
-        `Whoever has no room quarries stone in the Yard, ${R.yard.rate} a day each. Build raises a room for ${T.roomStone} stone, on top of the keep as a new floor or in any bare hall. By night the keep hangs upside down under the Veil: the top floor is the Tain's deepest, next to the rifts, and a room below the line is in the Unlit's way. The line's floor, the one above the ground floor, is worked by the shades holding the line as they hold it, so it's the place for a Chapel: they sing in its Choir. Each floor raised on top makes the Unlit climb farther. A room can be torn down for ${Math.floor(T.roomStone * T.teardownBack)} stone back, leaving a bare hall, or moved, swapping places with another room or hall, for ${T.moveStone}.`,
+        `Everyone has a job, and a job needs its room: ${rooms.join('; ')}. A room holds ${T.roomCap}; for more, build another.`,
+        `Whoever has no room quarries stone in the Yard, ${R.yard.rate} a day each. Build raises a room for ${T.roomStone} stone, on top of the keep or in a bare hall. By night the keep hangs upside down: the top floor is the Tain's deepest, by the rifts, so a room below the line is in the Unlit's way, and every floor added makes them climb farther. The floor above the ground floor is the line's, worked by the shades holding it, so it's the place for a Chapel: they sing in its Choir. Tearing a room down gives back ${Math.floor(T.roomStone * T.teardownBack)} stone; moving one, swapping it with another, costs ${T.moveStone}.`,
         `Everyone eats ${n1(T.eatPerDay)} food a day. With the larder empty they work at ${pct(T.hungryMult)}, and the weakest starve.`,
-        `Someone new arrives at the gate every ${T.newcomerEvery === 2 ? 'second' : `${T.newcomerEvery}th`} day while there are fewer than ${T.maxLiving}. Give them a job.`,
-        `Sickness comes on about ${pct(T.sickChance)} of days and kills in ${days(T.sickDays)} days unless a healer cures it first. The old can die in their sleep. Grief makes the living work at ${pct(T.griefMult)} until their dead are at rest; then they work at ${pct(T.peaceMult)} for ${T.peaceDays} days.`,
-        `Everyone has a trait, shown under their name, and death turns it over: ${Object.values(TRAITS).map((t) => `${t.name} becomes ${SHADE_TRAITS[t.dead].name}`).join(', ')}.`,
+        `Someone new comes to the gate every ${T.newcomerEvery === 2 ? 'second' : `${T.newcomerEvery}th`} day while there are fewer than ${T.maxLiving}.`,
+        `Sickness comes on about ${pct(T.sickChance)} of days and kills in ${days(T.sickDays)} days unless a healer cures it. The old can die in their sleep. Grief makes the living work at ${pct(T.griefMult)} until their dead rest, then at ${pct(T.peaceMult)} for ${T.peaceDays} days.`,
+        `Everyone has a trait, shown under their name, and death turns it over: ${Object.values(TRAITS).map((t) => `${t.name} → ${SHADE_TRAITS[t.dead].name}`).join(', ')}.`,
       ],
     },
     {
       id: 'raids',
       title: 'Raids',
       items: [
-        `The Ashen Host comes on days ${Object.keys(T.raidDays).join(', ').replace(/, (\d+)$/, ' and $1')}, stronger each time and ×${mult(T.hardness)} each season. You'll see it on the road in the morning; it reaches the gate a little after noon. Your defense is ${R.barracks.rate} for each guard in the Barracks (a Brave one ×1.5, a Coward ×0.5)${T.forgeArms ? '' : `, and ${R.forge.rate} for each smith in a Forge`}.${T.muster ? ` A guard counts in full only after ${n1(T.musterHours)} hours of the day at the post, and for that share before, still rising at the gate; whoever leaves the post starts again. The Host is sighted about three and a half hours before it reaches the gate. So post them while the Host is on the road, or before: their work stops while they stand there.` : ''}`,
-        ...(T.forgeArms ? [`By day a Forge's smiths make arms, ${n1(R.forge.rate)} a day each, kept up to one for each guard's post. At the gate each arm makes a guard ${n1(T.armDefense)} stronger, as far as the guard has mustered, and each raid at the gate breaks ${pct(T.armsBreak)} of those in use, one at least.${T.coldForge ? ' A Forge nobody works is cold, and can\'t catch fire.' : ''}`] : []),
-        `Before it arrives you can ward the gate (+${T.wardGateDefense} for ${T.wardGateCost} essence). You can also pay the Host off: ${n1(T.raidTributeFood)} food and ${T.raidTributeCandles === 0.5 ? 'half a candle' : `${n1(T.raidTributeCandles)} candles`} for each point of its strength, and the season's raids after it come ×${mult(T.raidEmbolden)} as strong${T.emboldenCarries ? ", or next season's if it was the last" : ''}. Or bar the stores: the Hearth, the Chandlery and the Glazier stop while the Host is at the gate, and a breach carries off half as much.`,
-        `At the gate, each second the Host is stronger than your defense, the gate gives; if it still stands after ${T.raidAssaultSecs} seconds, they fall back. Pitch (${T.raidPitchCost} candles) takes ${n1(T.raidPitch)} off their strength. Stone (${T.raidShoreCost}) shores the gate up by ${pct(T.raidShore)}. The bell brings everyone well onto the walls, ${n1(T.raidBellDefense)} defense each, and stops their work. Whoever is on the walls can fall, the more of them the safer each, and the bell's hands more easily than guards.`,
-        `If they break in they can cut someone down in the yard, and they carry off food, candles and glass: half the food with a Granary, half the candles and glass with a Cellar. Your guards can go after them for ${T.guardsGoOut ? "a share of it as great as the guards' strength against the Host's (a tenth to nine in ten)" : `${pct(T.raidRecover)} of it`}, each with a ${pct(T.raidPursueRisk)} chance of not coming back. Raiders who die inside the walls wake as Strangers.`,
+        `The Ashen Host comes on days ${and(Object.keys(T.raidDays))}, stronger each time and ×${mult(T.hardness)} each season. It's sighted on the road in the morning, about three and a half hours before it reaches the gate. Your defense is ${R.barracks.rate} for each guard in the Barracks (a Brave one ×1.5, a Coward ×0.5)${T.forgeArms ? '' : `, and ${R.forge.rate} for each smith in a Forge`}.${T.muster ? ` A guard counts in full only after ${n1(T.musterHours)} hours at the post, and for that share before, starting again if moved: post guards while the Host is on the road, at the cost of their work.` : ''}`,
+        ...(T.forgeArms ? [`By day a Forge's smiths make arms, ${n1(R.forge.rate)} a day each, up to one per guard's post; each makes a guard ${n1(T.armDefense)} stronger at the gate, as far as mustered, and each raid there breaks ${pct(T.armsBreak)} of those in use.${T.coldForge ? " A Forge nobody works can't catch fire." : ''}`] : []),
+        `Before it arrives you can ward the gate (+${T.wardGateDefense} for ${T.wardGateCost} essence); pay it off, ${n1(T.raidTributeFood)} food and ${T.raidTributeCandles === 0.5 ? 'half a candle' : `${n1(T.raidTributeCandles)} candles`} for each point of its strength, and the season's later raids come ×${mult(T.raidEmbolden)} as strong${T.emboldenCarries ? " (next season's, after its last)" : ''}; or bar the stores, stopping the Hearth, Chandlery and Glazier while the Host is at the gate, so a breach carries off half as much.`,
+        `At the gate, each second the Host is stronger than your defense the gate gives; held ${T.raidAssaultSecs} seconds, they fall back. Pitch (${T.raidPitchCost} candles) takes ${n1(T.raidPitch)} off their strength, stone (${T.raidShoreCost}) shores the gate up by ${pct(T.raidShore)}, and the bell brings everyone well onto the walls at ${n1(T.raidBellDefense)} defense each, stopping their work. Those on the walls can fall, the fewer the likelier, the bell's hands more than guards.`,
+        `Breaking in, they can cut someone down and carry off food, candles and glass (half the food with a Granary, half the rest with a Cellar). Guards can go after them for ${T.guardsGoOut ? "a share as great as their strength against the Host's" : `${pct(T.raidRecover)} of it`}, each with a ${pct(T.raidPursueRisk)} chance of not coming back. Raiders who die inside wake as Strangers.`,
       ],
     },
     {
       id: 'fire',
       title: 'Fire',
       items: [
-        `On about ${pct(T.fireChance)} of days a Hearth or a ${T.coldForge ? 'worked ' : ''}Forge catches fire. Its heat grows ${pct(T.fireGrow)} a second and everyone in the room fights it, ${pct(T.fireFight)} each, so a room's own hands usually lose. Send the Yard's masons, or ring the bell for everyone. Fighting it can kill, the hotter the likelier; at full heat it catches a room beside it every ${T.fireSpread} seconds. A room still burning at dusk is scorched: nobody works there the next day.`,
+        `On about ${pct(T.fireChance)} of days a Hearth or a ${T.coldForge ? 'worked ' : ''}Forge catches fire. It grows ${pct(T.fireGrow)} a second, and everyone in the room fights it, ${pct(T.fireFight)} each, which usually loses: send the Yard's masons, or ring the bell. Fighting it can kill, the hotter the likelier, and at full heat it spreads next door every ${T.fireSpread} seconds. A room still burning at dusk is scorched: nobody works there the next day.`,
       ],
     },
     ...(T.visitors
@@ -129,10 +135,10 @@ export function howTo(T) {
             id: 'visitors',
             title: 'Visitors at the gate',
             items: [
-              `On about ${pct(T.visitorChance)} of days${T.visitFrom > 1 ? `, from the keep's ${['', 'first', 'second', 'third', 'fourth'][T.visitFrom] || `${T.visitFrom}th`} day,` : ''} someone comes to the gate, and on some of those a second. The Day panel shows who, what each answer costs and gives, and the hour they stop waiting: left waiting past it, they take the last answer, whatever it costs.`,
-              'Each comes only when there is a reason to: traders with glass, candles, grain or a hand mirror to sell, or a mason for hire; pilgrims running ahead of a raid, a burnt-out family and a plague cart asking to be taken in; a deserter from the Host; a knight asking after a brother serving in your glass; a grave-robber caught with the day\'s dead; a wedding, a bard, a wandering priest, a physician, a hedge-witch, the Church\'s almoner, the lord\'s reeve, a necromancer and a cooper.',
-              ...(T.payInKind ? ["A trader who wants food for wares also takes glass, and the Church's almoner prayers, paid in remembrance: the keep's surplus, where food runs short."] : []),
-              'Turning away those who ask for shelter costs Dread. What an answer leaves behind, riders promised or a raid made harder or easier, shows in the Day panel until it comes.',
+              `On about ${pct(T.visitorChance)} of days${T.visitFrom > 1 ? `, from the keep's ${nth(T.visitFrom)} day,` : ''} someone comes to the gate, now and then two. The Day panel shows who, what each answer costs and gives, and how long they wait; left waiting, they take the last answer.`,
+              'Each of the twenty comes only when there is a reason to: a trader with what you lack, pilgrims ahead of a raid, a physician when someone is sick, a necromancer when a shade is Restless.',
+              ...(T.payInKind ? ["A trader who wants food also takes glass, and the Church's almoner prayers, paid in remembrance."] : []),
+              'Turning away those who ask shelter costs Dread. What an answer leaves behind, such as riders promised, shows in the Day panel until it comes.',
             ],
           },
         ]
@@ -143,10 +149,10 @@ export function howTo(T) {
             id: 'rooms6',
             title: 'The Library, the Hall and the Gatehouse',
             items: [
-              ...((T.library || T.hall) && T.lateRoomsFrom > 1 ? [`${T.library && T.hall ? 'The Library and the Hall' : T.library ? 'The Library' : 'The Hall'} can be built from the keep's ${T.year && T.lateRoomsFrom === 2 ? 'first summer' : `season ${T.lateRoomsFrom}`}, once the first spring has been got through.`] : []),
-              ...(T.library ? [`The Library: its scholars make ${DAY_ROOMS.library.rate} lore a day each toward one study at a time, begun in the Day panel with remembrance, and a lit shade in its twin, the Archive of the Dead, adds to it by night. A study finished is the keep's for good: ${Object.values(STUDIES).map((x) => `${x.name} (${x.rem} remembrance, ${x.lore} lore), ${x.text}`).join('; ')}.`] : []),
-              ...(T.hall ? [`The Hall: one decree a season, standing until the season ends. ${Object.values(DECREES).map((d) => `${d.name}: ${decreeDoes(T, d)}; the price, ${d.price}`).join('. ')}. By night a shade seated, lit, in its twin, the Court of Shades, through half the night has one of the dead's requests heard free at the next rite: granted, it costs nothing, and refused, it isn't held against you.`] : []),
-              ...(T.gatehouse ? [`The Gatehouse stands at the gate, on the ground floor, so building one means moving a room up first, and a keep has one. Its gate guards give ${DAY_ROOMS.gatehouse.rate} defense each, against a Barracks guard's ${DAY_ROOMS.barracks.rate}. From the keep's ${['', 'first', 'second', 'third', 'fourth'][T.laddersFrom] || `${T.laddersFrom}th`} season the Host brings ladders: one goes up every ${n1(T.ladderEvery)} seconds at the gate, and each left standing adds ${n1(T.ladderHost)} to its strength. With a gate guard on the Gatehouse's walls, every one is thrown down.`, `From the keep's ${['', 'first', 'second', 'third', 'fourth'][T.undergateFrom] || `${T.undergateFrom}th`} season the Gatehouse's twin, the Undergate, faces the Deep, under the Veil and behind the line. On about ${pct(T.undergateChance)} of nights it stirs, and the Dusk panel says so: ${T.undergatePerTide === 1 ? 'one Creeper' : `${T.undergatePerTide} Creepers`} of each tide ${T.undergatePerTide === 1 ? 'comes' : 'come'} up there instead of at a rift, and makes for the mirrors. A candle at its mouth, at the room's outer end, keeps it shut while it burns, and they come up at a rift instead; so does a ward on it (the Dusk panel has the button).`] : []),
+              ...((T.library || T.hall) && T.lateRoomsFrom > 1 ? [`${T.library && T.hall ? 'The Library and the Hall' : T.library ? 'The Library' : 'The Hall'} can be built from the keep's ${T.year && T.lateRoomsFrom === 2 ? 'first summer' : `season ${T.lateRoomsFrom}`}.`] : []),
+              ...(T.library ? [`The Library: its scholars make ${DAY_ROOMS.library.rate} lore a day each toward one study at a time, begun with remembrance, and a lit shade in its twin, the Archive of the Dead, adds to it by night. A study finished is the keep's for good: ${Object.values(STUDIES).map((x) => `${x.name}, ${x.text}`).join('; ')}.`] : []),
+              ...(T.hall ? [`The Hall: one decree a season, standing until it ends. ${decreesOf(T).map((id) => `${DECREES[id].name}: ${decreeDoes(T, DECREES[id])}; but ${DECREES[id].price}`).join('. ')}. A shade seated, lit, in its twin, the Court of Shades, through half the night has one of the dead's requests heard at the next rite: granted or refused, it costs nothing.`] : []),
+              ...(T.gatehouse ? [`The Gatehouse stands at the gate, on the ground floor (move a room up to make way), one to a keep; its gate guards give ${DAY_ROOMS.gatehouse.rate} defense each. From the keep's ${nth(T.laddersFrom)} season the Host brings a ladder every ${n1(T.ladderEvery)} seconds at the gate, each one standing adding ${n1(T.ladderHost)} to its strength; a gate guard on the Gatehouse's walls throws them down.`, `From the keep's ${nth(T.undergateFrom)} season its twin, the Undergate, behind the line, stirs on about ${pct(T.undergateChance)} of nights (the Dusk panel says so), and ${T.undergatePerTide === 1 ? 'one Creeper' : `${T.undergatePerTide} Creepers`} of each tide ${T.undergatePerTide === 1 ? 'comes' : 'come'} up there instead of at a rift. A candle at its mouth, the room's outer end, or a ward shuts it.`] : []),
             ],
           },
         ]
@@ -155,36 +161,36 @@ export function howTo(T) {
       id: 'dusk',
       title: 'Dusk',
       items: [
-        `The day's dead lie in the crypt. A priest can give one a funeral a day: they rest, and you gain 1 remembrance. The rest wake as shades, and how they died decides the kind: ${KINDS.loyal.name} from dying on duty (they fight hardest), ${KINDS.serene.name} from old age (they work best), ${KINDS.pale.name} from sickness (weak at everything), and ${KINDS.stranger.name}s from raiders who fell inside (no bonds). Each needs a place in a mirror; with no room, it wakes Restless.`,
-        'Then the camera goes down into the Tain. The Unlit climb from the red rifts in the Deep to the mirrors under the Veil, and they can’t cross candlelight. The line is the light between them: in a small keep, a candle between each rift and its mirror; in a taller one, candles at the feet of the stairs up to the Veil, with a shade in each.',
-        `A candle burns ${n1(T.candleWax / 60)} minutes of the night, and candles you don't set carry over. Each room's twin in the Tain has a night job, which a shade posted there works only in the light: ${twins.join('; ')}.`,
+        `The day's dead lie in the crypt. A priest can give one a funeral a day: they rest, and you gain 1 remembrance. The rest wake as shades of a kind set by how they died: ${KINDS.loyal.name} from duty (they fight hardest), ${KINDS.serene.name} from old age (they work best), ${KINDS.pale.name} from sickness (weak at everything), ${KINDS.stranger.name}s from raiders who fell inside (no bonds). Each needs a place in a mirror, or wakes Restless.`,
+        'Then the camera goes down into the Tain. The Unlit climb from the red rifts in the Deep to the mirrors under the Veil, and can’t cross candlelight. The line is the light between: in a small keep, a candle between each rift and its mirror; in a taller one, candles at the feet of the stairs up to the Veil, a shade in each.',
+        `A candle burns ${n1(T.candleWax / 60)} minutes, and unset candles carry over. A shade posted in a room's twin works its night job, in the light: ${twins.join('; ')}.`,
         `A bonded pair split across the Veil both work ×${mult(T.twinMult)} when the shade is posted in the twin of the living one's room.`,
-        `The Dusk panel's black mirror reads tonight's threats: how many will come and when, from which rift, and where each tide will get past your candles. The red chevrons on the Tain are their ways, and a tap on one of its lines shows you where. A ward (${n1(T.wardCost)} essence) seals a rift, or holds a stair.`,
-        'Dusk opens on Move: tap a shade, then where it should stand. Choose Candle to set candles, and Ward for wards. Until the night begins, a tap on a candle or a ward you set takes it back, whole. With Candle out, a tap on a shade already in light picks it.',
-        'As last night, in the Dusk panel, puts the shades back at the posts the last night began with and lights its candles again where they stood, as far as the store goes. Wards you set again yourself.',
+        `The Dusk panel's black mirror reads tonight's threats: how many come, when, from which rift, and where each tide gets past your candles, drawn on the Tain as red chevrons. A ward (${n1(T.wardCost)} essence) seals a rift or holds a stair.`,
+        'Dusk opens on Move: tap a shade, then where it should stand. Candle sets candles and Ward wards; until the night begins, a tap on one you set takes it back.',
+        'As last night, in the Dusk panel, puts the shades back where the last night began and lights its candles again, as far as the store goes.',
       ],
     },
     {
       id: 'night',
       title: 'The night',
       items: [
-        `Creepers come in tides, one more every ${T.tideEvery} nights. Stopped at a candle, they gnaw at the edge of its light, and a shade standing in the light cuts them down. About ${T.snuffShare === 0.5 ? 'half' : pct(T.snuffShare)} of them hunt candles instead of climbing. From night ${T.seepFrom}, some seep up through any dark room.${T.thinStair ? ' A tide rises at the rift on the side whose stair up to the Veil has less fight at its foot, as it rises: hold a stair thin and it draws them there, and a second fighter sent after they rise meets them where they are.' : ''}`,
+        `Creepers come in tides, one more every ${T.tideEvery} nights. Stopped at a candle, they gnaw at the edge of its light, where a shade standing in the light cuts them down. About ${T.snuffShare === 0.5 ? 'half' : pct(T.snuffShare)} hunt candles instead of climbing; from night ${T.seepFrom} some seep up through any dark room.${T.thinStair ? ' A tide rises on the side whose stair up to the Veil has less fight at its foot, so a thin stair draws it.' : ''}`,
         'A shade caught in the dark is drained of memory: drop a candle on it to free it. Move sends a shade to a new post. Hush makes the Unlit pass the shades by, but stops all work.',
         T.crackPerTide
-          ? `A tide that reaches a mirror cracks the Veil, once at each mirror: 1 Dread at dawn for each crack. The rest of that tide through the same mirror spill into the keep above, and each gives one of the living a nightmare: they work at ${pct(T.nightmareMult)} the next day. ${T.cracksMax} cracks break the Veil and lose the keep${T.crackHeal ? `, and ${T.crackHeal === 1 ? 'one mends' : `${T.crackHeal} mend`} each dawn` : ': it mends none by day, so the lost tides of a season add up'}; a new season's Veil is whole.`
-          : `Each one that reaches a mirror cracks the Veil: 1 Dread at dawn for each crack, one heals each dawn, and ${T.cracksMax} at once break it and lose the keep.`,
-        ...(T.veilStrains ? ['The Veil strains, in the log and a toast, when a stair of the line will be dark as the next tide comes up it: its candle will be out before then, or there is none. Relight it before the tide.'] : []),
-        ...(T.wisp ? [`Out of candles in the night, the Candle tool burns essence instead: a wisp, ${n1(T.wispCost)} essence for a pale light that lasts ${n1(T.wispSecs)} seconds, about a tide. It's light like a candle's, gnawed and eaten the same, and nothing comes back of it.`] : []),
-        `From night ${T.mawFrom}, a Maw. It goes for whatever is worth most for the least fight: the candle holding the way up, or a room where people work. It counts every fighter on its way. A room it stands in for ${T.mawBreak} seconds breaks: no work there tonight, and ${T.dreadPerBroken} Dread at dawn.${T.mawRuin ? ` If no shade stands with it there for ${T.mawRuin} seconds more (a bar over the room fills), it ruins the room: the next day its workers manage ${pct(T.ruinWork)} of their work, and it costs ${T.dreadPerRuin} more Dread at dawn.` : ''}`,
-        `The night after a death, the Weepers: one for each of the day's dead, up to ${T.weepersMax}. They make for the dark of the sleepers' twin (the Dreamwell, or the Cold Hearth), and one that weeps there ${T.nightmareSecs} seconds gives someone a nightmare: they work at ${pct(T.nightmareMult)} the next day. Light burns them, and a Keening shade on their floor hushes them.`,
-        'A Wraith is one of your own dead gone wrong. It hunts inside the Tain every night until it is banished.',
-        ...(T.autoRelight ? ['In these rules a candle that burns down at the line, or in a room where a shade is posted, is lit again where it stood, from the store, keeping the last candle back, and not while the Unlit are at it.'] : []),
-        ...(T.lanterns ? [`A shade can carry a lantern, for ${(T.lanternCost ?? 1) === 1 ? 'a candle' : (T.lanternCost ?? 1) === 0.5 ? 'half a candle' : `${n1(T.lanternCost)} candles`} from the store: its own light for ${n1(T.lanternWax)} seconds, wherever it goes, so the Unlit can't catch it while it burns. Asked again, it sets the lantern down where it stands, as a candle. Pick the shade and press Lantern on the bar, or T.${T.hollowLure ? ' On the new moon the Hollow hunts a carried lantern before the mirrors: a shade that keeps ahead of it leads it away.' : ''}`] : []),
-        ...(T.errands ? [`From night ${T.errandFrom}, one or two things turn up in the dark rooms below the line each night, and the black mirror shows them at dusk: an echo, a memory come loose (+${n1(T.echoMemory)} memory to the shade that reaches it), or a relic (${n1(T.relicGlass)} glass). From night ${T.sleepFrom}, some nights one of the living sleepwalks into the Tain at some hour and makes for the Deep. A shade that reaches them walks them back to bed, and light wakes them: a candle where they are, or in their way. The Unlit that catch them in the dark hold them; light them or reach them within ${n1(T.sleepHold)} seconds, or they die in their sleep and wake Pale, as they do if they reach a rift.`] : []),
-        ...(T.omens ? [`From night ${T.omenFrom}, about ${pct(T.omenChance)} of nights (never the new moon) have an omen, shown at dusk, and it changes the night's shape. On some dusks the black mirror shows two, and you choose one before the night begins (unchosen, the first comes). ${Object.keys(OMENS).map((id) => `${OMENS[id].name}: ${id === 'sealed' ? 'one rift is sealed, and every Creeper and Maw comes up the other' : omenText(T, { id })}.`).join(' ')}`] : []),
-        'The tide clock under the top bar marks the night: each tide (red), each Maw (orange, taller), the Hollow (violet, taller), each of the Drowned (blue), a sleepwalker\'s hour (pale) and dawn (gold). Skip, or N, runs the clock fast to just before the next mark, and stops the moment anything calls out.',
-        ...(T.acts ? [`Each shade has one act a night, paid in its memory, and memory is its strength (half the price for the named). A Loyal one Stands: ${actText(T, 'stand')} (${T.actCost.stand} memory). A Serene one Kindles: it ${actText(T, 'kindle')} (${T.actCost.kindle}). A Pale one Passes unseen: ${actText(T, 'pass')} (${T.actCost.pass}). A Stranger Lures: ${actText(T, 'lure')} (${T.actCost.lure}). Pick the shade, and its act is on the bar, or press A.`] : []),
-        'With a keyboard, from dusk to dawn: the arrows move a cursor over the Tain, and Enter does there what a tap would with the tool in hand (C for candles, M to move, W to ward). [ and ] pick the shades in turn. Shift and the arrows pan; Esc puts the cursor away.',
+          ? `A tide that reaches a mirror cracks the Veil, once at each mirror: 1 Dread at dawn. The rest of that tide spill into the keep above as nightmares, each leaving someone at ${pct(T.nightmareMult)} the next day. ${T.cracksMax} cracks break the Veil and lose the keep${T.crackHeal ? `; ${T.crackHeal === 1 ? 'one mends' : `${T.crackHeal} mend`} each dawn` : '; none mend until a new season'}.`
+          : `Each one that reaches a mirror cracks the Veil, for 1 Dread at dawn; one heals each dawn, and ${T.cracksMax} at once break it and lose the keep.`,
+        ...(T.veilStrains ? ['The Veil strains, with a call-out, when a stair of the line will be dark as the next tide comes: relight it.'] : []),
+        ...(T.wisp ? [`Out of candles, the Candle tool lights a wisp: ${n1(T.wispCost)} essence for a candle's light that lasts ${n1(T.wispSecs)} seconds, about a tide.`] : []),
+        `From night ${T.mawFrom}, a Maw. It goes for whatever is worth most for the least fight, the candle holding the way up or a room where people work, counting every fighter on its way. A room it stands in for ${T.mawBreak} seconds breaks: no work there tonight, and ${T.dreadPerBroken} Dread at dawn.${T.mawRuin ? ` Left alone there ${T.mawRuin} seconds more (a bar fills), it ruins the room: the next day its workers manage ${pct(T.ruinWork)}, for ${T.dreadPerRuin} more Dread.` : ''}`,
+        ...(weepers ? [`The night after a death, the Weepers: one for each of the day's dead, up to ${T.weepersMax}. They make for the dark of the sleepers' twin (the Dreamwell, or the Cold Hearth), and one that weeps there ${T.nightmareSecs} seconds gives someone a nightmare. Light burns them, and a Keening shade on their floor hushes them.`] : []),
+        'A Wraith is one of your own dead gone wrong: it hunts the Tain every night until banished.',
+        ...(T.autoRelight ? ['In these rules a candle that burns down at the line, or where a shade is posted, is lit again from the store, keeping the last candle back, unless the Unlit are at it.'] : []),
+        ...(T.lanterns ? [`A shade can carry a lantern (${(T.lanternCost ?? 1) === 1 ? 'a candle' : (T.lanternCost ?? 1) === 0.5 ? 'half a candle' : `${n1(T.lanternCost)} candles`}): its own light for ${n1(T.lanternWax)} seconds wherever it goes, so the Unlit can't catch it; asked again, it sets it down as a candle. Pick the shade, then Lantern (T).${T.hollowLure ? ' On the new moon the Hollow hunts a carried lantern first: a shade that keeps ahead of it leads it away.' : ''}`] : []),
+        ...(T.errands ? [`From night ${T.errandFrom}, an echo (+${n1(T.echoMemory)} memory) or a relic (${n1(T.relicGlass)} glass) turns up in a dark room below the line, shown in the black mirror, for the shade that reaches it. From night ${T.sleepFrom}, on some nights one of the living sleepwalks into the Tain toward the Deep: a shade that reaches them, or light, sends them back to bed. Held by the Unlit in the dark ${n1(T.sleepHold)} seconds, or reaching a rift, they die and wake Pale.`] : []),
+        ...(T.omens ? [`From night ${T.omenFrom}, about ${pct(T.omenChance)} of nights have an omen, shown at dusk, that changes the night's shape: ${and(Object.values(OMENS).map((o) => `${o.name.charAt(0).toLowerCase()}${o.name.slice(1)}`))}. The Dusk panel says how, and on some dusks offers a choice of two.`] : []),
+        'The tide clock under the top bar marks the night’s tides, Maws, Hollow, Drowned, sleepwalkers and dawn. Skip (N) runs to just before the next mark, and stops if anything calls out.',
+        ...(T.acts ? [`Each shade has one act a night, paid in memory (half for the named). A Loyal one Stands: ${actText(T, 'stand')} (${T.actCost.stand}). A Serene one Kindles: it ${actText(T, 'kindle')} (${T.actCost.kindle}). A Pale one Passes unseen: ${actText(T, 'pass')} (${T.actCost.pass}). A Stranger Lures: ${actText(T, 'lure')} (${T.actCost.lure}). Pick the shade, and its act is on the bar (A).`] : []),
+        'With a keyboard, the arrows move a cursor over the Tain and Enter taps there (C candles, M move, W ward); [ and ] pick shades.',
       ],
     },
     ...(T.weather ? [weather(T)] : []),
@@ -192,20 +198,20 @@ export function howTo(T) {
       id: 'dawn',
       title: 'Dawn: the rite',
       items: [
-        `Keep a shade and it works again tonight, for ${T.dreadPerKeep} Dread (a Bitter one ${SHADE_TRAITS.bitter.dread}). Cover its mirror and it rests: +1 remembrance, and peace for its kin. The living bear 1 Dread for every ${T.dreadLivingPer} of them, and each priest 1 more. Dread only rises on what's left over.`,
-        `Every shade fades ${T.fadePerNight} memory a night, half as much resting in the Cold Hearth; at 0 it's gone. Naming one (${T.nameCost} remembrance) halves its fading for good, and remembering (${T.rememberCost}) gives back ${T.rememberGain}. Loyal shades fight hardest, Serene ones work best, and memory weakens both.`,
-        `A Restless shade does nothing and costs ${T.dreadPerRestless} Dread each dawn you leave it. Release it, for remembrance, or bind it into a free mirror for ${T.bindCost} essence, and it settles as what it would have been. After ${T.restlessNights} nights it turns Wraith, unless the Choir calms it. A Wraith left costs ${T.dreadPerWraith} a dawn; banishing it takes ${T.banishCost} essence.`,
+        `Keep a shade and it works again tonight, for ${T.dreadPerKeep} Dread (a Bitter one ${SHADE_TRAITS.bitter.dread}). Cover its mirror and it rests: +1 remembrance, and peace for its kin. The living bear 1 Dread for every ${T.dreadLivingPer} of them, and each priest 1 more; Dread rises only on what's left over.`,
+        `Every shade fades ${T.fadePerNight} memory a night, half that resting; at 0 it's gone. Naming one (${T.nameCost} remembrance) halves its fading for good, and remembering (${T.rememberCost}) gives back ${T.rememberGain}. Memory is a shade's strength.`,
+        `A Restless shade does nothing and costs ${T.dreadPerRestless} Dread a dawn: release it, for remembrance, or bind it into a free mirror (${T.bindCost} essence) to settle it as what it would have been. After ${T.restlessNights} nights it turns Wraith unless the Choir calms it; a Wraith costs ${T.dreadPerWraith} a dawn, and ${T.banishCost} essence to banish.`,
         `A vigil lowers Dread by 1 for ${T.vigilCost} remembrance, at the rite or by day.`,
-        ...(T.requests ? [`The dead ask for things. From its ${T.askAfter === 2 ? 'second' : `${T.askAfter}th`} night a shade asks one thing at the rite: a Loyal one to stand the gate by day (at its night strength, for ${T.gateFade} memory at dusk), a Stranger a name, a Pale one to be remembered, and a Serene one, once its memory falls below ${T.askFade}, to be let go. Granted, it asks no more; refused, it asks again ${T.askEvery} nights later, and refused ${T.refusals === 2 ? 'twice' : `${T.refusals} times`} it turns Restless and leaves its mirror.`] : []),
+        ...(T.requests ? [`The dead ask for things. From its ${T.askAfter === 2 ? 'second' : `${T.askAfter}th`} night a shade asks one thing at the rite: a Loyal one to stand the gate by day (at its night strength, for ${T.gateFade} memory), a Stranger a name, a Pale one to be remembered, a Serene one with under ${T.askFade} memory to be let go. Granted, it asks no more; refused ${T.refusals === 2 ? 'twice' : `${T.refusals} times`}, it turns Restless and leaves its mirror.`] : []),
       ],
     },
     {
       id: 'church',
       title: 'The Lantern Church',
       items: [
-        `It inspects on day ${T.firstInspection}, announced the day before, and again whenever Dread reaches ${T.dreadMax}.${T.churchLedger ? " It judges the keep by its ledger: the Dread of every day since it last looked, as it stood at each dusk and at noon on the day, averaged and rounded. So Dread held low only on the eve doesn't fool it." : ''} At Dread 0–1 it blesses the keep: 3 candles and 2 remembrance. At 2–3 it warns you and takes a tithe. At 4–5 it censures the keep and carries off the fullest mirror with the shades in it.`,
-        ...(T.church ? [`A censure brings a silver embargo for ${T.embargoDays} days: the Glazier makes no glass, and no mirror can be built or upgraded. A blessing lifts it, or a donation of ${T.donation} remembrance. Censured again while it stands, the keep is given to the Inquisition: an inquisitor inspects every day at noon for ${T.inquisitionDays} days, the embargo standing with it, and takes no gifts. A blessing sends it away sooner; ${T.crusade ? 'censured under it, the keep is given up to a crusade.' : 'another censure starts its days over.'}`] : []),
-        ...(T.church && T.crusade ? [`The crusade comes to the gate a little after noon ${T.crusadeDays} days later, and the inquisitor inspects each noon until then: a blessing calls it off. It's fought as a raid, but takes no tribute and wants none of the stores. Held, the Church gives up, and the embargo and the Inquisition end. Broken in, the crusaders smash every mirror they can find, and the shades in them go free. A mirror hidden before the day it comes can't be found, but its shades sit out every day and night until the crusade is over.`] : []),
+        `It inspects on day ${T.firstInspection}, announced the day before, and whenever Dread reaches ${T.dreadMax}.${T.churchLedger ? " It judges the Dread of every day since it last looked, at each dusk and at noon on the day, averaged, so Dread held low only on the eve doesn't fool it." : ''} At 0–1 it blesses the keep (3 candles, 2 remembrance), at 2–3 warns and takes a tithe, and at 4–5 censures it, carrying off the fullest mirror, shades and all.`,
+        ...(T.church ? [`A censure brings a silver embargo for ${T.embargoDays} days: no glass, and no mirror built or upgraded. A blessing lifts it, or a donation of ${T.donation} remembrance. Censured again under it, the keep is given to the Inquisition: an inquisitor inspects every noon for ${T.inquisitionDays} days and takes no gifts. A blessing sends it away sooner; ${T.crusade ? 'a censure under it brings a crusade.' : 'another censure starts its days over.'}`] : []),
+        ...(T.church && T.crusade ? [`The crusade comes to the gate a little after noon ${T.crusadeDays} days later; until then the inquisitor inspects each noon, and a blessing calls it off. It's fought as a raid, wanting no tribute or stores. Held, the Church gives up, and the embargo and the Inquisition end. Broken in, the crusaders smash every mirror they find, freeing its shades. A mirror hidden beforehand can't be found, but its shades sit out until it's over.`] : []),
       ],
     },
     {
@@ -213,22 +219,22 @@ export function howTo(T) {
       title: 'Mirrors',
       items: [
         `Glass makes mirrors, from the Day panel: ${Object.values(MIRRORS).map((m) => `a ${m.name} for ${m.glass} glass holds ${m.cap}`).join(', ')}.`,
-        `Breaking a mirror, in an emergency, frees everyone in it at once: +1 remembrance and Dread −${n1(T.breakDread)} for each. The mirror is lost, and ${T.badLuckDays} days of bad luck follow: sickness comes ${times(T.badLuck)} as often, and fire is likelier.`,
-        `By day a shade can whisper its old trade to whoever works it now: they work ×${mult(T.whisperMult)}, and the shade loses ${n1(T.whisperFade)} memory at dusk. A shade in a great glass can step through and work a room in person instead. Set both in People.`,
-        ...(T.deep ? [`At dusk a shade can go down into the Deep instead of taking a post (the Dusk panel), not far, deep or deepest. It's gone until dawn: no light, no fighting, no work. It comes back with ${T.deepSilver.join(', ').replace(/, (\d+)$/, ' or $1')} quicksilver for the depth, unless something down there catches it (${T.deepCatch.map(pct).join(', ').replace(/, ([^,]+)$/, ' or $1')} of the time, half as often for a Lurker): then it comes back empty-handed, ${n1(T.deepDrain)} memory the poorer, or not at all. Never on the new moon: the Hollow is down there.`, `Quicksilver upgrades a mirror where it hangs, its shades and all: a hand mirror into a pier glass for ${T.upgradeSilver.pier} quicksilver and ${T.upgradeGlass.pier} glass, a pier glass into a great glass for ${T.upgradeSilver.great} and ${T.upgradeGlass.great}.`] : []),
+        `Breaking a mirror in an emergency frees everyone in it: +1 remembrance and Dread −${n1(T.breakDread)} for each. The mirror is lost, and ${T.badLuckDays} days of bad luck follow: sickness ${times(T.badLuck)} as often, and fire likelier.`,
+        `By day a shade can whisper its old trade to whoever works it now (×${mult(T.whisperMult)}, for ${n1(T.whisperFade)} of its memory at dusk), or step out of a great glass to work a room in person; both are set in People.`,
+        ...(T.deep ? [`At dusk a shade can go down into the Deep instead of taking a post: not far, deep or deepest. It's gone until dawn, and brings back ${or(T.deepSilver.map(String))} quicksilver by depth, unless something catches it (${or(T.deepCatch.map(pct))} of the time, half as often for a Lurker): then it comes back empty-handed, ${n1(T.deepDrain)} memory poorer, or not at all. Never on the new moon.`, `Quicksilver upgrades a mirror where it hangs, shades and all: a hand mirror into a pier glass for ${T.upgradeSilver.pier} quicksilver and ${T.upgradeGlass.pier} glass, a pier glass into a great glass for ${T.upgradeSilver.great} and ${T.upgradeGlass.great}.`] : []),
       ],
     },
     {
       id: 'moon',
       title: 'The new moon and the year',
       items: [
-        `On the night of the new moon the Hollow rises. It walks to the mirrors whatever the light, eating the light around it. ${T.wardDraw ? `A ward on a stair holds it while the ward draws on the essence, ${T.wardDraw < 1 ? T.wardDraw.toFixed(2).replace(/0$/, '') : n1(T.wardDraw)} a second at first and more as the Hollow grows, and ${T.wardHold} seconds more once the store is empty: the Dusk panel says what holding it off until dawn will take.${T.essenceCap ? ` The store holds ${T.essenceCap} essence at most; what the Choir sings beyond that is lost.` : ''} Shades` : `A ward on a stair holds it ${T.wardHold} seconds; shades`} fighting it drive it back. If it reaches the Veil, it tears through and takes one of the living.${T.hollowWardOnly ? ' On its nights a ward on a stair holds only the Hollow: the tides and the Maws climb past it, so the line still has to be held.' : ''}${T.hollowPinned ? ' Held at a ward, it spends itself on the ward, eating no light and draining no one, so that is the moment to send fighters to it: let it climb to the line and hold it there, where they are.' : ''}${T.hollowRewardYear ? ` Driving it back is worth ${T.hollowReward} remembrance in the first year and ${T.hollowRewardYear} more in each year after, for the studies, vigils and names the later years need.` : ''}`,
-        `The seasons turn from spring. Summer's days are ×${mult(T.seasonDay[1])} as long and its nights ×${mult(T.seasonNight[1])}; winter's the other way, ×${mult(T.seasonDay[3])} and ×${mult(T.seasonNight[3])}, and a day's work grows and shrinks with it. Winter's seventh night is the Long Night, ${n1(T.longNight)} winter nights long, with the Hollow and a Maw${T.greatTide ? `, and after its other tides, at about ${nightHour(T.greatTideAt)}, a last great tide: ${pct(T.greatTide)} of its Creepers at once, at both rifts` : ''}; at its end the year ends.${T.winterNeed ? " Winter's long nights burn candles faster than its short days make them: from autumn, the Day panel says about how many it will want put by, going by the keep's last week." : ''}${(T.campaign ? T.campaignHardness : T.yearHardness) ? ` Each season comes ×${mult(T.hardness)} harder than the one before it, and each year starts ×${mult(T.campaign ? T.campaignHardness : T.yearHardness)} harder than the last one did${T.campaign && T.yearHardness ? ` (×${mult(T.yearHardness)} after the campaign's fifth)` : ''}: a spring is easier than the winter before it, and harder than the spring before that.` : ''}`,
-        `When a year ends you choose how: keep the watch into a harder year; take your own place in the glass, as a Loyal, named, Anchored shade who weighs ${T.keeperDread} shades' Dread at every rite, while a new keeper goes on; or seal the Veil, and every shade goes free and the keep's story ends.`,
-        ...(T.eclipse && T.year ? [`Once a year, at ${T.eclipseAt === 0.5 ? 'noon' : hour(T.eclipseAt)} on midsummer (summer's day ${T.eclipseDay}), the sun goes dark for ${n1(T.eclipseSecs)} seconds and the Tain wakes while the day goes on: the living work and the Host comes to the gate while ${pct(T.eclipseCreepers)} of a night's Creepers climb from the rifts in one tide. The castle shows both halves; tap below the Veil to set candles and move the shades, as at night. A living person and their dead, the shade posted in the twin of the living one's room, work and fight ×${mult(T.eclipseTwin)} while it lasts, and one who stands beside their dead through half of it is at peace after. Anyone who dies in the dark wakes at once, with no funeral. When the sun comes back the Unlit left in the Tain burn away, candles still half whole go back to the store, and the Veil's cracks count at the next rite.`] : []),
-        ...(T.plague ? [`Summer brings plague: in a crowded keep, sickness takes one more for every ${T.plagueCrowd} living beyond the beds at once. Beds in Quarters, and healers, are what answer it.`] : []),
-        ...(T.generations ? [`From the second year the keep has generations. Each spring the living age: a child comes of age and can work, the young grow up, and an adult grows old ${pct(T.oldChance)} of the time; the unwed pair off. Each season a couple, neither old, has a child ${pct(T.birthChance)} of the time while there's room. Children don't work and shelter inside from the Host, but they starve first. The old die in their sleep and wake Serene, so in time everyone you started with works nights.`] : []),
-        ...(T.siege ? [`Autumn brings a siege: unless its day-2 raid is paid off, the Host makes camp outside for ${T.siegeDays} days. The gate is shut, so nobody quarries in the Yard and no one new comes, and on day 3 the camp comes at the gate. The guards can sally out to break it: ${T.guardsGoOut ? "the stronger the guards who go out, mustered and armed, against the camp, the better the odds" : 'the better your defense against the camp, the better the odds'}, and each guard risks ${pct(T.raidPursueRisk)}.`] : []),
+        `On the new moon the Hollow rises and walks to the mirrors whatever the light, eating the light around it. ${T.wardDraw ? `A ward on a stair holds it while it draws on the essence, ${T.wardDraw < 1 ? T.wardDraw.toFixed(2).replace(/0$/, '') : n1(T.wardDraw)} a second at first and more as the Hollow grows, and ${T.wardHold} seconds more once the store is empty; the Dusk panel says what holding it until dawn takes.${T.essenceCap ? ` The store holds ${T.essenceCap} essence at most.` : ''}` : `A ward on a stair holds it ${T.wardHold} seconds.`}${T.hollowWardOnly ? ' On its nights a ward holds only the Hollow, so the line must still be held.' : ''}${T.hollowPinned ? ' Held at a ward, it eats no light and drains no one: then send fighters, who drive it back.' : ' Fighters drive it back.'} If it reaches the Veil, it takes one of the living.${T.hollowRewardYear ? ` Driving it back is worth ${T.hollowReward} remembrance, and ${T.hollowRewardYear} more each year.` : ''}`,
+        `The seasons turn from spring. Summer's days are ×${mult(T.seasonDay[1])} as long and its nights ×${mult(T.seasonNight[1])}; winter's the other way, ×${mult(T.seasonDay[3])} and ×${mult(T.seasonNight[3])}, and a day's work with them. Winter's seventh night, the Long Night, is ${n1(T.longNight)} nights long, with the Hollow, a Maw${T.greatTide ? `, and at about ${nightHour(T.greatTideAt)} a last great tide of ${pct(T.greatTide)} of its Creepers at both rifts` : ''}; with it the year ends.${T.winterNeed ? ' From autumn the Day panel says how many candles winter will want.' : ''}${(T.campaign ? T.campaignHardness : T.yearHardness) ? ` Each season is ×${mult(T.hardness)} harder than the last, and each year starts ×${mult(T.campaign ? T.campaignHardness : T.yearHardness)} harder than the last did${T.campaign && T.yearHardness ? ` (×${mult(T.yearHardness)} after the campaign)` : ''}.` : ''}`,
+        `When a year ends you choose: keep the watch into a harder year; take your own place in the glass, as a Loyal, named, Anchored shade weighing ${T.keeperDread} shades' Dread, while a new keeper goes on; or seal the Veil, freeing every shade, and end the story.`,
+        ...(T.eclipse && T.year ? [`Once a year, at ${T.eclipseAt === 0.5 ? 'noon' : hour(T.eclipseAt)} on midsummer (summer's day ${T.eclipseDay}), the sun goes dark for ${n1(T.eclipseSecs)} seconds and the Tain wakes with the day: ${pct(T.eclipseCreepers)} of a night's Creepers climb in one tide while the living work. Set candles and move shades below the Veil as at night. A living person and their dead, posted in the twin of their room, work and fight ×${mult(T.eclipseTwin)} while it lasts; the living one, beside them through half of it, is at peace after. Whoever dies in the dark wakes at once. When the sun returns the Unlit burn away, and half-whole candles go back to the store.`] : []),
+        ...(T.plague ? [`Summer brings plague: in a crowded keep, sickness takes one more for every ${T.plagueCrowd} living beyond the beds. Beds in Quarters, and healers, answer it.`] : []),
+        ...(T.generations ? [`From the second year the keep has generations. Each spring children come of age, the young grow up, an adult grows old ${pct(T.oldChance)} of the time, and the unwed pair off; each season a couple has a child ${pct(T.birthChance)} of the time while there's room. Children don't work, and starve first. The old die in their sleep and wake Serene.`] : []),
+        ...(T.siege ? [`Autumn brings a siege: unless its day-2 raid is paid off, the Host camps outside for ${T.siegeDays} days, shutting the gate (no quarrying, no one new), and on day 3 comes at it. The guards can sally out to break the camp: ${T.guardsGoOut ? 'the stronger those who go out, mustered and armed, the better the odds' : 'the better your defense against the camp, the better the odds'}, each risking ${pct(T.raidPursueRisk)}.`] : []),
       ],
     },
   ];

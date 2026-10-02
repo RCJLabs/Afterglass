@@ -28,6 +28,7 @@ const DEFAULT_OK = {
   musterHours: 'read only while guards muster, and an old keep has muster 0',
   armDefense: 'read only for the Forge\'s arms, and an old keep has forgeArms 0',
   armsBreak: 'read only for the Forge\'s arms, as armDefense',
+  curseBurn: "read only for the hedge-witch's curse where there are no Weepers, and a keep from before has weepersMax 3 (where the Dreamwell's rules are off, she never comes)",
 };
 
 test('every key in the numbers is decided for old keeps', () => {

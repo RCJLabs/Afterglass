@@ -199,6 +199,6 @@ test('omens replay exactly, the autopilot takes the cheaper of two, old saves ha
   assert.equal(g.night.omens, undefined);
   const all = (T) => howTo(T).flatMap((x) => x.items).join(' ');
   assert.match(all(TUNING), /have an omen, shown at dusk/);
-  assert.match(all(TUNING), /The Hunt: one more Maw/);
+  assert.match(all(TUNING), /the Hunt, still air/); // each by name; the Dusk panel says what tonight's does
   assert.ok(!/have an omen/.test(all({ ...TUNING, omens: 0 })));
 });

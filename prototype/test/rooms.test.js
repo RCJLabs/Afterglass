@@ -234,7 +234,7 @@ test('from the second season one Creeper of each tide comes up the Undergate, un
 
 test('the rooms replay exactly; old saves have none of them; How to play covers them', () => {
   // A keep that builds all three and uses them, then plays on by the autopilot.
-  const s = newSeason(2, { lateRoomsFrom: 1 });
+  const s = newSeason(2, { lateRoomsFrom: 1, curfew: 1 });
   ok(s, { type: 'debug', what: 'give', res: 'stone', n: 40 });
   ok(s, { type: 'debug', what: 'give', res: 'remembrance', n: 10 });
   withGatehouse(s);

@@ -431,7 +431,7 @@ function hallMoves(s) {
   if (!s.tuning.hall || decreeOf(s) || s.decree?.season === s.season || !roomsOf(geo(s), 'hall').length) return;
   const raids = Object.entries(s.tuning.raidDays).some(([d, b]) => Number(d) >= s.day && b);
   if (s.res.food < eatRate(s)) doAct(s, { type: 'decree', id: 'rationing' });
-  else if (CURFEW && ((s.tuning.errands && s.day >= s.tuning.sleepFrom - 1) || s.tuning.dreamwell)) doAct(s, { type: 'decree', id: 'curfew' });
+  else if (CURFEW && s.tuning.curfew && ((s.tuning.errands && s.day >= s.tuning.sleepFrom - 1) || (s.tuning.dreamwell && s.tuning.weepersMax))) doAct(s, { type: 'decree', id: 'curfew' });
   else if (raids && s.res.food >= 3 * eatRate(s)) doAct(s, { type: 'decree', id: 'levy' });
 }
 

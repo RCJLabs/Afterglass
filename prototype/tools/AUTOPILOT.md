@@ -35,8 +35,8 @@ Each is an environment variable, read once when the file loads, so a measurement
 | `AP_HYBRID=1` | Gives every plan Double's second fighter at each stair on Maw nights, reactions and all. |
 | `AP_OMENPICK=first` or `worst` | Takes the first of two omens, or the one that costs most, instead of the one that costs least. |
 | `AP_BELOW=1` | Also works the rooms below the line on the Choir's side, leaving the other side dark as the Unlit's way up. |
-| `AP_WEEPGUARD=1` | Posts a fighter in the Weepers' room the night after a death. |
-| `AP_DREAM=1` | Posts a worker to dream in the Dreamwell every night, under a candle of its own. |
+| `AP_WEEPGUARD=1` | Posts a fighter in the Weepers' room the night after a death. Since phase 11 there are none unless `weepersMax` is set. |
+| `AP_DREAM=1` | Posts a worker to dream in the Dreamwell every night, under a candle of its own. Since phase 11 (`dreamRest`) it rests there. |
 | `AP_DROWN=ward`, `guard` or `none` | On rainy nights only wards the moat, only guards the mirrors, or does neither (the default does both, by rule). |
 | `AP_DEEP=1`, `2` or `3` | Sends one shade down into the Deep to that depth every night but the new moon, and upgrades mirrors with the quicksilver. |
 | `AP_ECLIPSE=ignore` | Leaves the eclipse be: the shades at last night's posts, no candles. |
@@ -84,7 +84,7 @@ Each is an environment variable, read once when the file loads, so a measurement
 | `AP_WHISPER=1` | Has a shade whisper to every trade someone works. |
 | `AP_STEP=1` | Builds a great glass when it needs mirror room, and sends its shades through to work by day. |
 | `AP_VISIT=default`, `first` or `kind:answer` | Leaves every visitor waiting to take the last answer; gives each the first; or gives one kind one answer and the rest their rule. |
-| `AP_CURFEW=1` | Proclaims the curfew from the Hall once sleepwalkers or Weepers can come, unless the larder needs rationing (phase 6). |
+| `AP_CURFEW=1` | Proclaims the curfew from the Hall once sleepwalkers or Weepers can come, unless the larder needs rationing (phase 6). Since phase 11 only under `curfew: 1`, which measure.mjs sets for its row. |
 
 ### Building
 

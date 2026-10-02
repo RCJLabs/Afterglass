@@ -101,7 +101,7 @@ const { chromium, BASE, OUT, state } = require('./lib.cjs');
     await page.click('#btn-play');
     await page.waitForTimeout(600);
     const labels = await page.$$eval('#coach button', (bs) => bs.map((b) => b.textContent));
-    check(labels.includes('Skip this lesson') || labels.includes('Got it'), `lesson buttons: ${labels.join(', ')}`);
+    check(labels.includes('Move on') || labels.includes('Got it'), `lesson buttons: ${labels.join(', ')}`);
     await page.click('#coach-off');
     await page.waitForTimeout(150);
     check(/End the tutorial for good\?/.test(await page.textContent('#coach')) && (await page.isVisible('#coach-end-yes')), 'End the tutorial asks first');

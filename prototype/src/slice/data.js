@@ -323,7 +323,16 @@ export const TUNING = {
   quartersBeds: 4,
   crowdSick: 1.5,
   dreamWork: 1.1,
-  weepersMax: 3,
+  // Round seven, phase 11: Weepers (0.36 nightmares a night, which nobody answered; as many keeps finish a
+  // first year without them) and dreaming in the Dreamwell (a shade sent to dream every night finished no more
+  // keeps) were texture.
+  // weepersMax 0 is no Weepers, and the hedge-witch's curse is her charm turned round: that night's candles
+  // burn at curseBurn. dreamRest 1 makes the Dreamwell a second place to rest, as the Cold Hearth is, so a
+  // night job there is one word, and good dreams come only from a Wistful shade resting. weepersMax 3 and
+  // dreamRest 0 are as before.
+  weepersMax: 0,
+  curseBurn: 1.25,
+  dreamRest: 1,
   weeperHp: 1.5,
   weeperSpeed: 5,
   nightmareSecs: 15,
@@ -544,6 +553,9 @@ export const TUNING = {
   library: 1,
   lorePerSec: 0.01,
   hall: 1,
+  // Round seven, phase 11: the Hall's curfew cost ×0.9 on all work for nightmares worth about 2% of it, and a
+  // keep lost more with it than without. 0 is the Hall without it (rationing and the levy); 1 as before.
+  curfew: 0,
   // Round seven, phase 4: the Library and the Hall can be built from this season of the keep (2 is summer), so the
   // first spring holds only the rooms it needs. 1 is from the start, as keeps from before.
   lateRoomsFrom: 2,
@@ -717,6 +729,15 @@ export const SHADE_TRAITS = {
   anchored: { name: 'Anchored', short: 'fades half as fast', fade: 0.5 },
   wistful: { name: 'Wistful', short: 'resting or dreaming the night through, it sends good dreams: the living work ×1.15 the next day', dreams: 1.15 },
 };
+// A shade trait's line in this keep (round seven, phase 11): the Keening quiet Weepers only where they come, and
+// the Wistful dream in the Dreamwell only where it isn't a place to rest.
+export function shadeTraitShort(T, id) {
+  if (id === 'keening' && !(T.dreamwell && T.weepersMax)) return 'calms two Restless shades a night';
+  if (id === 'wistful' && T.dreamRest) return 'resting the night through, it sends good dreams: the living work ×1.15 the next day';
+  return SHADE_TRAITS[id].short;
+}
+// The night job a lit shade does in a twin room: in the Dreamwell, under dreamRest, it rests.
+export const twinJob = (T, room) => (room === 'quarters' && T.dreamRest ? 'rest' : TWINS[room]?.job ?? null);
 
 // Day rooms. out is what a worker makes each day at full strength.
 export const DAY_ROOMS = {
@@ -755,7 +776,7 @@ export const TWINS = {
   crypt: { name: 'Waking Room', job: null, note: 'Where the dead wake.' },
   forge: { name: 'Cold Forge', job: 'steel', note: 'Grave-steel: a shade who forges through half the night arms every shade the next night.' },
   cellar: { name: 'Hollow Cellar', job: null, note: 'Empty and dark: a weak spot.' },
-  quarters: { name: 'Dreamwell', job: 'dreams', note: 'Dreams: a shade who dreams here through half the night rests the living for the day after. Weepers come here for the sleepers above.' },
+  quarters: { name: 'Dreamwell', job: 'dreams', note: 'Rest, as in the Cold Hearth (dreamRest). As before: dreams, a shade who dreams here through half the night rests the living for the day after, and Weepers come here for the sleepers above.' },
   library: { name: 'Archive of the Dead', job: 'lore', note: 'Old knowledge: a lit shade here reads for the Library, and speeds what it studies.' },
   hall: { name: 'Court of Shades', job: 'court', note: "The dead's requests: a shade seated here through half the night hears one, and at the next rite it's answered free." },
   gatehouse: { name: 'Undergate', job: null, note: 'The gate that faces the Deep, under the Veil, behind the line. From summer it stirs on some nights, and then one Creeper of every tide comes up here instead of at a rift, unless a candle burns at its mouth or it is warded.' },
@@ -910,7 +931,7 @@ export const VISITORS = {
     text: 'A hedge-witch selling charms against the dark.',
     answers: [
       { id: 'charm', text: 'Buy a charm', cost: { glass: 3 }, does: 'tonight the candles burn a quarter slower' },
-      { id: 'church', text: 'Hand her to the Church', dread: -1, does: 'she curses the keep: a Weeper comes tonight' },
+      { id: 'church', text: 'Hand her to the Church', dread: -1, does: (T) => `she curses the keep: ${T.dreamwell && T.weepersMax ? 'a Weeper comes tonight' : `tonight the candles burn ×${T.curseBurn} as fast`}` },
       { id: 'no', text: 'Send her away' },
     ],
   },
@@ -956,11 +977,17 @@ export const STUDIES = {
 // The Hall's decrees (round six): one a season, standing until it ends, each with its price.
 export const DECREES = {
   rationing: { name: 'Rationing', does: 'everyone eats three-quarters as much', price: 'sickness comes half as often again', eat: 0.75, sick: 1.5 },
-  curfew: { name: 'A curfew', does: 'the living are barred in from dusk: the Weepers give no nightmares', asleep: 'the living are barred in from dusk: nobody sleepwalks, and the Weepers give no nightmares', price: 'everyone works ×0.9', work: 0.9 },
+  curfew: { name: 'A curfew', does: 'the living are barred in from dusk', asleep: 'nobody sleepwalks', weep: 'the Weepers give no nightmares', price: 'everyone works ×0.9', work: 0.9 },
   levy: { name: 'A levy', does: 'men from the villages stand the gate at every raid, +3 defense', price: 'they eat 2 food a day', defense: 3, food: 2 },
 };
-// What a decree does in this keep: the curfew keeps sleepwalkers in only where the living sleepwalk.
-export const decreeDoes = (T, D) => (T.errands && D.asleep) || D.does;
+// What a decree does in this keep: the curfew keeps sleepwalkers in only where the living sleepwalk, and the
+// Weepers out only where they come.
+export const decreeDoes = (T, D) => {
+  const what = [T.errands && D.asleep, T.dreamwell && T.weepersMax && D.weep].filter(Boolean);
+  return what.length ? `${D.does}: ${what.join(', and ')}` : D.does;
+};
+// The decrees a keep's Hall offers: the curfew only under its rule (round seven, phase 11).
+export const decreesOf = (T) => Object.keys(DECREES).filter((id) => id !== 'curfew' || T.curfew);
 
 export const CAUSES = {
   duty: { name: 'Duty', kind: 'loyal', text: 'died on duty' },
