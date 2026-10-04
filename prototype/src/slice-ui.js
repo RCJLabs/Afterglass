@@ -2,7 +2,7 @@
 // bar at the bottom, and everything else opens in a panel over the castle. Like the greyboxes it changes
 // the game only through act(), so every session replays from its seed and action log.
 
-import { TICKS_PER_SEC, DAY_ROOMS, WORK_ROOMS, TWINS, KINDS, MIRRORS, CAUSES, MAP, BOND_OTHER, TUNING, BUILDABLE, TRAITS, SHADE_TRAITS, SEASONS, TUTORIAL, REQUESTS, PRESETS, ACTS, OMENS, VISITORS, STUDIES, DECREES, decreeDoes, decreesOf, shadeTraitShort, twinJob, CHAPTERS, ENDINGS } from './slice/data.js';
+import { TICKS_PER_SEC, DAY_ROOMS, WORK_ROOMS, TWINS, KINDS, MIRRORS, CAUSES, MAP, BOND_OTHER, TUNING, BUILDABLE, TRAITS, SHADE_TRAITS, SEASONS, TUTORIAL, REQUESTS, PRESETS, ACTS, OMENS, VISITORS, STUDIES, DECREES, decreeDoes, decreesOf, shadeTraitShort, twinJob, CHAPTERS, ENDINGS, TROUBLES, mirrorsOf } from './slice/data.js';
 import {
   newSeason, step, act, retune, playerTuning, jobCap, jobCount, nextSlot, ritePreview, crossingPreview, capacity, canWork, defense, roomPower, bear, priests, funeralCap, eatRate,
   dayTicks, nightTicks, isNewMoon, choicesFor, byId, isTwinnedLiving, isTwinnedShade, lastSeason, SAVE_VERSION, fmt, mirrorCap, bareHalls, tainPlace,
@@ -13,7 +13,8 @@ import {
   raiseCost, buildSpot, NEW_ROOMS, learned, decreeOf, gatehouseOf, undergateOpen, laddersDue, actsFor, mirrorGlass, pitchOf,
   eclipseDue, eclipseSpan, bondedShade, chapterOf, campaignOn, chapterAgain, boonNow, arrived, roomReady, LATE_ROOMS,
   isGuard, musterOf, musterGain, armsCap, armedDefense, pursueShare, ledgerDread, judgedDread,
-  wardPlace, livingCap, standingOf, standingCost, nightsLeft, rankOf, nextRank, studyLore, studyRem,
+  wardPlace, livingCap, standingOf, standingCost, nightsLeft, rankOf, nextRank, studyLore, studyRem, repairing, troubleOf, spotFloor, HIGH_ROOMS,
+  cracksOf, veilWardCost, eased,
 } from './slice/sim.js';
 import { geo, feet, floorAtY, roomAt, typeAt, typeOf, roomSpan, roomsOf, lightMap, isLit, unitAt, DEEP_FLOOR, lineSpots as lineOf, guardLit, MAX_FLOORS } from './slice/geo.js';
 import { drawScene, drawMoment } from './slice/draw.js';
@@ -336,7 +337,7 @@ function hudHTML() {
     <div><dt>Food</dt><dd><b data-live="food">${floor1(s.res.food)}</b></dd></div>
     <div><dt>Candles</dt><dd><b data-live="candles">${floor1(s.res.candles)}</b></dd></div>
     ${gauge('dread', 'Dread', s.dread, T.dreadMax, s.dread >= 4, '')}
-    ${gauge('veil', 'Veil', s.cracks, T.cracksMax, true, ' cracked')}
+    ${gauge('veil', 'Veil', s.cracks, cracksOf(s), true, ' cracked')}
     ${res('glass', 'Glass', floor1(s.res.glass))}
     ${res('stone', 'Stone', floor1(s.res.stone || 0))}
     ${res('essence', 'Essence', floor1(s.res.essence), T.essenceCap)}
@@ -736,8 +737,10 @@ function gateNotes() {
   return out.map((x) => `<p class="note">${esc(x)}</p>`).join('');
 }
 
-// The Library (round six): what it studies and how far along, and what else it could; what it has learned.
-const studyWhat = (id, kind) => (id === 'rites' && kind ? `the ${KINDS[kind].name} can act twice a night` : STUDIES[id].text);
+// The Library (round six): what it studies and how far along, and what else it could; what it has learned. Since
+// round seven's phase 12 each study has a second rank, offered once the first is learned.
+const studyWhat = (id, kind, rank = 1) => (id === 'rites' && kind ? `the ${KINDS[kind].name} can act ${rank === 2 ? 'three times' : 'twice'} a night` : rank === 2 ? STUDIES[id].two.text : STUDIES[id].text);
+const studyName = (id, rank = 1) => `${STUDIES[id].name}${rank === 2 ? ' II' : ''}`;
 function libraryCard() {
   const T = s.tuning;
   if (!T.library || !roomsOf(K(), 'library').length) return '';
@@ -745,19 +748,25 @@ function libraryCard() {
   const St = s.study;
   const scholars = jobCount(s, 'library');
   const now = St
-    ? `<p>Studying <b>${esc(STUDIES[St.id].name)}</b>: ${esc(studyWhat(St.id, St.kind))}. <b class="num" data-live="lore">${fmt(St.lore)}</b> of ${STUDIES[St.id].lore} lore.</p>`
+    ? `<p>Studying <b>${esc(studyName(St.id, St.rank))}</b>: ${esc(studyWhat(St.id, St.kind ?? s.riteKind, St.rank))}. <b class="num" data-live="lore">${fmt(St.lore)}</b> of ${studyLore(s, St.id, St.rank)} lore.</p>`
     : '<p>Nothing is being studied. Remembrance begins a study; the scholars and the Archive finish it.</p>';
   const kinds = Object.values(ACTS).map((a) => a.kind);
   const pick = ui.riteKind && kinds.includes(ui.riteKind) ? ui.riteKind : kinds[0];
   const rows = Object.entries(STUDIES)
-    .filter(([id]) => !s.learned.includes(id))
-    .map(([id, S]) => {
-      const can = day && !St && s.res.remembrance + 1e-9 >= S.rem;
-      const choose = id === 'rites' ? `<select id="rite-kind" data-act="rite-kind" aria-label="For which kind">${kinds.map((k) => `<option value="${k}"${k === pick ? ' selected' : ''}>${KINDS[k].name}</option>`).join('')}</select>` : '';
-      return `<li><div><b>${esc(S.name)}:</b> <small>${esc(S.text)}; ${S.lore} lore</small></div><span class="row">${choose}<button class="btn sm" id="study-${id}" data-act="study" data-id="${id}"${can ? '' : ' disabled'}>Begin, ${S.rem} remembrance</button></span></li>`;
+    .map(([id, S]) => [id, S, nextRank(s, id)])
+    .filter(([, , rank]) => rank)
+    .map(([id, S, rank]) => {
+      const rem = studyRem(s, id, rank);
+      const can = day && !St && s.res.remembrance + 1e-9 >= rem;
+      const choose = id === 'rites' && rank === 1 ? `<select id="rite-kind" data-act="rite-kind" aria-label="For which kind">${kinds.map((k) => `<option value="${k}"${k === pick ? ' selected' : ''}>${KINDS[k].name}</option>`).join('')}</select>` : '';
+      return `<li><div><b>${esc(studyName(id, rank))}:</b> <small>${esc(rank === 2 ? studyWhat(id, s.riteKind, 2) : S.text)}; ${studyLore(s, id, rank)} lore</small></div><span class="row">${choose}<button class="btn sm" id="study-${id}" data-act="study" data-id="${id}"${can ? '' : ' disabled'}>Begin, ${rem} remembrance</button></span></li>`;
     })
     .join('');
-  const done = s.learned.map((id) => `${STUDIES[id].name} (${studyWhat(id, id === 'rites' ? s.riteKind : null)})`);
+  const done = s.learned.map((x) => {
+    const id = x.replace(/2$/, '');
+    const rank = x.endsWith('2') ? 2 : 1;
+    return `${studyName(id, rank)} (${studyWhat(id, id === 'rites' ? s.riteKind : null, rank)})`;
+  });
   return `<div class="card lib"><h3>The Library</h3>${now}
     <p class="note">${scholars ? `${esc(plural(scholars, 'scholar'))} ${scholars === 1 ? 'makes' : 'make'} ${fmt(scholars * DAY_ROOMS.library.rate)} lore a day.` : 'Nobody works in the Library: give someone the job, in People.'} By night a lit shade posted in the Archive of the Dead adds to it.</p>
     ${rows && !St ? `<ul class="studies">${rows}</ul>` : ''}
@@ -835,13 +844,14 @@ function fireCards() {
         <button class="btn sm" id="bell-${f.room}" data-act="fight-fire" data-room="${f.room}" data-bell="1"${all ? '' : ' disabled'}>Ring the bell: everyone (${all})</button></div>
       <p class="note">The masons only lose a day's stone; the bell stops all work while it burns. Fighting it can kill, the more the hotter it is.</p></div>`;
   });
-  const scorched = s.scorched?.length ? `<p class="note bad">Scorched in last night's fire: the ${esc(listOf(s.scorched.map((id) => roomName(id))))}. Nobody works there today.</p>` : '';
+  const scorched = s.scorched?.length && !repairing(s) ? `<p class="note bad">Scorched in last night's fire: the ${esc(listOf(s.scorched.map((id) => roomName(id))))}. Nobody works there today.</p>` : '';
   return cards.join('') + scorched;
 }
 
 function buildRow() {
   const shut = embargoed(s);
-  return `<div class="build"><span>Build a mirror${shut ? ": not under the Church's embargo" : ''}</span>${Object.entries(MIRRORS)
+  return `<div class="build"><span>Build a mirror${shut ? ": not under the Church's embargo" : ''}</span>${mirrorsOf(s.tuning)
+    .map((k) => [k, MIRRORS[k]])
     .map(([k, M]) => `<button class="btn sm" id="build-${k}" data-act="build" data-mirror="${k}"${shut || s.res.glass + 1e-9 < M.glass ? ' disabled' : ''}>${M.name}, room for ${M.cap}: ${M.glass} glass</button>`)
     .join('')}</div>`;
 }
@@ -854,10 +864,11 @@ function mirrorsHTML({ upgrades = true } = {}) {
     })
     .join('')}</div>${upgrades && s.tuning.deep ? `<p class="note">Quicksilver: ${floor1(s.res.quicksilver || 0)}.</p>${once('quicksilver', '<p class="note">Shades bring quicksilver back from the Deep, sent down at dusk. It upgrades a mirror where it hangs, its shades and all.</p>', 'Quicksilver', 'mirrors')}` : ''}`;
 }
-// Quicksilver upgrades a hand mirror into a pier glass, and a pier glass into a great glass.
+// Quicksilver upgrades a hand mirror into a pier glass, a pier glass into a great glass, and since round seven's
+// phase 12 a great glass into a great-glass hall.
 function upgradeHTML(m) {
   const T = s.tuning;
-  const next = { hand: 'pier', pier: 'great' }[m.type];
+  const next = { hand: 'pier', pier: 'great', ...(T.glassHalls ? { great: 'hall' } : {}) }[m.type];
   if (!T.deep || !next || s.phase === 'over') return '';
   const qs = T.upgradeSilver[next];
   const gl = T.upgradeGlass[next];
@@ -898,6 +909,54 @@ function hauntedNote() {
     ruined.length ? `<p class="note bad">Ruined today: the ${names(ruined)}. A Maw was left alone in ${ruined.length === 1 ? 'its twin' : 'their twins'} last night, and whoever works there manages ${Math.round(100 * T.ruinWork)}% of their work.</p>` : '',
   ].join('');
 }
+// Round seven, phase 12: from the keep's second year, what a Maw broke, a fire burned out or an assault took off
+// the gate stays a while, each with its mending.
+function repairsCard() {
+  const T = s.tuning;
+  if (!repairing(s)) return '';
+  const day = s.phase === 'day';
+  const stone = s.res.stone || 0;
+  const mend = (id, cost, label = `Mend, ${fmt(cost)} stone`) => `<button class="btn sm" id="mend-${id}" data-act="mend" data-id="${id}"${day && stone + 1e-9 >= cost ? '' : ' disabled'}>${label}</button>`;
+  const rows = [];
+  for (const id of s.haunted || []) {
+    const more = (s.hauntLeft?.[id] || 1) - 1;
+    rows.push(`<li><span>The ${esc(roomName(id))} is haunted: ${more ? `${T.dreadPerBroken} Dread at ${more === 1 ? 'the next dawn' : `each of the next ${more} dawns`}` : 'it lifts at the next dawn'}.</span>${more ? mend(id, T.mendStone) : ''}</li>`);
+  }
+  for (const id of s.scorched || []) {
+    const n = s.burnLeft?.[id] || 1;
+    rows.push(`<li><span>The ${esc(roomName(id))} is burned out: nobody works there ${n === 1 ? 'today' : `for ${n} days`}.</span>${mend(id, T.mendStone)}</li>`);
+  }
+  const gate = s.gate ?? 1;
+  if (gate < 1 - 1e-9) rows.push(`<li><span>The gate is ${Math.round(100 * gate)}% whole; it mends a quarter a day of itself.</span>${s.raid?.state === 'assault' ? '' : mend('gate', T.raidShoreCost, `Mend a quarter, ${fmt(T.raidShoreCost)} stone`)}</li>`);
+  if (!rows.length) return '';
+  return `<div class="card repairs"><h3>Repairs</h3><ul class="facts">${rows.join('')}</ul><p class="note">Stone ${floor1(stone)}: masons in the Yard quarry ${DAY_ROOMS.yard.rate} a day each.</p></div>`;
+}
+// Round seven, phase 12: the year's trouble, from the second year of the open year.
+function troubleNote() {
+  const T = s.tuning;
+  const id = troubleOf(s);
+  if (!id) return '';
+  const X = TROUBLES[id];
+  const can = s.phase === 'day' && roomsOf(K(), 'chapel').length && s.res.remembrance + 1e-9 >= T.troubleRite;
+  const rite = !T.troubleRite ? '' : eased(s) ? ' A rite against it holds until the season ends: it does half what it would.' : '';
+  const btn = T.troubleRite && !eased(s) ? `<div class="row"><button class="btn sm" id="ease-trouble" data-act="ease-trouble"${can ? '' : ' disabled'}>A rite against it, ${fmt(T.troubleRite)} remembrance: half as hard this season</button></div>` : '';
+  return `<div class="note chapter"><p>Year ${yearOf(s)}: <b>${esc(X.name)}</b>: ${esc(X.text)}.${esc(rite)}</p>${btn}</div>`;
+}
+// Round seven, phase 12: standing wards, set by day for the rest of the season with essence the store has.
+function standingCard() {
+  const T = s.tuning;
+  if (!T.standingWard || s.phase !== 'day') return '';
+  const cost = standingCost(s);
+  const n = nightsLeft(s);
+  const stand = standingOf(s);
+  const targets = [...MAP.rifts.map((r) => r.id), 'moat', ...(undergateOpen(s) ? ['undergate'] : [])].filter((w) => !stand.includes(w));
+  const can = s.res.essence + 1e-9 >= cost;
+  const veil = T.veilWard ? `<li><span>The Veil: it breaks at ${cracksOf(s)} cracks this season${s.veilHeld ? ', warded' : ''}</span><button class="btn sm" id="ward-veil" data-act="ward-veil"${s.res.essence + 1e-9 >= veilWardCost(s) ? '' : ' disabled'}>One crack more, ${fmt(veilWardCost(s))} essence</button></li>` : '';
+  const rows = veil + targets.map((w) => `<li><span>${esc(upper(wardName(w)))}</span><button class="btn sm" id="stand-${w}" data-act="stand-ward" data-target="${w}"${can ? '' : ' disabled'}>Ward for the season, ${fmt(cost)} essence</button></li>`).join('');
+  return `<div class="card standing"><h3>Standing wards</h3>${stand.length ? `<p class="note">Warded every night this season: ${esc(listOf(stand.map((w) => wardName(w))))}.</p>` : ''}
+    ${once('standing', `<p class="note">A standing ward holds every night left in the season, ${n === 1 ? 'tonight only' : `${n} of them`}, for ${fmt(T.standingWard * 100)}% of a night's ward each, paid now. A stair's can be set at dusk.</p>`, 'Standing wards', 'growth')}
+    ${rows ? `<ul class="facts">${rows}</ul>` : ''}</div>`;
+}
 const badLuckNote = () => (s.badLuck > 0 ? `<p class="note bad">A broken mirror's bad luck: ${plural(s.badLuck, 'more day')} when sickness comes ${s.tuning.badLuck === 2 ? 'twice' : `${fmt(s.tuning.badLuck)} times`} as often.</p>` : '');
 
 function dayPanel() {
@@ -927,6 +986,7 @@ function dayPanel() {
   return `<header class="ph-head"><h2>${seasonWord() ? `${seasonWord()}, day ${s.day}` : `Day ${s.day}`}</h2><p>${lunar}</p></header>
     ${once('day', '<p class="note">The living work by day. Anyone who dies inside the walls wakes at dusk, as a shade.</p>', 'The day', 'day')}
     ${chapterCard(false)}
+    ${troubleNote()}
     ${eclipseCard()}
     ${fireCards()}
     ${visitorCards()}
@@ -936,7 +996,7 @@ function dayPanel() {
     ${inspectionCard()}
     ${sick.length ? `<p class="note bad">Sick: ${esc(listOf(sick.map((p) => p.name)))}. A healer in the Infirmary cures one a day; untreated, the sickness kills.</p>` : ''}
     ${s.hungry ? '<p class="note bad">The larder is empty. Everyone works hungry, and the weakest will starve. Put more cooks in the Hearth.</p>' : ''}
-    ${hauntedNote()}
+    ${repairing(s) ? repairsCard() : hauntedNote()}
     ${badLuckNote()}
     ${sleepNotes()}
     <div class="card"><h3>Work today</h3>${food}<ul class="facts">${rows}</ul>${arms}</div>
@@ -946,6 +1006,7 @@ function dayPanel() {
     ${weatherNotes()}
     ${s.raid ? '' : raid}
     ${churchCard()}
+    ${standingCard()}
     ${libraryCard()}
     ${hallCard()}
     ${deadByDay()}
@@ -1799,7 +1860,7 @@ function rosterHTML() {
   const cap = capacity(s);
   const dead = `<div class="roster dead"><div class="roster-head"><h2>The dead</h2><span class="count">${s.shades.length}</span><button class="btn sm" id="people-book" data-act="book">Book of the Dead</button><p>${cap.used} of ${cap.cap} mirror places taken.</p>${once('kinds', `<p class="note">Loyal shades fight hardest; Serene ones work best. Memory weakens both.${traitsOn() ? " Death turns each one's trait over." : ''}</p>`, 'The kinds of the dead', 'dusk')}</div>
     <div class="rows">${shadeRows() || '<p class="empty" style="padding:12px">The glass is empty.</p>'}</div></div>`;
-  const living = `<div class="roster"><div class="roster-head"><h2>The living</h2><span class="count">${s.living.length}</span><p>${s.living.length} of the ${s.tuning.maxLiving} the keep can shelter${s.tuning.dreamwell ? `, with beds for ${beds(s)}` : ''}. ${priests(s)} ${priests(s) === 1 ? 'priest' : 'priests'}, defense ${fmt(defense(s))}.</p>${aside('bonds', `<p class="note">Bonded pairs split across the Veil work ×${s.tuning.twinMult} when the shade is posted in the twin of the living one's room.</p>`, 'Bonds across the Veil', 'dusk')}</div>
+  const living = `<div class="roster"><div class="roster-head"><h2>The living</h2><span class="count">${s.living.length}</span><p>${s.living.length} of the ${livingCap(s)} the keep can shelter${s.tuning.dreamwell ? `, with beds for ${beds(s)}` : ''}. ${priests(s)} ${priests(s) === 1 ? 'priest' : 'priests'}, defense ${fmt(defense(s))}.</p>${aside('bonds', `<p class="note">Bonded pairs split across the Veil work ×${s.tuning.twinMult} when the shade is posted in the twin of the living one's room.</p>`, 'Bonds across the Veil', 'dusk')}</div>
     <div class="rows">${livingRows()}</div></div>`;
   return `<div class="rosters">${s.phase === 'day' ? living + dead : dead + living}</div>`;
 }
@@ -2000,6 +2061,27 @@ const TUNE = [
   ['eclipseCreepers', "The eclipse's Creepers, as a share of that night's"],
   ['eclipseTide', 'When its tide comes, as a share of the eclipse'],
   ['eclipseTwin', 'How much harder a living person and their dead work and fight side by side in it'],
+  ['repairs', 'Repairs: what a Maw broke, a fire burned or a breach left of the gate lasts a while unless masons mend it (1 on, 0 off)'],
+  ['repairsFrom', 'The keep\'s year repairs begin in'],
+  ['mendStone', 'Stone to mend a haunted or burned-out room'],
+  ['hauntDays', 'Dawns a room a Maw broke stays haunted, a Dread at each, unless mended'],
+  ['burnDays', 'Days a room a fire burned out stays dead, unless mended'],
+  ['gateBreached', 'Share of the gate a breach leaves'],
+  ['gateMend', 'Share of the gate that mends itself each dawn'],
+  ['bedsHold', 'The keep holds as many living as it has beds, at least the most above (1 on, 0: the most above, whatever the beds)'],
+  ['standingWard', "A standing ward for the season, set by day, costs this share of a night's ward for each night left (0: none)"],
+  ['studyTiers', 'Ranks of each study: 2 gives each a second (1 or 2)'],
+  ['studyTwoCost', "A study's second rank costs this many times its first"],
+  ['glassHalls', 'The great-glass hall: a mirror for eight whose dead fade slower (1 on, 0 off)'],
+  ['hallFade', 'How fast the dead fade in a great-glass hall, as a share'],
+  ['lampworks', 'The Lampworks, from the eighth floor up: glass into candles, and its twin lit without one (1 on, 0 off)'],
+  ['lampGlass', 'Glass a lampwright works into candles a day'],
+  ['highFrom', 'The floor from which the Lampworks can be raised, and rooms cost more stone for each floor above the one below it'],
+  ['highStone', 'Stone more a room costs for each floor it stands above'],
+  ['troubles', 'Each year of the open year brings a trouble (1 on, 0 off)'],
+  ['troublesFrom', 'The year troubles begin in'],
+  ['troubleRite', "Remembrance a rite against the year's trouble takes: half as hard until the season ends (0: none)"],
+  ['veilWard', 'Essence a ward on the Veil takes: one crack more until the season ends, each more as much again (0: none)'],
 ];
 const KEYS = [
   ['Space', 'play or pause'], ['1, 2, 4', 'speed'], ['C, M, W, H', 'candle, move, ward, hush (at night)'], ['V', 'turn the Tain upright'],
@@ -3266,6 +3348,7 @@ const BRIEF = {
   library: () => ['Scholars study, for the keep’s lore.', 'the Archive: speeds the study.'],
   hall: () => ['One decree a season.', 'the Court: hears the dead’s requests.'],
   gatehouse: () => [`Gate guards, ${DAY_ROOMS.gatehouse.rate} defense each; stands at the gate.`, 'the Undergate.'],
+  lampworks: () => [`Lampwrights, ${s.tuning.lampGlass} glass into ${DAY_ROOMS.lampworks.rate} candles a day each; from floor ${s.tuning.highFrom} up.`, 'the Lamp Gallery: lit without a candle.'],
 };
 function buildHTML() {
   const T = s.tuning;
@@ -3300,7 +3383,8 @@ function buildHTML() {
     .join('');
   const masons = jobCount(s, 'yard');
   const spot = ui.buildAt ? buildSpot(s, ui.buildAt) : null;
-  const cost = raiseCost(s, spot);
+  const spotOf = spot || buildSpot(s); // where a room goes if no place is chosen
+  const cost = raiseCost(s, spotOf);
   const can = day && !!spot && stone + 1e-9 >= cost;
   // The Gatehouse stands at the gate, on the ground floor.
   const atGateHere = spot && !spot.newFloor && spot.f === G.veil;
@@ -3310,7 +3394,7 @@ function buildHTML() {
     const R = DAY_ROOMS[type];
     const have = roomsOf(G, type).length;
     const gate = type === 'gatehouse';
-    const why = gate && !arrived(s, 2) ? 'It comes with the Ashen Host, in the campaign\'s second year.' : gate && have ? 'The keep has its Gatehouse.' : gate && !atGateHere ? 'Only on the ground floor: move a room up to free a hall there (Rearrange, below).' : '';
+    const why = gate && !arrived(s, 2) ? 'It comes with the Ashen Host, in the campaign\'s second year.' : gate && have ? 'The keep has its Gatehouse.' : gate && !atGateHere ? 'Only on the ground floor: move a room up to free a hall there (Rearrange, below).' : '' || (HIGH_ROOMS.includes(type) && spotOf && spotFloor(G, spotOf) < T.highFrom ? `Only from floor ${T.highFrom} up: the keep stands ${G.n} high.` : '');
     const [by] = BRIEF[type]();
     return `<li class="build-row"><div><b>${esc(R.name)}</b>${have ? ` <small class="muted">you have ${have}</small>` : ''}<p class="note">${esc(by)}</p>${why ? `<p class="note bad">${esc(why)}</p>` : ''}</div>
       <button class="btn sm" id="raise-${type}" data-act="raise" data-room="${type}"${can && !why ? '' : ' disabled'}>Build, ${fmt(cost)} stone</button></li>`;
@@ -3616,7 +3700,7 @@ function srNight(now) {
   }
   if (ui.paused || now - sr.at < 8000) return;
   const caught = s.shades.filter((d) => d.grabbedBy).map((d) => d.name);
-  const key = `The Unlit: ${n.foes.length} out, ${n.spawns.length} to come. The Veil: ${s.cracks} of ${s.tuning.cracksMax} cracked.${caught.length ? ` Caught in the dark: ${listOf(caught)}.` : ''}`;
+  const key = `The Unlit: ${n.foes.length} out, ${n.spawns.length} to come. The Veil: ${s.cracks} of ${cracksOf(s)} cracked.${caught.length ? ` Caught in the dark: ${listOf(caught)}.` : ''}`;
   if (key === sr.key) return;
   sr.key = key;
   sr.at = now;
@@ -3915,8 +3999,8 @@ const GUIDE = [
   },
   {
     id: 'cap', target: '#open-people',
-    when: () => s.phase === 'day' && s.living.length >= s.tuning.maxLiving,
-    text: () => `The keep shelters ${s.tuning.maxLiving} at most. While it's full, no one new comes to the gate, and no child is born.`,
+    when: () => s.phase === 'day' && s.living.length >= livingCap(s),
+    text: () => `The keep shelters ${livingCap(s)} at most${s.tuning.bedsHold ? `, as many as it has beds for: Quarters make room for ${s.tuning.quartersBeds} more` : ''}. While it's full, no one new comes to the gate, and no child is born.`,
   },
   {
     id: 'tides', target: '.tclock',
@@ -4386,7 +4470,7 @@ function moodNow() {
   if (s.phase !== 'night' && !eclipseNow()) return { bed };
   const n = s.night;
   const h = !ui.paused && n.foes.find((f) => f.type === 'hollow' && f.hp > 0 && !f.rising);
-  return { bed, hollow: h ? h.f / Math.max(1, K().veil) : null, danger: Math.min(1, n.foes.length / 12 + (0.5 * s.cracks) / s.tuning.cracksMax) };
+  return { bed, hollow: h ? h.f / Math.max(1, K().veil) : null, danger: Math.min(1, n.foes.length / 12 + (0.5 * s.cracks) / cracksOf(s)) };
 }
 
 // Skip (round six): at SKIP_SPEED times the 1× clock to SKIP_LEAD before the next mark on the tide clock,
@@ -5033,6 +5117,10 @@ function onAct(name, el, ev) {
     case 'descend': return game({ type: 'descend', id: el.dataset.id, depth: Number(el.dataset.depth) });
     case 'upgrade-mirror': return game({ type: 'upgradeMirror', id: el.dataset.id });
     case 'fight-fire': return game({ type: 'fightFire', room: el.dataset.room, bell: !!el.dataset.bell });
+    case 'mend': return game({ type: 'mend', id: el.dataset.id });
+    case 'stand-ward': return game({ type: 'standWard', target: el.dataset.target });
+    case 'ward-veil': return game({ type: 'wardVeil' });
+    case 'ease-trouble': return game({ type: 'easeTrouble' });
     case 'break-ask':
       ui.breakAsk = el.dataset.id;
       return bump();

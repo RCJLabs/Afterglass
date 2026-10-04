@@ -32,6 +32,7 @@ const DEFAULT_OK = {
   mendStone: 'read only for mending, and an old keep has repairs 0',
   gateBreached: 'read only for the gate a breach leaves, as mendStone',
   hauntDays: 'read only with repairs, as mendStone',
+  repairsFrom: 'read only with repairs, as mendStone',
   burnDays: 'read only with repairs, as mendStone',
   gateMend: 'read only with repairs, as mendStone',
   studyTwoCost: "read only for a study's second rank, and an old keep has studyTiers 1",

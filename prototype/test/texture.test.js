@@ -104,6 +104,6 @@ test('a haunted room is in the log at dawn, not called out: the night called it 
   s.alerts = [];
   ok(s, { type: 'beginDay' });
   assert.deepEqual(s.haunted, [hearth]);
-  assert.ok(s.log.some((l) => /Hearth is haunted: 1 Dread at each dawn/.test(l.text)), 'in the log');
+  assert.ok(s.log.some((l) => /Hearth is haunted today/.test(l.text)), 'in the log');
   assert.ok(!s.alerts.some((a) => /haunted/.test(a.text)), 'not called out');
 });

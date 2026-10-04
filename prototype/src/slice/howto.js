@@ -2,7 +2,7 @@
 // from the keep's own rules, so it stays true when they're changed in Settings. Pure. Round seven, phase 11
 // cut it by a quarter (tools/words.mjs counts it): what the panels say as you play, it leaves to them.
 
-import { DAY_ROOMS, TWINS, KINDS, MIRRORS, TRAITS, SHADE_TRAITS, OMENS, STUDIES, DECREES, decreeDoes, decreesOf, CHAPTERS, ENDINGS } from './data.js';
+import { DAY_ROOMS, TWINS, KINDS, MIRRORS, TRAITS, SHADE_TRAITS, OMENS, STUDIES, DECREES, decreeDoes, decreesOf, CHAPTERS, ENDINGS, TROUBLES, mirrorsOf } from './data.js';
 import { actText } from './sim.js';
 
 const n1 = (x) => (Math.abs(x - Math.round(x)) < 0.05 ? String(Math.round(x)) : x.toFixed(1));
@@ -106,7 +106,7 @@ export function howTo(T) {
         `Everyone has a job, and a job needs its room: ${rooms.join('; ')}. A room holds ${T.roomCap}; for more, build another.`,
         `Whoever has no room quarries stone in the Yard, ${R.yard.rate} a day each. Build raises a room for ${T.roomStone} stone, on top of the keep or in a bare hall. By night the keep hangs upside down: the top floor is the Tain's deepest, by the rifts, so a room below the line is in the Unlit's way, and every floor added makes them climb farther. The floor above the ground floor is the line's, worked by the shades holding it, so it's the place for a Chapel: they sing in its Choir. Tearing a room down gives back ${Math.floor(T.roomStone * T.teardownBack)} stone; moving one, swapping it with another, costs ${T.moveStone}.`,
         `Everyone eats ${n1(T.eatPerDay)} food a day. With the larder empty they work at ${pct(T.hungryMult)}, and the weakest starve.`,
-        `Someone new comes to the gate every ${T.newcomerEvery === 2 ? 'second' : `${T.newcomerEvery}th`} day while there are fewer than ${T.maxLiving}.`,
+        `Someone new comes to the gate every ${T.newcomerEvery === 2 ? 'second' : `${T.newcomerEvery}th`} day while there are fewer than ${T.bedsHold ? `the keep has beds for, ${T.maxLiving} at least (${T.baseBeds}, and ${T.quartersBeds} more for each Quarters)` : T.maxLiving}.`,
         `Sickness comes on about ${pct(T.sickChance)} of days and kills in ${days(T.sickDays)} days unless a healer cures it. The old can die in their sleep. Grief makes the living work at ${pct(T.griefMult)} until their dead rest, then at ${pct(T.peaceMult)} for ${T.peaceDays} days.`,
         `Everyone has a trait, shown under their name, and death turns it over: ${Object.values(TRAITS).map((t) => `${t.name} → ${SHADE_TRAITS[t.dead].name}`).join(', ')}.`,
       ],
@@ -153,6 +153,21 @@ export function howTo(T) {
               ...(T.library ? [`The Library: its scholars make ${DAY_ROOMS.library.rate} lore a day each toward one study at a time, begun with remembrance, and a lit shade in its twin, the Archive of the Dead, adds to it by night. A study finished is the keep's for good: ${Object.values(STUDIES).map((x) => `${x.name}, ${x.text}`).join('; ')}.`] : []),
               ...(T.hall ? [`The Hall: one decree a season, standing until it ends. ${decreesOf(T).map((id) => `${DECREES[id].name}: ${decreeDoes(T, DECREES[id])}; but ${DECREES[id].price}`).join('. ')}. A shade seated, lit, in its twin, the Court of Shades, through half the night has one of the dead's requests heard at the next rite: granted or refused, it costs nothing.`] : []),
               ...(T.gatehouse ? [`The Gatehouse stands at the gate, on the ground floor (move a room up to make way), one to a keep; its gate guards give ${DAY_ROOMS.gatehouse.rate} defense each. From the keep's ${nth(T.laddersFrom)} season the Host brings a ladder every ${n1(T.ladderEvery)} seconds at the gate, each one standing adding ${n1(T.ladderHost)} to its strength; a gate guard on the Gatehouse's walls throws them down.`, `From the keep's ${nth(T.undergateFrom)} season its twin, the Undergate, behind the line, stirs on about ${pct(T.undergateChance)} of nights (the Dusk panel says so), and ${T.undergatePerTide === 1 ? 'one Creeper' : `${T.undergatePerTide} Creepers`} of each tide ${T.undergatePerTide === 1 ? 'comes' : 'come'} up there instead of at a rift. A candle at its mouth, the room's outer end, or a ward shuts it.`] : []),
+            ],
+          },
+        ]
+      : []),
+    ...(T.repairs || T.standingWard || T.studyTiers > 1 || T.lampworks || T.troubles
+      ? [
+          {
+            id: 'growth',
+            title: 'A keep that grows',
+            items: [
+              ...(T.repairs ? [`From the keep's ${nth(T.repairsFrom)} year it wears. A room a Maw broke stays haunted ${T.hauntDays} dawns, ${T.dreadPerBroken} Dread at each, and one a fire burned out stays dead ${T.burnDays} days, unless masons mend it (${n1(T.mendStone)} stone, from the Day panel). The gate keeps what an assault took off it, ${pct(T.gateBreached)} after a breach, and mends ${pct(T.gateMend)} of itself a day; masons mend ${pct(T.raidShore)} for ${n1(T.raidShoreCost)} stone.`] : []),
+              ...(T.lampworks ? [`From floor ${T.highFrom} up a room costs ${n1(T.highStone)} stone more for each floor above floor ${T.highFrom - 1}, and the Lampworks can be raised: its lampwrights turn ${n1(T.lampGlass)} glass a day into ${DAY_ROOMS.lampworks.rate} candles each, and its twin, the Lamp Gallery, is lit every night without a candle.`] : []),
+              ...(T.standingWard ? [`By day essence can set a standing ward on a rift, the moat or the Undergate: it holds every night left in the season, for ${pct(T.standingWard)} of a night's ward each, paid at once.${T.veilWard ? ` A ward on the Veil itself holds one crack more until the season ends, for ${n1(T.veilWard)} essence, and each more as much again as the one before.` : ''}`] : []),
+              ...(T.studyTiers > 1 && T.library ? [`Each study has a second rank, begun once the first is learned, for ${times(T.studyTwoCost)} its remembrance and lore.`] : []),
+              ...(T.troubles ? [`From the ${nth(T.troublesFrom)} year of the open year each year brings a trouble, none twice until each has come: ${and(Object.values(TROUBLES).map((x) => x.name.charAt(0).toLowerCase() + x.name.slice(1)))}. The Day panel says which, and what it does.${T.troubleRite ? ` Once a season a rite in the Chapel (${n1(T.troubleRite)} remembrance) halves it until the season ends.` : ''}`] : []),
             ],
           },
         ]
@@ -218,7 +233,7 @@ export function howTo(T) {
       id: 'mirrors',
       title: 'Mirrors',
       items: [
-        `Glass makes mirrors, from the Day panel: ${Object.values(MIRRORS).map((m) => `a ${m.name} for ${m.glass} glass holds ${m.cap}`).join(', ')}.`,
+        `Glass makes mirrors, from the Day panel: ${mirrorsOf(T).map((k) => MIRRORS[k]).map((m) => `a ${m.name} for ${m.glass} glass holds ${m.cap}`).join(', ')}.${T.glassHalls ? ` The newly dead are bound into a great-glass hall first, and fade there ${T.hallFade === 0.5 ? 'half' : `${mult(T.hallFade)} times`} as fast.` : ''}`,
         `Breaking a mirror in an emergency frees everyone in it: +1 remembrance and Dread −${n1(T.breakDread)} for each. The mirror is lost, and ${T.badLuckDays} days of bad luck follow: sickness ${times(T.badLuck)} as often, and fire likelier.`,
         `By day a shade can whisper its old trade to whoever works it now (×${mult(T.whisperMult)}, for ${n1(T.whisperFade)} of its memory at dusk), or step out of a great glass to work a room in person; both are set in People.`,
         ...(T.deep ? [`At dusk a shade can go down into the Deep instead of taking a post: not far, deep or deepest. It's gone until dawn, and brings back ${or(T.deepSilver.map(String))} quicksilver by depth, unless something catches it (${or(T.deepCatch.map(pct))} of the time, half as often for a Lurker): then it comes back empty-handed, ${n1(T.deepDrain)} memory poorer, or not at all. Never on the new moon.`, `Quicksilver upgrades a mirror where it hangs, shades and all: a hand mirror into a pier glass for ${T.upgradeSilver.pier} quicksilver and ${T.upgradeGlass.pier} glass, a pier glass into a great glass for ${T.upgradeSilver.great} and ${T.upgradeGlass.great}.`] : []),

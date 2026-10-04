@@ -71,8 +71,19 @@ export const roomReady = (s, type) => !LATE_ROOMS.includes(type) || s.season >= 
 // From the fourth year of a campaign the Hollow grows, and so do its nights.
 // The year's trouble (round seven, phase 12), and what it makes of k (or dflt in a year without one).
 export const troubleOf = (s) => (s.tuning.troubles && s.trouble?.year === yearOf(s) ? s.trouble.id : null);
-export const troubled = (s, k, dflt) => TROUBLES[troubleOf(s)]?.[k] ?? dflt;
-export const hollowRisen = (s) => (campaignOn(s) && yearOf(s) >= 4) || troubleOf(s) === 'deep';
+// A rite against it (troubleRite) halves it until the season ends.
+export const eased = (s) => !!troubleOf(s) && s.eased === s.season;
+export const troubled = (s, k, dflt) => {
+  const v = TROUBLES[troubleOf(s)]?.[k];
+  return v === undefined ? dflt : eased(s) ? dflt + (v - dflt) / 2 : v;
+};
+export const hollowRisen = (s) => (campaignOn(s) && yearOf(s) >= 4) || (troubleOf(s) === 'deep' && !eased(s));
+// The cracks that break the Veil: cracksMax, and one more for each ward on the Veil this season (veilWard).
+export const cracksOf = (s) => s.tuning.cracksMax + (s.tuning.veilWard ? s.veilHeld || 0 : 0);
+export const veilWardCost = (s) => s.tuning.veilWard * ((s.veilHeld || 0) + 1);
+// Whether repairs have begun (round seven, phase 12): from the keep's year repairsFrom (its season, with the year
+// off). In its first year what breaks is put right as before.
+export const repairing = (s) => !!s.tuning.repairs && (s.tuning.year ? yearOf(s) : s.season) >= (s.tuning.repairsFrom || 1);
 const yearOfSeason = (season) => Math.floor((season - 1) / SEASONS.length) + 1;
 // A lasting help chosen at a chapter's close, for the year it's for.
 export const boonNow = (s, id) => s.campaign?.boons?.[id] === yearOf(s);
@@ -521,7 +532,7 @@ function clearDamage(s, id) {
   if (s.burnLeft) delete s.burnLeft[id];
 }
 // Days left of a room's haunting (with repairs), counting today's.
-export const hauntLeftOf = (s, id) => (s.tuning.repairs ? s.hauntLeft?.[id] || 0 : isHaunted(s, id) ? 1 : 0);
+export const hauntLeftOf = (s, id) => (repairing(s) ? s.hauntLeft?.[id] || 0 : isHaunted(s, id) ? 1 : 0);
 // Beds: the keep sleeps baseBeds, and each Quarters more. More living than that sleep crowded.
 export const beds = (s) => s.tuning.baseBeds + roomsOf(geo(s), 'quarters').length * s.tuning.quartersBeds;
 // How many living the keep holds: maxLiving, or as many as it has beds once that's more (bedsHold).
@@ -570,8 +581,14 @@ export function nextSlot(s) {
 }
 // Every bare hall in the keep, top floor first: where a room can be built besides a new floor on top.
 export const bareHalls = (s) => (s.keep || FULL_KEEP).floors.flatMap((fl, f) => fl.map((r, slot) => ({ ...r, f, slot })).filter((r) => r.type === 'empty'));
-// What a room costs where it goes: a new floor takes floorStone more than a bare hall.
-export const raiseCost = (s, spot) => s.tuning.roomStone - (studied(s, 'masonry', 'less') ?? 0) + (spot?.newFloor ? s.tuning.floorStone || 0 : 0);
+// What a room costs where it goes: a new floor takes floorStone more than a bare hall, and since round seven's
+// phase 12 a room above the seventh floor highStone more for each floor it stands above it.
+export const raiseCost = (s, spot) => {
+  const T = s.tuning;
+  const floor = spot && (spot.newFloor || spot.f != null) ? spotFloor(geo(s), spot) : 0;
+  const high = T.highStone ? T.highStone * Math.max(0, floor - (T.highFrom - 1)) : 0;
+  return T.roomStone - (studied(s, 'masonry', 'less') ?? 0) + (spot?.newFloor ? T.floorStone || 0 : 0) + high;
+};
 // Where a room built at `at` goes: a bare hall's id, 'top' for a new floor, or nothing for the default.
 export function buildSpot(s, at) {
   const keep = s.keep || FULL_KEEP;
@@ -1189,7 +1206,7 @@ function startAssault(s) {
   if (!r || r.state !== 'coming') return;
   r.state = 'assault';
   r.host = r.strength;
-  r.gate = s.tuning.repairs ? s.gate ?? 1 : 1; // with repairs, the gate as the last assault left it
+  r.gate = repairing(s) ? s.gate ?? 1 : 1; // with repairs, the gate as the last assault left it
   r.left = Math.round(s.tuning.raidAssaultSecs * TICKS_PER_SEC);
   r.warned = true;
   if (laddersDue(s)) r.ladders = { up: 0, down: 0, next: Math.round(s.tuning.ladderEvery * TICKS_PER_SEC) };
@@ -1263,7 +1280,7 @@ function endAssault(s, held) {
     loot = ` They carried off ${food} food, ${glass} glass and ${candles} candles${r.barred ? ', half what the barred stores would have given up' : ''}.`;
   }
   r.state = held ? 'held' : 'breached';
-  if (T.repairs) s.gate = held ? clamp(r.gate, 0, 1) : T.gateBreached; // what's left of the gate, till mended
+  if (repairing(s)) s.gate = held ? clamp(r.gate, 0, 1) : T.gateBreached; // what's left of the gate, till mended
   if (!r.crusade) s.riders = 0;
   for (const p of s.living) if (p.walls) delete p.walls;
   s.today.raid = { strength: r.strength, defense: r1(def), held, ...(r.crusade ? { crusade: true } : {}) };
@@ -1571,20 +1588,21 @@ function endDay(s) {
   s.watchBonus = 0;
   // With repairs (round seven, phase 12) what a Maw broke stays haunted, and what burned stays dead, a while.
   const T0 = s.tuning;
-  if (!T0.repairs) {
+  const rep = repairing(s);
+  if (!rep) {
     s.haunted = [];
     s.ruined = [];
   }
   // A fire still burning at dusk burns the night through: its room is dead tomorrow (with repairs, burnDays days
   // unless it's mended).
   const burnt = (s.fires || []).map((f) => f.room);
-  if (T0.repairs) {
+  if (rep) {
     const left = (s.burnLeft ||= {});
     for (const id of Object.keys(left)) if (--left[id] <= 0) delete left[id];
     for (const id of burnt) left[id] = T0.burnDays;
     s.scorched = Object.keys(left);
   } else s.scorched = burnt;
-  for (const id of burnt) say(s, `The fire in the ${DAY_ROOMS[typeOf(geo(s), id)].name} burns into the night. Nobody can work there ${T0.repairs && T0.burnDays > 1 ? `for ${T0.burnDays} days, unless masons mend it (${fmt(T0.mendStone)} stone)` : 'tomorrow'}.`, 'bad', true);
+  for (const id of burnt) say(s, `The fire in the ${DAY_ROOMS[typeOf(geo(s), id)].name} burns into the night. Nobody can work there ${rep && T0.burnDays > 1 ? `for ${T0.burnDays} days, unless masons mend it (${fmt(T0.mendStone)} stone)` : 'tomorrow'}.`, 'bad', true);
   s.fires = [];
   for (const p of s.living) {
     if (p.fighting) p.fighting = null;
@@ -1766,7 +1784,7 @@ function newNight(s) {
   // Maws rise just ahead of the last tide, to open a way for the Creepers behind them, from night mawFrom.
   // The new moon belongs to the Hollow, except the Long Night, which has both.
   if (s.day >= T.mawFrom && (!isNewMoon(s) || long)) {
-    const maws = Math.round(T.mawsPerNight + troubled(s, 'maws', 0));
+    const maws = Math.round(T.mawsPerNight) + Math.floor(troubled(s, 'maws', 0));
     const order = [...tides].sort((a, b) => b - a);
     for (let i = 0; i < maws; i++) spawns.push({ at: Math.round(clamp(order[i % order.length] - 0.03, 0.02, 0.9) * N), type: 'maw', seep: false, snuff: false, rift: pick(s, MAP.rifts).id, ...(tut?.maw ? { weak: tut.maw } : {}) });
   }
@@ -2808,7 +2826,7 @@ export function mawPick(s, L, m) {
 function hauntCost(s) {
   const T = s.tuning;
   const work = T.hauntWork < 1 ? `, and tomorrow its workers manage ${Math.round(100 * T.hauntWork)}%` : '';
-  if (T.repairs && T.hauntDays > 1) return `${T.dreadPerBroken} Dread at each of the next ${T.hauntDays} dawns, unless masons mend it (${fmt(T.mendStone)} stone)${work}`;
+  if (repairing(s) && T.hauntDays > 1) return `${T.dreadPerBroken} Dread at each of the next ${T.hauntDays} dawns, unless masons mend it (${fmt(T.mendStone)} stone)${work}`;
   return `${T.dreadPerBroken} Dread at dawn${work}`;
 }
 function breakRoom(s, m, id) {
@@ -3072,7 +3090,7 @@ function cross(s, c, m, cracks) {
     }
     n.cracked.push(key);
   }
-  if (!veilKept(s) && s.cracks + cracks >= s.tuning.cracksMax) keepMoment(s, 'broke', { f: c.f, x: m.x }, `${c.type === 'hollow' ? 'The Hollow' : who} broke the Veil at the mirror in the ${where}.`);
+  if (!veilKept(s) && s.cracks + cracks >= cracksOf(s)) keepMoment(s, 'broke', { f: c.f, x: m.x }, `${c.type === 'hollow' ? 'The Hollow' : who} broke the Veil at the mirror in the ${where}.`);
   else keepMoment(s, c.type === 'hollow' ? 'torn' : 'crack', { f: c.f, x: m.x }, c.type === 'hollow' ? `The Hollow reached the mirror in the ${where}.` : `${who} slipped through the Veil at the mirror in the ${where}.`);
   n.foes = n.foes.filter((x) => x !== c);
   s.cracks += cracks;
@@ -3082,18 +3100,18 @@ function cross(s, c, m, cracks) {
     n.stats.hollow = 'crossed';
     say(s, `The Hollow reached the mirror in the ${where} and tore through the Veil: ${cracks} cracks.`, 'bad', 'crack');
     cue(s, 'torn', c.f, m.x);
-    if (s.cracks < s.tuning.cracksMax && s.living.length) takeLiving(s, pick(s, s.living));
-  } else if (veilKept(s) && s.cracks >= s.tuning.cracksMax) {
+    if (s.cracks < cracksOf(s) && s.living.length) takeLiving(s, pick(s, s.living));
+  } else if (veilKept(s) && s.cracks >= cracksOf(s)) {
     // The tutorial's first nights: the Veil holds by a thread.
-    s.cracks = s.tuning.cracksMax - 1;
+    s.cracks = cracksOf(s) - 1;
     say(s, `${who} slipped through the Veil at the mirror in the ${where}. The Veil holds by a thread; from night ${TUTORIAL.safeUntil}, that would break it and lose the keep.`, 'bad', 'crack');
     cue(s, 'crack', c.f, m.x);
   } else {
-    say(s, `${who} slipped through the Veil at the mirror in the ${where}. The Veil cracks: ${s.cracks} of ${s.tuning.cracksMax}.`, 'bad', 'crack');
+    say(s, `${who} slipped through the Veil at the mirror in the ${where}. The Veil cracks: ${s.cracks} of ${cracksOf(s)}.`, 'bad', 'crack');
     cue(s, 'crack', c.f, m.x);
   }
-  if (tainAwake(s) && s.cracks >= s.tuning.cracksMax) {
-    if (veilKept(s)) s.cracks = s.tuning.cracksMax - 1;
+  if (tainAwake(s) && s.cracks >= cracksOf(s)) {
+    if (veilKept(s)) s.cracks = cracksOf(s) - 1;
     else lose(s, 'veil', 'The Veil has broken. The Unlit are loose in the keep above.');
   }
 }
@@ -3338,7 +3356,7 @@ function endNight(s) {
   }
   // What a Maw broke tonight is haunted tomorrow; good dreams last the day, and so do nightmares: one for each
   // Weeper that wept its fill in the dark.
-  if (s.tuning.repairs) {
+  if (repairing(s)) {
     // A haunting already standing has a dawn less to run; what the Maws broke tonight, hauntDays.
     const left = (s.hauntLeft ||= {});
     for (const id of Object.keys(left)) if (--left[id] <= 0) delete left[id];
@@ -3485,7 +3503,7 @@ function beginDay(s) {
   const P = ritePreview(s);
   if (P.errors.length) return P.errors[0];
   const T = s.tuning;
-  if (T.repairs && s.gate < 1) s.gate = Math.min(1, s.gate + T.gateMend); // the keep's own hands mend the gate a little each day
+  if (repairing(s) && s.gate < 1) s.gate = Math.min(1, s.gate + T.gateMend); // the keep's own hands mend the gate a little each day
   for (const d of P.cover) {
     const m = byId(s.mirrors, d.mirror);
     release(s, d, 'covered', `The ${m ? m.name : 'mirror'} is covered. ${d.name} is released.`);
@@ -3547,7 +3565,7 @@ function beginDay(s) {
   const half = T.hauntWork < 1 ? ` Whoever works there manages ${Math.round(100 * T.hauntWork)}% until dusk.` : '';
   // In the log, not called out (round seven, phase 11): the night called it out as the Maw broke the room, and
   // the Day panel says it all day.
-  const till = T.repairs && T.hauntDays > 1 ? `: ${T.dreadPerBroken} Dread at each dawn while it lasts, unless masons mend it (${fmt(T.mendStone)} stone)` : ' today';
+  const till = repairing(s) && T.hauntDays > 1 ? `: ${T.dreadPerBroken} Dread at each dawn while it lasts, unless masons mend it (${fmt(T.mendStone)} stone)` : ' today';
   if (haunted.length) say(s, `The ${listNames(haunted)} ${haunted.length === 1 ? 'is' : 'are'} haunted${till}.${half}`, 'bad');
   const ruined = (s.ruined || []).map((id) => DAY_ROOMS[typeOf(geo(s), id)].name);
   if (ruined.length) say(s, `The ${listNames(ruined)} ${ruined.length === 1 ? 'was' : 'were'} ruined in the night: whoever works there manages ${Math.round(100 * T.ruinWork)}% until dusk.`, 'bad');
@@ -3716,11 +3734,12 @@ function nextSeason(s) {
   s.grudge = null;
   s.siege = null;
   s.standing = []; // a standing ward holds for the season it was set in
+  s.veilHeld = 0; // and so does a ward on the Veil
   s.barrels = false; // the cooper's, for the season
   // Nothing the player does mends the Veil, so cracks don't follow the keep into a new season.
   const mended = s.cracks > 0;
   s.cracks = 0;
-  if (!s.tuning.repairs) {
+  if (!repairing(s)) {
     s.haunted = [];
     s.ruined = [];
   }
@@ -4264,6 +4283,7 @@ const ACTIONS = {
   mend(s, { id }) {
     const T = s.tuning;
     if (!T.repairs) return 'Nothing is mended in these rules.';
+    if (!repairing(s)) return 'In its first year the keep puts right what breaks without masons.';
     if (s.phase !== 'day') return 'Masons mend by day.';
     if (id === 'gate') {
       if (s.raid?.state === 'assault') return 'The Host is at the gate: shore it.';
@@ -4490,6 +4510,36 @@ const ACTIONS = {
     const n = nightsLeft(s);
     say(s, `A standing ward on ${wardPlace(s, target)}, for ${fmt(cost)} essence: it holds ${n === 1 ? 'tonight' : `every night left this season, ${n} of them`}.`, 'good');
     cue(s, 'ward');
+    return undefined;
+  },
+  // Round seven, phase 12: a standing ward on the Veil, set by day: it holds one crack more until the season ends,
+  // and each more this season costs as much again as the one before.
+  wardVeil(s) {
+    const T = s.tuning;
+    if (!T.veilWard) return 'There is no ward on the Veil in these rules.';
+    if (s.phase !== 'day') return 'The Veil is warded by day.';
+    const cost = veilWardCost(s);
+    if (s.res.essence + EPS < cost) return `Warding the Veil takes ${fmt(cost)} essence.`;
+    s.res.essence -= cost;
+    s.veilHeld = (s.veilHeld || 0) + 1;
+    say(s, `The Veil is warded: until the season ends it breaks at ${cracksOf(s)} cracks, not ${cracksOf(s) - 1}.`, 'good');
+    cue(s, 'ward');
+    return undefined;
+  },
+  // A rite in the Chapel against the year's trouble, once a season: until the season ends it does half what it would.
+  easeTrouble(s) {
+    const T = s.tuning;
+    const id = troubleOf(s);
+    if (!T.troubleRite) return 'There is no rite against a trouble in these rules.';
+    if (!id) return 'No trouble weighs on this year.';
+    if (s.phase !== 'day') return 'The rite is held by day.';
+    if (!roomsOf(geo(s), 'chapel').length) return 'The rite is held in a Chapel.';
+    if (eased(s)) return 'The rite has been held this season.';
+    if (s.res.remembrance + EPS < T.troubleRite) return `The rite takes ${fmt(T.troubleRite)} remembrance.`;
+    s.res.remembrance -= T.troubleRite;
+    s.eased = s.season;
+    say(s, `A rite in the Chapel against ${TROUBLES[id].name.charAt(0).toLowerCase()}${TROUBLES[id].name.slice(1)}: until the season ends it does half what it would.`, 'good');
+    cue(s, 'vigil');
     return undefined;
   },
   // Round seven: a candle or a ward set at dusk can be taken back, whole, until the night begins: the candle
@@ -4816,6 +4866,9 @@ export const RULES_SINCE = [
   { key: 'glassHalls', old: 0, since: '2026-10-04', what: 'the great-glass hall (phase 12)' },
   { key: 'lampworks', old: 0, since: '2026-10-04', what: 'the Lampworks, from floor 8 up (phase 12)' },
   { key: 'troubles', old: 0, since: '2026-10-04', what: "each year from the second brings a trouble (phase 12)" },
+  { key: 'highStone', old: 0, since: '2026-10-04', what: 'a room above the seventh floor costs more stone (phase 12)' },
+  { key: 'veilWard', old: 0, since: '2026-10-04', what: 'a ward on the Veil for the season (phase 12)' },
+  { key: 'troubleRite', old: 0, since: '2026-10-04', what: "a rite against the year's trouble (phase 12)" },
 ];
 export function upgrade(g) {
   g.keep ??= { floors: FULL_KEEP.floors.map((fl) => fl.map((r) => ({ ...r }))) };

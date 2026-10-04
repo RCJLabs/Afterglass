@@ -4,12 +4,14 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   newSeason, step, act, ritePreview, upgrade, roomPower, beds, livingCap, rankOf, studied, nextRank, raiseCost, pitchOf, mirrorGlass, wardHoldOf, actsFor,
-  standingCost, inHall, troubleOf, raidStrength, judgedDread, hollowRisen, yearsTrouble,
+  standingCost, inHall, troubleOf, raidStrength, judgedDread, hollowRisen, yearsTrouble, cracksOf, veilWardCost, troubled,
 } from '../src/slice/sim.js';
 import { geo, roomsOf } from '../src/slice/geo.js';
 import { TUNING, STUDIES, MAP, MIRRORS, DAY_ROOMS, TROUBLES } from '../src/slice/data.js';
 
 const quiet = { startFloors: 4, sickChance: 0, oldAgeChance: 0, raidDays: { 2: 0, 4: 0, 6: 0 }, fire: 0, visitors: 0, weather: 0 };
+// Repairs from the first season, to test them there (by default they begin in the keep's second year).
+const worn = { ...quiet, repairsFrom: 1 };
 const ok = (s, a) => {
   const r = act(s, a);
   assert.ok(r.ok, `${a.type}: ${r.error}`);
@@ -34,7 +36,7 @@ const until = (s, f) => {
 };
 
 test('a room a Maw broke stays haunted three dawns, a Dread at each, unless masons mend it for stone', () => {
-  const s = newSeason(3, quiet);
+  const s = newSeason(3, worn);
   const hearth = roomsOf(geo(s), 'hearth')[0].id;
   const chapel = roomsOf(geo(s), 'chapel')[0].id;
   toDusk(s);
@@ -65,7 +67,7 @@ test('a room a Maw broke stays haunted three dawns, a Dread at each, unless maso
 });
 
 test('a room a fire burned out does no work for two days, unless it is mended', () => {
-  const s = newSeason(8, { ...quiet, fire: 1, fireChance: 0, fireSpread: 1e9 });
+  const s = newSeason(8, { ...worn, fire: 1, fireChance: 0, fireSpread: 1e9 });
   const hearth = roomsOf(geo(s), 'hearth')[0].id;
   s.fires.push({ room: hearth, heat: 1, full: true });
   toDusk(s);
@@ -84,7 +86,7 @@ test('a room a fire burned out does no work for two days, unless it is mended', 
   assert.deepEqual(s.scorched, []);
   assert.ok(roomPower(s).hearth > 0, 'worked again');
   // Unmended, it's back on the third day.
-  const t = newSeason(8, { ...quiet, fire: 1, fireChance: 0, fireSpread: 1e9 });
+  const t = newSeason(8, { ...worn, fire: 1, fireChance: 0, fireSpread: 1e9 });
   t.fires.push({ room: hearth, heat: 1, full: true });
   for (let d = 0; d < 2; d++) {
     toDusk(t);
@@ -97,7 +99,7 @@ test('a room a fire burned out does no work for two days, unless it is mended', 
 });
 
 test('the gate keeps what an assault took off it, a breach leaves a quarter, and masons mend it by day', () => {
-  const raid = { startFloors: 4, sickChance: 0, oldAgeChance: 0, fire: 0, raidSpread: 0, raidFightStrength: 1 };
+  const raid = { startFloors: 4, sickChance: 0, oldAgeChance: 0, fire: 0, raidSpread: 0, raidFightStrength: 1, repairsFrom: 1 };
   const s = newSeason(3, { ...raid, raidDays: { 1: 8, 2: 0, 3: 8, 4: 0, 6: 0 } });
   for (const p of s.living.filter((x) => x.job === 'barracks').slice(1)) ok(s, { type: 'assign', id: p.id, room: 'yard' });
   s.watchBonus = 0;
@@ -124,7 +126,15 @@ test('the gate keeps what an assault took off it, a breach leaves a quarter, and
   assert.equal(s.raid.gate, Math.min(1, TUNING.gateBreached + TUNING.raidShore + 2 * TUNING.gateMend));
 });
 
-test('as before, without repairs: the haunting lifts at dusk, the burned room works the day after, the gate is whole', () => {
+test('in the first year, and without repairs: the haunting lifts at dusk, the burned room works the day after, the gate is whole', () => {
+  const first = newSeason(3, quiet);
+  const room = roomsOf(geo(first), 'hearth')[0].id;
+  toDusk(first);
+  throughNight(first, [room]);
+  ok(first, { type: 'beginDay' });
+  no(first, { type: 'mend', id: room }, /In its first year/);
+  toDusk(first);
+  assert.deepEqual(first.haunted, [], 'lifted at dusk in the first year');
   const s = newSeason(3, { ...quiet, repairs: 0 });
   const hearth = roomsOf(geo(s), 'hearth')[0].id;
   toDusk(s);
@@ -320,4 +330,36 @@ test('keeps from before phase 12 have none of it', () => {
   }
   const g = upgrade(old);
   assert.deepEqual([g.tuning.studyTiers, g.tuning.standingWard, g.tuning.glassHalls, g.tuning.lampworks, g.tuning.troubles], [1, 0, 0, 0, 0]);
+});
+
+test('a ward on the Veil holds one crack more until the season ends, each more as much again', () => {
+  const s = newSeason(3, calm);
+  s.res.essence = 100;
+  assert.equal(cracksOf(s), TUNING.cracksMax);
+  ok(s, { type: 'wardVeil' });
+  assert.equal(s.res.essence, 100 - TUNING.veilWard);
+  assert.equal(cracksOf(s), TUNING.cracksMax + 1);
+  assert.equal(veilWardCost(s), 2 * TUNING.veilWard);
+  no(s, { type: 'wardVeil' }, new RegExp(`takes ${2 * TUNING.veilWard} essence`));
+  const off = newSeason(3, { ...calm, veilWard: 0 });
+  no(off, { type: 'wardVeil' }, /no ward on the Veil/);
+});
+
+test("a rite in the Chapel halves the year's trouble until the season ends, once a season", () => {
+  const s = newSeason(3, { ...calm, startFloors: 4 });
+  s.season = 5;
+  s.trouble = { id: 'plague', year: 2 };
+  s.res.remembrance = 40;
+  assert.equal(troubled(s, 'sick', 1), TROUBLES.plague.sick);
+  ok(s, { type: 'easeTrouble' });
+  assert.equal(s.res.remembrance, 40 - TUNING.troubleRite);
+  assert.equal(troubled(s, 'sick', 1), 1 + (TROUBLES.plague.sick - 1) / 2);
+  no(s, { type: 'easeTrouble' }, /held this season/);
+  s.trouble = { id: 'deep', year: 2 };
+  assert.ok(!hollowRisen(s), 'the Deep eased');
+  s.season = 6;
+  assert.ok(hollowRisen(s), 'and risen again next season');
+  const none = newSeason(3, calm);
+  none.res.remembrance = 40;
+  no(none, { type: 'easeTrouble' }, /No trouble/);
 });

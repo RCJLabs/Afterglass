@@ -100,7 +100,9 @@ Each is an environment variable, read once when the file loads, so a measurement
 | `AP_NOLAMP=1` | Raises no Lampworks, however high the keep and however much glass it holds (phase 12). |
 | `AP_NOGLASSHALL=1` | Builds no great-glass hall (phase 12). `AP_NOHALL` is the Hall, the room. |
 | `AP_NOTWO=1` | Stops the Library at the first rank of each study (phase 12). |
-| `AP_STAND=none` or `rift` | Sets no standing wards; or, after the Undergate and a wet season's moat, one on the right-hand rift too (phase 12). By default it sets them with essence the store would spill. |
+| `AP_NOVEIL=1` | Never wards the Veil for the season (phase 12). |
+| `AP_NORITE=1` | Holds no rite against the year's trouble (phase 12). |
+| `AP_STAND=none` or `rift` | Sets no standing wards, the Veil's included; or, after the Undergate and a wet season's moat, one on the right-hand rift too (phase 12). By default it sets them with essence the store would spill. |
 
 ### The year's end and the campaign
 

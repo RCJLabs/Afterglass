@@ -209,6 +209,7 @@ export const TUNING = {
   // they shore it at the gate. 0, as before: the haunting lifts at dusk, a burned room works again the day
   // after, and every assault meets a whole gate.
   repairs: 1,
+  repairsFrom: 2, // the keep's year repairs begin in: in its first, what breaks is put right as before
   mendStone: 2,
   hauntDays: 3,
   burnDays: 2,
@@ -255,6 +256,9 @@ export const TUNING = {
   // every night left in the season, at standingWard of a night's ward for each night, paid at once. 0, as
   // before: wards are set at dusk, a night at a time.
   standingWard: 0.6,
+  // Round seven, phase 12: a standing ward on the Veil itself, set by day: until the season ends it holds one crack
+  // more before it breaks, for veilWard essence, and each more this season as much again as the one before. 0 is none.
+  veilWard: 40,
   // Night jobs, per second, for a lit shade standing at its post.
   essencePerSec: 0.06,
   glassPerSec: 0.03,
@@ -600,6 +604,7 @@ export const TUNING = {
   lampworks: 1,
   lampGlass: 1,
   highFrom: 8,
+  highStone: 3, // a room above the seventh floor costs this much more stone for each floor it stands above it
 
   // The eclipse (round six; round three's set piece). With the year on, once a year, on summer's day
   // eclipseDay, the sun goes dark at eclipseAt of the day for eclipseSecs, and the Tain wakes while the day goes
@@ -632,6 +637,9 @@ export const TUNING = {
   // ending, brings a trouble (TROUBLES). 0, as before: each year as the last, only harder.
   troubles: 1,
   troublesFrom: 2,
+  // A rite in the Chapel against the year's trouble, by day, once a season: until the season ends it does half what it
+  // would, for troubleRite remembrance. 0 is none.
+  troubleRite: 15,
   campaignHardness: 1.1,
   hollowRises: 1.5,
   goalReward: 3,
