@@ -17,6 +17,9 @@ const build = (p, dusk) =>
   p.evaluate(async (dusk) => {
     const { newSeason, step, act } = await import('./src/slice/sim.js');
     const s = newSeason(5, { visitors: 0, fire: 0, sickChance: 0, oldAgeChance: 0, raidDays: { 2: 0, 4: 0, 6: 0 } });
+    // Doors open from the keep's first season here, as a player can set in Settings (the build's are from the
+    // second, when there's somewhere to hang a mirror out of the Maws' way).
+    act(s, { type: 'tune', key: 'doorsFrom', value: 1 });
     s.res.stone = 99;
     act(s, { type: 'raise', room: 'chandlery', at: 'top' });
     act(s, { type: 'hang', id: s.mirrors.find((m) => m.type === 'pier').id, room: 'chandlery' });

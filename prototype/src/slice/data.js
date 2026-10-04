@@ -383,6 +383,8 @@ export const TUNING = {
   mirrorRooms: 1,
   mawDoor: 0,
   doorCracks: 1,
+  doorsFrom: 2, // the season of the keep from which a Maw comes through a door: not its first, when a keep of two
+  // or three floors has nowhere to hang a mirror the Maws don't come for
 
   // A year (round three): four seasons of seven days, from spring. Days lengthen into summer and shorten into
   // winter, and nights the other way: each season multiplies daySecs by its seasonDay and nightSecs by its

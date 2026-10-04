@@ -7,6 +7,7 @@
 //   node tools/measure.mjs --only campaign [--seeds 200] [--readme]   (five years a keep, so not in the default)
 //   node tools/measure.mjs --only day [--seeds 200] [--readme]        (two years a keep, so not in the default)
 //   node tools/measure.mjs --only long [--seeds 100] [--readme]       (ten years a keep, so not in the default)
+//   node tools/measure.mjs --only mirrors [--seeds 200] [--readme]    (where the mirrors hang; not in the default)
 //
 // Every keep is played by the rules as they are, from the first spring: a plan's first year is its first four
 // seasons. Paired comparisons play the same seeds, so a switch's column says on how many seeds it did better
@@ -89,6 +90,7 @@ if (process.argv[2] === '--worker') {
       verdicts: E.flatMap((e) => e.summary.inspections.map((i) => i.verdict)),
       shadesLost: E.map((e) => e.summary.lost.length),
       cracks: E.map((e) => e.summary.cracks),
+      through: s.days.map((d) => d.night?.through ?? 0), // Maws through a door (round seven, phase 13)
       caught: s.days.map((d) => d.night?.grabbed ?? 0),
       broken: s.days.map((d) => d.night?.broken?.length ?? 0),
       ruined: s.days.map((d) => d.night?.ruined?.length ?? 0),
@@ -188,6 +190,19 @@ const DAY_PLANS = [['balanced', 'Balanced'], ['human', 'Human']];
 // Ten years a keep (round seven, phase 12): whether there's still something to decide by day, and whether the
 // stores pile up, for the balanced and the human plans.
 const LONG_YEARS = 10;
+// Where the mirrors hang (round seven, phase 13's test): each other way of hanging them, and turning, against the
+// autopilot's own (the fullest where the Maws come least) on the same seeds, for the balanced and the human plans;
+// and the mirrors as they were before the phase, when none was a door.
+const MIRROR_PLANS = [['balanced', 'Balanced'], ['human', 'Human']];
+const MIRROR_ROWS = [
+  { key: 'own', env: {}, name: 'Where the Maws come least, by the autopilot’s own rule' },
+  { key: 'turn', env: { AP_TURN: 'forecast' }, name: 'The same, and a door the black mirror names turned to the wall at dusk (`AP_TURN=forecast`)' },
+  { key: 'turndeep', env: { AP_TURN: 'deep' }, name: 'The same, and on a Maw night every door in a worked room under the line turned (`AP_TURN=deep`)' },
+  { key: 'worked', env: { AP_HANG: 'worked' }, name: 'The fullest in worked rooms, nearest the Veil (`AP_HANG=worked`)' },
+  { key: 'none', env: { AP_HANG: 'none' }, name: 'Each where it was built (`AP_HANG=none`)' },
+  { key: 'deep', env: { AP_HANG: 'deep' }, name: 'The fullest deepest (`AP_HANG=deep`)' },
+  { key: 'before', env: {}, tuning: { mirrorRooms: 0 }, name: 'As before the phase: no mirror is a door (`mirrorRooms` 0)' },
+];
 const configs = [];
 const ROWS = arg('rows', '').split(',').filter(Boolean); // --rows balanced,double: only those night rows
 if (ONLY.includes('night')) for (const r of NIGHT_ROWS.filter((r) => !ROWS.length || ROWS.includes(r.id.slice(6)))) configs.push({ id: r.id, plan: r.plan, seasons: YEAR, env: r.env, tuning: r.tuning });
@@ -199,6 +214,12 @@ if (ONLY.includes('day')) {
   for (const [plan] of DAY_PLANS) configs.push({ id: `day:${plan}:jit`, plan, seasons: YEAR, env: { AP_JIT: '1' } });
 }
 if (ONLY.includes('long')) for (const [plan] of DAY_PLANS) configs.push({ id: `long:${plan}`, plan, seasons: 4 * LONG_YEARS, env: {}, long: true });
+if (ONLY.includes('mirrors')) {
+  for (const [plan] of MIRROR_PLANS) {
+    if (!configs.some((c) => c.id === `plan:${plan}`)) configs.push({ id: `plan:${plan}`, plan, seasons: YEAR, env: {} });
+    for (const r of MIRROR_ROWS.slice(1)) configs.push({ id: `mirror:${plan}:${r.key}`, plan, seasons: YEAR, env: r.env, tuning: r.tuning });
+  }
+}
 if (ONLY.includes('verbs')) {
   if (!ONLY.includes('plans')) configs.push({ id: 'plan:balanced', plan: 'balanced', seasons: YEAR, env: {} });
   configs.push({ id: 'plan:balanced:2y', plan: 'balanced', seasons: 2 * YEAR, env: {} });
@@ -287,6 +308,27 @@ function verbsTable(R) {
     const used = v.key ? avg(mine.map((x) => x.use[v.key])) : '–';
     const span = seasons > YEAR ? 'two years' : 'the first year';
     lines.push(`| ${v.name} | ${v.what} | ${used} | ${mine.filter(done).length} of ${mine.length} ${span} | ${[...base.values()].filter(done).length} | ${better} / ${worse} |`);
+  }
+  return lines.join('\n');
+}
+
+// Where the mirrors hang: first years finished, paired with the autopilot's own way, and the Maws that came
+// through a door, a keep-season.
+function mirrorsTable(R) {
+  const head = MIRROR_PLANS.map(([, name]) => `${name}: first year finished | Better on / worse on | Maws through a door, a keep-season`).join(' | ');
+  const lines = [`| Where the mirrors hang | ${head} |`, `|---|${MIRROR_PLANS.map(() => '---|---|---|').join('')}`];
+  for (const r of MIRROR_ROWS) {
+    const cells = MIRROR_PLANS.map(([plan]) => {
+      const mine = R[r.key === 'own' ? `plan:${plan}` : `mirror:${plan}:${r.key}`];
+      if (!mine) return '– | – | –';
+      const base = bySeed(R[`plan:${plan}`]);
+      const better = mine.filter((x) => x.fin > base.get(x.seed).fin).length;
+      const worse = mine.filter((x) => x.fin < base.get(x.seed).fin).length;
+      const seasons = mine.reduce((a, x) => a + x.cracks.length, 0);
+      const through = mine.reduce((a, x) => a + x.through.reduce((b, c) => b + c, 0), 0);
+      return `${mine.filter((x) => x.fin >= YEAR).length} of ${mine.length} | ${r.key === 'own' ? '–' : `${better} / ${worse}`} | ${seasons ? (through / seasons).toFixed(2) : '–'}`;
+    });
+    lines.push(`| ${r.name} | ${cells.join(' | ')} |`);
   }
   return lines.join('\n');
 }
@@ -404,6 +446,7 @@ if (ONLY.includes('moon')) blocks.moon = `${moonTable(R)}\n\n${stamp}`;
 if (ONLY.includes('campaign')) blocks.campaign = `${campaignTable(R)}\n\n${stamp}`;
 if (ONLY.includes('day')) blocks.day = `${dayTable(R)}\n\n${stamp}`;
 if (ONLY.includes('long')) blocks.long = `${longTable(R)}\n\n${stamp}`;
+if (ONLY.includes('mirrors')) blocks.mirrors = `${mirrorsTable(R)}\n\n${stamp}`;
 for (const [k, v] of Object.entries(blocks)) console.log(`\n== ${k}\n${v}`);
 if (process.argv.includes('--readme')) {
   let text = readFileSync(README, 'utf8');

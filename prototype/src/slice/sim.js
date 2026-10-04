@@ -333,6 +333,8 @@ const freeMirror = (s) => {
 export const hangsIn = (s, m) => (s.tuning.mirrorRooms && m.room && geo(s).rooms[m.room] ? m.room : null);
 export const mirrorIn = (s, id) => (s.tuning.mirrorRooms ? s.mirrors.find((m) => m.room === id) || null : null);
 export const isDoor = (s, m) => !!hangsIn(s, m) && !m.turned && !m.hidden && mirrorUse(s, m) > 0;
+// Whether a Maw comes through a door yet: from the keep's doorsFrom-th season.
+export const doorsOpen = (s) => !!s.tuning.mirrorRooms && s.season >= (s.tuning.doorsFrom || 1);
 export const doorAt = (s, id) => {
   const m = mirrorIn(s, id);
   return m && isDoor(s, m) ? m : null;
@@ -2851,7 +2853,7 @@ function mawTargets(s, L, m) {
   for (const r of Object.values(G.rooms)) {
     if (n.broken.includes(r.id)) continue;
     // Round seven, phase 13 (mirrorRooms): an open mirror in the room above is a way through, worth mawDoor.
-    const worth = roomWorth(s, r) + (doorAt(s, r.id) ? s.tuning.mawDoor : 0);
+    const worth = roomWorth(s, r) + (doorsOpen(s) && doorAt(s, r.id) ? s.tuning.mawDoor : 0);
     if (worth > 0) out.push({ kind: 'room', id: r.id, f: r.f, x: (r.x0 + r.x1) / 2, worth });
   }
   return out;
@@ -2907,7 +2909,7 @@ function breakRoom(s, m, id) {
   say(s, `A Maw has broken the ${TWINS[type].name}. Nobody works there tonight, and the ${DAY_ROOMS[type].name} is haunted: ${hauntCost(s)}.`, 'bad', true);
   cue(s, 'broken', m.f, m.x);
   m.breaking = 0;
-  const door = doorAt(s, id);
+  const door = doorsOpen(s) && doorAt(s, id);
   if (door) {
     comeThrough(s, m, door);
     return;

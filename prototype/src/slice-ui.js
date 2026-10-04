@@ -5,7 +5,7 @@
 import { TICKS_PER_SEC, DAY_ROOMS, WORK_ROOMS, TWINS, KINDS, MIRRORS, CAUSES, MAP, BOND_OTHER, TUNING, BUILDABLE, TRAITS, SHADE_TRAITS, SEASONS, TUTORIAL, REQUESTS, PRESETS, ACTS, OMENS, VISITORS, STUDIES, DECREES, decreeDoes, decreesOf, shadeTraitShort, twinJob, CHAPTERS, ENDINGS, TROUBLES, mirrorsOf } from './slice/data.js';
 import {
   newSeason, step, act, retune, playerTuning, jobCap, jobCount, nextSlot, ritePreview, crossingPreview, capacity, canWork, defense, roomPower, bear, priests, funeralCap, eatRate,
-  dayTicks, nightTicks, isNewMoon, choicesFor, byId, isTwinnedLiving, isTwinnedShade, lastSeason, SAVE_VERSION, fmt, mirrorCap, bareHalls, tainPlace, hangsIn, mirrorIn, isDoor, doorAt, hangSpot, mawLure,
+  dayTicks, nightTicks, isNewMoon, choicesFor, byId, isTwinnedLiving, isTwinnedShade, lastSeason, SAVE_VERSION, fmt, mirrorCap, bareHalls, tainPlace, hangsIn, mirrorIn, isDoor, doorAt, hangSpot, mawLure, doorsOpen,
   postRoom, wardCost, wardDrawOf, wardHoldOf, hollowNeed, hollowRewardOf, pinned, winterNeed, yearRate, raidsAhead, shadeTrait, peopleIn, beds, tradeOf, inGreatGlass, handsAt, whispers, stepsThrough, perf, coaches, stepRoom,
   seasonIndex, seasonName, yearOf, dayLength, isLongNight, tributeOf, besieged, sallyOdds, plagueSeason, atGate, gateGuard,
   weatherOf, forecastOf, raining, foggy, drownedDue, keepDefaults, embargoed, inquisition, churchDaysLeft, crusadeDay, crusadeDaysLeft,
@@ -881,7 +881,9 @@ function hangHTML(m) {
     : m.hidden
       ? ''
       : n
-        ? `A door: a Maw that breaks the ${roomName(id, true)} comes through it, and the Veil cracks.`
+        ? doorsOpen(s)
+          ? `A door: a Maw that breaks the ${roomName(id, true)} comes through it, and the Veil cracks.`
+          : `A door: from ${doorsWhen()}, a Maw that breaks the ${roomName(id, true)} will come through it, and the Veil crack.`
         : 'Empty, it is no door.';
   const sel = s.phase === 'day'
     ? `<select id="hang-${m.id}" data-act="hang" data-id="${m.id}" aria-label="Where the ${esc(m.name)} hangs">${Object.values(G.rooms)
@@ -895,9 +897,11 @@ function hangHTML(m) {
   const turn = (s.phase === 'day' || s.phase === 'dusk') && !m.hidden ? `<button class="btn sm" id="turn-${m.id}" data-act="turn" data-id="${m.id}"${m.turned ? '' : ' data-on="1"'}>${m.turned ? 'Turn it back' : 'Turn to the wall'}</button>` : '';
   return `<p class="note mplace">${where} ${state}</p>${sel || turn ? `<div class="row">${sel}${turn}</div>` : ''}`;
 }
+// When the Maws first come through a door: the keep's doorsFrom-th season, by name in a year.
+const doorsWhen = () => (s.tuning.year && s.tuning.doorsFrom <= SEASONS.length ? SEASONS[s.tuning.doorsFrom - 1] : `the keep's season ${s.tuning.doorsFrom}`);
 // At dusk: the doors tonight, and a turn for each.
 function doorsCard() {
-  if (!s.tuning.mirrorRooms) return '';
+  if (!doorsOpen(s)) return '';
   const G = K();
   const ms = s.mirrors.filter((m) => hangsIn(s, m) && !m.hidden && (m.turned || isDoor(s, m)));
   if (!ms.length) return '';
@@ -1397,7 +1401,7 @@ function blackMirror() {
   for (const m of th.maws) {
     const tg = m.target;
     const what = !tg ? 'nothing it can reach' : tg.kind === 'room' ? `the ${roomName(tg.id, true)} (bracketed)` : `${candleName(tg.id)} (ringed)`;
-    const door = tg?.kind === 'room' && doorAt(s, tg.id); // round seven, phase 13
+    const door = tg?.kind === 'room' && doorsOpen(s) && doorAt(s, tg.id); // round seven, phase 13
     lines.push({ bad: !!door, spot: tg ? { f: tg.f, x: tg.x } : riftSpot(m.rift), text: `A Maw rises from ${riftName(m.rift)} around ${at(m.at)}. As things stand it would go for ${what}: what's worth most for the least fight on its way.${door ? ` The ${door.name} hangs open there: break the room, and the Maw comes through it.` : ''}` });
   }
   if (th.weepers) {
@@ -2132,6 +2136,7 @@ const TUNE = [
   ['mirrorRooms', 'Mirrors hang in rooms: whispers and the great glass work that room, and a mirror with a shade in it is a door a Maw can come through (1 on, 0 off)'],
   ['mawDoor', 'What a door is worth to a Maw choosing a room, against its workers (0: nothing)'],
   ['doorCracks', 'Cracks in the Veil when a Maw comes through a door'],
+  ['doorsFrom', 'The season of the keep from which a Maw comes through a door (1: from its first)'],
   ['troubles', 'Each year of the open year brings a trouble (1 on, 0 off)'],
   ['troublesFrom', 'The year troubles begin in'],
   ['troubleRite', "Remembrance a rite against the year's trouble takes: half as hard until the season ends (0: none)"],
@@ -3884,7 +3889,7 @@ const GUIDE = [
   {
     // Round seven, phase 13: a Maw tonight, and a mirror hanging open in a room it comes for.
     id: 'doors', target: '#open-phase',
-    when: () => s.phase === 'dusk' && !!s.tuning.mirrorRooms && !!s.night?.spawns?.some((x) => x.type === 'maw') && s.mirrors.some((m) => isDoor(s, m) && mawLure(typeOf(K(), m.room)) >= 2),
+    when: () => s.phase === 'dusk' && doorsOpen(s) && !!s.night?.spawns?.some((x) => x.type === 'maw') && s.mirrors.some((m) => isDoor(s, m) && mawLure(typeOf(K(), m.room)) >= 2),
     done: () => ui.sheet === 'phase',
     text: () => {
       const m = s.mirrors.find((x) => isDoor(s, x) && mawLure(typeOf(K(), x.room)) >= 2);

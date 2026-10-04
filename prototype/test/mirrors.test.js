@@ -126,8 +126,8 @@ test('a mirror turned to the wall is no door: its shades sit out, nobody new wak
 // A Maw on the Tain's deepest floor, by the Chapel's twin, where the pier glass hangs with its shades, and the
 // Chapel's priest the only one at work in the keep (everyone else sent to the Yard), so the Chapel is what it
 // comes for.
-function doorNight(seed, turned) {
-  const s = newSeason(seed, quiet);
+function doorNight(seed, turned, tuning = { doorsFrom: 1 }) {
+  const s = newSeason(seed, { ...quiet, ...tuning }); // doors open from the first season, unless told
   ok(s, { type: 'hang', id: pier(s).id, room: 'chapel' });
   for (const p of s.living) if (p.job !== 'chapel' && p.job !== 'yard') ok(s, { type: 'assign', id: p.id, room: 'yard' });
   toDusk(s);
@@ -161,6 +161,15 @@ test('a Maw never makes for a room nobody works, a door in it or not', () => {
   assert.notEqual(to?.id, 'crypt');
   stepFor(s, 40);
   assert.ok(!s.night.broken.includes('crypt'));
+  assert.ok(!s.night.stats.through);
+});
+
+test("in a keep's first season no Maw comes through a door: there's nowhere yet to hang a mirror out of their way", () => {
+  const { s } = doorNight(7, false, {});
+  assert.equal(s.tuning.doorsFrom, 2);
+  stepFor(s, 40);
+  assert.ok(s.night.broken.includes('chapel'), 'it breaks the room as ever');
+  assert.equal(s.cracks, 0);
   assert.ok(!s.night.stats.through);
 });
 

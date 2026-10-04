@@ -11,7 +11,7 @@
 // on the line for the biggest tides when the essence is there, and a fighter to meet a Maw. They move a
 // shade only along a lit floor; where its way is dark it stays.
 
-import { nightTicks, hollowNeed, chapterOf, yearsEnd, bondedShade, postRoom, bareHalls, buildSpot, raiseCost, step, act, newSeason, ritePreview, crossingPreview, capacity, canWork, defense, funeralCap, choicesFor, jobCap, jobCount, eatRate, wardCost, livingTrait, shadeTrait, peopleIn, crowded, tradeOf, inGreatGlass, handsAt, seasonIndex, tributeOf, besieged, sallyOdds, embargoed, inquisition, crusadeDaysLeft, canAct, actOf, actCost, NEW_ROOMS, atTheGate, gatehouseOf, decreeOf, undergateMouth, roomReady, isGuard, armsCap, musterGain, livingCap, raidsAhead, nextRank, studyRem, standingOf, standingCost, nightsLeft, undergateOpen, mirrorGlass as mirrorGlassOf, repairing, troubleOf, eased, veilWardCost, troubled, hangsIn, mirrorUse, mirrorCap, isDoor, mawLure } from './sim.js';
+import { nightTicks, hollowNeed, chapterOf, yearsEnd, bondedShade, postRoom, bareHalls, buildSpot, raiseCost, step, act, newSeason, ritePreview, crossingPreview, capacity, canWork, defense, funeralCap, choicesFor, jobCap, jobCount, eatRate, wardCost, livingTrait, shadeTrait, peopleIn, crowded, tradeOf, inGreatGlass, handsAt, seasonIndex, tributeOf, besieged, sallyOdds, embargoed, inquisition, crusadeDaysLeft, canAct, actOf, actCost, NEW_ROOMS, atTheGate, gatehouseOf, decreeOf, undergateMouth, roomReady, isGuard, armsCap, musterGain, livingCap, raidsAhead, nextRank, studyRem, standingOf, standingCost, nightsLeft, undergateOpen, mirrorGlass as mirrorGlassOf, repairing, troubleOf, eased, veilWardCost, troubled, hangsIn, mirrorUse, mirrorCap, isDoor, mawLure, doorsOpen } from './sim.js';
 import { DAY_ROOMS, MIRRORS, KINDS, MAP, TICKS_PER_SEC, VISITORS, STUDIES, CHAPTERS } from './data.js';
 import { geo, roomSpan, roomAt, roomsOf, lineSpots, lightMap, isLit } from './geo.js';
 import { STOPS } from './alerts.js';
@@ -544,17 +544,16 @@ function hallMirror(s) {
 
 // Round seven, phase 13 (mirrorRooms): where the mirrors hang. By day the fullest mirror hangs in the room that
 // draws the Maws least (one nobody works, by day or night), the nearest the Veil of those, the next fullest in
-// the next, and so on: an empty mirror is no door, wherever it hangs. At dusk, on a night a Maw rises (not the
-// new moon's, when every shade is wanted), a door in a worked room two floors or more below the Veil is turned
-// to the wall, its shades sitting the night out; a turned mirror with room is turned back before the crossing,
-// so the newly dead find their place. To measure what the place is worth: AP_HANG=worked hangs the fullest in
-// worked rooms nearest the Veil, AP_HANG=deep the fullest deepest, and AP_HANG=none leaves each where it was
-// built; AP_NOTURN=1 never turns one.
+// the next, and so on, the empty ones last, biggest first, where the newly dead will wake. It turns no mirror to
+// the wall: turning paid it nothing, the shades it sat out costing as many keeps as the Maws it kept out (README,
+// problem 56). To measure what the place is worth: AP_HANG=worked hangs the fullest in worked rooms nearest the
+// Veil, AP_HANG=deep the fullest deepest, and AP_HANG=none leaves each where it was built. AP_TURN=forecast
+// turns to the wall, at dusk, a door the black mirror says tonight's Maw is headed for; AP_TURN=deep, on a Maw
+// night, every door in a worked room two floors or more below the Veil (not on the new moon, when every shade
+// is wanted). A turned mirror with room is turned back before the crossing, so the newly dead find their place.
 const HANG = globalThis.process?.env?.AP_HANG || 'safe';
-const NOTURN = !!globalThis.process?.env?.AP_NOTURN;
-const TURN_FROM = +(globalThis.process?.env?.AP_TURNFROM || 2);
-const TURN_MOON = globalThis.process?.env?.AP_TURNMOON === '1';
-const TURN = globalThis.process?.env?.AP_TURN || 'deep'; // deep, or forecast: only a door the black mirror names
+const TURN = globalThis.process?.env?.AP_TURN || 'none';
+const TURN_FROM = 2;
 function hangMoves(s) {
   if (!s.tuning.mirrorRooms || HANG === 'none') return;
   const G = geo(s);
@@ -562,15 +561,16 @@ function hangMoves(s) {
   const rooms = Object.values(G.rooms)
     .sort((a, b) => lure(a) - lure(b) || (HANG === 'deep' ? a.f - b.f : b.f - a.f) || a.x0 - b.x0)
     .map((r) => r.id);
+  // The empty ones too, the biggest first: the newly dead wake in the safest with room, and make it a door.
   const ms = s.mirrors.filter((m) => !m.hidden).sort((a, b) => mirrorUse(s, b) - mirrorUse(s, a) || mirrorCap(b) - mirrorCap(a));
   ms.forEach((m, i) => {
-    if (mirrorUse(s, m) && rooms[i] && hangsIn(s, m) !== rooms[i]) doAct(s, { type: 'hang', id: m.id, room: rooms[i] });
+    if (rooms[i] && hangsIn(s, m) !== rooms[i]) doAct(s, { type: 'hang', id: m.id, room: rooms[i] });
   });
 }
 function turnMoves(s) {
-  if (!s.tuning.mirrorRooms || NOTURN) return;
+  if (!s.tuning.mirrorRooms || TURN === 'none') return;
   const G = geo(s);
-  const maw = s.night?.spawns?.some((sp) => sp.type === 'maw') && (TURN_MOON || s.day < s.tuning.seasonDays);
+  const maw = s.night?.spawns?.some((sp) => sp.type === 'maw') && s.day < s.tuning.seasonDays && doorsOpen(s);
   const named = TURN === 'forecast' && maw ? new Set(threats(s).maws.map((m) => m.target?.kind === 'room' && m.target.id).filter(Boolean)) : null;
   for (const m of s.mirrors) {
     const id = hangsIn(s, m);
