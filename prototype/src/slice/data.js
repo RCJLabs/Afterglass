@@ -202,6 +202,18 @@ export const TUNING = {
   ruinLight: 1, // a candle in the room holds a Maw's ruin while the Maw tears it down (phase 7)
   dreadPerRuin: 1,
   ruinWork: 0.5,
+  // Round seven, phase 12: repairs. A room a Maw broke stays haunted for hauntDays dawns, its Dread
+  // (dreadPerBroken) at each, and one a fire burned out stays dead burnDays days, unless masons mend it by day
+  // for mendStone stone. The gate keeps what an assault took off it, a breach leaving gateBreached of it, and
+  // mends gateMend of itself each dawn; by day masons mend it raidShore at a time for raidShoreCost stone, as
+  // they shore it at the gate. 0, as before: the haunting lifts at dusk, a burned room works again the day
+  // after, and every assault meets a whole gate.
+  repairs: 1,
+  mendStone: 2,
+  hauntDays: 3,
+  burnDays: 2,
+  gateBreached: 0.25,
+  gateMend: 0.25,
   // An experiment, off: at 1, a shade in the light at the foot of a stair up to the Veil guards the line and
   // keeps the Watch, but does no other work. It made every autopilot plan worse and the doubled line no weaker
   // (README, problem 1).
@@ -239,6 +251,10 @@ export const TUNING = {
   strainLead: 20,
   strainGrace: 15,
   wardCost: 5,
+  // Round seven, phase 12: a standing ward. By day, essence wards a rift, a stair, the moat or the Undergate for
+  // every night left in the season, at standingWard of a night's ward for each night, paid at once. 0, as
+  // before: wards are set at dusk, a night at a time.
+  standingWard: 0.6,
   // Night jobs, per second, for a lit shade standing at its post.
   essencePerSec: 0.06,
   glassPerSec: 0.03,
@@ -321,6 +337,9 @@ export const TUNING = {
   dreamwell: 1,
   baseBeds: 8,
   quartersBeds: 4,
+  // Round seven, phase 12: the keep holds as many living as it has beds, maxLiving at least, so each Quarters
+  // past the first makes room for quartersBeds more. 0, as before: maxLiving, however many beds.
+  bedsHold: 1,
   crowdSick: 1.5,
   dreamWork: 1.1,
   // Round seven, phase 11: Weepers (0.36 nightmares a night, which nobody answered; as many keeps finish a
@@ -441,8 +460,13 @@ export const TUNING = {
   deepSilver: [1, 3, 6],
   deepCatch: [0.1, 0.25, 0.45],
   deepDrain: 35,
-  upgradeSilver: { pier: 3, great: 6 },
-  upgradeGlass: { pier: 4, great: 8 },
+  upgradeSilver: { pier: 3, great: 6, hall: 8 },
+  upgradeGlass: { pier: 4, great: 8, hall: 20 },
+  // Round seven, phase 12: the great-glass hall (MIRRORS), built for its glass or grown from a great glass for
+  // upgradeSilver and upgradeGlass, holds eight, and its dead fade hallFade as fast. They're bound into it
+  // first. 0, as before: the great glass is as great as a glass can be.
+  glassHalls: 1,
+  hallFade: 0.5,
 
   // Generations (round five; round three's aging and children). From the second year, with the year on:
   // each spring the living age (a child comes of age and can work, the young grow up, and each adult grows
@@ -552,6 +576,10 @@ export const TUNING = {
   // unless a candle burns at its mouth or it's warded. 0 is none of that room (for gatehouse, nor the ladders).
   library: 1,
   lorePerSec: 0.01,
+  // Round seven, phase 12: a second rank of each study (STUDIES' two), for studyTwoCost times the first's
+  // remembrance and lore. 1, as before: one rank.
+  studyTiers: 2,
+  studyTwoCost: 2,
   hall: 1,
   // Round seven, phase 11: the Hall's curfew cost ×0.9 on all work for nightmares worth about 2% of it, and a
   // keep lost more with it than without. 0 is the Hall without it (rationing and the levy); 1 as before.
@@ -566,6 +594,12 @@ export const TUNING = {
   undergateFrom: 2,
   undergateChance: 0.25,
   undergatePerTide: 1,
+  // Round seven, phase 12: floors 8 to 11. From floor highFrom up the Lampworks can be raised: its lampwrights each
+  // turn lampGlass glass a day into candles (DAY_ROOMS), and its twin, the Lamp Gallery, is lit every night by a
+  // lamp in its middle that burns until dawn unless the Unlit put it out. 0 is none.
+  lampworks: 1,
+  lampGlass: 1,
+  highFrom: 8,
 
   // The eclipse (round six; round three's set piece). With the year on, once a year, on summer's day
   // eclipseDay, the sun goes dark at eclipseAt of the day for eclipseSecs, and the Tain wakes while the day goes
@@ -594,6 +628,10 @@ export const TUNING = {
   // five years harden by campaignHardness, not yearHardness, and the years after its ending by yearHardness, as
   // the open year's do (problem 43). 0 is the open year.
   campaign: 0,
+  // Round seven, phase 12: from year troublesFrom each year of the open year, and of a campaign kept on past its
+  // ending, brings a trouble (TROUBLES). 0, as before: each year as the last, only harder.
+  troubles: 1,
+  troublesFrom: 2,
   campaignHardness: 1.1,
   hollowRises: 1.5,
   goalReward: 3,
@@ -604,6 +642,19 @@ export const SEASONS = ['spring', 'summer', 'autumn', 'winter'];
 
 // The campaign's five chapters (round six; round three's plan): each year's name, what's new in it, its goal,
 // and how it closes: a choice of two for the next year, or, after the fifth, one of three endings.
+// Round seven, phase 12: the open year's troubles (troubles). From year troublesFrom each year of a keep with no
+// chapter brings one, drawn for it, none twice until each has come: what it turns up, and by how much.
+export const TROUBLES = {
+  hunger: { name: 'A hungry year', text: 'the harvest fails: cooks make three-quarters as much food', food: 0.75 },
+  host: { name: 'A year of the Host', text: 'every raid comes a quarter harder', raid: 1.25 },
+  church: { name: 'A year of the Church', text: 'the Church judges the keep a Dread worse than it is', judge: 1 },
+  deep: { name: 'The Deep rises', text: 'the Hollow is half again as hard to drive back and as hungry for light, and the new moon brings half again as many Creepers' },
+  wet: { name: 'A wet year', text: 'rain comes twice as often', rain: 2 },
+  plague: { name: 'A year of plague', text: 'sickness comes twice as often', sick: 2 },
+  maws: { name: 'A year of Maws', text: 'a second Maw rises with the first', maws: 1 },
+  fire: { name: 'A dry year', text: 'fires break out twice as often', fire: 2 },
+};
+
 export const CHAPTERS = {
   1: {
     name: 'The First Winter',
@@ -757,11 +808,13 @@ export const DAY_ROOMS = {
   library: { name: 'Library', out: 'lore', rate: 1, role: 'scholar', job: (R) => `Scholars: ${R.rate} lore a day each, toward what the Library is studying.` },
   hall: { name: 'Hall', out: null, job: () => 'Decrees: one standing decree a season, proclaimed from here.' },
   gatehouse: { name: 'Gatehouse', out: 'defense', rate: 3, role: 'gate guard', job: (R) => `Gate guards: ${R.rate} defense each against raids, and from summer, with one on its walls, every ladder the Host sets up is thrown down. It stands at the gate, on the ground floor: move a room up to make it room.` },
+  // Round seven, phase 12: from the eighth floor up (lampworks, highFrom).
+  lampworks: { name: 'Lampworks', out: 'candles', rate: 3, role: 'lampwright', from: 'glass', job: (R, T) => `Lampwrights: each turns ${T?.lampGlass ?? 1} glass a day into ${R.rate} candles, while there's glass. Raised only from floor ${T?.highFrom ?? 8} up, where its twin by night is lit without a candle.` },
   empty: { name: 'Bare hall', out: null, job: () => 'Unfinished stone. The next room built goes here.' },
   yard: { name: 'Yard', out: 'stone', rate: 2, role: 'mason', outdoors: true, job: (R) => `Masons: ${R.rate} stone a day each, to build with. The Yard holds any number.` },
 };
 // What can be built on top of the keep, in the order the build list shows them.
-export const BUILDABLE = ['barracks', 'chandlery', 'hearth', 'forge', 'cellar', 'chapel', 'glazier', 'infirmary', 'granary', 'quarters', 'library', 'hall', 'gatehouse'];
+export const BUILDABLE = ['barracks', 'chandlery', 'hearth', 'forge', 'cellar', 'chapel', 'glazier', 'infirmary', 'granary', 'quarters', 'library', 'hall', 'gatehouse', 'lampworks'];
 export const WORK_ROOMS = Object.keys(DAY_ROOMS).filter((k) => DAY_ROOMS[k].out);
 
 // Each room's twin in the Tain, and what a lit shade standing there does.
@@ -779,6 +832,7 @@ export const TWINS = {
   quarters: { name: 'Dreamwell', job: 'dreams', note: 'Rest, as in the Cold Hearth (dreamRest). As before: dreams, a shade who dreams here through half the night rests the living for the day after, and Weepers come here for the sleepers above.' },
   library: { name: 'Archive of the Dead', job: 'lore', note: 'Old knowledge: a lit shade here reads for the Library, and speeds what it studies.' },
   hall: { name: 'Court of Shades', job: 'court', note: "The dead's requests: a shade seated here through half the night hears one, and at the next rite it's answered free." },
+  lampworks: { name: 'Lamp Gallery', job: null, note: 'Lit every night without a candle: the lamps the lampwrights filled by day burn until dawn, unless the Unlit put them out.' },
   gatehouse: { name: 'Undergate', job: null, note: 'The gate that faces the Deep, under the Veil, behind the line. From summer it stirs on some nights, and then one Creeper of every tide comes up here instead of at a rift, unless a candle burns at its mouth or it is warded.' },
   empty: { name: 'Hollow Hall', job: null, note: 'Bare and dark: a weak spot until something is built.' },
 };
@@ -964,15 +1018,17 @@ export const VISITORS = {
 
 // The Library's studies (round six): remembrance to begin one, lore to finish it, and then the keep has it for
 // good. One at a time. The numbers each changes are here; sim.js applies them.
+// Round seven, phase 12: each has a second rank (studyTiers 2), begun once the first is learned, for
+// studyTwoCost times its remembrance and lore: two holds what the second rank makes of it.
 export const STUDIES = {
-  tallow: { name: 'Tallow-craft', rem: 3, lore: 4, wax: 1.25, text: 'candles and lanterns burn ×1.25 as long' },
-  wards: { name: 'Ward-lore', rem: 3, lore: 4, less: 2, text: 'a ward costs 2 essence less' },
-  pitch: { name: 'Pitch-craft', rem: 2, lore: 3, mult: 2, text: 'pitch takes twice as much off the Host' },
-  rites: { name: 'The old rites', rem: 4, lore: 5, text: 'one kind of shade, chosen when you begin, can act twice a night' },
-  silvering: { name: 'Silvering', rem: 3, lore: 4, glass: 0.75, text: 'mirrors take a quarter less glass to build or upgrade' },
-  herbs: { name: 'Herb-lore', rem: 2, lore: 3, heal: 2, text: 'healers cure twice as many' },
-  masonry: { name: 'Masonry', rem: 3, lore: 4, less: 2, text: 'a room costs 2 stone less' },
-  hollow: { name: 'Hollow-lore', rem: 3, lore: 4, hold: 2, text: 'a ward holds the Hollow on half the essence, and twice as long with none' },
+  tallow: { name: 'Tallow-craft', rem: 3, lore: 4, wax: 1.25, text: 'candles and lanterns burn ×1.25 as long', two: { wax: 1.5, text: 'candles and lanterns burn ×1.5 as long' } },
+  wards: { name: 'Ward-lore', rem: 3, lore: 4, less: 2, text: 'a ward costs 2 essence less', two: { less: 3, text: 'a ward costs 3 essence less' } },
+  pitch: { name: 'Pitch-craft', rem: 2, lore: 3, mult: 2, text: 'pitch takes twice as much off the Host', two: { mult: 3, text: 'pitch takes three times as much off the Host' } },
+  rites: { name: 'The old rites', rem: 4, lore: 5, acts: 2, text: 'one kind of shade, chosen when you begin, can act twice a night', two: { acts: 3, text: 'that kind of shade can act three times a night' } },
+  silvering: { name: 'Silvering', rem: 3, lore: 4, glass: 0.75, text: 'mirrors take a quarter less glass to build or upgrade', two: { glass: 0.5, text: 'mirrors take half the glass to build or upgrade' } },
+  herbs: { name: 'Herb-lore', rem: 2, lore: 3, heal: 2, text: 'healers cure twice as many', two: { heal: 3, text: 'healers cure three times as many' } },
+  masonry: { name: 'Masonry', rem: 3, lore: 4, less: 2, text: 'a room costs 2 stone less', two: { less: 3, text: 'a room costs 3 stone less' } },
+  hollow: { name: 'Hollow-lore', rem: 3, lore: 4, hold: 2, text: 'a ward holds the Hollow on half the essence, and twice as long with none', two: { hold: 3, text: 'a ward holds the Hollow on a third of the essence, and three times as long with none' } },
 };
 // The Hall's decrees (round six): one a season, standing until it ends, each with its price.
 export const DECREES = {
@@ -1006,7 +1062,11 @@ export const MIRRORS = {
   hand: { name: 'hand mirror', cap: 1, glass: 6 },
   pier: { name: 'pier glass', cap: 2, glass: 14 },
   great: { name: 'great glass', cap: 4, glass: 30 },
+  // Round seven, phase 12 (glassHalls): a great glass grown into a hall of glass, its dead fading hallFade as fast.
+  hall: { name: 'great-glass hall', cap: 8, glass: 60 },
 };
+// The mirrors a keep can make: the great-glass hall only under glassHalls.
+export const mirrorsOf = (T) => Object.keys(MIRRORS).filter((k) => k !== 'hall' || T.glassHalls);
 export const START_MIRRORS = [['pier', 'Chapel'], ['hand', 'Hall']];
 export const MIRROR_PLACES = ['Stair', 'Solar', 'Well', 'Tower', 'Kitchen', 'Gate', 'Library', 'Cellar', 'Loft', 'Cloister'];
 

@@ -102,6 +102,9 @@ test('quicksilver upgrades a mirror where it hangs, its shades and all', () => {
   assert.deepEqual([s.res.quicksilver, s.res.glass], [10 - TUNING.upgradeSilver.pier, 20 - TUNING.upgradeGlass.pier]);
   ok(s, { type: 'upgradeMirror', id: hand.id });
   assert.equal(hand.type, 'great');
+  // Since phase 12 a great glass grows once more, into a great-glass hall (test/growth.test.js); without halls, it's as great as a glass gets.
+  assert.match(act(s, { type: 'upgradeMirror', id: hand.id }).error, /takes 8 quicksilver and 20 glass/);
+  s.tuning.glassHalls = 0;
   assert.match(act(s, { type: 'upgradeMirror', id: hand.id }).error, /as great as a glass can be/);
 });
 

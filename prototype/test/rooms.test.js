@@ -45,7 +45,7 @@ function withGatehouse(s) {
 }
 
 test('the Library: a study begun with remembrance is finished by its scholars, and then the keep has it', () => {
-  const s = newSeason(3, calm);
+  const s = newSeason(3, { ...calm, studyTiers: 1 }); // one rank, as before phase 12 (test/growth.test.js has the second)
   Object.assign(s.res, { stone: 30, remembrance: 20 });
   assert.match(no(s, { type: 'study', id: 'masonry' }), /Build a Library first/);
   ok(s, { type: 'raise', room: 'library' });

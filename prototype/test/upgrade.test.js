@@ -29,6 +29,16 @@ const DEFAULT_OK = {
   armDefense: 'read only for the Forge\'s arms, and an old keep has forgeArms 0',
   armsBreak: 'read only for the Forge\'s arms, as armDefense',
   curseBurn: "read only for the hedge-witch's curse where there are no Weepers, and a keep from before has weepersMax 3 (where the Dreamwell's rules are off, she never comes)",
+  mendStone: 'read only for mending, and an old keep has repairs 0',
+  gateBreached: 'read only for the gate a breach leaves, as mendStone',
+  hauntDays: 'read only with repairs, as mendStone',
+  burnDays: 'read only with repairs, as mendStone',
+  gateMend: 'read only with repairs, as mendStone',
+  studyTwoCost: "read only for a study's second rank, and an old keep has studyTiers 1",
+  hallFade: 'read only for a great-glass hall, and an old keep has glassHalls 0',
+  lampGlass: 'read only for the Lampworks, and an old keep has lampworks 0',
+  highFrom: 'read only for the Lampworks, as lampGlass',
+  troublesFrom: 'read only for the troubles, and an old keep has troubles 0',
 };
 
 test('every key in the numbers is decided for old keeps', () => {

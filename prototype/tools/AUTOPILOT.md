@@ -95,6 +95,12 @@ Each is an environment variable, read once when the file loads, so a measurement
 | `AP_NOGATEHOUSE=1`, `AP_NOLIBRARY=1`, `AP_NOHALL=1` | Leaves that room out. |
 | `AP_TALL=1` | Starts a new floor with every room, never filling a bare hall: the tallest keep its rooms make. |
 | `AP_TALL=line` | Builds tall, but puts the Chapel in the line's floor's bare hall, where the shades holding the line sing in the Choir: building by choice. |
+| `AP_NOGROW=1` | Stops at its build list, as before phase 12: no second Hearth or Chandlery for a growing household, and no more Quarters once the keep is full. |
+| `AP_NOMEND=1` | Mends nothing a Maw broke or a fire burned, nor the gate, and keeps no stone for it (to measure what mending is worth, phase 12). |
+| `AP_NOLAMP=1` | Raises no Lampworks, however high the keep and however much glass it holds (phase 12). |
+| `AP_NOGLASSHALL=1` | Builds no great-glass hall (phase 12). `AP_NOHALL` is the Hall, the room. |
+| `AP_NOTWO=1` | Stops the Library at the first rank of each study (phase 12). |
+| `AP_STAND=none` or `rift` | Sets no standing wards; or, after the Undergate and a wet season's moat, one on the right-hand rift too (phase 12). By default it sets them with essence the store would spill. |
 
 ### The year's end and the campaign
 

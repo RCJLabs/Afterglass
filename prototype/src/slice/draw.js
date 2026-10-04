@@ -31,7 +31,7 @@ const TONES = {
   chapel: ['#4a3a52', P.grape], glazier: ['#39485a', P.indigo], chandlery: ['#5a4632', P.brown], infirmary: ['#4c5361', P.slate],
   barracks: ['#4a3e36', P.brown], granary: ['#5a4a38', P.brown], hearth: ['#5a4038', P.brown], crypt: ['#2a2430', P.soot],
   forge: ['#3e3436', P.soot], cellar: ['#3a3028', P.earth], empty: ['#55575f', P.slate], quarters: ['#4a4058', P.grape],
-  library: ['#3f3a58', P.indigo], hall: ['#5a3a3a', P.plum], gatehouse: ['#4c4e58', P.slate],
+  library: ['#3f3a58', P.indigo], hall: ['#5a3a3a', P.plum], gatehouse: ['#4c4e58', P.slate], lampworks: ['#4e4636', P.brown],
 };
 // The keep being drawn: its geometry, set at the start of every frame (it grows as rooms are built).
 let G = geoOf();
@@ -245,6 +245,26 @@ const FURNISH = {
       D(c, x + 15 + i * 3, y + 5, P.silver);
     }
   },
+  // Round seven, phase 12. The Lampworks: lamps hung from the beam, a bench of glass chimneys, a crate of glass.
+  lampworks(c, x, y) {
+    R(c, x + 4, y + 2, 26, 1, P.brown);
+    for (const dx of [7, 15, 23]) {
+      R(c, x + dx, y + 3, 1, 3, P.steel);
+      R(c, x + dx - 1, y + 6, 3, 3, '#86bff0');
+      D(c, x + dx, y + 7, P.amber);
+      R(c, x + dx - 1, y + 9, 3, 1, P.steel);
+    }
+    R(c, x + 30, y + 13, 14, 1, P.clay);
+    R(c, x + 31, y + 14, 1, 4, P.brown);
+    R(c, x + 42, y + 14, 1, 4, P.brown);
+    for (const dx of [32, 36, 40]) {
+      R(c, x + dx, y + 10, 2, 3, '#86bff0');
+      D(c, x + dx, y + 10, P.white);
+    }
+    R(c, x + 6, y + 14, 9, 4, P.brown);
+    R(c, x + 6, y + 14, 9, 1, P.clay);
+    for (const dx of [8, 12]) D(c, x + dx, y + 13, '#86bff0');
+  },
 };
 
 // Details only a room's twin has, for room types beyond the original eight (keyed by type).
@@ -277,6 +297,14 @@ const TWIN_ART = {
     R(c, x + 39, y + 8, 4, 5, UMBRA[6]);
     D(c, x + 40, y + 7, UMBRA[7]);
     D(c, x + 41, y + 7, UMBRA[7]);
+  },
+  // The Lamp Gallery: the lamps on the beam still burning, pale, and their glass catching it on the bench.
+  lampworks(c, x, y) {
+    for (const dx of [7, 15, 23]) {
+      R(c, x + dx - 1, y + 6, 3, 3, UMBRA[5]);
+      D(c, x + dx, y + 7, UMBRA[7]);
+    }
+    for (const dx of [32, 36, 40]) D(c, x + dx, y + 10, UMBRA[6]);
   },
   // The Undergate: a way down into the Deep at the room's outer end, where the Unlit come up.
   gatehouse(c, x, y) {

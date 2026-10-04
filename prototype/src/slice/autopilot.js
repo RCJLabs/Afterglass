@@ -11,7 +11,7 @@
 // on the line for the biggest tides when the essence is there, and a fighter to meet a Maw. They move a
 // shade only along a lit floor; where its way is dark it stays.
 
-import { nightTicks, hollowNeed, chapterOf, yearsEnd, bondedShade, postRoom, bareHalls, buildSpot, raiseCost, step, act, newSeason, ritePreview, crossingPreview, capacity, canWork, defense, funeralCap, choicesFor, jobCap, jobCount, eatRate, wardCost, livingTrait, shadeTrait, peopleIn, crowded, tradeOf, inGreatGlass, handsAt, seasonIndex, tributeOf, besieged, sallyOdds, embargoed, inquisition, crusadeDaysLeft, canAct, actOf, actCost, NEW_ROOMS, atTheGate, gatehouseOf, decreeOf, undergateMouth, roomReady, isGuard, armsCap, musterGain } from './sim.js';
+import { nightTicks, hollowNeed, chapterOf, yearsEnd, bondedShade, postRoom, bareHalls, buildSpot, raiseCost, step, act, newSeason, ritePreview, crossingPreview, capacity, canWork, defense, funeralCap, choicesFor, jobCap, jobCount, eatRate, wardCost, livingTrait, shadeTrait, peopleIn, crowded, tradeOf, inGreatGlass, handsAt, seasonIndex, tributeOf, besieged, sallyOdds, embargoed, inquisition, crusadeDaysLeft, canAct, actOf, actCost, NEW_ROOMS, atTheGate, gatehouseOf, decreeOf, undergateMouth, roomReady, isGuard, armsCap, musterGain, livingCap, raidsAhead, nextRank, studyRem, standingOf, standingCost, nightsLeft, undergateOpen, mirrorGlass as mirrorGlassOf } from './sim.js';
 import { DAY_ROOMS, MIRRORS, KINDS, MAP, TICKS_PER_SEC, VISITORS, STUDIES, CHAPTERS } from './data.js';
 import { geo, roomSpan, roomAt, roomsOf, lineSpots, lightMap, isLit } from './geo.js';
 import { STOPS } from './alerts.js';
@@ -234,6 +234,25 @@ function upgradeOne(s) {
   }
   return false;
 }
+// Round seven, phase 12: once the build list stands, a keep whose beds hold its living (bedsHold) grows. It
+// raises another room of a kind whose places are all wanted (a Hearth when the cooks can't feed everyone, a
+// Chandlery when the chandlers can't keep up), and, while the keep is full, Quarters for four more, up to
+// GROW_QUARTERS of them. AP_NOGROW=1 stops at the list, as before (to measure what growing is worth).
+const NOGROW = !!globalThis.process?.env?.AP_NOGROW;
+const GROW_QUARTERS = 3;
+// A keep seven floors high with glass piling up (lampworks) raises a Lampworks on top: its lampwrights work the
+// glass into candles, and its twin is lit without one. AP_NOLAMP=1 raises none (to measure what it's worth).
+const NOLAMP = !!globalThis.process?.env?.AP_NOLAMP;
+const LAMP_GLASS = 40;
+function growBuild(s) {
+  if (NOGROW || !buildSpot(s)) return null;
+  const T = s.tuning;
+  const want = wantedJobs(s, true);
+  for (const k of ['hearth', 'chandlery', 'chapel']) if (want[k] > jobCap(s, k)) return k;
+  if (T.bedsHold && s.living.length >= livingCap(s) && roomsOf(geo(s), 'quarters').length < GROW_QUARTERS) return 'quarters';
+  if (T.lampworks && !NOLAMP && geo(s).n + 1 >= T.highFrom && !roomsOf(geo(s), 'lampworks').length && s.res.glass >= LAMP_GLASS) return 'lampworks';
+  return null;
+}
 function nextBuild(s) {
   const want = {};
   for (const type of BUILD_ORDER) {
@@ -245,7 +264,7 @@ function nextBuild(s) {
     want[type] = (want[type] || 0) + 1;
     if (roomsOf(geo(s), type).length < want[type]) return type;
   }
-  return null;
+  return growBuild(s);
 }
 
 // Candles to keep in store: with the year on, more put by through summer and autumn for winter's long nights
@@ -253,7 +272,20 @@ function nextBuild(s) {
 const CANDLES_BY = [8, 16, 26, 26];
 const candleTarget = (s) => (s.tuning.year ? CANDLES_BY[seasonIndex(s)] : 8);
 
-function wantedJobs(s) {
+// Stone for repairs (round seven, phase 12): a mend for each room broken or burned and one more in hand, and
+// the gate's missing quarters while the season has raids to come.
+const NOMEND = !!globalThis.process?.env?.AP_NOMEND;
+function mendNeed(s) {
+  const T = s.tuning;
+  if (!T.repairs || NOMEND) return 0;
+  const rooms = new Set([...(s.scorched || []), ...(s.haunted || [])]).size;
+  const gate = raidsAhead(s) ? Math.ceil((1 - (s.gate ?? 1)) / T.raidShore - 1e-9) * T.raidShoreCost : 0;
+  return T.mendStone * (rooms + 1) + gate;
+}
+// The glass the Lampworks leaves in store: enough for the mirror the dead will want next.
+const glassKeep = (s) => (s.tuning.glassHalls ? MIRRORS.hall.glass : MIRRORS.pier.glass) + 10;
+// uncapped: what's wanted before the rooms there are to work in (growBuild's measure).
+function wantedJobs(s, uncapped = false) {
   const n = s.living.length;
   const r = s.raid;
   // With guards mustering, a threat doesn't empty the workrooms into the Barracks: staff() posts just enough
@@ -267,10 +299,12 @@ function wantedJobs(s) {
     chandlery: threat ? 0 : s.res.candles < candleTarget(s) ? 2 : 1,
     glazier: threat || n < 6 ? 0 : 1,
     library: !threat && s.study && s.res.food >= n ? 2 : 0,
-    yard: !threat && nextBuild(s) && s.res.stone < s.tuning.roomStone ? 1 : 0,
+    // Lampwrights while the glass beyond a hall's worth (or a pier glass's, with halls off) lasts.
+    lampworks: !threat && s.res.glass > glassKeep(s) ? Math.min(3, Math.floor((s.res.glass - glassKeep(s)) / 5)) : 0,
+    yard: uncapped ? 0 : !threat && ((nextBuild(s) && s.res.stone < s.tuning.roomStone) || s.res.stone < mendNeed(s)) ? 1 : 0,
   };
   // Nobody can work a room that isn't built.
-  for (const k of Object.keys(want)) want[k] = Math.min(want[k], jobCap(s, k));
+  if (!uncapped) for (const k of Object.keys(want)) want[k] = Math.min(want[k], jobCap(s, k));
   return want;
 }
 
@@ -280,7 +314,7 @@ function staff(s) {
   // the Host is gone, nobody posted leaves the post.
   const keepPosted = s.tuning.muster && !!s.raid && !JIT;
   const holding = keepPosted && s.raid.warned && (s.raid.state === 'coming' || s.raid.state === 'assault');
-  const order = ['hearth', 'chapel', 'infirmary', 'chandlery', 'glazier', 'library', 'yard'];
+  const order = ['hearth', 'chapel', 'infirmary', 'chandlery', 'glazier', 'library', 'lampworks', 'yard'];
   const count = Object.fromEntries(order.map((k) => [k, 0]));
   const free = [];
   for (const p of s.living) {
@@ -328,7 +362,7 @@ function staff(s) {
   // places: post just enough more, from the work the keep can best spare.
   const r = s.raid;
   if (holding && r.warned && r.state === 'coming') {
-    const spare = ['yard', 'library', 'glazier', 'chandlery', 'chapel', 'infirmary', 'hearth', null];
+    const spare = ['yard', 'lampworks', 'library', 'glazier', 'chandlery', 'chapel', 'infirmary', 'hearth', null];
     while (defense(s) + musterGain(s) + EPS < r.strength) {
       const room = jobCount(s, 'gatehouse') < jobCap(s, 'gatehouse') ? 'gatehouse' : jobCount(s, 'barracks') < jobCap(s, 'barracks') ? 'barracks' : null;
       const p = s.living.filter((q) => !isGuard(q) && !q.fighting && !q.walls && !(q.sick > 0) && q.age !== 'child').sort((a, b) => spare.indexOf(a.job) - spare.indexOf(b.job) || fit(s, b, 'barracks') - fit(s, a, 'barracks'))[0];
@@ -357,7 +391,7 @@ function raidMoves(s) {
   } else if (r.state === 'assault') {
     if (JIT && !jitPosted.has(r)) {
       jitPosted.add(r);
-      const order = ['yard', 'library', 'glazier', 'chandlery', 'chapel', 'infirmary', 'hearth', null];
+      const order = ['yard', 'lampworks', 'library', 'glazier', 'chandlery', 'chapel', 'infirmary', 'hearth', null];
       const hands = s.living.filter((p) => !isGuard(p) && !p.fighting && !p.walls && !(p.sick > 0) && p.age !== 'child').sort((a, b) => order.indexOf(a.job) - order.indexOf(b.job));
       for (const k of ['gatehouse', 'barracks']) while (hands.length && jobCount(s, k) < jobCap(s, k)) doAct(s, { type: 'assign', id: hands.shift().id, room: k });
     }
@@ -418,12 +452,34 @@ function raiseGatehouse(s) {
   }
   if (at && s.res.stone >= raiseCost(s, buildSpot(s, at))) doAct(s, { type: 'raise', room: 'gatehouse', at });
 }
-// The Library: begin the next study when the remembrance is there, keeping a vigil's worth back.
+// The Library: begin the next study when the remembrance is there, keeping a vigil's worth back; with every
+// first rank learned, the second ranks in the same order (round seven, phase 12). AP_NOTWO=1 stops at the
+// first ranks (to measure what the second are worth).
 const STUDY_ORDER = ['masonry', 'tallow', 'wards', 'hollow', 'pitch', 'herbs', 'silvering', 'rites'];
+const NOTWO = !!globalThis.process?.env?.AP_NOTWO;
 function libraryMoves(s) {
   if (!s.tuning.library || s.study || !roomsOf(geo(s), 'library').length) return;
-  const id = STUDY_ORDER.find((k) => !s.learned.includes(k));
-  if (id && s.res.remembrance >= STUDIES[id].rem + s.tuning.vigilCost) doAct(s, { type: 'study', id, ...(id === 'rites' ? { kind: 'loyal' } : {}) });
+  const id = STUDY_ORDER.find((k) => nextRank(s, k) === 1) || (NOTWO ? null : STUDY_ORDER.find((k) => nextRank(s, k) === 2));
+  if (!id) return;
+  const rank = nextRank(s, id);
+  if (s.res.remembrance >= studyRem(s, id, rank) + s.tuning.vigilCost) doAct(s, { type: 'study', id, ...(id === 'rites' && rank === 1 ? { kind: 'loyal' } : {}) });
+}
+// Standing wards (round seven, phase 12): essence the store would spill buys one, once it holds standFull of
+// its cap and keeps the new moon's back after paying. The Undergate first once it can stir (it saves the
+// candle at its mouth), then the moat in a wet season (spring and autumn). AP_STAND=none sets none; rift
+// adds a ward on the right-hand rift after those, every Creeper then rising at the left.
+const STAND = globalThis.process?.env?.AP_STAND || 'auto';
+const STAND_FULL = 0.8;
+function standMoves(s) {
+  const T = s.tuning;
+  if (!T.standingWard || STAND === 'none' || !T.essenceCap) return;
+  const want = [undergateOpen(s) && 'undergate', T.rainChance[seasonIndex(s)] >= 0.2 && 'moat', STAND === 'rift' && MAP.rifts.at(-1).id].filter(Boolean);
+  for (const w of want) {
+    if (standingOf(s).includes(w)) continue;
+    const cost = standingCost(s);
+    if (s.res.essence < STAND_FULL * T.essenceCap || s.res.essence - cost < moonReserve(s)) return;
+    doAct(s, { type: 'standWard', target: w });
+  }
 }
 // The Hall: a levy while raids are still to come this season and there's food for it; rationing when the larder
 // runs low; else nothing, and no price.
@@ -435,7 +491,30 @@ function hallMoves(s) {
   else if (raids && s.res.food >= 3 * eatRate(s)) doAct(s, { type: 'decree', id: 'levy' });
 }
 
+// Mending (round seven, phase 12): a burned-out room first, then a haunted one (a Dread at every dawn), then
+// the gate while the season has raids to come, as far as the stone goes.
+function mendMoves(s) {
+  const T = s.tuning;
+  if (!T.repairs || NOMEND) return;
+  for (const id of [...new Set([...(s.scorched || []), ...(s.haunted || [])])]) if (s.res.stone >= T.mendStone && !s.fires.some((f) => f.room === id)) doAct(s, { type: 'mend', id });
+  while (raidsAhead(s) && (s.gate ?? 1) < 1 - 1e-9 && s.res.stone >= T.raidShoreCost && s.raid?.state !== 'assault') if (!doAct(s, { type: 'mend', id: 'gate' })) break;
+}
+
+// The great-glass hall (round seven, phase 12): with four shades or more and no hall with room, glass to spare
+// builds one, the newly dead are bound into it first, and they fade half as fast there; with quicksilver from
+// the Deep, a great glass grows into one instead. AP_NOGLASSHALL=1 builds none (to measure what one is worth).
+const NOGLASSHALL = !!globalThis.process?.env?.AP_NOGLASSHALL;
+function hallMirror(s) {
+  const T = s.tuning;
+  if (!T.glassHalls || NOGLASSHALL || embargoed(s) || s.shades.filter(canWork).length < 4) return;
+  if (s.mirrors.some((m) => m.type === 'hall' && !m.hidden && s.shades.filter((d) => d.mirror === m.id).length < MIRRORS.hall.cap)) return;
+  const great = s.mirrors.find((m) => m.type === 'great');
+  if (great && (s.res.quicksilver || 0) >= T.upgradeSilver.hall && s.res.glass >= T.upgradeGlass.hall && doAct(s, { type: 'upgradeMirror', id: great.id })) return;
+  if (s.res.glass >= mirrorGlassOf(s, MIRRORS.hall.glass) + 10) doAct(s, { type: 'build', mirror: 'hall' });
+}
+
 function dayMoves(s) {
+  mendMoves(s);
   const b = nextBuild(s);
   const lineHall = TALLLINE && b === 'chapel' && bareHalls(s).find((h) => h.f === geo(s).veil - 1);
   const at = TALL ? (lineHall ? lineHall.id : 'top') : undefined;
@@ -443,6 +522,7 @@ function dayMoves(s) {
   else if (b && s.res.stone >= raiseCost(s, buildSpot(s, at))) doAct(s, { type: 'raise', room: b, ...(at ? { at } : {}) });
   libraryMoves(s);
   hallMoves(s);
+  standMoves(s);
   // With guards mustering, the ward first, while the essence is there, and then only the guards still wanted
   // (before muster the ward came after the guards, who could be sent back to work the moment it stood).
   const w = s.raid;
@@ -475,6 +555,7 @@ function dayMoves(s) {
     const kind = STEP && s.tuning.whispers && s.res.glass >= MIRRORS.great.glass ? 'great' : s.res.glass >= MIRRORS.pier.glass ? 'pier' : s.res.glass >= MIRRORS.hand.glass ? 'hand' : null;
     if (kind) doAct(s, { type: 'build', mirror: kind });
   } else if (STEP && s.tuning.whispers && s.res.glass >= MIRRORS.great.glass && !s.mirrors.some((m) => m.type === 'great')) doAct(s, { type: 'build', mirror: 'great' });
+  hallMirror(s);
   if (s.tuning.whispers && (WHISPER || STEP)) deadByDay(s);
   // A fire: send the Yard at once, and ring the bell if the fire is still gaining on them.
   for (const f of s.fires || []) {
@@ -692,7 +773,7 @@ function meetDrowned(s, ds) {
   const lit = new Set();
   const sp = s.night.spawns.find((x) => x.type === 'drowned');
   mirrorGuard.delete(s);
-  if (DROWN === 'none' || !sp) return lit;
+  if (DROWN === 'none' || !sp || s.night.wards.includes('moat')) return lit; // a standing ward holds the moat
   const reserve = DROWN === 'ward' || s.day < T.seasonDays - 2 ? 0 : moonReserve(s);
   const ward = () => s.res.essence >= wardCost(s) + reserve && doAct(s, { type: 'ward', target: 'moat' });
   if (DROWN === 'guardfirst' && (!ds.length || G.n === 1)) {
@@ -717,7 +798,7 @@ function meetUndergate(s, ds, lit) {
   const T = s.tuning;
   const G = geo(s);
   const g = gatehouseOf(s);
-  if (!g || G.n === 1 || !s.night.spawns.some((x) => x.rift === 'undergate')) return;
+  if (!g || G.n === 1 || !s.night.spawns.some((x) => x.rift === 'undergate') || s.night.wards.includes('undergate')) return;
   const { x } = undergateMouth(g);
   if (globalThis.process?.env?.AP_UGFREE) doAct(s, { type: 'debug', what: 'give', res: 'candles', n: 1 }); // measuring only: the candle free
   if (s.res.candles >= 1 + (NO('UGCANDLE') ? Infinity : 0) && doAct(s, { type: 'candle', f: g.f, x })) {

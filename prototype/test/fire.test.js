@@ -110,8 +110,8 @@ test('fighting it is dangerous: those who die in it die on duty, and wake Loyal'
   assert.ok(s.bodies.length >= inside.length);
 });
 
-test('a scorched room does no work the next day, and is back the day after', () => {
-  const s = newSeason(8, { ...quiet, fireSpread: 1e9 });
+test('a scorched room does no work the next day, and is back the day after (before repairs)', () => {
+  const s = newSeason(8, { ...quiet, fireSpread: 1e9, repairs: 0 });
   for (const p of s.living) p.job = 'yard';
   light(s, hearth(s));
   while (s.phase === 'day') step(s);

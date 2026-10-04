@@ -13,6 +13,7 @@ import {
   raiseCost, buildSpot, NEW_ROOMS, learned, decreeOf, gatehouseOf, undergateOpen, laddersDue, actsFor, mirrorGlass, pitchOf,
   eclipseDue, eclipseSpan, bondedShade, chapterOf, campaignOn, chapterAgain, boonNow, arrived, roomReady, LATE_ROOMS,
   isGuard, musterOf, musterGain, armsCap, armedDefense, pursueShare, ledgerDread, judgedDread,
+  wardPlace, livingCap, standingOf, standingCost, nightsLeft, rankOf, nextRank, studyLore, studyRem,
 } from './slice/sim.js';
 import { geo, feet, floorAtY, roomAt, typeAt, typeOf, roomSpan, roomsOf, lightMap, isLit, unitAt, DEEP_FLOOR, lineSpots as lineOf, guardLit, MAX_FLOORS } from './slice/geo.js';
 import { drawScene, drawMoment } from './slice/draw.js';
@@ -1082,14 +1083,7 @@ function duskCrypt() {
     <div class="row"><button class="btn primary" id="btn-wake" data-act="wake">Let them wake</button></div>`;
 }
 
-function wardName(id) {
-  if (id === 'moat') return "the moat's twin";
-  if (id === 'undergate') return 'the Undergate';
-  const st = K().stairs.find((x) => x.id === id);
-  if (st) return `the ${TWINS[typeAt(K(), st.f, st.x)].name} stair`;
-  const rf = MAP.rifts.find((x) => x.id === id);
-  return rf ? `the rift in the ${TWINS[typeAt(K(), DEEP_FLOOR, rf.x)].name}` : id;
-}
+const wardName = (id) => wardPlace(s, id);
 
 function tidesText() {
   const n = s.night;

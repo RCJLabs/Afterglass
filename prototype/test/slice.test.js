@@ -396,7 +396,7 @@ test('a Maw passes a thick line for a room the line left bare, breaks it, and th
   ok(s, { type: 'beginDay' });
   assert.ok(s.log.some((l) => /Chandlery is haunted/.test(l.text)));
   toDusk(s);
-  assert.deepEqual(s.haunted, [], 'the haunting lifts at dusk');
+  assert.deepEqual(s.haunted, [wick], 'and stays until masons mend it (repairs, phase 12)');
 });
 
 test('once on its target\'s floor a Maw keeps to it, however many come to meet it', () => {
