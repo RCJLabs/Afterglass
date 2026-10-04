@@ -2,7 +2,7 @@
 
 You asked for a full audit of the game as it stands, from its systems to its screens, and twenty phases after it. This is both.
 
-**Built so far.** Phases 1–4 (stabilise the shell and fix the bugs; the player's game, not the developer's; phone first; fewer words), phase 5's kit (play on to the season's end, the questions there, the glass test), phase 6 (measurement you can trust), and phases 7–12 (decisions after dusk; the new moon and the Long Night as climaxes; the Veil as a gauge; day decisions with teeth; cut what's only texture; something to grow into), in the design record as prototype/README.md's problems 44 to 55. Phase 5's playtest itself waits on testers. The rest wait. The audit below is as it was written, before them.
+**Built so far.** Phases 1–4 (stabilise the shell and fix the bugs; the player's game, not the developer's; phone first; fewer words), phase 5's kit (play on to the season's end, the questions there, the glass test), phase 6 (measurement you can trust), and phases 7–13 (decisions after dusk; the new moon and the Long Night as climaxes; the Veil as a gauge; day decisions with teeth; cut what's only texture; something to grow into; mirrors in rooms), in the design record as prototype/README.md's problems 44 to 56. Phase 5's playtest itself waits on testers. The rest wait. The audit below is as it was written, before them.
 
 **How it was done.**
 - I read the design record (prototype/README.md), rounds two to six, and the rules in the code.
