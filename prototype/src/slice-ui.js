@@ -945,7 +945,8 @@ function troubleNote() {
 // Round seven, phase 12: standing wards, set by day for the rest of the season with essence the store has.
 function standingCard() {
   const T = s.tuning;
-  if (!T.standingWard || s.phase !== 'day') return '';
+  // From the keep's first summer, as the Library and the Hall (phase 4's staging): a first spring has enough.
+  if (!T.standingWard || s.phase !== 'day' || s.season < (T.lateRoomsFrom || 1)) return '';
   const cost = standingCost(s);
   const n = nightsLeft(s);
   const stand = standingOf(s);
@@ -3388,8 +3389,11 @@ function buildHTML() {
   const can = day && !!spot && stone + 1e-9 >= cost;
   // The Gatehouse stands at the gate, on the ground floor.
   const atGateHere = spot && !spot.newFloor && spot.f === G.veil;
-  const offered = BUILDABLE.filter((type) => !NEW_ROOMS.includes(type) || T[type]);
+  // A room raised only high up (the Lampworks) waits in a note until the keep stands tall enough for it.
+  const high = (type) => HIGH_ROOMS.includes(type) && G.n + 1 < T.highFrom;
+  const offered = BUILDABLE.filter((type) => (!NEW_ROOMS.includes(type) || T[type]) && !high(type));
   const later = offered.filter((type) => !roomReady(s, type));
+  const highNote = BUILDABLE.filter((type) => (!NEW_ROOMS.includes(type) || T[type]) && high(type)).map((type) => `<p class="note">The ${DAY_ROOMS[type].name} can be raised from floor ${T.highFrom} up: the keep stands ${G.n} high.</p>`).join('');
   const row = (type) => {
     const R = DAY_ROOMS[type];
     const have = roomsOf(G, type).length;
@@ -3415,6 +3419,7 @@ function buildHTML() {
     <ul class="build-list">${rows}</ul>
     ${moreRows}
     ${laterNote}
+    ${highNote}
     ${twins}
     ${rearrangeHTML()}
   </section>`;
@@ -3815,6 +3820,19 @@ const GUIDE = [
     when: () => s.phase === 'day' && s.visitors?.some((v) => v.here && !v.done),
     done: () => ui.sheet === 'phase',
     text: 'Someone is at the gate: the Day panel shows what each answer costs and gives, and how long they will wait before taking the last.',
+  },
+  // Round seven, phase 12: the keep's second year, when it starts to wear, and its first trouble.
+  {
+    id: 'repairs', target: '#open-phase',
+    when: () => s.phase === 'day' && repairing(s) && !!(s.haunted?.length || s.scorched?.length),
+    done: () => ui.sheet === 'phase',
+    text: () => `From its second year the keep wears: a room a Maw broke stays haunted ${s.tuning.hauntDays} dawns, a Dread at each, unless masons mend it. Repairs, in the Day panel: ${fmt(s.tuning.mendStone)} stone.`,
+  },
+  {
+    id: 'trouble', target: '#open-phase',
+    when: () => s.phase === 'day' && !!troubleOf(s),
+    done: () => ui.sheet === 'phase',
+    text: () => `Each year from the second brings a trouble: this one, ${TROUBLES[troubleOf(s)].name.charAt(0).toLowerCase()}${TROUBLES[troubleOf(s)].name.slice(1)}. The Day panel says what it does${s.tuning.troubleRite ? ', and a rite in the Chapel halves it for a season' : ''}.`,
   },
   {
     id: 'library', target: '#open-phase',

@@ -83,7 +83,7 @@ const check = (ok, what) => { console.log(`${ok ? 'ok  ' : 'FAIL'} ${what}`); if
   await p.click('#btn-build');
   await p.waitForTimeout(250);
   t = await text();
-  check(/Lampworks/.test(t) && /Only from floor 8 up: the keep stands \d high\./.test(t), 'the Lampworks, only from floor 8 up');
+  check(/The Lampworks can be raised from floor 8 up: the keep stands \d high\./.test(t), 'the Lampworks, only from floor 8 up');
   const errs = L.errors.filter((e) => e.type === 'pageerror');
   check(!errs.length, `no page errors${errs.length ? `: ${JSON.stringify(errs)}` : ''}`);
   await browser.close();

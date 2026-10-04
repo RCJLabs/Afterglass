@@ -6,6 +6,7 @@
 //   node tools/measure.mjs [--seeds 200] [--only plans,verbs,night,moon] [--jobs 4] [--readme]
 //   node tools/measure.mjs --only campaign [--seeds 200] [--readme]   (five years a keep, so not in the default)
 //   node tools/measure.mjs --only day [--seeds 200] [--readme]        (two years a keep, so not in the default)
+//   node tools/measure.mjs --only long [--seeds 100] [--readme]       (ten years a keep, so not in the default)
 //
 // Every keep is played by the rules as they are, from the first spring: a plan's first year is its first four
 // seasons. Paired comparisons play the same seeds, so a switch's column says on how many seeds it did better
@@ -38,9 +39,12 @@ if (process.argv[2] === '--worker') {
     const calls = {}; // call-outs (alerts) each night, by season/day
     const year = (season) => Math.ceil(season / 4);
     const hands = {}; // by year: hand-ticks and guard-ticks on raid days (round seven, phase 10)
+    const long = {}; // by year (round seven, phase 12): days, days essence was at its cap, and the stores at its end
+    let today = null;
     for (let guard = 0; guard < 2e7; guard++) {
       if (s.phase === 'over') break;
       if (s.phase === 'end') {
+        if (job.long && s.season % 4 === 0) (long[year(s.season)] ||= { days: 0, capped: 0 }).end = Object.fromEntries(['glass', 'remembrance', 'candles', 'stone', 'essence'].map((k) => [k, s.res[k] || 0]));
         if (s.season >= job.seasons) break;
         if (!closeYear(s) && !act(s, { type: 'nextSeason' }).ok) break;
         continue;
@@ -48,6 +52,12 @@ if (process.argv[2] === '--worker') {
       if (s.phase === 'dawn' && dawn !== `${s.season}/${s.day}`) {
         dawn = `${s.season}/${s.day}`;
         if (s.rite?.heard) heard++;
+      }
+      if (job.long && s.phase === 'day' && today !== `${s.season}/${s.day}`) {
+        today = `${s.season}/${s.day}`;
+        const L = (long[year(s.season)] ||= { days: 0, capped: 0 });
+        L.days++;
+        if (s.tuning.essenceCap && s.res.essence >= s.tuning.essenceCap - 0.5) L.capped++;
       }
       const night = s.phase === 'night' ? `${s.season}/${s.day}` : null;
       if (job.day && s.phase === 'day' && s.raid) {
@@ -112,6 +122,16 @@ if (process.argv[2] === '--worker') {
         Y(year(d.season)).won += w;
       }
     }
+    // Ten years (round seven, phase 12): of each year's days, those with a day action other than jobs.
+    if (job.long) {
+      const had = new Set();
+      for (const { a, at } of s.actions) if (at.phase === 'day' && a.type !== 'assign' && a.type !== 'byDay') had.add(`${at.season}/${at.day}`);
+      for (const k of had) {
+        const L = long[year(Number(k.split('/')[0]))];
+        if (L) L.decided = (L.decided || 0) + 1;
+      }
+      rec.long = long;
+    }
     process.stdout.write(`${JSON.stringify(rec)}\n`);
   }
   process.exit(0);
@@ -165,6 +185,9 @@ const CAMPAIGN_YEARS = 4;
 // The day's decisions (round seven, phase 10): the balanced and the human plans over two years, and each posting
 // its guards only when the Host is at the gate (AP_JIT) over the first, against itself.
 const DAY_PLANS = [['balanced', 'Balanced'], ['human', 'Human']];
+// Ten years a keep (round seven, phase 12): whether there's still something to decide by day, and whether the
+// stores pile up, for the balanced and the human plans.
+const LONG_YEARS = 10;
 const configs = [];
 const ROWS = arg('rows', '').split(',').filter(Boolean); // --rows balanced,double: only those night rows
 if (ONLY.includes('night')) for (const r of NIGHT_ROWS.filter((r) => !ROWS.length || ROWS.includes(r.id.slice(6)))) configs.push({ id: r.id, plan: r.plan, seasons: YEAR, env: r.env, tuning: r.tuning });
@@ -175,6 +198,7 @@ if (ONLY.includes('day')) {
   for (const [plan] of DAY_PLANS) configs.push({ id: `day:${plan}`, plan, seasons: 2 * YEAR, env: {}, day: true });
   for (const [plan] of DAY_PLANS) configs.push({ id: `day:${plan}:jit`, plan, seasons: YEAR, env: { AP_JIT: '1' } });
 }
+if (ONLY.includes('long')) for (const [plan] of DAY_PLANS) configs.push({ id: `long:${plan}`, plan, seasons: 4 * LONG_YEARS, env: {}, long: true });
 if (ONLY.includes('verbs')) {
   if (!ONLY.includes('plans')) configs.push({ id: 'plan:balanced', plan: 'balanced', seasons: YEAR, env: {} });
   configs.push({ id: 'plan:balanced:2y', plan: 'balanced', seasons: 2 * YEAR, env: {} });
@@ -194,7 +218,7 @@ function run() {
       while (running < JOBS && queue.length) {
         const { c, from, to } = queue.shift();
         running++;
-        const p = spawn(process.execPath, [HERE, '--worker', JSON.stringify({ plan: c.plan, seasons: c.seasons, from, to, tuning: { ...TUNING, ...c.tuning }, day: !!c.day })], { env: { ...process.env, ...ENV, ...c.env }, stdio: ['ignore', 'pipe', 'inherit'] });
+        const p = spawn(process.execPath, [HERE, '--worker', JSON.stringify({ plan: c.plan, seasons: c.seasons, from, to, tuning: { ...TUNING, ...c.tuning }, day: !!c.day, long: !!c.long })], { env: { ...process.env, ...ENV, ...c.env }, stdio: ['ignore', 'pipe', 'inherit'] });
         let buf = '';
         p.stdout.on('data', (d) => (buf += d));
         p.on('exit', (code) => {
@@ -336,6 +360,25 @@ function dayTable(R) {
   return `${lines.join('\n')}${jit.length ? `\n\nPosting guards only when the Host is at the gate (\`AP_JIT\`), first year finished: ${jit.join('; ')}.` : ''}`;
 }
 
+function longTable(R) {
+  const plans = DAY_PLANS.filter(([p]) => R[`long:${p}`]);
+  const sum = (xs) => xs.reduce((a, b) => a + b, 0);
+  const med = (xs) => {
+    const a = [...xs].sort((x, y) => x - y);
+    return a.length ? Math.round(a[Math.floor(a.length / 2)]) : '–';
+  };
+  const lines = ['| Plan | Year | Keeps | Days with a decision other than jobs | At the year\u2019s end: glass, remembrance, candles, stone (medians) | Days essence was at its cap |', '|---|---|---|---|---|---|'];
+  for (const [p, name] of plans) {
+    for (const y of [1, 2, 3, 5, 10]) {
+      const ys = R[`long:${p}`].map((x) => x.long?.[y]).filter((v) => v && v.days && v.end);
+      if (!ys.length) continue;
+      const days = sum(ys.map((v) => v.days));
+      lines.push(`| ${name} | ${y} | ${ys.length} | ${pct(sum(ys.map((v) => v.decided || 0)), days)} | ${['glass', 'remembrance', 'candles', 'stone'].map((k) => med(ys.map((v) => v.end[k]))).join(', ')} | ${pct(sum(ys.map((v) => v.capped)), days)} |`);
+    }
+  }
+  return lines.join('\n');
+}
+
 function humanLine(R) {
   const h = R['plan:human'];
   const b = bySeed(R['plan:balanced'] || []);
@@ -360,6 +403,7 @@ if (ONLY.includes('night')) blocks.night = `${nightTable(R)}\n\n${stamp}`;
 if (ONLY.includes('moon')) blocks.moon = `${moonTable(R)}\n\n${stamp}`;
 if (ONLY.includes('campaign')) blocks.campaign = `${campaignTable(R)}\n\n${stamp}`;
 if (ONLY.includes('day')) blocks.day = `${dayTable(R)}\n\n${stamp}`;
+if (ONLY.includes('long')) blocks.long = `${longTable(R)}\n\n${stamp}`;
 for (const [k, v] of Object.entries(blocks)) console.log(`\n== ${k}\n${v}`);
 if (process.argv.includes('--readme')) {
   let text = readFileSync(README, 'utf8');

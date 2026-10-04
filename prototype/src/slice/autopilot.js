@@ -11,7 +11,7 @@
 // on the line for the biggest tides when the essence is there, and a fighter to meet a Maw. They move a
 // shade only along a lit floor; where its way is dark it stays.
 
-import { nightTicks, hollowNeed, chapterOf, yearsEnd, bondedShade, postRoom, bareHalls, buildSpot, raiseCost, step, act, newSeason, ritePreview, crossingPreview, capacity, canWork, defense, funeralCap, choicesFor, jobCap, jobCount, eatRate, wardCost, livingTrait, shadeTrait, peopleIn, crowded, tradeOf, inGreatGlass, handsAt, seasonIndex, tributeOf, besieged, sallyOdds, embargoed, inquisition, crusadeDaysLeft, canAct, actOf, actCost, NEW_ROOMS, atTheGate, gatehouseOf, decreeOf, undergateMouth, roomReady, isGuard, armsCap, musterGain, livingCap, raidsAhead, nextRank, studyRem, standingOf, standingCost, nightsLeft, undergateOpen, mirrorGlass as mirrorGlassOf, repairing, troubleOf, eased, veilWardCost } from './sim.js';
+import { nightTicks, hollowNeed, chapterOf, yearsEnd, bondedShade, postRoom, bareHalls, buildSpot, raiseCost, step, act, newSeason, ritePreview, crossingPreview, capacity, canWork, defense, funeralCap, choicesFor, jobCap, jobCount, eatRate, wardCost, livingTrait, shadeTrait, peopleIn, crowded, tradeOf, inGreatGlass, handsAt, seasonIndex, tributeOf, besieged, sallyOdds, embargoed, inquisition, crusadeDaysLeft, canAct, actOf, actCost, NEW_ROOMS, atTheGate, gatehouseOf, decreeOf, undergateMouth, roomReady, isGuard, armsCap, musterGain, livingCap, raidsAhead, nextRank, studyRem, standingOf, standingCost, nightsLeft, undergateOpen, mirrorGlass as mirrorGlassOf, repairing, troubleOf, eased, veilWardCost, troubled } from './sim.js';
 import { DAY_ROOMS, MIRRORS, KINDS, MAP, TICKS_PER_SEC, VISITORS, STUDIES, CHAPTERS } from './data.js';
 import { geo, roomSpan, roomAt, roomsOf, lineSpots, lightMap, isLit } from './geo.js';
 import { STOPS } from './alerts.js';
@@ -298,10 +298,12 @@ function wantedJobs(s, uncapped = false) {
   const threat = !JIT && !s.tuning.muster && r && (r.state === 'coming' || r.state === 'assault') && r.warned && defense(s) < r.strength;
   const food = eatRate(s) + (s.res.food < n ? 2 : 0) - (s.res.food > 3 * n ? 3 : 0);
   const want = {
-    hearth: Math.max(1, Math.ceil(food / DAY_ROOMS.hearth.rate)),
+    hearth: Math.max(1, Math.ceil(food / (DAY_ROOMS.hearth.rate * troubled(s, 'food', 1)))), // a hungry year's cooks make less
     chapel: n >= 10 ? 2 : 1,
     infirmary: s.living.some((p) => p.sick > 0) ? 1 : 0,
-    chandlery: threat ? 0 : s.res.candles < candleTarget(s) ? 2 : 1,
+    // Round seven, phase 12: a grown keep (bedsHold) keeps no chandler while the store holds three times what it
+    // wants put by.
+    chandlery: threat ? 0 : s.res.candles < candleTarget(s) ? 2 : s.tuning.bedsHold && !NOGROW && s.res.candles > 3 * candleTarget(s) ? 0 : 1,
     // Round seven, phase 12: no glazier while the store holds what the next mirror and a margin take (bedsHold).
     glazier: threat || n < 6 || (s.tuning.bedsHold && !NOGROW && s.res.glass >= glassKeep(s) + 40) ? 0 : 1,
     library: !threat && s.study && s.res.food >= n ? 2 : 0,
@@ -490,15 +492,20 @@ function riteMoves(s) {
 const STAND_FULL = 0.8;
 function standMoves(s) {
   const T = s.tuning;
-  if (!T.essenceCap || STAND === 'none') return;
+  // From the keep's second year: in its first, the essence the store spills is few days' worth, and setting wards
+  // with it cost first years (better on 5 seeds of 200, worse on 9, against 1 and 4 without).
+  if (!T.essenceCap || STAND === 'none' || (T.year && Math.ceil(s.season / 4) < 2)) return;
+  // Early in a season the Choir sings the new moon's essence back before it comes: the reserve is kept only in its
+  // last three days.
+  const reserve = nightsLeft(s) <= 3 ? moonReserve(s) : 0;
   // The Veil first: a crack more this season is worth more than any one way warded.
-  if (T.veilWard && !NOVEIL && s.res.essence >= STAND_FULL * T.essenceCap && s.res.essence - veilWardCost(s) >= moonReserve(s)) doAct(s, { type: 'wardVeil' });
+  if (T.veilWard && !NOVEIL && s.res.essence >= STAND_FULL * T.essenceCap && s.res.essence - veilWardCost(s) >= reserve) doAct(s, { type: 'wardVeil' });
   if (!T.standingWard) return;
-  const want = [undergateOpen(s) && 'undergate', T.rainChance[seasonIndex(s)] >= 0.2 && 'moat', STAND === 'rift' && MAP.rifts.at(-1).id].filter(Boolean);
+  const want = [undergateOpen(s) && 'undergate', T.rainChance[seasonIndex(s)] * troubled(s, 'rain', 1) >= 0.2 && 'moat', STAND === 'rift' && MAP.rifts.at(-1).id].filter(Boolean);
   for (const w of want) {
     if (standingOf(s).includes(w)) continue;
     const cost = standingCost(s);
-    if (s.res.essence < STAND_FULL * T.essenceCap || s.res.essence - cost < moonReserve(s)) return;
+    if (s.res.essence < STAND_FULL * T.essenceCap || s.res.essence - cost < reserve) return;
     doAct(s, { type: 'standWard', target: w });
   }
 }
@@ -1153,7 +1160,8 @@ function rite(s, plan) {
   const inquired = ritePreview(s).inquisition; // the inquisitor inspects again tomorrow
   // With the Church's ledger, every day before the season's first inspection counts, not only its eve.
   const ledger = (T.churchLedger || DREADLOW) && !LEDGERBLIND && s.day + 1 <= T.firstInspection && !s.inspections.some((x) => x.season === s.season);
-  const target = plan === 'keeper' ? T.dreadMax - 1 : plan === 'mourner' ? 1 : inspectedToday || soon || inquired || ledger ? 1 : 3;
+  // A year of the Church judges a Dread worse than it is (round seven, phase 12): aim that much lower.
+  const target = Math.max(0, (plan === 'keeper' ? T.dreadMax - 1 : plan === 'mourner' ? 1 : inspectedToday || soon || inquired || ledger ? 1 : 3) - Math.ceil(troubled(s, 'judge', 0)));
   for (const d of s.shades) {
     const cs = choicesFor(d);
     if (d.kind === 'wraith') doAct(s, { type: 'rite', id: d.id, choice: s.res.essence >= T.banishCost ? 'banish' : 'leave' });
