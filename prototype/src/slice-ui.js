@@ -5,8 +5,8 @@
 import { TICKS_PER_SEC, DAY_ROOMS, WORK_ROOMS, TWINS, KINDS, MIRRORS, CAUSES, MAP, BOND_OTHER, TUNING, BUILDABLE, TRAITS, SHADE_TRAITS, SEASONS, TUTORIAL, REQUESTS, PRESETS, ACTS, OMENS, VISITORS, STUDIES, DECREES, decreeDoes, decreesOf, shadeTraitShort, twinJob, CHAPTERS, ENDINGS, TROUBLES, mirrorsOf } from './slice/data.js';
 import {
   newSeason, step, act, retune, playerTuning, jobCap, jobCount, nextSlot, ritePreview, crossingPreview, capacity, canWork, defense, roomPower, bear, priests, funeralCap, eatRate,
-  dayTicks, nightTicks, isNewMoon, choicesFor, byId, isTwinnedLiving, isTwinnedShade, lastSeason, SAVE_VERSION, fmt, mirrorCap, bareHalls, tainPlace,
-  postRoom, wardCost, wardDrawOf, wardHoldOf, hollowNeed, hollowRewardOf, pinned, winterNeed, yearRate, raidsAhead, shadeTrait, peopleIn, beds, tradeOf, inGreatGlass, handsAt, whispers, stepsThrough, perf,
+  dayTicks, nightTicks, isNewMoon, choicesFor, byId, isTwinnedLiving, isTwinnedShade, lastSeason, SAVE_VERSION, fmt, mirrorCap, bareHalls, tainPlace, hangsIn, mirrorIn, isDoor, doorAt, hangSpot, mawLure,
+  postRoom, wardCost, wardDrawOf, wardHoldOf, hollowNeed, hollowRewardOf, pinned, winterNeed, yearRate, raidsAhead, shadeTrait, peopleIn, beds, tradeOf, inGreatGlass, handsAt, whispers, stepsThrough, perf, coaches, stepRoom,
   seasonIndex, seasonName, yearOf, dayLength, isLongNight, tributeOf, besieged, sallyOdds, plagueSeason, atGate, gateGuard,
   weatherOf, forecastOf, raining, foggy, drownedDue, keepDefaults, embargoed, inquisition, churchDaysLeft, crusadeDay, crusadeDaysLeft,
   actOf, actCost, canAct, acting, actText, omenText, nextMark, SKIP_LEAD, visitorBlock,
@@ -850,7 +850,10 @@ function fireCards() {
 
 function buildRow() {
   const shut = embargoed(s);
-  return `<div class="build"><span>Build a mirror${shut ? ": not under the Church's embargo" : ''}</span>${mirrorsOf(s.tuning)
+  const spot = s.tuning.mirrorRooms && hangSpot(s);
+  if (s.tuning.mirrorRooms && !spot) return `<div class="build"><span>Build a mirror: every room has its mirror, so there is nowhere to hang another. Raise a room first.</span></div>`;
+  const why = spot && (mawLure(typeOf(K(), spot)) === 0 ? ', where nobody works' : mawLure(typeOf(K(), spot)) === 1 ? ', where nobody works yet' : ', the free room nearest the Veil');
+  return `<div class="build"><span>Build a mirror${shut ? ": not under the Church's embargo" : spot ? `, to hang in the ${roomName(spot)}${why}` : ''}</span>${mirrorsOf(s.tuning)
     .map((k) => [k, MIRRORS[k]])
     .map(([k, M]) => `<button class="btn sm" id="build-${k}" data-act="build" data-mirror="${k}"${shut || s.res.glass + 1e-9 < M.glass ? ' disabled' : ''}>${M.name}, room for ${M.cap}: ${M.glass} glass</button>`)
     .join('')}</div>`;
@@ -860,9 +863,53 @@ function mirrorsHTML({ upgrades = true } = {}) {
     .map((m) => {
       const ds = s.shades.filter((d) => d.mirror === m.id);
       const slots = Array.from({ length: mirrorCap(m) }, (_, i) => (ds[i] ? `<span class="slot full">${esc(ds[i].name)}</span>` : '<span class="slot">empty</span>')).join('');
-      return `<div class="mirror"><span class="mname">${esc(m.name)}${m.hidden ? ' <small class="muted">hidden</small>' : ''}</span><div class="slots">${slots}</div>${upgrades ? upgradeHTML(m) : ''}${ds.length ? breakHTML(m) : ''}</div>`;
+      return `<div class="mirror"><span class="mname">${esc(m.name)}${m.hidden ? ' <small class="muted">hidden</small>' : ''}${m.turned ? ' <small class="muted">turned to the wall</small>' : ''}</span><div class="slots">${slots}</div>${upgrades ? hangHTML(m) : ''}${upgrades ? upgradeHTML(m) : ''}${ds.length ? breakHTML(m) : ''}</div>`;
     })
     .join('')}</div>${upgrades && s.tuning.deep ? `<p class="note">Quicksilver: ${floor1(s.res.quicksilver || 0)}.</p>${once('quicksilver', '<p class="note">Shades bring quicksilver back from the Deep, sent down at dusk. It upgrades a mirror where it hangs, its shades and all.</p>', 'Quicksilver', 'mirrors')}` : ''}`;
+}
+// Round seven, phase 13 (mirrorRooms): where a mirror hangs, whether it's a door, the room to hang it in (by day),
+// and turning it to the wall (by day or at dusk).
+const floorWord = (G, f) => (G.n - f === 1 ? 'the ground floor' : `floor ${G.n - f}`);
+function hangHTML(m) {
+  const id = hangsIn(s, m);
+  if (!s.tuning.mirrorRooms || !id || s.phase === 'over') return '';
+  const G = K();
+  const n = s.shades.filter((d) => d.mirror === m.id).length;
+  const where = `By night it opens on the ${roomName(id, true)}, ${tainPlace(G, G.rooms[id].f, true)}.`;
+  const state = m.turned
+    ? `Turned to the wall, it lets nothing through${n ? `, and ${n === 1 ? 'its shade sits' : 'its shades sit'} out until it's turned back` : ''}.`
+    : m.hidden
+      ? ''
+      : n
+        ? `A door: a Maw that breaks the ${roomName(id, true)} comes through it, and the Veil cracks.`
+        : 'Empty, it is no door.';
+  const sel = s.phase === 'day'
+    ? `<select id="hang-${m.id}" data-act="hang" data-id="${m.id}" aria-label="Where the ${esc(m.name)} hangs">${Object.values(G.rooms)
+        .sort((a, b) => b.f - a.f || a.x0 - b.x0)
+        .map((r) => {
+          const o = mirrorIn(s, r.id);
+          return `<option value="${r.id}"${r.id === id ? ' selected' : ''}>${r.id === id ? 'Hangs in' : 'Hang in'} the ${roomName(r.id)}, ${floorWord(G, r.f)}${o && o !== m ? `, for the ${esc(o.name)}` : ''}</option>`;
+        })
+        .join('')}</select>`
+    : '';
+  const turn = (s.phase === 'day' || s.phase === 'dusk') && !m.hidden ? `<button class="btn sm" id="turn-${m.id}" data-act="turn" data-id="${m.id}"${m.turned ? '' : ' data-on="1"'}>${m.turned ? 'Turn it back' : 'Turn to the wall'}</button>` : '';
+  return `<p class="note mplace">${where} ${state}</p>${sel || turn ? `<div class="row">${sel}${turn}</div>` : ''}`;
+}
+// At dusk: the doors tonight, and a turn for each.
+function doorsCard() {
+  if (!s.tuning.mirrorRooms) return '';
+  const G = K();
+  const ms = s.mirrors.filter((m) => hangsIn(s, m) && !m.hidden && (m.turned || isDoor(s, m)));
+  if (!ms.length) return '';
+  const maws = s.night?.spawns?.filter((x) => x.type === 'maw').length || 0;
+  const rows = ms
+    .map((m) => {
+      const id = hangsIn(s, m);
+      const n = s.shades.filter((d) => d.mirror === m.id).length;
+      return `<li><span>The ${esc(m.name)}, opening on the ${roomName(id, true)} ${tainPlace(G, G.rooms[id].f, true)}: ${m.turned ? `turned to the wall${n ? `, ${plural(n, 'shade')} sitting out` : ''}` : `open, ${plural(n, 'shade')}`}</span><button class="btn sm" id="turn-${m.id}" data-act="turn" data-id="${m.id}"${m.turned ? '' : ' data-on="1"'}>${m.turned ? 'Turn back' : 'Turn to the wall'}</button></li>`;
+    })
+    .join('');
+  return `<div class="card doors"><h3>The doors</h3><p class="note">${maws ? `${maws === 1 ? 'A Maw rises' : `${maws} Maws rise`} tonight. ` : ''}A mirror with a shade in it is a door: a Maw that breaks its twin comes through, and the Veil cracks. Turned to the wall it lets nothing through, but its shades sit the night out.</p><ul class="facts">${rows}</ul></div>`;
 }
 // Quicksilver upgrades a hand mirror into a pier glass, a pier glass into a great glass, and since round seven's
 // phase 12 a great glass into a great-glass hall.
@@ -970,8 +1017,8 @@ function dayPanel() {
     const R = DAY_ROOMS[id];
     const n = jobCount(s, id);
     const cap = jobCap(s, id);
-    const k = s.shades.filter((d) => stepsThrough(s, d) && d.byDay.room === id).length;
-    const w = s.shades.find((d) => whispers(s, d) && tradeOf(s, d) === id);
+    const k = s.shades.filter((d) => stepsThrough(s, d) && stepRoom(s, d) === id).length;
+    const w = s.shades.find((d) => whispers(s, d) && coaches(s, d) === id);
     const out = id === 'infirmary' ? `heals ${fmt(pw[id] * R.rate * len)}/day` : id === 'forge' && T.forgeArms ? `${fmt(pw[id] * R.rate * len)} arms/day` : R.out === 'defense' ? `defense ${fmt(pw[id] * R.rate)}` : `${fmt(pw[id] * R.rate * len)} ${R.out}/day`;
     return `<li><span>${R.name} <small class="muted">${plural(n, R.role)}${k ? ` and ${plural(k, 'shade')},` : ''}${Number.isFinite(cap) ? ` of ${cap}` : ''}${w ? `, ${esc(w.name)} whispering` : ''}</small></span><span class="num">${out}</span></li>`;
   }).join('');
@@ -1105,20 +1152,20 @@ function deadByDay() {
   if (!T.whispers) return '';
   const can = s.shades.filter(canWork);
   const busy = can.filter((d) => whispers(s, d) || stepsThrough(s, d));
-  const able = can.filter((d) => (DAY_ROOMS[tradeOf(s, d)]?.out && jobCap(s, tradeOf(s, d)) > 0) || inGreatGlass(s, d));
+  const able = can.filter((d) => (DAY_ROOMS[coaches(s, d)]?.out && jobCap(s, coaches(s, d)) > 0) || inGreatGlass(s, d));
   if (!busy.length && !able.length) return '';
   const rows = busy
     .map((d) => {
       if (whispers(s, d)) {
-        const R = DAY_ROOMS[tradeOf(s, d)];
-        const n = jobCount(s, tradeOf(s, d));
+        const R = DAY_ROOMS[coaches(s, d)];
+        const n = jobCount(s, coaches(s, d));
         return `<li><span><b>${esc(d.name)}</b> whispers to the ${R.name}: ${n ? `${plural(n, R.role)} ${n === 1 ? 'works' : 'work'} ×${mult(T.whisperMult)}` : "nobody works there, so it costs nothing today"}</span><span class="num">−${fmt(n ? dayCost(d, T.whisperFade) : 0)} memory</span></li>`;
       }
-      return `<li><span><b>${esc(d.name)}</b> works in the ${DAY_ROOMS[d.byDay.room].name} in person, at ${Math.round(100 * perf(d) * T.stepWork)}%</span><span class="num">−${fmt(dayCost(d, T.stepFade))} memory</span></li>`;
+      return `<li><span><b>${esc(d.name)}</b> works in the ${DAY_ROOMS[stepRoom(s, d)].name} in person, at ${Math.round(100 * perf(d) * T.stepWork)}%</span><span class="num">−${fmt(dayCost(d, T.stepFade))} memory</span></li>`;
     })
     .join('');
   return `<div class="card"><h3>The dead by day</h3>${rows ? `<ul class="facts">${rows}</ul>` : ''}
-    ${once('by-day', `<p class="note">A shade can whisper its old trade to whoever works it now (×${mult(T.whisperMult)}), for ${fmt(T.whisperFade)} memory at dusk. One in a great glass can step through instead and work a room in person, for ${fmt(T.stepFade)}. The named pay half. Memory is what keeps a shade in the glass.</p>`, 'Whispering, and stepping through', 'mirrors')}<p class="note">${busy.length ? 'Change it in People.' : 'Set it in People.'}</p></div>`;
+    ${once('by-day', T.mirrorRooms ? `<p class="note">A shade can whisper through its mirror to whoever works the room it hangs in (×${mult(T.whisperMult)}), for ${fmt(T.whisperFade)} memory at dusk. One in a great glass can step through instead and work that room in person, for ${fmt(T.stepFade)}. The named pay half. Memory is what keeps a shade in the glass.</p>` : `<p class="note">A shade can whisper its old trade to whoever works it now (×${mult(T.whisperMult)}), for ${fmt(T.whisperFade)} memory at dusk. One in a great glass can step through instead and work a room in person, for ${fmt(T.stepFade)}. The named pay half. Memory is what keeps a shade in the glass.</p>`, 'Whispering, and stepping through', 'mirrors')}<p class="note">${busy.length ? 'Change it in People.' : 'Set it in People.'}</p></div>`;
 }
 
 function duskCrypt() {
@@ -1175,6 +1222,7 @@ function duskPlace() {
   return `<header class="ph-head"><h2>Dusk: set the night</h2><p>${plural(creepers, 'Creeper')} tonight, in tides around ${tidesText()}.${maws ? ` ${maws === 1 ? 'A Maw comes' : `${maws} Maws come`} with the ${n.great ? 'tide before the last' : 'last tide'}.` : ''}${isLongNight(s) ? ` <b>Tonight is the Long Night: ${longTimes()} as long as a winter night, with the Hollow and a Maw${n.great ? `, and at ${hhmm(18 + (12 * n.great) / nightTicks(s))} a last great tide of ${n.spawns.filter((x) => x.great).length}` : ''}. At dawn the year ends.</b>` : isNewMoon(s) ? ' <b>Tonight is the new moon: the Hollow rises.</b>' : ''} Set candles, post the shades, and begin.</p></header>
     ${s.lastDusk ? `<div class="row"><button class="btn" id="btn-last" data-act="as-last-night">As last night</button></div>${once('as-last', '<p class="hint">As last night puts the shades back at the posts last night began with, and lights its candles again where they stood, as far as the store goes. Wards you set again yourself.</p>', 'As last night')}` : ''}
     ${blackMirror()}
+    ${doorsCard()}
     ${nightTicks(s) > s.tuning.candleWax * TICKS_PER_SEC ? `<p class="note">Tonight lasts ${minsSecs(nightTicks(s) / TICKS_PER_SEC)} at 1×, and a candle burns ${minsSecs(s.tuning.candleWax)}. Keep candles back to relight before dawn.</p>` : ''}
     <ul class="facts">
       <li><span>Candles set tonight</span><b class="num">${n.candles.length}, ${floor1(s.res.candles)} left</b></li>
@@ -1349,7 +1397,8 @@ function blackMirror() {
   for (const m of th.maws) {
     const tg = m.target;
     const what = !tg ? 'nothing it can reach' : tg.kind === 'room' ? `the ${roomName(tg.id, true)} (bracketed)` : `${candleName(tg.id)} (ringed)`;
-    lines.push({ bad: false, spot: tg ? { f: tg.f, x: tg.x } : riftSpot(m.rift), text: `A Maw rises from ${riftName(m.rift)} around ${at(m.at)}. As things stand it would go for ${what}: what's worth most for the least fight on its way.` });
+    const door = tg?.kind === 'room' && doorAt(s, tg.id); // round seven, phase 13
+    lines.push({ bad: !!door, spot: tg ? { f: tg.f, x: tg.x } : riftSpot(m.rift), text: `A Maw rises from ${riftName(m.rift)} around ${at(m.at)}. As things stand it would go for ${what}: what's worth most for the least fight on its way.${door ? ` The ${door.name} hangs open there: break the room, and the Maw comes through it.` : ''}` });
   }
   if (th.weepers) {
     const W = th.weepers;
@@ -1825,7 +1874,7 @@ function shadeRows() {
       const pick = canWork(d) && (s.phase === 'dusk' || s.phase === 'night');
       return `<div class="srow${ui.selected === d.id ? ' is-selected' : ''}" id="srow-${d.id}">
         <div class="who">
-          <div><b>${esc(d.name)}</b>${kindTag(d.kind)}${d.named ? '<span class="tag peace">Named</span>' : ''}${isTwinnedShade(s, d) ? '<span class="tag twin">Twinned</span>' : ''}${whispers(s, d) ? `<span class="tag twin">Whispers to the ${DAY_ROOMS[tradeOf(s, d)].name}</span>` : stepsThrough(s, d) ? `<span class="tag twin">Works in the ${DAY_ROOMS[d.byDay.room].name} by day</span>` : atGate(s, d) ? '<span class="tag twin">Stands at the gate today</span>' : ''}</div>
+          <div><b>${esc(d.name)}</b>${kindTag(d.kind)}${d.named ? '<span class="tag peace">Named</span>' : ''}${isTwinnedShade(s, d) ? '<span class="tag twin">Twinned</span>' : ''}${whispers(s, d) ? `<span class="tag twin">Whispers to the ${DAY_ROOMS[coaches(s, d)].name}</span>` : stepsThrough(s, d) ? `<span class="tag twin">Works in the ${DAY_ROOMS[stepRoom(s, d)].name} by day</span>` : atGate(s, d) ? '<span class="tag twin">Stands at the gate today</span>' : ''}</div>
           ${shadeTraitText(d)}
           ${canWork(d) || d.deep ? `<div><span class="memory${d.memory < 40 ? ' low' : ''}" aria-hidden="true"><i data-bar="mem" data-arg="${d.id}"></i></span><small><span data-live="mem" data-arg="${d.id}">${Math.ceil(d.memory)}</span> memory, <span data-live="status" data-arg="${d.id}">${esc(shadeStatus(d, L))}</span></small></div>` : `<small>${esc(shadeStatus(d, L))}</small>`}
         </div>
@@ -1838,16 +1887,17 @@ function shadeRows() {
 // What a shade does by day: rest, whisper its old trade, or (from a great glass) work a room in person.
 function byDaySelect(d) {
   if (!s.tuning.whispers || !canWork(d) || !(s.phase === 'day' || s.phase === 'dawn')) return '';
-  const trade = tradeOf(s, d);
+  const trade = coaches(s, d);
   const R = DAY_ROOMS[trade];
-  const cur = d.byDay ? (d.byDay.how === 'whisper' ? 'whisper' : `step:${d.byDay.room}`) : '';
+  const cur = d.byDay ? (d.byDay.how === 'whisper' ? 'whisper' : `step:${stepRoom(s, d)}`) : '';
   const opts = [`<option value=""${cur ? '' : ' selected'}>Rests by day</option>`];
   if (R?.out && jobCap(s, trade) > 0) {
-    const taken = s.shades.find((x) => x !== d && whispers(s, x) && tradeOf(s, x) === trade);
+    const taken = s.shades.find((x) => x !== d && whispers(s, x) && coaches(s, x) === trade);
     opts.push(`<option value="whisper"${cur === 'whisper' ? ' selected' : ''}${taken ? ' disabled' : ''}>Whispers to the ${R.name}${taken ? ` (${esc(taken.name)} does)` : ''}</option>`);
   }
   if (inGreatGlass(s, d)) {
-    for (const id of WORK_ROOMS.filter((k) => jobCap(s, k) > 0)) {
+    // Since round seven's phase 13 (mirrorRooms) the glass's shades step only into the room it hangs in.
+    for (const id of WORK_ROOMS.filter((k) => jobCap(s, k) > 0 && (!s.tuning.mirrorRooms || k === stepRoom(s, d)))) {
       const cap = jobCap(s, id);
       const full = cur !== `step:${id}` && handsAt(s, id) >= cap;
       opts.push(`<option value="step:${id}"${cur === `step:${id}` ? ' selected' : ''}${full ? ' disabled' : ''}>Works in the ${DAY_ROOMS[id].name}${Number.isFinite(cap) ? ` ${handsAt(s, id)}/${cap}` : ''}</option>`);
@@ -2079,6 +2129,9 @@ const TUNE = [
   ['lampGlass', 'Glass a lampwright works into candles a day'],
   ['highFrom', 'The floor from which the Lampworks can be raised, and rooms cost more stone for each floor above the one below it'],
   ['highStone', 'Stone more a room costs for each floor it stands above'],
+  ['mirrorRooms', 'Mirrors hang in rooms: whispers and the great glass work that room, and a mirror with a shade in it is a door a Maw can come through (1 on, 0 off)'],
+  ['mawDoor', 'What a door is worth to a Maw choosing a room, against its workers (0: nothing)'],
+  ['doorCracks', 'Cracks in the Veil when a Maw comes through a door'],
   ['troubles', 'Each year of the open year brings a trouble (1 on, 0 off)'],
   ['troublesFrom', 'The year troubles begin in'],
   ['troubleRite', "Remembrance a rite against the year's trouble takes: half as hard until the season ends (0: none)"],
@@ -3829,6 +3882,16 @@ const GUIDE = [
     text: () => `From its second year the keep wears: a room a Maw broke stays haunted ${s.tuning.hauntDays} dawns, a Dread at each, unless masons mend it. Repairs, in the Day panel: ${fmt(s.tuning.mendStone)} stone.`,
   },
   {
+    // Round seven, phase 13: a Maw tonight, and a mirror hanging open in a room it comes for.
+    id: 'doors', target: '#open-phase',
+    when: () => s.phase === 'dusk' && !!s.tuning.mirrorRooms && !!s.night?.spawns?.some((x) => x.type === 'maw') && s.mirrors.some((m) => isDoor(s, m) && mawLure(typeOf(K(), m.room)) >= 2),
+    done: () => ui.sheet === 'phase',
+    text: () => {
+      const m = s.mirrors.find((x) => isDoor(s, x) && mawLure(typeOf(K(), x.room)) >= 2);
+      return `A Maw rises tonight, and the ${m.name} hangs open where people work, the kind of room Maws come for. If one breaks its twin, it comes through the mirror and the Veil cracks. Turn it to the wall in the Dusk panel (its shades sit the night out), or hang it where nobody works, by day.`;
+    },
+  },
+  {
     id: 'trouble', target: '#open-phase',
     when: () => s.phase === 'day' && !!troubleOf(s),
     done: () => ui.sheet === 'phase',
@@ -3945,9 +4008,11 @@ const GUIDE = [
   },
   {
     id: 'whispers', target: '#open-people',
-    when: () => first() && s.phase === 'day' && !!s.tuning.whispers && s.shades.some((d) => canWork(d) && jobCount(s, tradeOf(s, d)) > 0),
+    when: () => first() && s.phase === 'day' && !!s.tuning.whispers && s.shades.some((d) => canWork(d) && jobCount(s, coaches(s, d)) > 0),
     done: () => s.shades.some((d) => d.byDay),
-    text: () => `The dead can help by day: in People, a shade can whisper its old trade to whoever works it (×${mult(s.tuning.whisperMult)}, for ${fmt(s.tuning.whisperFade)} memory at dusk), or step out of a great glass to work in person.`,
+    text: () => s.tuning.mirrorRooms
+      ? `The dead can help by day: in People, a shade can whisper through its mirror to whoever works the room it hangs in (×${mult(s.tuning.whisperMult)}, for ${fmt(s.tuning.whisperFade)} memory at dusk), or step out of a great glass to work that room in person.`
+      : `The dead can help by day: in People, a shade can whisper its old trade to whoever works it (×${mult(s.tuning.whisperMult)}, for ${fmt(s.tuning.whisperFade)} memory at dusk), or step out of a great glass to work in person.`,
   },
   {
     id: 'church', target: '#open-phase', pause: true,
@@ -5043,6 +5108,8 @@ function onAct(name, el, ev) {
       if (ui.person) toStage();
       return bump();
     case 'assign': return game({ type: 'assign', id, room: el.value || null });
+    case 'hang': return game({ type: 'hang', id, room: el.value });
+    case 'turn': return game({ type: 'turn', id, on: !!el.dataset.on });
     case 'by-day': {
       const [how, room] = (el.value || '').split(':');
       return game({ type: 'byDay', id, how: how || null, room: room || undefined });

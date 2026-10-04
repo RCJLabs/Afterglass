@@ -801,6 +801,7 @@ The vertical slice: seven days in one keep, ending on the night of the new moon,
     - **Words:** How to play has a section for all of it and the guide two cards: How to play is 3,932 words (310 more), now 19% shorter than before phase 11 rather than a quarter, and the guide 1,447 (85 more).
     - **Not checked:** what a person does with any of it. The autopilot's measure of a decision is that it acted; a person may weigh a repair against a ward and act less, or more. Nor whether a player stops glazing where the autopilot does: one who doesn't may pile glass as before.
     - **Found on the way:** a held raid never wears the gate for the balanced plan (what's left of it after a held assault averaged 1.00), so the gate's repairs matter after a breach, about one keep-year in ten; and the Build panel priced a room as if in a bare hall when no place was chosen, which with dearer high floors would have been wrong.
+    - **Kept as it is:** you chose to accept this and move on. The later years' decisions stay sinks without stakes for now. Giving them stakes waits: for instance the year's trouble scaled to what the keep has grown into, with a phase counted done only when skipping its decisions costs keeps.
 
 **How a season plays**
 

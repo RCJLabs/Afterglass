@@ -224,6 +224,7 @@ export function newSeason(seed = Date.now() >>> 0, overrides = {}) {
       posts: {}, named: x.named, memory: x.memory, was: x.was,
     });
   }
+  hangAll(s); // round seven, phase 13: the first two mirrors hang in the first two rooms, the first dead's first
   rollDay(s);
   say(s, `Season 1, day 1. The new moon is ${tuning.seasonDays} days off. Anyone who dies inside the walls wakes at dusk as a shade.`, 'day');
   if (campaignOn(s)) {
@@ -317,17 +318,69 @@ export function capacity(s) {
   let cap = 0;
   let used = 0;
   for (const m of s.mirrors) {
-    cap += m.hidden ? mirrorUse(s, m) : mirrorCap(m); // nobody new is bound into a hidden mirror
+    cap += m.hidden || m.turned ? mirrorUse(s, m) : mirrorCap(m); // nobody new is bound into a hidden mirror, or one turned to the wall
     used += mirrorUse(s, m);
   }
   return { cap, used, free: cap - used };
 }
-const freeMirror = (s) => s.mirrors.find((m) => m.type === 'hall' && !m.hidden && mirrorUse(s, m) < mirrorCap(m)) || s.mirrors.find((m) => !m.hidden && mirrorUse(s, m) < mirrorCap(m)) || null;
+const freeMirror = (s) => {
+  const order = s.tuning.mirrorRooms ? safestFirst(s) : s.mirrors;
+  return order.find((m) => m.type === 'hall' && !m.hidden && !m.turned && mirrorUse(s, m) < mirrorCap(m)) || order.find((m) => !m.hidden && !m.turned && mirrorUse(s, m) < mirrorCap(m)) || null;
+};
+// Round seven, phase 13 (mirrorRooms): the room a mirror hangs in, the mirror hung in a room, and the doors. A
+// door is a mirror with a shade in it, neither turned to the wall nor hidden: the way between a room and its
+// twin, both ways.
+export const hangsIn = (s, m) => (s.tuning.mirrorRooms && m.room && geo(s).rooms[m.room] ? m.room : null);
+export const mirrorIn = (s, id) => (s.tuning.mirrorRooms ? s.mirrors.find((m) => m.room === id) || null : null);
+export const isDoor = (s, m) => !!hangsIn(s, m) && !m.turned && !m.hidden && mirrorUse(s, m) > 0;
+export const doorAt = (s, id) => {
+  const m = mirrorIn(s, id);
+  return m && isDoor(s, m) ? m : null;
+};
+// How many floors below the Veil a mirror hangs by night (0 under it), or far for one hung nowhere.
+export const veilDistance = (s, m) => {
+  const id = hangsIn(s, m);
+  return id ? geo(s).veil - geo(s).rooms[id].f : 99;
+};
+// How much a room's kind draws the Maws, who come for work: 0 for a room nobody works by day or night (the
+// Crypt, a Granary, a Cellar), 1 for a bare hall (something may yet be raised in it), 2 for one worked only by
+// night, 3 for one worked by day.
+export const mawLure = (type) => (DAY_ROOMS[type]?.out ? 3 : TWINS[type]?.job ? 2 : type === 'empty' ? 1 : 0);
+// The mirrors, the safest door first: hung where the Maws come least, then nearest the Veil (round seven, phase 13).
+const safestFirst = (s) => {
+  const lure = (m) => (hangsIn(s, m) ? mawLure(geo(s).rooms[m.room].type) : 9);
+  return [...s.mirrors].sort((a, b) => lure(a) - lure(b) || veilDistance(s, a) - veilDistance(s, b));
+};
+// Where a new mirror hangs unless told: the free room that draws the Maws least, the nearest the Veil of those,
+// the left one first.
+export function hangSpot(s) {
+  const taken = new Set(s.mirrors.map((m) => hangsIn(s, m)).filter(Boolean));
+  const free = Object.values(geo(s).rooms).filter((r) => !taken.has(r.id));
+  return free.sort((a, b) => mawLure(a.type) - mawLure(b.type) || b.f - a.f || a.x0 - b.x0)[0]?.id ?? null;
+}
+// A mirror's name says where it hangs: the Hearth pier glass.
+function hangMirror(s, m, id) {
+  m.room = id;
+  m.name = `${DAY_ROOMS[typeOf(geo(s), id)]?.name || 'Hall'} ${MIRRORS[m.type].name}`;
+  // Whispers and steps go where the mirror hangs: in a room nobody works, they stop.
+  if (!DAY_ROOMS[typeOf(geo(s), id)]?.out) for (const d of s.shades) if (d.mirror === m.id && (d.byDay?.how === 'whisper' || d.byDay?.how === 'step')) d.byDay = null;
+}
+// Mirrors with nowhere to hang (a keep that takes up mirrorRooms, or one whose room is gone) go to the free
+// rooms nearest the Veil, the fullest first.
+export function hangAll(s) {
+  if (!s.tuning.mirrorRooms) return;
+  for (const m of [...s.mirrors].sort((a, b) => mirrorUse(s, b) - mirrorUse(s, a))) {
+    if (hangsIn(s, m)) continue;
+    const id = hangSpot(s);
+    if (id) hangMirror(s, m, id);
+    else m.room = null;
+  }
+}
 // Whether a shade's mirror is a great-glass hall, where the dead fade hallFade as fast (round seven, phase 12).
 export const inHall = (s, d) => byId(s.mirrors, d.mirror)?.type === 'hall';
 // A shade down in the Deep (from dusk to dawn) is out of the Tain for the night, and one in a mirror hidden
 // from a crusade is out of everything until it's brought out.
-export const canWork = (d) => !!d.mirror && WORKING.includes(d.kind) && !d.deep && !d.hidden;
+export const canWork = (d) => !!d.mirror && WORKING.includes(d.kind) && !d.deep && !d.hidden && !d.turned;
 // A shade's act (round six): which it has, whether it's at it now, and what it costs.
 export const actOf = (d) => Object.keys(ACTS).find((k) => ACTS[k].kind === d.kind) || null;
 export const acting = (s, d, what) => !!d.act && d.act.what === what && tainAwake(s) && s.t < d.act.until;
@@ -387,7 +440,7 @@ export function roomPower(s) {
   const by = {};
   const coached = whisperedTrades(s);
   for (const p of s.living) if (p.job && !p.fighting && !p.walls) (by[p.job] ||= []).push(livingMult(s, p) * (coached.has(p.job) ? s.tuning.whisperMult : 1) * musterOf(s, p));
-  for (const d of s.shades) if (stepsThrough(s, d)) (by[d.byDay.room] ||= []).push(perf(d) * s.tuning.stepWork);
+  for (const d of s.shades) if (stepsThrough(s, d) && stepRoom(s, d)) (by[stepRoom(s, d)] ||= []).push(perf(d) * s.tuning.stepWork);
   if (storesBarred(s)) for (const k of BARRED) delete by[k];
   if (besieged(s)) delete by.yard; // the gate is shut: nobody quarries outside
   if (embargoed(s)) delete by.glazier; // no silver to be had
@@ -550,11 +603,22 @@ export const jobCount = (s, type) => s.living.filter((p) => p.job === type).leng
 export const whispers = (s, d) => !!s.tuning.whispers && canWork(d) && d.byDay?.how === 'whisper';
 export const stepsThrough = (s, d) => !!s.tuning.whispers && canWork(d) && d.byDay?.how === 'step' && inGreatGlass(s, d);
 export const inGreatGlass = (s, d) => byId(s.mirrors, d.mirror)?.type === 'great';
-export const whisperedTrades = (s) => new Set(s.shades.filter((d) => whispers(s, d)).map((d) => tradeOf(s, d)));
+export const whisperedTrades = (s) => new Set(s.shades.filter((d) => whispers(s, d)).map((d) => coaches(s, d)));
+// The room a shade's mirror hangs in, by type (round seven, phase 13), or null.
+const mirrorRoomType = (s, d) => {
+  const m = byId(s.mirrors, d.mirror);
+  const id = m && hangsIn(s, m);
+  return id ? typeOf(geo(s), id) : null;
+};
+// Whom a shade's whisper coaches: since round seven's phase 13 (mirrorRooms) whoever works the room its mirror
+// hangs in; before, its old trade. And the room a great glass's shade steps into: since phase 13 the one the
+// glass hangs in; before, the one chosen.
+export const coaches = (s, d) => (s.tuning.mirrorRooms ? mirrorRoomType(s, d) : tradeOf(s, d));
+export const stepRoom = (s, d) => (s.tuning.mirrorRooms ? mirrorRoomType(s, d) : d.byDay?.room ?? null);
 // A shade's trade: the job it had in life (the keep's first dead have theirs in the ledger).
 export const tradeOf = (s, d) => d.job || ledgerOf(s, d.id)?.job || null;
 // Everyone at a job today, the living and the dead who stepped through.
-export const handsAt = (s, type) => jobCount(s, type) + s.shades.filter((d) => stepsThrough(s, d) && d.byDay.room === type).length;
+export const handsAt = (s, type) => jobCount(s, type) + s.shades.filter((d) => stepsThrough(s, d) && stepRoom(s, d) === type).length;
 // A ward's price tonight: half while a Bitter shade stays in the glass.
 export const wardCost = (s) => Math.max(1, s.tuning.wardCost - (studied(s, 'wards', 'less') ?? 0)) * (s.shades.some((d) => canWork(d) && shadeTrait(s, d)?.wards) ? SHADE_TRAITS.bitter.wards : 1);
 // Round seven, phase 12: the standing wards set by day this season (standingWard), and what one costs today:
@@ -1659,7 +1723,7 @@ function dayTired(s) {
       d.byDay = null; // it can't any more: out of the glass, turned, or no longer in a great glass
       continue;
     }
-    if (!step && !jobCount(s, tradeOf(s, d))) continue;
+    if (!step && !jobCount(s, coaches(s, d))) continue;
     const loss = (step ? T.stepFade : T.whisperFade) * (d.named ? 0.5 : 1) * (shadeTrait(s, d)?.fade ?? 1);
     d.memory = Math.round((d.memory - loss) * 100) / 100;
     const e = ledgerOf(s, d.id);
@@ -1684,8 +1748,12 @@ export function crossingPreview(s) {
       return { b, to: 'funeral' };
     }
     if (b.kind === 'wraith' || b.kind === 'restless') return { b, to: b.kind };
-    // A great-glass hall with room first (round seven, phase 12): the dead fade slower there.
-    const m = s.mirrors.find((x) => x.type === 'hall' && use[x.id] < mirrorCap(x)) || s.mirrors.find((x) => use[x.id] < mirrorCap(x));
+    // A great-glass hall with room first (round seven, phase 12): the dead fade slower there. Since phase 13
+    // (mirrorRooms) none wakes in a mirror turned to the wall, or one hidden from a crusade, as was meant, and
+    // the rest wake in the safest door with room: hung where the Maws come least, the nearest the Veil of those.
+    const open = (x) => !s.tuning.mirrorRooms || (!x.turned && !x.hidden);
+    const order = s.tuning.mirrorRooms ? safestFirst(s) : s.mirrors;
+    const m = order.find((x) => x.type === 'hall' && open(x) && use[x.id] < mirrorCap(x)) || order.find((x) => open(x) && use[x.id] < mirrorCap(x));
     if (!m) return { b, to: 'overflow' };
     use[m.id]++;
     return { b, to: 'mirror', mirror: m };
@@ -2782,7 +2850,8 @@ function mawTargets(s, L, m) {
   for (const k of candles) if (k && !out.some((t) => t.id === k.id)) out.push({ kind: 'candle', id: k.id, f: k.f, x: k.x, worth: s.tuning.mawLine });
   for (const r of Object.values(G.rooms)) {
     if (n.broken.includes(r.id)) continue;
-    const worth = roomWorth(s, r);
+    // Round seven, phase 13 (mirrorRooms): an open mirror in the room above is a way through, worth mawDoor.
+    const worth = roomWorth(s, r) + (doorAt(s, r.id) ? s.tuning.mawDoor : 0);
     if (worth > 0) out.push({ kind: 'room', id: r.id, f: r.f, x: (r.x0 + r.x1) / 2, worth });
   }
   return out;
@@ -2838,6 +2907,11 @@ function breakRoom(s, m, id) {
   say(s, `A Maw has broken the ${TWINS[type].name}. Nobody works there tonight, and the ${DAY_ROOMS[type].name} is haunted: ${hauntCost(s)}.`, 'bad', true);
   cue(s, 'broken', m.f, m.x);
   m.breaking = 0;
+  const door = doorAt(s, id);
+  if (door) {
+    comeThrough(s, m, door);
+    return;
+  }
   // Round seven, phase 7: it stays on to ruin the room, until met (mawRuin); as before, it moves on.
   if (s.tuning.mawRuin > 0) {
     m.ruining = id;
@@ -2846,6 +2920,30 @@ function breakRoom(s, m, id) {
   }
   m.target = null;
   m.replan = 0;
+}
+// Round seven, phase 13 (mirrorRooms): a Maw that breaks a twin where a mirror stands open comes through it into
+// the keep above. The Veil cracks (doorCracks), as when the Unlit cross at the Veil, and the Maw is gone from
+// the Tain.
+function comeThrough(s, maw, m) {
+  const n = s.night;
+  const k = s.tuning.doorCracks;
+  const where = DAY_ROOMS[typeOf(geo(s), m.room)]?.name || 'keep';
+  n.foes = n.foes.filter((x) => x !== maw);
+  n.stats.crossed++;
+  n.stats.through = (n.stats.through || 0) + 1;
+  if (!veilKept(s) && s.cracks + k >= cracksOf(s)) keepMoment(s, 'broke', maw, `A Maw came through the ${m.name} and broke the Veil.`);
+  else keepMoment(s, 'crack', maw, `A Maw came through the ${m.name} into the ${where}.`);
+  s.cracks += k;
+  n.stats.cracks += k;
+  if (veilKept(s) && s.cracks >= cracksOf(s)) {
+    s.cracks = cracksOf(s) - 1;
+    say(s, `The Maw came through the ${m.name} into the ${where}. The Veil holds by a thread; from night ${TUTORIAL.safeUntil}, that would break it and lose the keep.`, 'bad', 'crack');
+  } else say(s, `The Maw came through the ${m.name} into the ${where}: the Veil cracks, ${s.cracks} of ${cracksOf(s)}. A mirror turned to the wall lets nothing through.`, 'bad', 'crack');
+  cue(s, 'crack', maw.f, maw.x);
+  if (tainAwake(s) && s.cracks >= cracksOf(s)) {
+    if (veilKept(s)) s.cracks = cracksOf(s) - 1;
+    else lose(s, 'veil', 'The Veil has broken. The Unlit are loose in the keep above.');
+  }
 }
 // A room a Maw was left alone in: tomorrow's work there is ruinWork, and the rite pays dreadPerRuin more.
 function ruinRoom(s, m, id) {
@@ -3848,17 +3946,19 @@ const ACTIONS = {
       return;
     }
     if (!canWork(d)) return `${d.name} can't help anyone from where they are.`;
+    const rooms = !!s.tuning.mirrorRooms; // round seven, phase 13: both go to the room the mirror hangs in
     if (how === 'whisper') {
-      const trade = tradeOf(s, d);
+      const trade = coaches(s, d);
       const R = trade && DAY_ROOMS[trade];
-      if (!R?.out) return `${d.name} had no trade in the keep to whisper.`;
+      if (!R?.out) return rooms ? `Nobody works where the ${byId(s.mirrors, d.mirror).name} hangs: hang it in a room someone works.` : `${d.name} had no trade in the keep to whisper.`;
       if (!jobCap(s, trade)) return `There is no ${R.name} for ${d.name} to whisper to.`;
-      const other = s.shades.find((x) => x !== d && whispers(s, x) && tradeOf(s, x) === trade);
+      const other = s.shades.find((x) => x !== d && whispers(s, x) && coaches(s, x) === trade);
       if (other) return `${other.name} already whispers to the ${R.name}.`;
       d.byDay = { how };
-      say(s, `${d.name} will whisper to whoever works the ${R.name}, as they did in life.`);
+      say(s, rooms ? `${d.name} will whisper through the ${byId(s.mirrors, d.mirror).name} to whoever works the ${R.name}.` : `${d.name} will whisper to whoever works the ${R.name}, as they did in life.`);
     } else if (how === 'step') {
       if (!inGreatGlass(s, d)) return 'Only the shades of a great glass can step through by day.';
+      if (rooms) room = stepRoom(s, d);
       const R = DAY_ROOMS[room];
       if (!R?.out) return 'No one works there.';
       const cap = jobCap(s, room);
@@ -3907,7 +4007,10 @@ const ACTIONS = {
         d.path = (d.path || []).map((st) => ({ ...st, f: st.f + 1 }));
       }
     } else {
+      const bare = keep.floors[at.f][at.slot].id;
       s.keep = { floors: keep.floors.map((fl, f) => (f === at.f ? fl.map((r, i) => (i === at.slot ? made : r)) : fl)) };
+      const m = mirrorIn(s, bare); // a mirror hung in the bare hall hangs on in the room raised there
+      if (m) hangMirror(s, m, made.id);
     }
     const G = geo(s);
     const an = `${/^[AEIOU]/.test(DAY_ROOMS[room].name) ? 'An' : 'A'} ${DAY_ROOMS[room].name}`;
@@ -3933,6 +4036,8 @@ const ACTIONS = {
     let k = 2;
     while (ids.has(`empty${k}`)) k++;
     s.keep = { floors: keep.floors.map((fl) => fl.map((x) => (x.id === id ? { id: `empty${k}`, type: 'empty' } : x))) };
+    const m = mirrorIn(s, id); // its mirror hangs on in the bare hall
+    if (m) hangMirror(s, m, `empty${k}`);
     s.res.stone = (s.res.stone || 0) + back;
     clearDamage(s, id);
     const name = DAY_ROOMS[r.type].name;
@@ -4191,16 +4296,73 @@ const ACTIONS = {
     say(s, `The ${was} is silvered anew as the ${m.name}: room for ${MIRRORS[next].cap}.`, 'good');
     cue(s, 'mirror');
   },
-  build(s, { mirror }) {
+  build(s, { mirror, room }) {
     const M = MIRRORS[mirror];
     if (!M || !mirrorsOf(s.tuning).includes(mirror)) return 'No such mirror.';
     if (embargoed(s)) return "Under the Church's embargo there's no silver to be had for a mirror.";
     const glass = mirrorGlass(s, M.glass);
     if (s.res.glass + EPS < glass) return `A ${M.name} needs ${glass} glass.`;
+    // Round seven, phase 13 (mirrorRooms): it hangs in a room with no mirror, the one asked for or the hang spot.
+    const at = s.tuning.mirrorRooms ? room ?? hangSpot(s) : null;
+    if (s.tuning.mirrorRooms) {
+      if (!at) return 'Every room has its mirror: there is nowhere to hang another.';
+      if (!geo(s).rooms[at]) return 'There is no such room.';
+      if (mirrorIn(s, at)) return `The ${mirrorIn(s, at).name} hangs there already.`;
+    }
     s.res.glass = Math.max(0, s.res.glass - glass);
     const m = addMirror(s, mirror, nextPlace(s));
-    say(s, `The ${m.name} is finished: room for ${M.cap} more ${M.cap === 1 ? 'shade' : 'shades'}.`, 'good');
+    if (at) hangMirror(s, m, at);
+    say(s, `The ${m.name} is finished: room for ${M.cap} more ${M.cap === 1 ? 'shade' : 'shades'}.${at ? ` By night it opens on the ${TWINS[typeOf(geo(s), at)]?.name || 'bare hall'}, ${tainPlace(geo(s), geo(s).rooms[at].f, true)}.` : ''}`, 'good');
     cue(s, 'mirror');
+  },
+  // Round seven, phase 13 (mirrorRooms): hang a mirror in another room, by day, its shades and all. Into a room
+  // that has a mirror, the two change places.
+  hang(s, { id, room }) {
+    if (!s.tuning.mirrorRooms) return 'Mirrors hang where they hang.';
+    if (s.phase !== 'day') return 'Mirrors are moved by day.';
+    const m = byId(s.mirrors, id);
+    if (!m) return 'No such mirror.';
+    const G = geo(s);
+    if (!G.rooms[room]) return 'There is no such room.';
+    if (hangsIn(s, m) === room) return `The ${m.name} hangs there already.`;
+    const was = hangsIn(s, m);
+    const other = mirrorIn(s, room);
+    const before = m.name;
+    hangMirror(s, m, room);
+    if (other) {
+      if (was) hangMirror(s, other, was);
+      else other.room = null;
+    }
+    const twin = `by night it opens on the ${TWINS[typeOf(G, room)]?.name || 'bare hall'}, ${tainPlace(G, G.rooms[room].f, true)}`;
+    say(s, `The ${before} is hung in the ${DAY_ROOMS[typeOf(G, room)].name}: ${twin}.${other ? ` The ${other.name.replace(/^\S+ /, '')} that hung there goes where it was${was ? `, as the ${other.name}` : ''}.` : ''}`);
+    cue(s, 'mirror');
+  },
+  // Round seven, phase 13 (mirrorRooms): turn a mirror to the wall, by day or at dusk, or back. Turned, it is no
+  // door, and nobody whispers or steps through it; its shades sit out every day and night until it's turned
+  // back, and nobody new wakes in it.
+  turn(s, { id, on }) {
+    if (!s.tuning.mirrorRooms) return 'Mirrors are not turned in this keep.';
+    if (s.phase !== 'day' && s.phase !== 'dusk') return 'Mirrors are turned by day or at dusk.';
+    const m = byId(s.mirrors, id);
+    if (!m) return 'No such mirror.';
+    const ds = s.shades.filter((d) => d.mirror === m.id);
+    if (!on) {
+      if (!m.turned) return `The ${m.name} faces the room.`;
+      m.turned = false;
+      for (const d of ds) d.turned = false;
+      say(s, `The ${m.name} is turned back to face the room.${ds.length ? ` ${listNames(ds.map((d) => d.name))} ${ds.length === 1 ? 'is' : 'are'} back.` : ''}`);
+      cue(s, 'mirror');
+      return undefined;
+    }
+    if (m.turned) return `The ${m.name} is already turned to the wall.`;
+    m.turned = true;
+    for (const d of ds) {
+      d.turned = true;
+      if (d.byDay) d.byDay = null;
+    }
+    say(s, `The ${m.name} is turned to the wall: nothing comes through it.${ds.length ? ` ${listNames(ds.map((d) => d.name))} sit${ds.length === 1 ? 's' : ''} out until it's turned back.` : ''}`);
+    cue(s, 'post');
+    return undefined;
   },
   // Send the Yard's masons to a fire, or ring the bell: everyone well and not already fighting a fire drops
   // their work and runs to it.
@@ -4710,6 +4872,7 @@ const ACTIONS = {
     const T = s.tuning;
     nextSeason(s);
     const m = freeMirror(s) || addMirror(s, 'hand', nextPlace(s));
+    hangAll(s); // a hand mirror made for the Keeper hangs where one would
     // Each keeper who takes the glass after the first is named in turn: The Keeper, then The Second Keeper.
     const before = s.ledger.filter((e) => e.from === 'keeper').length;
     const name = before ? `The ${KEEPER_ORDINALS[before] || `${before + 1}th`} Keeper` : 'The Keeper';
@@ -4734,6 +4897,15 @@ const ACTIONS = {
     if (KINDS_OF_KEEP.includes(key)) return 'That is what kind of keep this is, chosen when it was made.';
     if ((key === 'daySecs' || key === 'nightSecs') && v < 10) return 'At least 10 seconds.';
     s.tuning[key] = v;
+    if (key === 'mirrorRooms') {
+      // Round seven, phase 13: a keep taking up mirrors in rooms hangs the ones it has; one giving it up turns
+      // its turned mirrors back.
+      if (v) hangAll(s);
+      else {
+        for (const m of s.mirrors) delete m.turned;
+        for (const d of s.shades) delete d.turned;
+      }
+    }
   },
   debug(s, a) {
     if (a.what === 'give') {
@@ -4869,6 +5041,7 @@ export const RULES_SINCE = [
   { key: 'highStone', old: 0, since: '2026-10-04', what: 'a room above the seventh floor costs more stone (phase 12)' },
   { key: 'veilWard', old: 0, since: '2026-10-04', what: 'a ward on the Veil for the season (phase 12)' },
   { key: 'troubleRite', old: 0, since: '2026-10-04', what: "a rite against the year's trouble (phase 12)" },
+  { key: 'mirrorRooms', old: 0, since: '2026-10-04', what: 'mirrors hang in rooms (phase 13)' },
 ];
 export function upgrade(g) {
   g.keep ??= { floors: FULL_KEEP.floors.map((fl) => fl.map((r) => ({ ...r }))) };

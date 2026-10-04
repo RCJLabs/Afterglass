@@ -235,7 +235,13 @@ export function howTo(T) {
       items: [
         `Glass makes mirrors, from the Day panel: ${mirrorsOf(T).map((k) => MIRRORS[k]).map((m) => `a ${m.name} for ${m.glass} glass holds ${m.cap}`).join(', ')}.${T.glassHalls ? ` The newly dead are bound into a great-glass hall first, and fade there ${T.hallFade === 0.5 ? 'half' : `${mult(T.hallFade)} times`} as fast.` : ''}`,
         `Breaking a mirror in an emergency frees everyone in it: +1 remembrance and Dread −${n1(T.breakDread)} for each. The mirror is lost, and ${T.badLuckDays} days of bad luck follow: sickness ${times(T.badLuck)} as often, and fire likelier.`,
-        `By day a shade can whisper its old trade to whoever works it now (×${mult(T.whisperMult)}, for ${n1(T.whisperFade)} of its memory at dusk), or step out of a great glass to work a room in person; both are set in People.`,
+        ...(T.mirrorRooms
+          ? [
+              'Each mirror hangs in a room, one to a room: a new one where the Maws come least, a room nobody works by day or night (the Crypt, a Granary, a Cellar, a bare hall), the nearest the Veil of those. Hang it elsewhere by day, from its row in the Day panel; the newly dead wake in the safest one with room.',
+              `By day a shade can whisper through its mirror to whoever works that room (×${mult(T.whisperMult)}, for ${n1(T.whisperFade)} of its memory at dusk), or step out of a great glass to work that room in person; both are set in People.`,
+              `A mirror with a shade in it is a door between its room and the room's twin. Maws come for work, by day or by night; one that breaks the twin of a room where a door hangs comes through it, and the Veil cracks${T.doorCracks === 1 ? '' : ` ${T.doorCracks} times`}. The black mirror says when tonight's Maw is headed for one. Turned to the wall, by day or at dusk, a mirror lets nothing through, but its shades sit out until it's turned back, and nobody new wakes in it.`,
+            ]
+          : [`By day a shade can whisper its old trade to whoever works it now (×${mult(T.whisperMult)}, for ${n1(T.whisperFade)} of its memory at dusk), or step out of a great glass to work a room in person; both are set in People.`]),
         ...(T.deep ? [`At dusk a shade can go down into the Deep instead of taking a post: not far, deep or deepest. It's gone until dawn, and brings back ${or(T.deepSilver.map(String))} quicksilver by depth, unless something catches it (${or(T.deepCatch.map(pct))} of the time, half as often for a Lurker): then it comes back empty-handed, ${n1(T.deepDrain)} memory poorer, or not at all. Never on the new moon.`, `Quicksilver upgrades a mirror where it hangs, shades and all: a hand mirror into a pier glass for ${T.upgradeSilver.pier} quicksilver and ${T.upgradeGlass.pier} glass, a pier glass into a great glass for ${T.upgradeSilver.great} and ${T.upgradeGlass.great}.`] : []),
       ],
     },

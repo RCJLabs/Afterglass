@@ -4,8 +4,10 @@ import { newSeason, step, act, upgrade, replay, roomPower, defense, perf, handsA
 import { SHADE_TRAITS, DAY_ROOMS } from '../src/slice/data.js';
 import { epitaph } from '../src/slice/book.js';
 
-// The original four-floor keep (every trade has its room), nothing by day to get in the way.
-const quiet = { startFloors: 4, sickChance: 0, oldAgeChance: 0, raidDays: { 2: 0, 4: 0, 6: 0 }, fire: 0, dreamwell: 0 };
+// The original four-floor keep (every trade has its room), nothing by day to get in the way. These are the
+// rules before round seven's phase 13, a whisper by trade and a step into any room (mirrorRooms off): the
+// mirrors in rooms are test/mirrors.test.js's.
+const quiet = { startFloors: 4, sickChance: 0, oldAgeChance: 0, raidDays: { 2: 0, 4: 0, 6: 0 }, fire: 0, dreamwell: 0, mirrorRooms: 0 };
 const ok = (s, a) => {
   const r = act(s, a);
   assert.ok(r.ok, `${a.type}: ${r.error}`);

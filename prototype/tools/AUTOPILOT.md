@@ -103,6 +103,11 @@ Each is an environment variable, read once when the file loads, so a measurement
 | `AP_NOVEIL=1` | Never wards the Veil for the season (phase 12). |
 | `AP_NORITE=1` | Holds no rite against the year's trouble (phase 12). |
 | `AP_STAND=none` or `rift` | Sets no standing wards, the Veil's included; or, after the Undergate and a wet season's moat, one on the right-hand rift too (phase 12). By default it sets them with essence the store would spill. |
+| `AP_HANG=worked`, `deep` or `none` | Where the mirrors hang (phase 13). By default the fullest hangs in the room that draws the Maws least (one nobody works by day or night), the nearest the Veil of those, and so on; `worked` hangs the fullest in worked rooms nearest the Veil, `deep` the fullest deepest, and `none` leaves each where it was built (to measure what the place is worth). |
+| `AP_NOTURN=1` | Never turns a mirror to the wall (phase 13). |
+| `AP_TURN=forecast` | Turns to the wall only a door the black mirror says tonight's Maw is headed for, once the posts and candles are set (phase 13). By default, on a Maw night, it turns a door in a worked room `AP_TURNFROM` floors or more below the Veil (2 by default). |
+| `AP_TURNFROM=n` | How many floors below the Veil a door in a worked room must hang for the default turning (phase 13). |
+| `AP_TURNMOON=1` | Turns doors on the new moon's night too, which by default it doesn't: every shade is wanted then (phase 13). |
 
 ### The year's end and the campaign
 

@@ -12,6 +12,8 @@ const KNOWN = new Set(JSON.parse(readFileSync(new URL('./tuning-keys.json', impo
 // Keys added since whose default plays as before in an old keep (say, a number only a switched-off rule reads),
 // each with why.
 const DEFAULT_OK = {
+  mawDoor: 'read only for a door, a mirror hung in a room, and mirrorRooms is 0 for keeps before it',
+  doorCracks: 'read only when a Maw comes through a door, and mirrorRooms is 0 for keeps before it',
   mawRuin: 'off (0) by default, as keeps before it played',
   hollowLure: 'off (0) by default, as keeps before it played',
   dreadPerRuin: 'read only for a ruined room, and mawRuin is 0 unless a keep sets it, so none is ruined',

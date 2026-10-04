@@ -373,6 +373,16 @@ export const TUNING = {
   whisperFade: 8,
   stepWork: 1,
   stepFade: 8,
+  // Round seven, phase 13: mirrors in rooms (mirrorRooms). Every mirror hangs in a room of the keep, one to a
+  // room: its shades whisper to whoever works that room, and a great glass's step through into it. A mirror
+  // with a shade in it is a door between the room and its twin: a Maw that breaks the twin comes through it,
+  // doorCracks cracks in the Veil. A mirror turned to the wall, by day or at dusk, is no door, but its shades
+  // sit out every day and night until it's turned back. mawDoor is what a door is worth to a Maw choosing a
+  // room, against the room's workers: 0, for at 1 or 2 the Maws went through the line for the mirrors under the
+  // Veil, where no mirror could be kept safe (README, problem 56).
+  mirrorRooms: 1,
+  mawDoor: 0,
+  doorCracks: 1,
 
   // A year (round three): four seasons of seven days, from spring. Days lengthen into summer and shorten into
   // winter, and nights the other way: each season multiplies daySecs by its seasonDay and nightSecs by its

@@ -35,6 +35,9 @@ const TONES = {
 };
 // The keep being drawn: its geometry, set at the start of every frame (it grows as rooms are built).
 let G = geoOf();
+// Round seven, phase 13 (mirrorRooms): the mirrors hang in rooms, drawn where they hang, not as the two frames
+// on the ground floor.
+let HUNG = false;
 const feet = (f) => feetOf(G, f);
 const unitAt = (u, a) => unitAtOf(G, u, a);
 const span = (id) => roomSpan(G, id);
@@ -47,6 +50,27 @@ function mirrorFrame(c, x, y) {
   R(c, x, y, 5, 7, P.amber);
   R(c, x + 1, y + 1, 3, 5, '#bfe3ef');
   D(c, x + 1, y + 1, P.white);
+}
+// Round seven, phase 13: each mirror where it hangs, on the room's right wall, by day in the room and by night in
+// its twin. Turned to the wall, its wooden back; a door (a shade in it) glows in the Tain.
+const HANG_DX = 41;
+function hungMirrors(c, s, t, tain) {
+  for (const m of s.mirrors) {
+    const r = m.room && G.rooms[m.room];
+    if (!r || m.hidden) continue;
+    const x = r.x0 + HANG_DX;
+    const y = G.floors[r.f].y + 3;
+    if (m.turned) {
+      R(c, x, y, 5, 7, P.brown);
+      R(c, x + 1, y + 1, 3, 5, P.clay);
+      continue;
+    }
+    const door = s.shades.some((d) => d.mirror === m.id);
+    if (tain && door) glow(c, x + 2, y + 3, 5, '#f0b0ff', 0.18 + 0.06 * Math.sin((t || 0) * 1.5 + x));
+    R(c, x, y, 5, 7, tain ? P.mauve : P.amber);
+    R(c, x + 1, y + 1, 3, 5, tain ? (door ? UMBRA[7] : P.indigo) : '#bfe3ef');
+    D(c, x + 1, y + 1, P.white);
+  }
 }
 
 // Room furniture, placed clear of the ladders and hatches at the stairs.
@@ -148,7 +172,7 @@ const FURNISH = {
     R(c, x + 2, y + 6, 6, 1, P.clay);
     D(c, x + 3, y + 5, P.bone);
     D(c, x + 6, y + 5, P.green);
-    if (f === G.veil) mirrorFrame(c, MAP.mirrors[0].x - 2, y + 4);
+    if (f === G.veil && !HUNG) mirrorFrame(c, MAP.mirrors[0].x - 2, y + 4);
   },
   forge(c, x, y) {
     // The forge fire under its hood, the anvil, a rack of blades and the quench tub.
@@ -199,7 +223,7 @@ const FURNISH = {
     }
     R(c, x + 4, y + 14, 14, 4, P.slate);
     R(c, x + 4, y + 14, 14, 1, P.steel);
-    if (f === G.veil) mirrorFrame(c, MAP.mirrors[1].x - 2, y + 4);
+    if (f === G.veil && !HUNG) mirrorFrame(c, MAP.mirrors[1].x - 2, y + 4);
   },
   // Round six's three. The Library: shelves of books, and a reading desk with an open book and a candle.
   library(c, x, y) {
@@ -420,10 +444,11 @@ function nightKeepLayer(L) {
 // Built once per layout: a new room means new layers.
 let cache = null;
 function layers() {
-  if (cache && cache.key === G.key) return cache;
+  const key = `${G.key}${HUNG ? '|hung' : ''}`;
+  if (cache && cache.key === key) return cache;
   const rnd = rngOf(20260926);
   const keep = keepLayer(rnd);
-  cache = { key: G.key, y0: roofY(), keep, tain: tainLayer(keep, rnd) };
+  cache = { key, y0: roofY(), keep, tain: tainLayer(keep, rnd) };
   cache.nightKeep = nightKeepLayer(cache);
   return cache;
 }
@@ -632,7 +657,9 @@ function dayActors(c, s, t, dusk = 0) {
   for (const p of s.living) if (p.job !== 'yard' && !onWalk.includes(p)) (byType[p.job || 'hearth'] ||= []).push(p);
   const dead = s.tuning.whispers && !dusk ? s.shades.filter((d) => d.byDay && d.mirror) : [];
   for (const d of dead) {
-    if (d.byDay.how === 'step' && s.mirrors.find((m) => m.id === d.mirror)?.type === 'great' && d.byDay.room !== 'yard') (byType[d.byDay.room] ||= []).push({ shade: d });
+    const glass = s.mirrors.find((m) => m.id === d.mirror);
+    const room = s.tuning.mirrorRooms ? glass?.room && geo(s).rooms[glass.room]?.type : d.byDay.room; // the glass's own room since round seven's phase 13
+    if (d.byDay.how === 'step' && s.mirrors.find((m) => m.id === d.mirror)?.type === 'great' && room && room !== 'yard') (byType[room] ||= []).push({ shade: d });
   }
   const cap = s.tuning.roomCap || 99;
   const byRoom = new Map();
@@ -1109,6 +1136,7 @@ function composeTain(s, t, opts = {}) {
   c.drawImage(L.tain, 0, 0);
   c.setTransform(1, 0, 0, 1, 0, -y0);
   for (const ch of every('chapel')) ring(c, ch.x0 + 29, G.floors[ch.f].y + 8, 4 + (MF(t * 3) % 3), UMBRA[5], (dx, dy) => dy < 0);
+  if (HUNG) hungMirrors(c, s, t, true);
   const candles = n?.candles || [];
   // A candle stands on its stick; a lantern hangs from the hand of the shade carrying it.
   const flames = candles.map((k) => {
@@ -1376,6 +1404,7 @@ function dayScene(c, w, h, s, v) {
       });
     }
     u.drawImage(L.keep, 0, L.y0);
+    if (HUNG) hungMirrors(u, s, t, false);
     if (dk > 0) A(u, dk, () => u.drawImage(L.nightKeep, 0, L.y0));
     if (sunset > 0 && dk < 0.6) A(u, 0.25 * sunset * (1 - dk / 0.6), () => R(u, cx, yTop, w, upH, P.orange));
     dayActors(u, s, t, dk);
@@ -1504,6 +1533,7 @@ function eclipseScene(c, w, h, s, v) {
 // picture is turned over, so the Tain reads upright above the Veil.
 export function drawScene(out, s, v) {
   G = geo(s);
+  HUNG = !!s.tuning?.mirrorRooms;
   const target = v.flip ? buf('flip', out.width, out.height) : out;
   const c = ctxOf(target);
   c.setTransform(1, 0, 0, 1, 0, 0);
@@ -1526,6 +1556,7 @@ export function drawScene(out, s, v) {
 // spot), reflected or upright as the player views it. One canvas pixel per world pixel.
 export function drawMoment(out, s, m, v = {}) {
   G = geo(s);
+  HUNG = !!s.tuning?.mirrorRooms;
   const L = layers();
   const ghost = { ...s, night: { ...m.frame, spawns: [] }, shades: m.frame.shades };
   const tain = composeTain(ghost, 0, { ambient: 0.22, marks: m.kind === 'tide' ? [] : [{ f: m.f, x: m.x }] });

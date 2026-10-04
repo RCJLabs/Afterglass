@@ -240,7 +240,7 @@ test('a standing ward, set by day, holds every night left in the season, and goe
 });
 
 test('a great-glass hall holds eight, the newly dead are bound into it first, and they fade half as fast there', () => {
-  const s = newSeason(3, calm);
+  const s = newSeason(3, { ...calm, mirrorRooms: 0 }); // two rooms, both with their mirror: none to hang a third in
   s.res.glass = 100;
   ok(s, { type: 'build', mirror: 'hall' });
   const hall = s.mirrors.at(-1);
@@ -253,7 +253,7 @@ test('a great-glass hall holds eight, the newly dead are bound into it first, an
   assert.equal(d.mirror, hall.id, 'bound into the hall');
   assert.ok(inHall(s, d));
   // A great glass grows into one with quicksilver.
-  const t = newSeason(4, calm);
+  const t = newSeason(4, { ...calm, mirrorRooms: 0 });
   Object.assign(t.res, { glass: 100, quicksilver: 20 });
   ok(t, { type: 'build', mirror: 'great' });
   ok(t, { type: 'upgradeMirror', id: t.mirrors.at(-1).id });

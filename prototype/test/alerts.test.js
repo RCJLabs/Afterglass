@@ -13,6 +13,9 @@ const OLD_OPENS = /^The eclipse\.|^Midsummer\.|Raiders on the road|The camp outs
 const OLD_FLASH = /slipped through the Veil|tore through the Veil/;
 // Where the words missed: the crusade on the road and at the gate is a raid, and now pauses and opens as one.
 const CRUSADE = /^The crusade (is on the road|is at the gate|comes today)/;
+// New since the words: a Maw coming through a mirror into the keep (round seven, phase 13) cracks the Veil, and
+// flashes it as the Unlit slipping through it do.
+const THROUGH = /^The Maw came through the /;
 
 function alertsOf(keeps) {
   return keeps.flatMap((s) => s.alerts);
@@ -30,6 +33,10 @@ test('every alert kind is a known one, and the kinds do what the words did', () 
       seen.add(a.kind);
     }
     if (CRUSADE.test(a.text)) continue;
+    if (THROUGH.test(a.text)) {
+      assert.ok(FLASHES.has(a.kind) && !STOPS.has(a.kind), `through: ${a.kind} "${a.text}"`);
+      continue;
+    }
     assert.equal(STOPS.has(a.kind), OLD_STOPS.test(a.text), `stops: ${a.kind} "${a.text}"`);
     assert.equal(OPENS.has(a.kind), OLD_OPENS.test(a.text), `opens: ${a.kind} "${a.text}"`);
     assert.equal(FLASHES.has(a.kind), OLD_FLASH.test(a.text), `flash: ${a.kind} "${a.text}"`);

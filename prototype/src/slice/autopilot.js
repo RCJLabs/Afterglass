@@ -11,10 +11,11 @@
 // on the line for the biggest tides when the essence is there, and a fighter to meet a Maw. They move a
 // shade only along a lit floor; where its way is dark it stays.
 
-import { nightTicks, hollowNeed, chapterOf, yearsEnd, bondedShade, postRoom, bareHalls, buildSpot, raiseCost, step, act, newSeason, ritePreview, crossingPreview, capacity, canWork, defense, funeralCap, choicesFor, jobCap, jobCount, eatRate, wardCost, livingTrait, shadeTrait, peopleIn, crowded, tradeOf, inGreatGlass, handsAt, seasonIndex, tributeOf, besieged, sallyOdds, embargoed, inquisition, crusadeDaysLeft, canAct, actOf, actCost, NEW_ROOMS, atTheGate, gatehouseOf, decreeOf, undergateMouth, roomReady, isGuard, armsCap, musterGain, livingCap, raidsAhead, nextRank, studyRem, standingOf, standingCost, nightsLeft, undergateOpen, mirrorGlass as mirrorGlassOf, repairing, troubleOf, eased, veilWardCost, troubled } from './sim.js';
+import { nightTicks, hollowNeed, chapterOf, yearsEnd, bondedShade, postRoom, bareHalls, buildSpot, raiseCost, step, act, newSeason, ritePreview, crossingPreview, capacity, canWork, defense, funeralCap, choicesFor, jobCap, jobCount, eatRate, wardCost, livingTrait, shadeTrait, peopleIn, crowded, tradeOf, inGreatGlass, handsAt, seasonIndex, tributeOf, besieged, sallyOdds, embargoed, inquisition, crusadeDaysLeft, canAct, actOf, actCost, NEW_ROOMS, atTheGate, gatehouseOf, decreeOf, undergateMouth, roomReady, isGuard, armsCap, musterGain, livingCap, raidsAhead, nextRank, studyRem, standingOf, standingCost, nightsLeft, undergateOpen, mirrorGlass as mirrorGlassOf, repairing, troubleOf, eased, veilWardCost, troubled, hangsIn, mirrorUse, mirrorCap, isDoor, mawLure } from './sim.js';
 import { DAY_ROOMS, MIRRORS, KINDS, MAP, TICKS_PER_SEC, VISITORS, STUDIES, CHAPTERS } from './data.js';
 import { geo, roomSpan, roomAt, roomsOf, lineSpots, lightMap, isLit } from './geo.js';
 import { STOPS } from './alerts.js';
+import { threats } from './threats.js';
 
 export const PLANS = ['balanced', 'keeper', 'mourner', 'double', 'idle', 'human'];
 
@@ -541,8 +542,52 @@ function hallMirror(s) {
   if (s.res.glass >= mirrorGlassOf(s, MIRRORS.hall.glass) + 10) doAct(s, { type: 'build', mirror: 'hall' });
 }
 
+// Round seven, phase 13 (mirrorRooms): where the mirrors hang. By day the fullest mirror hangs in the room that
+// draws the Maws least (one nobody works, by day or night), the nearest the Veil of those, the next fullest in
+// the next, and so on: an empty mirror is no door, wherever it hangs. At dusk, on a night a Maw rises (not the
+// new moon's, when every shade is wanted), a door in a worked room two floors or more below the Veil is turned
+// to the wall, its shades sitting the night out; a turned mirror with room is turned back before the crossing,
+// so the newly dead find their place. To measure what the place is worth: AP_HANG=worked hangs the fullest in
+// worked rooms nearest the Veil, AP_HANG=deep the fullest deepest, and AP_HANG=none leaves each where it was
+// built; AP_NOTURN=1 never turns one.
+const HANG = globalThis.process?.env?.AP_HANG || 'safe';
+const NOTURN = !!globalThis.process?.env?.AP_NOTURN;
+const TURN_FROM = +(globalThis.process?.env?.AP_TURNFROM || 2);
+const TURN_MOON = globalThis.process?.env?.AP_TURNMOON === '1';
+const TURN = globalThis.process?.env?.AP_TURN || 'deep'; // deep, or forecast: only a door the black mirror names
+function hangMoves(s) {
+  if (!s.tuning.mirrorRooms || HANG === 'none') return;
+  const G = geo(s);
+  const lure = (r) => (HANG === 'worked' ? -mawLure(r.type) : HANG === 'deep' ? 0 : mawLure(r.type));
+  const rooms = Object.values(G.rooms)
+    .sort((a, b) => lure(a) - lure(b) || (HANG === 'deep' ? a.f - b.f : b.f - a.f) || a.x0 - b.x0)
+    .map((r) => r.id);
+  const ms = s.mirrors.filter((m) => !m.hidden).sort((a, b) => mirrorUse(s, b) - mirrorUse(s, a) || mirrorCap(b) - mirrorCap(a));
+  ms.forEach((m, i) => {
+    if (mirrorUse(s, m) && rooms[i] && hangsIn(s, m) !== rooms[i]) doAct(s, { type: 'hang', id: m.id, room: rooms[i] });
+  });
+}
+function turnMoves(s) {
+  if (!s.tuning.mirrorRooms || NOTURN) return;
+  const G = geo(s);
+  const maw = s.night?.spawns?.some((sp) => sp.type === 'maw') && (TURN_MOON || s.day < s.tuning.seasonDays);
+  const named = TURN === 'forecast' && maw ? new Set(threats(s).maws.map((m) => m.target?.kind === 'room' && m.target.id).filter(Boolean)) : null;
+  for (const m of s.mirrors) {
+    const id = hangsIn(s, m);
+    const open = !!id && !m.hidden && mirrorUse(s, m) > 0;
+    const want = !!maw && open && (named ? named.has(id) : mawLure(G.rooms[id].type) >= 2 && G.veil - G.rooms[id].f >= TURN_FROM);
+    if (want !== !!m.turned) doAct(s, { type: 'turn', id: m.id, on: want });
+  }
+}
+// Before the crossing, a turned mirror with room is turned back, so the newly dead can wake in it.
+function unturnForTheDead(s) {
+  if (!s.bodies.length) return;
+  for (const m of s.mirrors) if (m.turned && mirrorUse(s, m) < mirrorCap(m)) doAct(s, { type: 'turn', id: m.id, on: false });
+}
+
 function dayMoves(s) {
   mendMoves(s);
+  hangMoves(s);
   const b = nextBuild(s);
   const lineHall = TALLLINE && b === 'chapel' && bareHalls(s).find((h) => h.f === geo(s).veil - 1);
   const at = TALL ? (lineHall ? lineHall.id : 'top') : undefined;
@@ -1263,10 +1308,14 @@ export function autoStep(s, plan = 'balanced') {
   } else if (s.phase === 'dusk') {
     if (s.dusk.step === 'crypt') {
       funerals(s, way);
+      if (plan !== 'idle') unturnForTheDead(s);
       doAct(s, { type: 'wake' });
     }
     if (plan !== 'idle' && s.night?.omens) doAct(s, { type: 'omen', i: plan === 'human' && !HUMAN.forecast ? 0 : pickOmen(s, plan) });
+    // A turn by the black mirror's forecast waits until the posts and candles are set, which it reads.
+    if (plan !== 'idle' && TURN !== 'forecast') turnMoves(s);
     if (plan !== 'idle') placeNight(s, plan);
+    if (plan !== 'idle' && TURN === 'forecast') turnMoves(s);
     doAct(s, { type: 'startNight' });
   } else if (s.phase === 'night') {
     if (plan !== 'idle' && !WATCH && ((s.t % (lapsing(plan) ? HUMAN.every : 10) === 0 && !(lapsing(plan) && lapsed(s))) || stopped)) tendNight(s, plan);

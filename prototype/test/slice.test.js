@@ -322,9 +322,10 @@ test('Dread at its height brings an inspector the same day', () => {
   assert.equal(s.inspection.day, s.day);
 });
 
-// A night with the two stairs up to the Veil lit, and a Maw on the floor below them.
+// A night with the two stairs up to the Veil lit, and a Maw on the floor below them. No mirror is a door here
+// (mirrorRooms off): a door would draw the Maw (test/mirrors.test.js).
 function mawNight(seed, posts) {
-  const s = newSeason(seed, quiet);
+  const s = newSeason(seed, { ...quiet, mirrorRooms: 0 });
   emptyNight(s);
   ok(s, { type: 'candle', f: 2, x: 16 });
   ok(s, { type: 'candle', f: 2, x: 96 });
