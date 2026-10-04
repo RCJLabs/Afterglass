@@ -779,6 +779,27 @@ The vertical slice: seven days in one keep, ending on the night of the new moon,
     - **Not checked:** what a tester sees. Shorter isn't clearer by itself, and the plan's other half, what testers never mention, waits for the playtest.
     - **Old keeps** play as they did: `curfew` 1 and `dreamRest` 0 are in `RULES_SINCE`, and a keep's `weepersMax` is its own (3 for every keep before), so the golden replays play as recorded. A keep loaded in the page moves to the build's numbers, as every keep does (recorded, so it still replays), so it loses its Weepers unless its player set them.
     - **Found on the way:** People showed no status for a shade forging in the Cold Forge, reading in the Archive or seated in the Court at night; it names every twin's job now. The Build panel said a smith gives defense, which phase 10 changed to arms. The word count missed two cards (a getter and a card made in a loop), now counted, before and after alike. And the tutorial's browser check failed once in CI on phase 10's last commit, which changed no page code: it read the Play button the moment Maud's lesson appeared, and its own wait presses Play whenever the button reads Play, so it could undo the lesson's pause before looking, or read the button a frame before it turned. It now checks the pause the page records.
+55. **Round seven's phase 12: something to grow into.** The audit found that from the second year there's little left to decide by day (D1: the keep is finished by day 16–21 of year 1, at 7 floors and 14 rooms, and day actions other than jobs fall from 2.2–2.5 a day to 1.2–1.7), that nothing binds after year 1 (L1: in year 2, 63% of the essence the Choir sings is lost to the cap, 7.9 of the 8 studies are learned, and mirrors have room for twice the shades they hold), and that glass and remembrance pile to about 600 each by year 15 (problem 43). The plan asked for recurring sinks (repairs in stone after a breach, a fire or a Maw; floors 8–11 with new twins; great-glass halls; second-tier studies; season-long wards bought with essence; more living with more Quarters) and for the open year to rotate a new pressure each year. It's done when a ten-year keep still makes a day decision every day, and no store piles up unspent. **Where I parted from the plan:** floors 8–11 have one new room, not several: the Lampworks, whose twin is lit without a candle, turning the glass that piled into candles. The great-glass hall is a mirror, not a room, since phase 13 hangs mirrors in rooms; and since room in the glass wasn't what bound (8.5 places for 4.4 shades), its dead fade half as fast. Repairs begin in a keep's second year and lapse after two days, since from the first year, or lasting until mended, they cost first years (below). Two sinks the plan didn't name went in when essence and remembrance still piled without them: a ward on the Veil for the season, and a rite against the year's trouble. "Every day" I read as at least as often as in a keep's first year, which has a decision on nine days in ten.
+    - **The baseline**, on phase 11's rules (the balanced plan, 100 ten-year keeps, with the flows from 24 of them): a year is 28 days. In the first year 91% of days have a decision other than jobs; from the second, 60–71%. The first year's that go are building (0.42 a day), mirrors (0.11), studies (0.15) and fires (0.19). From the third year a keep makes about 70 glass a year and spends 13, makes 100–130 remembrance and spends about 55, and sings 440–525 essence and loses 280–390 of it to the cap; it quarries no stone, reads no lore and brings up no quicksilver. Food and candles go about as fast as they come. A year sees 7–10 rooms broken by a Maw and about 1 burned, and of its 12 raids a held one leaves the gate whole.
+    - **What's new**, each behind a rule with its old value for keeps from before (`RULES_SINCE`), so the golden replays play as recorded, and each described under How a season plays (A keep that grows):
+      - **Repairs** (`repairs`, from the keep's second year, `repairsFrom`): a room a Maw broke stays haunted 2 dawns, a Dread at each, and a burned room dead 2 days, unless masons mend it for 2 stone; the gate keeps what an assault took off it, a quarter after a breach, and mends a quarter a day of itself or for 2 stone.
+      - **More living** (`bedsHold`): the keep holds as many as it has beds, 12 at least.
+      - **Floors 8–11** (`highStone`, `lampworks`): a room above the seventh floor costs 3 stone more for each floor above it, and from the eighth the Lampworks can be raised.
+      - **The great-glass hall** (`glassHalls`), **second ranks** (`studyTiers`), **standing wards** and **the Veil's** (`standingWard`, `veilWard`).
+      - **The year's trouble** (`troubles`, `troubleRite`): from the open year's second year, one of eight a year, drawn for the keep, none twice until each has come, and a rite in the Chapel to halve it for a season.
+    - **The done-when**, by the ten-year table below (seeds 1–100, both plans): a decision other than jobs on 85–93% of days in each year the table shows (the first, second, third, fifth and tenth), for both plans, and on 85–94% in every one of the ten on seeds 1–50, against 60–71% from the second year on phase 11's rules: as often in the tenth year as in the first, though not every day, which even the first year isn't. From the fifth year, what's decided in a day is about half a visitor and half a mend, a ward on the Veil 0.3 times and a standing ward 0.2, the rite 0.1, and the moves, fires and decrees there were before; building has stopped by then, at 10 or 11 floors. No store piles up: from the fifth year the medians at a year's end hold at 110 glass, 16–29 remembrance, 72 candles and 1–2 stone, where on phase 11's rules the balanced plan's glass and remembrance reached 542 and 564 by the tenth. Glass and candles hold there because the autopilot now stops making them, not because something spends them: it keeps no glazier from 110 glass (a hall's 60, and 50 more), and no chandler or lampwright above three times the candles it wants put by. What's new is that the hands this frees have work: the quarry, whose stone goes as fast as it comes, to the high floors and the rooms raised for idle hands until the keep stops building, and to repairs after. Essence is the exception: from the fifth year it stands at its cap on 46–51% of days, against 53–73% before, so the wards take some of what the Choir sings, not all.
+    - **First years** (seeds 1–200 for the balanced plan, 1–100 for the human one, paired, against phase 11's rules): the balanced plan finishes its first year on 148 against 151 (better on 1 seed, worse on 4), so the first year plays as before. The second is harder, by more than I'd like: through it 120 against 128 (better on 4, worse on 12), the human plan 52 of 100 against 57. By runs without each, on this phase's rules before the softening below, repairs cost the human plan's second year about 7 keeps of 100 and the troubles about 5; the balanced plan's repairs about 5 of 200, and its troubles none that showed (114 without them against 118 with). I didn't rerun the split after the softening. After it, keeps last as long or longer: of 100, 66 of the balanced plan's reach their tenth year against 65 before, and 48 of the human plan's against 33. The new rules move the long game's losses from later years into the second. The campaign, where the year's troubles don't come (each chapter brings its own), loses a little too: 153 of the balanced plan's 200 keeps are judged in its second year against 160, and 135 of the human plan's against 138, and they meet each chapter's goal about as often as before.
+    - **What didn't work, on the way:**
+      - Repairs from the first year: 133 first years of 200 against 151. What a mend costs is the stone the first year builds with, and a room left haunted costs Dread.
+      - Damage lasting until mended: with the autopilot never mending, 106 first years of 200.
+      - The Lampworks working all the glass into candles: the pile moved, to 1,354 candles by year 10. The autopilot works it now only while candles are short, and stops glazing at 110 glass.
+      - A bigger household quarrying with its spare hands: stone piled to 54 by year 10. The autopilot quarries to 30 now, and raises rooms for hands with nothing to do.
+      - Standing wards alone: essence still stood at its cap on 73–87% of days. The Veil's ward, and keeping the new moon's reserve only in a season's last three days, brought it to about half.
+      - The troubles as first sized (a second Maw, the Host a quarter harder, fires twice as often) with hauntings of three dawns: the human plan's second year lost 9 keeps of 100 more than before. Now about 5.
+      - Second ranks are a one-off, as the first were: all sixteen are learned by the fourth year.
+    - **Words:** How to play has a section for all of it and the guide two cards: How to play is 3,932 words (310 more), now 19% shorter than before phase 11 rather than a quarter, and the guide 1,447 (85 more).
+    - **Not checked:** what a person does with any of it. The autopilot's measure of a decision is that it acted; a person may weigh a repair against a ward and act less, or more. Nor whether a player stops glazing where the autopilot does: one who doesn't may pile glass as before.
+    - **Found on the way:** a held raid never wears the gate for the balanced plan (what's left of it after a held assault averaged 1.00), so the gate's repairs matter after a breach, about one keep-year in ten; and the Build panel priced a room as if in a bare hall when no place was chosen, which with dearer high floors would have been wrong.
 
 **How a season plays**
 
@@ -1065,17 +1086,17 @@ The vertical slice: seven days in one keep, ending on the night of the new moon,
 | | Balanced | Human | Keeper | Mourner | Double | Idle |
 |---|---|---|---|---|---|---|
 | First season finished | 100% | 97% | 100% | 91% | 94% | 0% |
-| **First year finished** | **76%** | **60%** | **51%** | **31%** | **67%** | **0%** |
-| Lost in spring / summer / autumn / winter | 1 / 5 / 13 / 30 | 6 / 16 / 17 / 42 | 1 / 10 / 23 / 65 | 18 / 28 / 46 / 47 | 13 / 8 / 11 / 35 | 200 / 0 / 0 / 0 |
-| Your deaths per season | 3.1 | 3.0 | 3.1 | 3.3 | 3.0 | 0.2 |
+| **First year finished** | **74%** | **60%** | **49%** | **34%** | **66%** | **0%** |
+| Lost in spring / summer / autumn / winter | 1 / 5 / 13 / 33 | 6 / 16 / 17 / 42 | 1 / 10 / 23 / 68 | 18 / 27 / 45 / 43 | 13 / 8 / 11 / 36 | 200 / 0 / 0 / 0 |
+| Your deaths per season | 3.1 | 3.1 | 3.1 | 3.3 | 3.0 | 0.2 |
 | Raids held | 99% | 98% | 97% | 98% | 98% | 100% |
-| Church: blessed / warned / censured | 756 / 0 / 0 | 699 / 0 / 0 | 440 / 553 / 645 | 609 / 0 / 0 | 717 / 0 / 0 | 0 / 0 / 0 |
-| Shades lost at night per season | 0.3 | 0.3 | 0.7 | 0.4 | 0.3 | 1.5 |
-| The Hollow, in finished seasons: reached the Veil / driven back / withdrew | 1 / 169 / 555 | 8 / 134 / 510 | 3 / 132 / 520 | 34 / 97 / 374 | 4 / 0 / 663 | – |
+| Church: blessed / warned / censured | 756 / 0 / 0 | 699 / 0 / 0 | 449 / 558 / 623 | 613 / 0 / 0 | 716 / 0 / 0 | 0 / 0 / 0 |
+| Shades lost at night per season | 0.3 | 0.3 | 0.7 | 0.4 | 0.4 | 1.5 |
+| The Hollow, in finished seasons: reached the Veil / driven back / withdrew | 1 / 164 / 557 | 7 / 152 / 493 | 3 / 120 / 529 | 33 / 94 / 387 | 4 / 19 / 643 | – |
 
-The human plan finishes its first year on 119 of 200 seeds, against the balanced plan's 151: it loses 47 the balanced plan keeps and keeps 15 it loses. Median seasons finished of the first four: 4, against 4.
+The human plan finishes its first year on 119 of 200 seeds, against the balanced plan's 148: it loses 44 the balanced plan keeps and keeps 15 it loses. Median seasons finished of the first four: 4, against 4.
 
-Generated by `npm run measure` on seeds 1–200, at build 11ff82e, 2026-10-02.
+Generated by `npm run measure` on seeds 1–200, at build 57ff810, 2026-10-04.
 <!-- /measure:plans -->
 
 **The verbs the autopilot didn't use until round seven's phase 6** (problem 49), each switched on for the balanced plan and paired with it seed by seed (`tools/AUTOPILOT.md` says what each does):
@@ -1083,14 +1104,14 @@ Generated by `npm run measure` on seeds 1–200, at build 11ff82e, 2026-10-02.
 <!-- measure:verbs -->
 | Verb | What the autopilot does with it | Used, per keep | Finished | The balanced plan | Better on / worse on |
 |---|---|---|---|---|---|
-| Hush (`AP_HUSH`) | hushes while shades stand in the dark with the Unlit close and no candle to spare | 1.0 | 150 of 200 the first year | 151 | 1 / 1 |
-| Bind (`AP_BIND`) | binds a Restless shade into a free mirror when the essence can be spared | 0.1 | 152 of 200 the first year | 151 | 2 / 3 |
-| The curfew (`AP_CURFEW`, under its old rule) | proclaims the curfew once sleepwalkers can come; since phase 11 a Hall has no curfew | 1.1 | 142 of 200 the first year | 151 | 2 / 11 |
-| The Court (`AP_COURT`) | seats a shade in the Court of Shades before a rite where one will ask | 1.2 | 138 of 200 the first year | 151 | 3 / 16 |
-| Building by choice (`AP_TALL=line`) | builds tall, with the Chapel on the line’s floor | – | 152 of 200 the first year | 151 | 27 / 24 |
-| The Keeper (`AP_ENDING=watch`) | takes its own place in the glass at the first year’s end | 0.8 | 131 of 200 two years | 128 | 8 / 7 |
+| Hush (`AP_HUSH`) | hushes while shades stand in the dark with the Unlit close and no candle to spare | 1.0 | 148 of 200 the first year | 148 | 2 / 1 |
+| Bind (`AP_BIND`) | binds a Restless shade into a free mirror when the essence can be spared | 0.1 | 150 of 200 the first year | 148 | 3 / 3 |
+| The curfew (`AP_CURFEW`, under its old rule) | proclaims the curfew once sleepwalkers can come; since phase 11 a Hall has no curfew | 1.1 | 142 of 200 the first year | 148 | 4 / 10 |
+| The Court (`AP_COURT`) | seats a shade in the Court of Shades before a rite where one will ask | 1.3 | 133 of 200 the first year | 148 | 1 / 16 |
+| Building by choice (`AP_TALL=line`) | builds tall, with the Chapel on the line’s floor | – | 148 of 200 the first year | 148 | 26 / 24 |
+| The Keeper (`AP_ENDING=watch`) | takes its own place in the glass at the first year’s end | 0.7 | 122 of 200 two years | 120 | 5 / 3 |
 
-Generated by `npm run measure` on seeds 1–200, at build 11ff82e, 2026-10-02.
+Generated by `npm run measure` on seeds 1–200, at build 57ff810, 2026-10-04.
 <!-- /measure:verbs -->
 
 **The night: reacting against the static line** (round seven, phase 7, problem 50). Each plan's first year on today's rules, paired seed by seed with the plan named: Double at the same pace, or as the row says. Human is the balanced plan at a person's pace; Double at a person's pace has the same lapses. Only watching sets the night at dusk and does nothing in it.
@@ -1098,18 +1119,18 @@ Generated by `npm run measure` on seeds 1–200, at build 11ff82e, 2026-10-02.
 <!-- measure:night -->
 | Plan | First year finished | Paired with Double at the same pace, or as it says: better on / worse on (seeds) | Lost to the Veil / with everyone dead | Shades caught a night | Rooms broken / ruined in 10 nights | Cracks a season |
 |---|---|---|---|---|---|---|
-| Balanced: reacts | 293 of 400 | 90 / 65 | 97 / 10 | 0.1 | 2.7 / 0.0 | 0.3 |
-| Balanced, never moving a shade at night (`AP_NOMOVE`) | 296 of 400 | 23 / 21 against Balanced | 95 / 9 | 0.1 | 2.7 / 0.0 | 0.3 |
-| Double: two to a stair, never moves | 277 of 400 | – | 119 / 4 | 0.1 | 2.6 / 0.0 | 0.6 |
-| Human: reacts, at a person’s pace | 259 of 400 | 90 / 71 | 134 / 7 | 0.3 | 2.7 / 0.0 | 0.4 |
-| Double at a person’s pace (`AP_LAPSES`) | 252 of 400 | – | 145 / 3 | 0.2 | 2.6 / 0.0 | 0.6 |
+| Balanced: reacts | 290 of 400 | 90 / 66 | 100 / 10 | 0.1 | 2.7 / 0.0 | 0.3 |
+| Balanced, never moving a shade at night (`AP_NOMOVE`) | 294 of 400 | 23 / 20 against Balanced | 97 / 9 | 0.1 | 2.7 / 0.0 | 0.3 |
+| Double: two to a stair, never moves | 275 of 400 | – | 121 / 4 | 0.1 | 2.6 / 0.0 | 0.6 |
+| Human: reacts, at a person’s pace | 260 of 400 | 92 / 73 | 134 / 6 | 0.3 | 2.7 / 0.0 | 0.4 |
+| Double at a person’s pace (`AP_LAPSES`) | 253 of 400 | – | 144 / 3 | 0.3 | 2.6 / 0.0 | 0.6 |
 | Balanced, set at dusk and then only watching (`AP_WATCH`) | 0 of 400 | 0 / 397 against Balanced | 400 / 0 | 0.9 | 1.7 / 0.0 | 3.0 |
-| Human, with auto-relight (on in Gentle) | 291 of 400 | 67 / 28 against Human | 101 / 8 | 0.1 | 2.7 / 0.0 | 0.3 |
-| Only watching, with auto-relight | 25 of 400 | 10 / 347 against Balanced | 365 / 10 | 0.6 | 1.8 / 0.0 | 2.0 |
-| Balanced, never meeting the Hollow (`AP_MEETHOLLOW=off`) | 298 of 400 | 18 / 9 against Balanced | 92 / 10 | 0.1 | 2.7 / 0.0 | 0.3 |
-| Human, never meeting the Hollow | 262 of 400 | 15 / 12 against Human | 131 / 7 | 0.3 | 2.7 / 0.0 | 0.4 |
+| Human, with auto-relight (on in Gentle) | 288 of 400 | 64 / 29 against Human | 104 / 8 | 0.2 | 2.8 / 0.0 | 0.3 |
+| Only watching, with auto-relight | 25 of 400 | 10 / 348 against Balanced | 365 / 10 | 0.6 | 1.8 / 0.0 | 2.0 |
+| Balanced, never meeting the Hollow (`AP_MEETHOLLOW=off`) | 294 of 400 | 17 / 9 against Balanced | 96 / 10 | 0.1 | 2.7 / 0.0 | 0.3 |
+| Human, never meeting the Hollow | 261 of 400 | 14 / 13 against Human | 133 / 6 | 0.3 | 2.7 / 0.0 | 0.4 |
 
-Generated by `npm run measure` on seeds 1–400, at build 11ff82e, 2026-10-02.
+Generated by `npm run measure` on seeds 1–400, at build 57ff810, 2026-10-04.
 <!-- /measure:night -->
 
 **The nights of a season** (round seven, phase 8, problem 51). For each night of the season, over each plan's first year: the Unlit it brought, and the actions the plan took in it and the call-outs it made (the page's alerts), a night on average. Where the Hollow rose, how its night ended.
@@ -1118,17 +1139,17 @@ Generated by `npm run measure` on seeds 1–400, at build 11ff82e, 2026-10-02.
 | Night | Unlit | Balanced: actions / call-outs | Human: actions / call-outs |
 |---|---|---|---|
 | Night 1 | 8.2 | 2.8 / 1.1 | 3.0 / 1.3 |
-| Night 2 | 11.4 | 4.7 / 2.3 | 4.7 / 2.5 |
-| Night 3 | 15.5 | 6.3 / 7.8 | 6.0 / 8.1 |
-| Night 4 | 18.2 | 6.2 / 8.1 | 5.7 / 8.3 |
-| Night 5 | 21.7 | 6.3 / 7.8 | 6.2 / 8.5 |
-| Night 6 | 24.6 | 6.8 / 8.1 | 6.1 / 8.8 |
-| The new moon (spring to autumn) | 13.2 | 6.8 / 5.4 | 5.6 / 5.5 |
-| The Long Night | 14.0 | 9.7 / 12.8 | 8.6 / 12.6 |
+| Night 2 | 11.4 | 4.5 / 2.2 | 4.7 / 2.5 |
+| Night 3 | 15.5 | 6.3 / 7.8 | 5.8 / 8.1 |
+| Night 4 | 18.2 | 6.0 / 8.0 | 5.6 / 8.3 |
+| Night 5 | 21.7 | 6.3 / 7.8 | 6.1 / 8.4 |
+| Night 6 | 24.6 | 6.6 / 8.0 | 5.9 / 8.7 |
+| The new moon (spring to autumn) | 13.2 | 6.6 / 5.4 | 5.5 / 5.5 |
+| The Long Night | 14.0 | 9.9 / 12.6 | 8.8 / 12.6 |
 
-The Hollow, on the nights it rose (driven back / crossed the Veil / withdrew at dawn): Balanced 355 / 2 / 1078 of 1435; Human 297 / 12 / 1036 of 1345. First year finished: Balanced 293 of 400; Human 259 of 400.
+The Hollow, on the nights it rose (driven back / crossed the Veil / withdrew at dawn): Balanced 350 / 2 / 1080 of 1432; Human 311 / 10 / 1025 of 1346. First year finished: Balanced 290 of 400; Human 260 of 400.
 
-Generated by `npm run measure` on seeds 1–400, at build 11ff82e, 2026-10-02.
+Generated by `npm run measure` on seeds 1–400, at build 57ff810, 2026-10-04.
 <!-- /measure:moon -->
 
 **The campaign's goals** (problem 51): each of the first four years' goals met, of the keeps that got as far as its judging (the first year's as winter begins, the others at the year's end).
@@ -1136,12 +1157,12 @@ Generated by `npm run measure` on seeds 1–400, at build 11ff82e, 2026-10-02.
 <!-- measure:campaign -->
 | Year | Goal | Balanced: met / judged | Human: met / judged |
 |---|---|---|---|
-| 1: The First Winter | go into winter with 20 candles put by | 110 / 186 | 92 / 165 |
-| 2: The Ashen Host | hold the gate against every raid this year | 160 / 160 | 138 / 138 |
-| 3: The Lantern Church | come through every inspection this year without a censure | 159 / 159 | 134 / 134 |
-| 4: The Deep Rises | drive the Hollow back on one of its nights this year | 159 / 159 | 130 / 131 |
+| 1: The First Winter | go into winter with 20 candles put by | 109 / 186 | 87 / 166 |
+| 2: The Ashen Host | hold the gate against every raid this year | 152 / 153 | 133 / 135 |
+| 3: The Lantern Church | come through every inspection this year without a censure | 153 / 153 | 132 / 132 |
+| 4: The Deep Rises | drive the Hollow back on one of its nights this year | 151 / 153 | 130 / 131 |
 
-Generated by `npm run measure` on seeds 1–200, at build 11ff82e, 2026-10-02.
+Generated by `npm run measure` on seeds 1–200, at build 57ff810, 2026-10-04.
 <!-- /measure:campaign -->
 
 **The day** (round seven, phase 10, problem 53). Each plan over two years, by year: the day's actions other than jobs (visitors answered, wards, pitch, building, decrees and the rest), raids held at the gate, the guards' share of the hands on a raid day (what holding a raid costs in work), sallies against the autumn camp, visitors paid in glass or remembrance, the Forge's arms and the Church's verdicts. Under it, the same plans posting their guards only when the Host is at the gate.
@@ -1149,19 +1170,33 @@ Generated by `npm run measure` on seeds 1–200, at build 11ff82e, 2026-10-02.
 <!-- measure:day -->
 | Plan | Year | Keeps | Day actions other than jobs, a day | Raids held | Guards, of the hands on a raid day | Sallies won / made | Visitors paid in kind | Arms forged, a keep | Church: blessed / warned / censured |
 |---|---|---|---|---|---|---|---|---|---|
-| Balanced | 1 | 200 | 2.2 | 99% | 20% | 85 / 113 | 386 | 3.1 | 756 / 0 / 0 |
-| Balanced | 2 | 150 | 1.4 | 99% | 28% | 117 / 134 | 271 | 10.5 | 553 / 0 / 0 |
-| Human | 1 | 200 | 2.2 | 98% | 20% | 84 / 115 | 337 | 2.5 | 699 / 0 / 0 |
-| Human | 2 | 119 | 1.4 | 100% | 28% | 100 / 115 | 229 | 10.9 | 449 / 0 / 0 |
+| Balanced | 1 | 200 | 2.3 | 99% | 19% | 76 / 100 | 394 | 1.7 | 756 / 0 / 0 |
+| Balanced | 2 | 147 | 2.6 | 99% | 20% | 43 / 53 | 293 | 7.5 | 531 / 0 / 0 |
+| Human | 1 | 200 | 2.3 | 98% | 19% | 68 / 93 | 344 | 1.2 | 699 / 0 / 0 |
+| Human | 2 | 118 | 2.6 | 100% | 19% | 27 / 33 | 215 | 7.6 | 415 / 0 / 0 |
 
-Posting guards only when the Host is at the gate (`AP_JIT`), first year finished: Balanced 133 of 200 (against 151; better on 25, worse on 43), raids held 92%; Human 120 of 200 (against 119; better on 38, worse on 37), raids held 92%.
+Posting guards only when the Host is at the gate (`AP_JIT`), first year finished: Balanced 134 of 200 (against 148; better on 28, worse on 42), raids held 92%; Human 115 of 200 (against 119; better on 37, worse on 41), raids held 92%.
 
-Generated by `npm run measure` on seeds 1–200, at build 11ff82e, 2026-10-02.
+Generated by `npm run measure` on seeds 1–200, at build 57ff810, 2026-10-04.
 <!-- /measure:day -->
 
-**Ten years** (round seven, phase 12, problem 55). Each plan over ten years, by year, of the keeps still standing at its end: the days with a decision by day other than jobs (repairs, wards, studies, visitors, decrees, building and the rest), the stores left at the year's end, and the days essence stood at its cap.
+**Ten years** (round seven, phase 12, problem 55). Each plan over ten years, by year, of the keeps still standing at its end: the days with a decision by day other than jobs (repairs, wards, studies, visitors, decrees, building and the rest), the stores left at the year's end, and the days essence stood at its cap. Glass and candles stop at about 110 and 72 because the autopilot stops making them there, not because they're spent (problem 55).
 
 <!-- measure:long -->
+| Plan | Year | Keeps | Days with a decision other than jobs | At the year’s end: glass, remembrance, candles, stone (medians) | Days essence was at its cap |
+|---|---|---|---|---|---|
+| Balanced | 1 | 76 | 91% | 29, 13, 6, 3 | 19% |
+| Balanced | 2 | 68 | 93% | 41, 9, 20, 1 | 15% |
+| Balanced | 3 | 66 | 90% | 74, 15, 37, 1 | 34% |
+| Balanced | 5 | 66 | 85% | 110, 17, 72, 2 | 48% |
+| Balanced | 10 | 66 | 90% | 110, 29, 72, 1 | 46% |
+| Human | 1 | 66 | 91% | 30, 12, 4, 1 | 30% |
+| Human | 2 | 52 | 92% | 38, 9, 17, 1 | 19% |
+| Human | 3 | 48 | 90% | 80, 14, 38, 1 | 36% |
+| Human | 5 | 48 | 85% | 110, 18, 72, 2 | 51% |
+| Human | 10 | 48 | 89% | 110, 16, 72, 1 | 47% |
+
+Generated by `npm run measure` on seeds 1–100, at build 57ff810, 2026-10-04.
 <!-- /measure:long -->
 
 - **Raids with traits** (before raids were fought): when traits went in, 86% held for the balanced plan, against 90% without them (and 58% before the two-room start). Traits first cut it to 75%. No one trait did it: Wil (a Coward) and Nell (Gentle) guarded at half strength, Tam (Devout) at ×0.8 off the Chapel, Ada (Brave) fell twice as often, which thinned the gate for the next raid, and the Greedy ate double. The Gentle's and the Greedy's costs now fall elsewhere: the Gentle grieve harder, and the Greedy work ×0.8 away from the Glazier and the Chandlery. The Coward and the Brave keep theirs, since the gate is what they're about. Guards stand only on raid days, when every free hand goes to the Barracks.
