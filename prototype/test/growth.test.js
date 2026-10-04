@@ -35,7 +35,7 @@ const until = (s, f) => {
   for (let i = 0; i < 5000 && s.phase === 'day' && !f(); i++) step(s);
 };
 
-test('a room a Maw broke stays haunted three dawns, a Dread at each, unless masons mend it for stone', () => {
+test('a room a Maw broke stays haunted hauntDays dawns, a Dread at each, unless masons mend it for stone', () => {
   const s = newSeason(3, worn);
   const hearth = roomsOf(geo(s), 'hearth')[0].id;
   const chapel = roomsOf(geo(s), 'chapel')[0].id;
@@ -52,8 +52,8 @@ test('a room a Maw broke stays haunted three dawns, a Dread at each, unless maso
   assert.equal(s.res.stone, 3);
   assert.deepEqual(s.haunted, [chapel]);
   no(s, { type: 'mend', id: hearth }, /needs no mending/);
-  // Left alone, the Chapel's costs its Dread at the second and third dawns, and lifts at the fourth.
-  for (const n of [2, 3]) {
+  // Left alone, the Chapel's costs its Dread at each of its dawns, and lifts at the one after.
+  for (let n = 2; n <= TUNING.hauntDays; n++) {
     toDusk(s);
     throughNight(s);
     assert.deepEqual(s.haunted, [chapel], `dawn ${n}`);

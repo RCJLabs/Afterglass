@@ -211,7 +211,7 @@ export const TUNING = {
   repairs: 1,
   repairsFrom: 2, // the keep's year repairs begin in: in its first, what breaks is put right as before
   mendStone: 2,
-  hauntDays: 3,
+  hauntDays: 2,
   burnDays: 2,
   gateBreached: 0.25,
   gateMend: 0.25,
@@ -654,13 +654,13 @@ export const SEASONS = ['spring', 'summer', 'autumn', 'winter'];
 // chapter brings one, drawn for it, none twice until each has come: what it turns up, and by how much.
 export const TROUBLES = {
   hunger: { name: 'A hungry year', text: 'the harvest fails: cooks make three-quarters as much food', food: 0.75 },
-  host: { name: 'A year of the Host', text: 'every raid comes a quarter harder', raid: 1.25 },
+  host: { name: 'A year of the Host', text: 'every raid comes a fifth harder', raid: 1.2 },
   church: { name: 'A year of the Church', text: 'the Church judges the keep a Dread worse than it is', judge: 1 },
   deep: { name: 'The Deep rises', text: 'the Hollow is half again as hard to drive back and as hungry for light, and the new moon brings half again as many Creepers' },
   wet: { name: 'A wet year', text: 'rain comes twice as often', rain: 2 },
   plague: { name: 'A year of plague', text: 'sickness comes twice as often', sick: 2 },
-  maws: { name: 'A year of Maws', text: 'a second Maw rises with the first', maws: 1 },
-  fire: { name: 'A dry year', text: 'fires break out twice as often', fire: 2 },
+  maws: { name: 'A year of Maws', text: 'Maws rise from the first night of every season, not the third', mawFrom: 1 },
+  fire: { name: 'A dry year', text: 'fires break out half as often again', fire: 1.5 },
 };
 
 export const CHAPTERS = {

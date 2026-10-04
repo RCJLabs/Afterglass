@@ -1783,8 +1783,8 @@ function newNight(s) {
   for (let i = 0; i < great; i++) spawns.push({ at: Math.round(clamp(T.greatTideAt + (rand(s) - 0.5) * T.tideSpread, 0.02, 0.95) * N), type: 'creeper', seep: false, snuff: false, great: true, rift: pick(s, MAP.rifts).id });
   // Maws rise just ahead of the last tide, to open a way for the Creepers behind them, from night mawFrom.
   // The new moon belongs to the Hollow, except the Long Night, which has both.
-  if (s.day >= T.mawFrom && (!isNewMoon(s) || long)) {
-    const maws = Math.round(T.mawsPerNight) + Math.floor(troubled(s, 'maws', 0));
+  if (s.day >= Math.round(troubled(s, 'mawFrom', T.mawFrom)) && (!isNewMoon(s) || long)) {
+    const maws = Math.round(T.mawsPerNight);
     const order = [...tides].sort((a, b) => b - a);
     for (let i = 0; i < maws; i++) spawns.push({ at: Math.round(clamp(order[i % order.length] - 0.03, 0.02, 0.9) * N), type: 'maw', seep: false, snuff: false, rift: pick(s, MAP.rifts).id, ...(tut?.maw ? { weak: tut.maw } : {}) });
   }

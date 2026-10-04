@@ -31,7 +31,7 @@ const check = (ok, what) => { console.log(`${ok ? 'ok  ' : 'FAIL'} ${what}`); if
     const hearth = roomsOf(G, 'hearth')[0].id;
     const chapel = roomsOf(G, 'chapel')[0].id;
     s.haunted = [chapel];
-    s.hauntLeft = { [chapel]: 3 };
+    s.hauntLeft = { [chapel]: 2 };
     s.scorched = [hearth];
     s.burnLeft = { [hearth]: 2 };
     s.gate = 0.5;
@@ -57,7 +57,7 @@ const check = (ok, what) => { console.log(`${ok ? 'ok  ' : 'FAIL'} ${what}`); if
   const text = async () => (await p.$eval('#sheet-body', (e) => e.innerText).catch(() => '')).replace(/\s+/g, ' ');
   let t = await text();
   check(/Year 2: A hungry year: the harvest fails/.test(t), "the year's trouble");
-  check(/The Chapel is haunted: 1 Dread at each of the next 2 dawns\./.test(t), 'a haunted room and the Dread it will cost');
+  check(/The Chapel is haunted: 1 Dread at the next dawn\./.test(t), 'a haunted room and the Dread it will cost');
   check(/The Hearth is burned out: nobody works there for 2 days\./.test(t), 'a burned-out room and how long');
   check(/The gate is 50% whole; it mends a quarter a day of itself\./.test(t), 'the battered gate');
   check(/Masonry II: a room costs 3 stone less; 8 lore/.test(t) && /Begin, 6 remembrance/.test(t), "a study's second rank, at twice the price");
