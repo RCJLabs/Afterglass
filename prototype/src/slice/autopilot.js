@@ -558,13 +558,21 @@ function hangMoves(s) {
   if (!s.tuning.mirrorRooms || HANG === 'none') return;
   const G = geo(s);
   const lure = (r) => (HANG === 'worked' ? -mawLure(r.type) : HANG === 'deep' ? 0 : mawLure(r.type));
+  const depth = (r) => (HANG === 'deep' ? r.f : G.veil - r.f);
   const rooms = Object.values(G.rooms)
-    .sort((a, b) => lure(a) - lure(b) || (HANG === 'deep' ? a.f - b.f : b.f - a.f) || a.x0 - b.x0)
+    .sort((a, b) => lure(a) - lure(b) || depth(a) - depth(b) || a.x0 - b.x0)
     .map((r) => r.id);
-  // The empty ones too, the biggest first: the newly dead wake in the safest with room, and make it a door.
+  // The empty ones too, the biggest first: the newly dead wake in the safest with room, and make it a door. A
+  // mirror moves only to a room the Maws want less, or, with shades in it, one as little wanted and nearer the
+  // Veil; an empty one only to a room nobody works for good, not into a bare hall the masons will build over.
   const ms = s.mirrors.filter((m) => !m.hidden).sort((a, b) => mirrorUse(s, b) - mirrorUse(s, a) || mirrorCap(b) - mirrorCap(a));
   ms.forEach((m, i) => {
-    if (rooms[i] && hangsIn(s, m) !== rooms[i]) doAct(s, { type: 'hang', id: m.id, room: rooms[i] });
+    const to = rooms[i] && G.rooms[rooms[i]];
+    const at = hangsIn(s, m) && G.rooms[hangsIn(s, m)];
+    if (!to || to === at) return;
+    const full = mirrorUse(s, m) > 0;
+    const better = !at || ((full || HANG !== 'safe' || mawLure(to.type) === 0) && (lure(to) < lure(at) || (lure(to) === lure(at) && full && depth(to) < depth(at))));
+    if (better) doAct(s, { type: 'hang', id: m.id, room: to.id });
   });
 }
 function turnMoves(s) {
