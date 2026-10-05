@@ -4336,7 +4336,7 @@ const ACTIONS = {
       else other.room = null;
     }
     const twin = `by night it opens on the ${TWINS[typeOf(G, room)]?.name || 'bare hall'}, ${tainPlace(G, G.rooms[room].f, true)}`;
-    say(s, `The ${before} is hung in the ${DAY_ROOMS[typeOf(G, room)].name}: ${twin}.${other ? ` The ${other.name.replace(/^\S+ /, '')} that hung there goes where it was${was ? `, as the ${other.name}` : ''}.` : ''}`);
+    say(s, `The ${before} is hung in the ${DAY_ROOMS[typeOf(G, room)].name}: ${twin}.${other ? ` The ${MIRRORS[other.type].name} that hung there goes where it was${was ? `, as the ${other.name}` : ''}.` : ''}`);
     cue(s, 'mirror');
   },
   // Round seven, phase 13 (mirrorRooms): turn a mirror to the wall, by day or at dusk, or back. Turned, it is no

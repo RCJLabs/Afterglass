@@ -11,7 +11,7 @@
 // on the line for the biggest tides when the essence is there, and a fighter to meet a Maw. They move a
 // shade only along a lit floor; where its way is dark it stays.
 
-import { nightTicks, hollowNeed, chapterOf, yearsEnd, bondedShade, postRoom, bareHalls, buildSpot, raiseCost, step, act, newSeason, ritePreview, crossingPreview, capacity, canWork, defense, funeralCap, choicesFor, jobCap, jobCount, eatRate, wardCost, livingTrait, shadeTrait, peopleIn, crowded, tradeOf, inGreatGlass, handsAt, seasonIndex, tributeOf, besieged, sallyOdds, embargoed, inquisition, crusadeDaysLeft, canAct, actOf, actCost, NEW_ROOMS, atTheGate, gatehouseOf, decreeOf, undergateMouth, roomReady, isGuard, armsCap, musterGain, livingCap, raidsAhead, nextRank, studyRem, standingOf, standingCost, nightsLeft, undergateOpen, mirrorGlass as mirrorGlassOf, repairing, troubleOf, eased, veilWardCost, troubled, hangsIn, mirrorUse, mirrorCap, isDoor, mawLure, doorsOpen } from './sim.js';
+import { nightTicks, hollowNeed, chapterOf, yearsEnd, bondedShade, postRoom, bareHalls, buildSpot, raiseCost, step, act, newSeason, ritePreview, crossingPreview, capacity, canWork, defense, funeralCap, choicesFor, jobCap, jobCount, eatRate, wardCost, livingTrait, shadeTrait, peopleIn, crowded, tradeOf, inGreatGlass, handsAt, seasonIndex, tributeOf, besieged, sallyOdds, embargoed, inquisition, crusadeDaysLeft, canAct, actOf, actCost, NEW_ROOMS, atTheGate, gatehouseOf, decreeOf, undergateMouth, roomReady, isGuard, armsCap, musterGain, livingCap, raidsAhead, nextRank, studyRem, standingOf, standingCost, nightsLeft, undergateOpen, mirrorGlass as mirrorGlassOf, repairing, troubleOf, eased, veilWardCost, troubled, hangsIn, mirrorIn, mirrorUse, mirrorCap, mawLure, doorsOpen } from './sim.js';
 import { DAY_ROOMS, MIRRORS, KINDS, MAP, TICKS_PER_SEC, VISITORS, STUDIES, CHAPTERS } from './data.js';
 import { geo, roomSpan, roomAt, roomsOf, lineSpots, lightMap, isLit } from './geo.js';
 import { STOPS } from './alerts.js';
@@ -542,15 +542,19 @@ function hallMirror(s) {
   if (s.res.glass >= mirrorGlassOf(s, MIRRORS.hall.glass) + 10) doAct(s, { type: 'build', mirror: 'hall' });
 }
 
-// Round seven, phase 13 (mirrorRooms): where the mirrors hang. By day the fullest mirror hangs in the room that
-// draws the Maws least (one nobody works, by day or night), the nearest the Veil of those, the next fullest in
-// the next, and so on, the empty ones last, biggest first, where the newly dead will wake. It turns no mirror to
-// the wall: turning paid it nothing, the shades it sat out costing as many keeps as the Maws it kept out (README,
-// problem 56). To measure what the place is worth: AP_HANG=worked hangs the fullest in worked rooms nearest the
-// Veil, AP_HANG=deep the fullest deepest, and AP_HANG=none leaves each where it was built. AP_TURN=forecast
-// turns to the wall, at dusk, a door the black mirror says tonight's Maw is headed for; AP_TURN=deep, on a Maw
-// night, every door in a worked room two floors or more below the Veil (not on the new moon, when every shade
-// is wanted). A turned mirror with room is turned back before the crossing, so the newly dead find their place.
+// Round seven, phase 13 (mirrorRooms): where the mirrors hang. By day a mirror with shades in it, the fullest
+// first, moves to the room that draws the Maws least (one nobody works, by day or night) when it hangs where they
+// come more, into a room with no mirror or only an empty one, the two changing places; of two rooms the Maws come
+// for alike, to the one nearer the Veil, where the line stands. Among the rooms nobody works one is as good as
+// another. An empty mirror is no door and isn't moved for its own sake, and no mirror goes into a bare hall the
+// masons will build over (moving every mirror down an order of rooms, it moved one about every other day of a
+// keep's first year, most of them back and forth around the masons). It turns no mirror to the wall: turning
+// paid it nothing, the shades it sat out costing as many keeps as the Maws it kept out (README, problem 56). To
+// measure what the place is worth: AP_HANG=worked moves them into worked rooms nearest the Veil, AP_HANG=deep
+// deepest, and AP_HANG=none leaves each where it was built. AP_TURN=forecast turns to the wall, at dusk, a door
+// the black mirror says tonight's Maw is headed for; AP_TURN=deep, on a Maw night, every door in a worked room two
+// floors or more below the Veil (not on the new moon, when every shade is wanted). A turned mirror with room is
+// turned back before the crossing, so the newly dead find their place.
 const HANG = globalThis.process?.env?.AP_HANG || 'safe';
 const TURN = globalThis.process?.env?.AP_TURN || 'none';
 const TURN_FROM = 2;
@@ -558,22 +562,18 @@ function hangMoves(s) {
   if (!s.tuning.mirrorRooms || HANG === 'none') return;
   const G = geo(s);
   const lure = (r) => (HANG === 'worked' ? -mawLure(r.type) : HANG === 'deep' ? 0 : mawLure(r.type));
-  const depth = (r) => (HANG === 'deep' ? r.f : G.veil - r.f);
-  const rooms = Object.values(G.rooms)
-    .sort((a, b) => lure(a) - lure(b) || depth(a) - depth(b) || a.x0 - b.x0)
-    .map((r) => r.id);
-  // The empty ones too, the biggest first: the newly dead wake in the safest with room, and make it a door. A
-  // mirror moves only to a room the Maws want less, or, with shades in it, one as little wanted and nearer the
-  // Veil; an empty one only to a room nobody works for good, not into a bare hall the masons will build over.
-  const ms = s.mirrors.filter((m) => !m.hidden).sort((a, b) => mirrorUse(s, b) - mirrorUse(s, a) || mirrorCap(b) - mirrorCap(a));
-  ms.forEach((m, i) => {
-    const to = rooms[i] && G.rooms[rooms[i]];
-    const at = hangsIn(s, m) && G.rooms[hangsIn(s, m)];
-    if (!to || to === at) return;
-    const full = mirrorUse(s, m) > 0;
-    const better = !at || ((full || HANG !== 'safe' || mawLure(to.type) === 0) && (lure(to) < lure(at) || (lure(to) === lure(at) && full && depth(to) < depth(at))));
-    if (better) doAct(s, { type: 'hang', id: m.id, room: to.id });
-  });
+  const depth = (r) => (HANG === 'deep' ? r.f : HANG === 'safe' && !mawLure(r.type) ? 0 : G.veil - r.f);
+  const better = (a, b) => lure(a) < lure(b) || (lure(a) === lure(b) && depth(a) < depth(b));
+  const full = s.mirrors.filter((m) => !m.hidden && mirrorUse(s, m) > 0).sort((a, b) => mirrorUse(s, b) - mirrorUse(s, a) || mirrorCap(b) - mirrorCap(a));
+  for (const m of full) {
+    const at = G.rooms[hangsIn(s, m)];
+    const open = Object.values(G.rooms).filter((r) => {
+      const there = mirrorIn(s, r.id);
+      return r !== at && r.type !== 'empty' && (!there || (!there.hidden && mirrorUse(s, there) === 0));
+    });
+    const to = open.sort((a, b) => lure(a) - lure(b) || depth(a) - depth(b) || a.x0 - b.x0)[0];
+    if (to && (!at || better(to, at))) doAct(s, { type: 'hang', id: m.id, room: to.id });
+  }
 }
 function turnMoves(s) {
   if (!s.tuning.mirrorRooms || TURN === 'none') return;
