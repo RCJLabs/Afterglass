@@ -16,6 +16,9 @@ const CRUSADE = /^The crusade (is on the road|is at the gate|comes today)/;
 // New since the words: a Maw coming through a mirror into the keep (round seven, phase 13) cracks the Veil, and
 // flashes it as the Unlit slipping through it do.
 const THROUGH = /^The Maw came through the /;
+// And happenings inside the keep (round seven, phase 14: cruelty) stop the clock and open the Day panel as a
+// visitor at the gate does.
+const INSIDE = /^In the keep:/;
 
 function alertsOf(keeps) {
   return keeps.flatMap((s) => s.alerts);
@@ -35,6 +38,10 @@ test('every alert kind is a known one, and the kinds do what the words did', () 
     if (CRUSADE.test(a.text)) continue;
     if (THROUGH.test(a.text)) {
       assert.ok(FLASHES.has(a.kind) && !STOPS.has(a.kind), `through: ${a.kind} "${a.text}"`);
+      continue;
+    }
+    if (INSIDE.test(a.text)) {
+      assert.ok(a.kind === 'visitor' && STOPS.has(a.kind) && OPENS.has(a.kind), `inside: ${a.kind} "${a.text}"`);
       continue;
     }
     assert.equal(STOPS.has(a.kind), OLD_STOPS.test(a.text), `stops: ${a.kind} "${a.text}"`);

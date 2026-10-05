@@ -4,7 +4,8 @@ import { newSeason, step, act, asksNow, ritePreview, defense, gateGuard, upgrade
 import { REQUESTS } from '../src/slice/data.js';
 
 // Quiet days and empty nights: the rite is what's tested.
-const quiet = { startFloors: 4, sickChance: 0, oldAgeChance: 0, fire: 0, raidDays: { 2: 0, 4: 0, 6: 0 }, creepersBase: 0, creepersPerNight: 0, mawFrom: 99, dreadMax: 99 };
+// moreOmens 0: no drowned bell to bring the Drowned on an empty night.
+const quiet = { startFloors: 4, sickChance: 0, oldAgeChance: 0, fire: 0, raidDays: { 2: 0, 4: 0, 6: 0 }, creepersBase: 0, creepersPerNight: 0, mawFrom: 99, dreadMax: 99, moreOmens: 0 };
 const ok = (s, a) => {
   const r = act(s, a);
   assert.ok(r.ok, `${a.type}: ${r.error}`);

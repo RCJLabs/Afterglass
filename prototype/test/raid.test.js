@@ -4,7 +4,8 @@ import { newSeason, step, act, defense, roomPower, tributeOf, upgrade, replay, g
 import { TUNING } from '../src/slice/data.js';
 
 // The original four-floor keep, a raid on day 1, nothing else by day to get in the way.
-const quiet = { startFloors: 4, sickChance: 0, oldAgeChance: 0, fire: 0, raidDays: { 1: 6, 2: 0, 4: 0, 6: 0 }, raidSpread: 0, raidFightStrength: 1 };
+// cruelty 0: no traitor's lantern on a raid day (test/events.test.js has it).
+const quiet = { startFloors: 4, sickChance: 0, oldAgeChance: 0, fire: 0, raidDays: { 1: 6, 2: 0, 4: 0, 6: 0 }, raidSpread: 0, raidFightStrength: 1, cruelty: 0 };
 const ok = (s, a) => {
   const r = act(s, a);
   assert.ok(r.ok, `${a.type}: ${r.error}`);

@@ -803,7 +803,7 @@ function rollDay(s) {
   s.raid = null;
   if (T.weather) rollWeather(s);
   const tut = tutorialDay(s);
-  const base = tut ? tut.raid : T.raidDays[s.day];
+  const base = tut ? tut.raid : s.truce === s.season ? 0 : T.raidDays[s.day]; // the Host's envoy's truce: none this season
   if (base) {
     // A visitor's doing (a knight gone to the Host, a deserter come from it) moves the next raid's strength.
     s.raid = newRaid(s, raidStrength(s, base) * (s.raidEdge || 1), Math.round(T.raidWarnAt * D), Math.round(T.raidHitAt * D), !!tut);
@@ -841,7 +841,10 @@ function rollDay(s) {
     s.events.sort((a, b) => a.at - b.at);
     return;
   }
-  if (chance(s, Math.min(1, T.sickChance * troubled(s, 'sick', 1) * luck * (crowded(s) ? T.crowdSick : 1) * (decreeOf(s) === 'rationing' ? DECREES.rationing.sick : 1)))) s.events.push({ at: Math.round((0.1 + rand(s) * 0.5) * D), type: 'sick' });
+  if (chance(s, Math.min(1, T.sickChance * troubled(s, 'sick', 1) * luck * (crowded(s) ? T.crowdSick : 1) * (decreeOf(s) === 'rationing' ? DECREES.rationing.sick : 1)))) {
+    const at = Math.round((0.1 + rand(s) * 0.5) * D);
+    if (s.walled !== s.season) s.events.push({ at, type: 'sick' }); // the plague-bearer walled in: no one else this season
+  }
   for (const p of s.living) {
     if (p.age === 'old' && chance(s, T.oldAgeChance)) s.events.push({ at: Math.round((0.15 + rand(s) * 0.8) * D), type: 'oldage', id: p.id });
   }
@@ -853,6 +856,8 @@ function rollDay(s) {
   if (s.inspection && !s.inspection.done && s.inspection.day === s.day) s.events.push({ at: Math.round(T.inspectAt * D), type: 'inspect' });
   s.events.sort((a, b) => a.at - b.at);
   rollVisitors(s);
+  rollCruelty(s);
+  rollYearVisitor(s);
 }
 
 /* ---------------------------------------------------------------- the Library, the Hall and the Gatehouse */
@@ -925,6 +930,12 @@ function visitorCan(s, k, now) {
     case 'necromancer': return !!restlessOf(s) && !!freeMirror(s);
     case 'cooper': return !!s.tuning.fire && !s.barrels && roomsOf(geo(s), 'hearth').length + roomsOf(geo(s), 'forge').length > 0;
     case 'witch': return !!s.tuning.dreamwell || !s.tuning.weepersMax; // her curse is a Weeper, or the candles
+    // Round seven, phase 14: cruelty, and the years' visitors.
+    case 'traitor': return !now || s.raid?.state === 'coming';
+    case 'bearer': return !now || plagueSeason(s);
+    case 'hunter': return !now || (!!s.inspection && !s.inspection.done);
+    case 'levy': return s.living.filter((p) => p.age !== 'child').length >= 5;
+    case 'wanderer': return !!freeMirror(s);
     default: return true;
   }
 }
@@ -935,7 +946,7 @@ function rollVisitors(s) {
   const D = dayTicks(s);
   const n = chance(r, T.visitorChance) ? (chance(r, T.visitorSecond) ? 2 : 1) : 0;
   for (let i = 0; i < n; i++) {
-    const can = Object.keys(VISITORS).filter((k) => (!T.visitorOnly || k === T.visitorOnly) && !s.visitors.some((v) => v.kind === k) && visitorCan(s, k, false));
+    const can = Object.keys(VISITORS).filter((k) => !VISITORS[k].by && (!T.visitorOnly || k === T.visitorOnly) && !s.visitors.some((v) => v.kind === k) && visitorCan(s, k, false));
     if (!can.length) break;
     const kind = pick(r, can);
     const [a, b] = WINDOW[kind] || [0.08, 0.55];
@@ -944,12 +955,69 @@ function rollVisitors(s) {
   }
   s.visitors.sort((x, y) => x.at - y.at);
 }
+// Cruelty (round seven, phase 14): on a day its trouble is there, one of four happenings inside the keep, at most
+// one a day, from a stream of its own, so a keep meets the same raids, sickness and Unlit with them or without
+// until an answer changes something. Each is about one of the living, and one answer kills them on your order.
+const CRUEL_TAG = 0xc4e;
+const CRUEL = {
+  traitor: 'was hanged from the wall on your order',
+  bearer: 'was walled in the Crypt on your order',
+  price: 'walked into the glass, given to the Hollow on your order',
+  hunter: 'was burned as a witch on your order',
+};
+export function rollCruelty(s) {
+  const T = s.tuning;
+  if (!T.cruelty) return;
+  const r = sideStream(s, CRUEL_TAG);
+  const D = dayTicks(s);
+  const grown = s.living.filter((p) => p.age !== 'child');
+  const R = s.raid;
+  const due = [
+    ['traitor', T.traitorChance, R && R.state === 'coming' && !R.crusade && !R.camp && !R.safe, () => grown.filter((p) => !isGuard(p))],
+    ['price', T.priceChance, isNewMoon(s) && !isLongNight(s) && yearOf(s) >= 2, () => (grown.some((p) => p.age === 'old') ? grown.filter((p) => p.age === 'old') : grown)],
+    ['hunter', T.hunterChance, s.inspection && !s.inspection.done && s.inspection.day >= s.day && s.inspection.day - s.day <= T.hunterDays && s.dread >= T.hunterDread, () => grown],
+    ['bearer', T.bearerChance, plagueSeason(s) && s.living.length > beds(s), () => s.living.filter((p) => p.sick > 0)],
+  ];
+  for (const [kind, p, now, who] of due) {
+    if (!chance(r, p) || !now) continue;
+    const ps = who();
+    if (!ps.length) continue;
+    const named = pick(r, ps).id;
+    const [a, b] = kind === 'traitor' ? [R.warnAt / D + 0.02, R.warnAt / D + 0.06] : kind === 'price' ? [0.4, 0.6] : [0.1, 0.35];
+    const at = Math.round((a + (b - a) * rand(r)) * D);
+    const cap = kind === 'traitor' ? R.hitAt - 1 : kind === 'hunter' && s.inspection.day === s.day ? Math.round(T.inspectAt * D) - 1 : D - 1;
+    s.visitors.push({ id: `v${s.season}.${s.day}.${s.visitors.length}`, kind, at, until: Math.min(cap, at + Math.round(T.visitorWait * D)), here: false, done: null, named });
+    s.visitors.sort((x, y) => x.at - y.at);
+    return;
+  }
+}
+// The years' visitors (round seven, phase 14): from the third year to the tenth, each brings one who has never come,
+// from its summer's third day, on the first day the gate is open and it can come.
+export function rollYearVisitor(s) {
+  const T = s.tuning;
+  if (!T.yearVisitors || !T.year || chapterOf(s) || s.yearVisit === yearOf(s) || seasonIndex(s) < 1 || (seasonIndex(s) === 1 && s.day < 3)) return;
+  if (besieged(s) || crusadeDue(s)) return;
+  const kind = Object.keys(VISITORS).find((k) => VISITORS[k].year === yearOf(s));
+  if (!kind || !visitorCan(s, kind, false) || s.visitors.some((v) => v.kind === kind)) return;
+  const r = sideStream(s, CRUEL_TAG + 1);
+  const D = dayTicks(s);
+  const at = Math.round((0.1 + 0.3 * rand(r)) * D);
+  s.visitors.push({ id: `v${s.season}.${s.day}.${s.visitors.length}`, kind, at, until: at + Math.round(T.visitorWait * D), here: false, done: null });
+  s.visitors.sort((x, y) => x.at - y.at);
+}
+// One of the living leaves the keep for good, alive: a spouse is left unwed.
+function leaveKeep(s, p) {
+  const i = s.living.indexOf(p);
+  if (i < 0) return;
+  s.living.splice(i, 1);
+  for (const q of s.living) if (q.bond?.with === p.id && q.bond.rel === 'spouse') q.bond = null;
+}
 // Each tick of the day: who reaches the gate, and who has waited long enough.
 function visitorTick(s) {
   for (const v of s.visitors) {
     if (v.done || v.gone) continue;
     if (!v.here && s.t >= v.at) {
-      if (!visitorCan(s, v.kind, true)) {
+      if (!visitorCan(s, v.kind, true) || (v.named && !byId(s.living, v.named))) {
         v.gone = true; // the day didn't bring what it came for
         continue;
       }
@@ -960,8 +1028,9 @@ function visitorTick(s) {
       if (v.kind === 'knight') v.shade = strangerOf(s).id;
       if (v.kind === 'necromancer') v.shade = restlessOf(s).id;
       if (v.kind === 'graverobber') v.body = theDead(s).at(-1).id;
-      const who = v.who ? ` ${listNames(v.who.map((id) => byId(s.living, id).name))} ask to be wed.` : v.shade && v.kind === 'knight' ? ` He asks after ${byId(s.shades, v.shade).name}.` : '';
-      say(s, `At the gate: ${V.name.toLowerCase()}.${who} ${cap(V.answers.at(-1).text)} unless you answer by ${hourOf(s, v.until)}.`, 'visit', 'visitor');
+      const who = v.who ? ` ${listNames(v.who.map((id) => byId(s.living, id).name))} ask to be wed.` : v.shade && v.kind === 'knight' ? ` He asks after ${byId(s.shades, v.shade).name}.` : v.named ? ` ${V.who(byId(s.living, v.named).name)}` : '';
+      if (V.year) s.yearVisit = yearOf(s);
+      say(s, `${V.inside ? 'In the keep' : 'At the gate'}: ${V.name.toLowerCase()}.${who} ${cap(V.answers.at(-1).text)} unless you answer by ${hourOf(s, v.until)}.`, 'visit', 'visitor');
       cue(s, 'arrive');
     }
     if (v.here && !v.done && s.t >= v.until) answerVisitor(s, v, VISITORS[v.kind].answers.at(-1).id, true);
@@ -992,6 +1061,9 @@ export function visitorBlock(s, v, id) {
   if (v.kind === 'wedding' && id === 'feast' && v.who.some((pid) => !byId(s.living, pid))) return 'One of them is dead.';
   if (v.kind === 'knight' && id === 'free' && !byId(s.shades, v.shade)) return 'His brother is gone from the glass.';
   if (v.kind === 'necromancer' && id === 'bind' && (!byId(s.shades, v.shade) || !freeMirror(s))) return 'There is nothing for him to bind, or no mirror with room.';
+  if (v.named && !byId(s.living, v.named)) return 'They are dead already.';
+  if (v.kind === 'wanderer' && id === 'take' && !freeMirror(s)) return 'No mirror has room for it.';
+  if (v.kind === 'levy' && id === 'send' && s.living.filter((p) => p.age !== 'child').length < 3) return 'The keep has too few grown to send two.';
   return null;
 }
 function joins(s, age, trait = null, r = s) {
@@ -1097,6 +1169,62 @@ function answerVisitor(s, v, id, late = false) {
   } else if (key === 'cooper:buy') {
     s.barrels = true;
     what = 'Until the season ends, fire comes half as often.';
+  } else if (key === 'traitor:hang' || key === 'bearer:wall' || key === 'price:give' || key === 'hunter:burn') {
+    // Cruelty (round seven, phase 14): one of your own, killed on your order, wakes at dusk a Wraith.
+    const p = byId(s.living, v.named);
+    kill(s, p, 'yours', CRUEL[v.kind]);
+    if (v.kind === 'traitor') what = edgeRaid(s, T.traitorHang) ? `The Host has lost its eyes: today's raid comes ×${fmt(T.traitorHang)} as hard.` : '';
+    if (v.kind === 'bearer') {
+      s.walled = s.season;
+      what = 'No one else falls sick this season.';
+    }
+    if (v.kind === 'price') {
+      s.priced = `${s.season}/${s.day}`;
+      what = 'Tonight the Hollow stays in the Deep.';
+    }
+    what = `${what} At dusk ${p.name} wakes a Wraith.`.trim();
+  } else if (key === 'traitor:out') {
+    const p = byId(s.living, v.named);
+    leaveKeep(s, p);
+    what = `${p.name} is put out of the gate, and goes to the Host.`;
+  } else if (key === 'traitor:no') {
+    what = edgeRaid(s, T.traitorLet) ? `The postern is opened to the Host: today's raid comes ×${fmt(T.traitorLet)} as hard.` : '';
+  } else if (key === 'levy:send') {
+    const two = s.living.filter((p) => p.age !== 'child').slice(-2);
+    for (const p of two) leaveKeep(s, p);
+    s.riders = (s.riders || 0) + A.help;
+    what = `${listNames(two.map((p) => p.name))} go with the sergeant. The lord's riders will stand with you when the Host next comes (+${A.help} defense).`;
+  } else if (key === 'levy:no') {
+    const today = edgeRaid(s, A.edge);
+    what = `The lord's men ride with the Host: ${today ? "today's raid" : 'its next raid'} comes ×${fmt(A.edge)} harder.`;
+  } else if (key === 'shrine:pray') {
+    for (const d of s.shades) d.memory = Math.max(0, d.memory - 10);
+    what = `+${costText(A.gain)}. Every shade loses 10 memory to their prayers.`;
+  } else if (key === 'envoy:pay') {
+    s.truce = s.season;
+    what = 'The Host takes its tribute: no raid comes for the rest of this season.';
+  } else if (key === 'bishop:bless') {
+    s.consecrated = yearOf(s);
+    what = 'The mirrors are consecrated: for the rest of the year the Church judges the keep a Dread kinder.';
+  } else if (key === 'claimant:no') {
+    const rooms = Object.values(geo(s).rooms).filter((x) => x.type !== 'empty' && x.type !== 'yard' && !s.fires.some((f) => f.room === x.id));
+    const at = rooms.length ? pick(r, rooms) : null;
+    what = at ? 'His men set fire to a room as they go.' : 'He goes, cursing.';
+    if (at) ignite(s, at.id);
+  } else if (key === 'wanderer:take') {
+    const m = freeMirror(s);
+    const d = newShade(s, { id: 'p' + s.nextId++, name: freshName(s, NAMES, r), kind: 'loyal', cause: 'duty', from: 'visitor', day: s.day, memory: 100 });
+    d.mirror = m.id;
+    s.shades.push(d);
+    s.ledger.push({
+      id: d.id, name: d.name, from: 'visitor', season: s.season, day: s.day, cause: 'duty', how: 'kept a fallen keep, and came to yours in a stranger\'s glass', kind: 'loyal', guided: false, job: null,
+      age: 'adult', bond: null, woke: 'loyal', end: null, endDay: null, nights: 0, kills: 0, posts: {}, named: false, memory: 100,
+    });
+    what = `${d.name} wakes Loyal in the ${m.name}.`;
+  } else if (key === 'founding:feast') {
+    for (const d of s.shades) d.memory = Math.min(100, d.memory + 25);
+    for (const p of s.living) p.peace = Math.max(p.peace || 0, D - s.t);
+    what = 'The keep feasts with its dead: every shade gains 25 memory, and everyone is at peace until dusk.';
   } else if (A.cost || A.gain) what = [A.cost && `−${costText(A.cost)}`, A.gain && `+${costText(A.gain)}`].filter(Boolean).join(', ') + '.';
   if (A.dread) what = `${what} Dread ${A.dread > 0 ? '+' : '−'}${Math.abs(A.dread)}.`.trim();
   v.done = id;
@@ -1416,7 +1544,7 @@ export const ledgerDread = (s) => {
   const xs = [...(s.churchLog || []), s.dread];
   return xs.reduce((a, b) => a + b, 0) / xs.length;
 };
-export const judgedDread = (s) => (s.tuning.churchLedger ? Math.round(ledgerDread(s)) : s.dread) + troubled(s, 'judge', 0);
+export const judgedDread = (s) => Math.max(0, (s.tuning.churchLedger ? Math.round(ledgerDread(s)) : s.dread) + troubled(s, 'judge', 0) - (s.consecrated === yearOf(s) ? 1 : 0));
 // The Lantern Church judges the keep by its Dread at noon, or by its ledger.
 function inspect(s) {
   const I = s.inspection;
@@ -1879,7 +2007,10 @@ function newNight(s) {
     const order = [...tides].sort((a, b) => b - a);
     for (let i = 0; i < maws; i++) spawns.push({ at: Math.round(clamp(order[i % order.length] - 0.03, 0.02, 0.9) * N), type: 'maw', seep: false, snuff: false, rift: pick(s, MAP.rifts).id, ...(tut?.maw ? { weak: tut.maw } : {}) });
   }
-  if (isNewMoon(s)) spawns.push({ at: Math.round(T.hollowAt * N), type: 'hollow', seep: false, snuff: false, rift: pick(s, MAP.rifts).id });
+  if (isNewMoon(s)) {
+    const hollow = { at: Math.round(T.hollowAt * N), type: 'hollow', seep: false, snuff: false, rift: pick(s, MAP.rifts).id };
+    if (s.priced !== `${s.season}/${s.day}`) spawns.push(hollow); // the Hollow's price, paid
+  }
   // The night after a death, the Weepers: one for each of the day's dead (up to weepersMax, 0 since round seven,
   // phase 11).
   const weepers = T.dreamwell && T.weepersMax;
@@ -2036,7 +2167,7 @@ function rollOmens(s, N, n) {
   const T = s.tuning;
   const r = sideStream(s, 0x0e1);
   if (!chance(r, T.omenChance)) return [];
-  const can = Object.keys(OMENS).filter((id) => (T.omenOnly ? id === T.omenOnly : true) && (id !== 'hunt' || s.day >= T.mawFrom));
+  const can = Object.keys(OMENS).filter((id) => (T.omenOnly ? id === T.omenOnly : true) && (id !== 'hunt' || s.day >= T.mawFrom) && (!OMENS[id].more || (T.moreOmens && omenCan(s, id))));
   if (!can.length) return [];
   const ids = [pick(r, can)];
   if (!T.omenOnly && can.length > 1 && chance(r, T.omenChoice)) ids.push(pick(r, can.filter((x) => x !== ids[0])));
@@ -2046,6 +2177,17 @@ function rollOmens(s, N, n) {
     const o = { id };
     if (id === 'sealed') o.rift = pick(r, MAP.rifts).id; // the one left open
     if (id === 'hunt') o.adds = [{ at: Math.round(clamp(Math.max(...tides) - 0.03, 0.02, 0.9) * N), type: 'maw', seep: false, snuff: false, rift: pick(r, MAP.rifts).id }];
+    if (id === 'star') {
+      // In a room of the deepest floor below the line.
+      const G = geo(s);
+      const f = G.floors.findIndex((fl, i) => i < G.veil - 1 && fl.rooms.length);
+      const { x0, x1 } = roomSpan(G, pick(r, G.floors[f].rooms)[0]);
+      o.at = { f, x: Math.round((x0 + x1) / 2) };
+    }
+    if (id === 'bell' && !(raining(s) && drownedDue(s))) {
+      const end = pick(r, MAP.moat).id;
+      o.adds = Array.from({ length: drownedCount(s) }, () => ({ at: Math.round((0.08 + 0.8 * rand(r)) * N), type: 'drowned', seep: false, snuff: false, rift: end }));
+    }
     if (id === 'blood') {
       o.adds = Array.from({ length: Math.round(T.bloodMore * creepers) }, (_, i) => {
         const at = chance(r, T.stragglers) ? 0.05 + 0.85 * rand(r) : tides[i % tides.length] + (rand(r) - 0.5) * T.tideSpread;
@@ -2055,6 +2197,18 @@ function rollOmens(s, N, n) {
     return o;
   });
 }
+// Round seven, phase 14 (moreOmens): whether one of the four more omens can come tonight. A falling star needs a
+// room below the line to fall in; the drowned bell, a night the Drowned can come (not the new moon's).
+function omenCan(s, id) {
+  if (id === 'star') {
+    const G = geo(s);
+    return G.floors.some((fl, i) => i < G.veil - 1 && fl.rooms.length);
+  }
+  if (id === 'bell') return !!s.tuning.weather && drownedDue(s);
+  return true;
+}
+// Grave-cold: the Unlit move at coldSpeed tonight.
+const chill = (s) => (s.night?.omen?.id === 'cold' ? s.tuning.coldSpeed : 1);
 // An omen on the night as rolled: where the Unlit come up, which seep, more of them, or the tides split.
 function applyOmen(s, n, o) {
   const T = s.tuning;
@@ -2074,6 +2228,11 @@ function applyOmen(s, n, o) {
     n.tides.forEach((at, i) => n.spawns.filter((sp) => sp.type === 'creeper' && !sp.great && Math.abs(sp.at - at) <= w).forEach((sp, k) => k % 2 && (sp.at = Math.min(Math.round(0.92 * N), sp.at + halves[i] - at))));
     n.tides = [...n.tides, ...halves].sort((a, b) => a - b);
   }
+  // A falling star lies in the dark tonight, for the first shade to reach it.
+  if (o.id === 'star' || n.errands?.some((e) => e.kind === 'star')) {
+    n.errands = (n.errands || []).filter((e) => e.kind !== 'star');
+    if (o.id === 'star') n.errands.push({ id: `e${s.season}.${s.day}.star`, kind: 'star', f: o.at.f, x: o.at.x, done: null });
+  }
   n.spawns.sort((a, b) => a.at - b.at);
   n.omen = o;
   meet(s, `omen:${o.id}`);
@@ -2089,6 +2248,10 @@ export function omenText(T, o) {
     still: () => `candles burn ${T.stillBurn === 0.5 ? 'half' : T.stillBurn === 0.75 ? 'three quarters' : `${fmt(T.stillBurn)} times`} as fast, and the Unlit gnaw them ${times(T.stillGnaw)} as hard`,
     blood: () => `${T.bloodMore === 0.5 ? 'half again as many' : Math.abs(T.bloodMore - 1 / 3) < 0.01 ? 'a third again as many' : `${Math.round(100 * T.bloodMore)}% more`} Creepers come, and each one cut down gives ${fmt(T.bloodEssence)} essence`,
     restless: () => 'the tides come twice as often, each half as big',
+    star: () => `a star has fallen into the deepest dark below the line: the first shade to reach it brings back ${fmt(T.starGlass)} glass`,
+    cold: () => `the Unlit move ${T.coldSpeed === 0.8 ? 'a fifth slower' : `${fmt(T.coldSpeed)} times as fast`}, and candles burn ${T.coldBurn === 1.25 ? 'a quarter faster' : `${fmt(T.coldBurn)} times as fast`}`,
+    bell: () => `the Drowned come up out of the moat's twin, rain or no rain, and each one cut down gives ${fmt(T.bellEssence)} essence`,
+    kin: () => `every shade fights ${T.kinFight === 1.25 ? 'a quarter harder' : `${fmt(T.kinFight)} times as hard`}, and fades ${T.kinFade === 1.5 ? 'half again as fast' : `${fmt(T.kinFade)} times as fast`}`,
   }[o.id]();
 }
 // The night's marks, from its spawns as they stand when it begins: each tide from its first Creeper, with
@@ -2252,7 +2415,7 @@ function tainTick(s) {
   L.stood = stood(s, L);
   spawnFoes(s, L);
   biggestTide(s);
-  const burn = (n.omen?.id === 'still' ? T.stillBurn : 1) * (s.charm ? T.charmBurn : 1) * (n.curse ? T.curseBurn : 1) * DT;
+  const burn = (n.omen?.id === 'still' ? T.stillBurn : 1) * (n.omen?.id === 'cold' ? T.coldBurn : 1) * (s.charm ? T.charmBurn : 1) * (n.curse ? T.curseBurn : 1) * DT;
   for (const c of n.candles) c.wax -= burn;
   if (T.veilStrains && s.phase === 'night' && s.t % TICKS_PER_SEC === 0) strainCheck(s, burn / DT);
   for (const h of n.foes) {
@@ -2374,6 +2537,9 @@ function errandTick(s, L) {
       d.memory = Math.min(100, Math.round((d.memory + T.echoMemory) * 100) / 100);
       say(s, `${d.name} finds an echo in the ${twinAt(G, e.f, e.x).name}, a memory come loose, and takes it in: +${fmt(T.echoMemory)} memory.`, 'good', true);
       meet(s, 'echo');
+    } else if (e.kind === 'star') {
+      gain(s, 'glass', T.starGlass);
+      say(s, `${d.name} brings back the fallen star from the dark of the ${twinAt(G, e.f, e.x).name}: ${fmt(T.starGlass)} glass.`, 'good', true);
     } else {
       gain(s, 'glass', T.relicGlass);
       say(s, `${d.name} brings back a relic from the dark of the ${twinAt(G, e.f, e.x).name}: ${fmt(T.relicGlass)} glass.`, 'good', true);
@@ -2566,7 +2732,7 @@ function shadeTick(s, L, d) {
     .sort((a, b) => Math.abs(a.x - d.x) - Math.abs(b.x - d.x))[0];
   if (foe) {
     const side = n.eclipse && isTwinnedShade(s, d) ? T.eclipseTwin : 1; // side by side with its living one, in the eclipse
-    foe.hp -= T.fightDps * K.fight * p * side * (n.steel ? T.steelFight : 1) * (S?.fight ?? 1) * (acting(s, d, 'stand') ? T.standFight : 1) * DT;
+    foe.hp -= T.fightDps * K.fight * p * side * (n.steel ? T.steelFight : 1) * (S?.fight ?? 1) * (acting(s, d, 'stand') ? T.standFight : 1) * (n.omen?.id === 'kin' ? T.kinFight : 1) * DT;
     foe.lastHit = d.id;
     return;
   }
@@ -2635,7 +2801,7 @@ function foeTick(s, L, c) {
     }
   }
   if (--c.replan <= 0 && !c.climb) plan(s, L, c);
-  advance(c, c.type === 'wraith' ? T.wraithSpeed : T.creeperSpeed, Math.round(T.creeperClimb * TICKS_PER_SEC));
+  advance(c, (c.type === 'wraith' ? T.wraithSpeed : T.creeperSpeed) * chill(s), Math.round(T.creeperClimb * TICKS_PER_SEC));
   if (c.climb) return;
   if (c.type === 'creeper' && c.f === geo(s).veil) {
     const m = MAP.mirrors.find((x) => Math.abs(x.x - c.x) < 2);
@@ -2779,7 +2945,7 @@ function drownedTick(s, L, c) {
     }
   }
   if (--c.replan <= 0) plan(s, L, c);
-  advance(c, T.drownedSpeed, 1);
+  advance(c, T.drownedSpeed * chill(s), 1);
   const m = MAP.mirrors.find((x) => Math.abs(x.x - c.x) < 2);
   if (m) {
     cross(s, c, m, 1);
@@ -2854,7 +3020,7 @@ function weeperTick(s, L, c) {
     c.mode = r ? 'drift' : 'idle';
     c.path = r ? r.path : [];
   }
-  advance(c, T.weeperSpeed, Math.round(T.creeperClimb * TICKS_PER_SEC));
+  advance(c, T.weeperSpeed * chill(s), Math.round(T.creeperClimb * TICKS_PER_SEC));
 }
 
 // A Maw weighs what it could wreck against the fight it would meet: the candle barring the Creepers' way up
@@ -3065,7 +3231,7 @@ function mawTick(s, L, m) {
       return;
     }
   }
-  advance(m, T.mawSpeed, Math.round(T.creeperClimb * 2 * TICKS_PER_SEC));
+  advance(m, T.mawSpeed * chill(s), Math.round(T.creeperClimb * 2 * TICKS_PER_SEC));
 }
 
 // The Hollow makes for the mirrors whatever the light, eating candles and draining shades as it goes.
@@ -3135,7 +3301,7 @@ function hollowTick(s, L, h) {
     }
     return;
   }
-  advance(h, T.hollowSpeed, Math.round(T.creeperClimb * 2 * TICKS_PER_SEC));
+  advance(h, T.hollowSpeed * chill(s), Math.round(T.creeperClimb * 2 * TICKS_PER_SEC));
   if (h.climb || h.f !== geo(s).veil) return;
   const m = MAP.mirrors.find((x) => Math.abs(x.x - h.x) < 2);
   if (m) cross(s, h, m, T.hollowCracks);
@@ -3327,7 +3493,7 @@ function foeDown(s, f) {
   const n = s.night;
   n.stats.killed++;
   // The Hunt pays for each Maw, a blood moon for each Creeper.
-  const bounty = n.omen?.id === 'hunt' && f.type === 'maw' ? s.tuning.huntEssence : n.omen?.id === 'blood' && f.type === 'creeper' ? s.tuning.bloodEssence : 0;
+  const bounty = n.omen?.id === 'hunt' && f.type === 'maw' ? s.tuning.huntEssence : n.omen?.id === 'blood' && f.type === 'creeper' ? s.tuning.bloodEssence : n.omen?.id === 'bell' && f.type === 'drowned' ? s.tuning.bellEssence : 0;
   if (bounty) {
     gain(s, 'essence', bounty);
     n.stats.omenEssence = (n.stats.omenEssence || 0) + bounty;
@@ -3468,7 +3634,7 @@ function endNight(s) {
     if (rested && S?.dreams) dreams = Math.max(dreams, S.dreams);
     // Dreaming in the Dreamwell through half the night: better still for a Wistful shade.
     if ((d.dreamed || 0) >= T.restShare * N) dreams = Math.max(dreams, S?.dreams ?? T.dreamWork);
-    const loss = T.fadePerNight * (d.named ? 0.5 : 1) * (rested ? 0.5 : 1) * (S?.fade ?? 1) * (inHall(s, d) ? T.hallFade : 1);
+    const loss = T.fadePerNight * (d.named ? 0.5 : 1) * (rested ? 0.5 : 1) * (S?.fade ?? 1) * (inHall(s, d) ? T.hallFade : 1) * (s.night?.omen?.id === 'kin' ? T.kinFade : 1);
     d.memory = Math.round((d.memory - loss) * 100) / 100;
     d.nights++;
     const e = ledgerOf(s, d.id);
@@ -5083,6 +5249,9 @@ export const RULES_SINCE = [
   { key: 'veilWard', old: 0, since: '2026-10-04', what: 'a ward on the Veil for the season (phase 12)' },
   { key: 'troubleRite', old: 0, since: '2026-10-04', what: "a rite against the year's trouble (phase 12)" },
   { key: 'mirrorRooms', old: 0, since: '2026-10-04', what: 'mirrors hang in rooms (phase 13)' },
+  { key: 'cruelty', old: 0, since: '2026-10-05', what: 'cruelty: four happenings with an answer that kills one of your own (phase 14)' },
+  { key: 'moreOmens', old: 0, since: '2026-10-05', what: 'four more omens (phase 14)' },
+  { key: 'yearVisitors', old: 0, since: '2026-10-05', what: "the years' visitors, one a year from the third to the tenth (phase 14)" },
 ];
 export function upgrade(g) {
   g.keep ??= { floors: FULL_KEEP.floors.map((fl) => fl.map((r) => ({ ...r }))) };

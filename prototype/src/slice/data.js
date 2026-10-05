@@ -385,6 +385,29 @@ export const TUNING = {
   doorCracks: 1,
   doorsFrom: 2, // the season of the keep from which a Maw comes through a door: not its first, when a keep of two
   // or three floors has nowhere to hang a mirror the Maws don't come for
+  // Round seven, phase 14: events toward sixty (README, problem 57). Cruelty (cruelty): four happenings inside the
+  // keep, each with an answer that kills one of your own on your order, who wakes at dusk a Wraith. Each comes,
+  // at most one a day, from its own stream, at its chance on a day its trouble is there.
+  cruelty: 1,
+  traitorChance: 0.25, // a traitor's lantern: on a day the Host is on the road
+  traitorHang: 0.75, // ... hanged, today's raid comes this much as hard; let be, traitorLet
+  traitorLet: 1.25,
+  bearerChance: 0.3, // the plague-bearer: in summer's plague, someone sick in a crowded keep
+  priceChance: 0.35, // the Hollow's price: on a new moon's day, from the keep's second year (not the Long Night)
+  hunterChance: 0.4, // the witch-hunter: Dread hunterDread or more, an inspection within hunterDays days
+  hunterDread: 3,
+  hunterDays: 2,
+  // Four more omens (moreOmens): a falling star, grave-cold, the drowned bell and the dead remembering.
+  moreOmens: 1,
+  starGlass: 9, // a falling star: the glass the first shade to reach it brings back
+  coldSpeed: 0.8, // grave-cold: the Unlit move at this rate, and candles burn coldBurn times as fast
+  coldBurn: 1.25,
+  bellEssence: 2, // the drowned bell: the Drowned come up as on a rain night, and each cut down gives this
+  kinFight: 1.25, // the dead remember: every shade fights this many times as hard, and fades kinFade times as fast
+  kinFade: 1.5,
+  // The years' visitors (yearVisitors): from the third year to the tenth, each year brings one who has never come,
+  // once, from its summer's third day (VISITORS, year). Not in the campaign, whose years have their chapters.
+  yearVisitors: 1,
 
   // A year (round three): four seasons of seven days, from spring. Days lengthen into summer and shorten into
   // winter, and nights the other way: each season multiplies daySecs by its seasonDay and nightSecs by its
@@ -923,6 +946,11 @@ export const OMENS = {
   still: { name: 'Still air' },
   blood: { name: 'A blood moon' },
   restless: { name: 'A restless Deep' },
+  // Round seven, phase 14 (moreOmens).
+  star: { name: 'A falling star', more: true },
+  cold: { name: 'Grave-cold', more: true },
+  bell: { name: 'The drowned bell', more: true },
+  kin: { name: 'The dead remember', more: true },
 };
 
 // Visitors at the gate (round six), in the order they're drawn from. Each answer says what it costs and what
@@ -1033,6 +1061,115 @@ export const VISITORS = {
     name: 'A cooper',
     text: 'A cooper with water barrels, for a keep that burns.',
     answers: [{ id: 'buy', text: 'Buy his barrels', cost: { glass: 3 }, does: 'until the season ends, fire comes half as often' }, { id: 'no', text: 'Send him on' }],
+  },
+  // Round seven, phase 14 (README, problem 57). Never drawn with the visitors above: each comes by the rule named
+  // in its by, at its own time. Cruelty: inside the keep, about one of the living (who), with an answer that
+  // kills them on your order; they wake at dusk a Wraith.
+  traitor: {
+    name: "A traitor's lantern",
+    text: 'Someone of the keep is signalling the Host from the wall with a lantern.',
+    by: 'cruelty',
+    inside: true,
+    who: (n) => `${n} is caught at it.`,
+    answers: [
+      { id: 'hang', text: 'Hang them from the wall', does: (T) => `they die on your order, and wake at dusk a Wraith; the Host loses its eyes: today's raid comes ×${T.traitorHang} as hard` },
+      { id: 'out', text: 'Put them out of the gate', does: 'they leave the keep for good; the raid comes as it is' },
+      { id: 'no', text: 'Let it pass', does: (T) => `they open the postern to the Host: today's raid comes ×${T.traitorLet} as hard` },
+    ],
+  },
+  bearer: {
+    name: 'The plague-bearer',
+    text: 'The plague is going through a crowded keep, and the keep wants someone to blame.',
+    by: 'cruelty',
+    inside: true,
+    who: (n) => `They say ${n} brought it in.`,
+    answers: [
+      { id: 'wall', text: 'Wall them in the Crypt', does: 'they die on your order, and wake at dusk a Wraith; no one else falls sick this season' },
+      { id: 'nurse', text: 'Nurse them', does: 'the sickness runs its course' },
+    ],
+  },
+  price: {
+    name: "The Hollow's price",
+    text: 'Tonight is the new moon. A voice in the glass offers to keep the Hollow in the Deep tonight, for one of the living.',
+    by: 'cruelty',
+    inside: true,
+    who: (n) => `It asks for ${n}.`,
+    answers: [
+      { id: 'give', text: 'Give them to it', does: 'they walk into the glass, dying on your order, and wake at dusk a Wraith; tonight the Hollow stays in the Deep' },
+      { id: 'no', text: 'Refuse it', does: 'the Hollow rises tonight, as on every new moon' },
+    ],
+  },
+  hunter: {
+    name: 'A witch-hunter',
+    text: "A witch-hunter riding ahead of the Church's inspector, who names a witch in the keep.",
+    by: 'cruelty',
+    inside: true,
+    who: (n) => `He names ${n}.`,
+    answers: [
+      { id: 'burn', text: 'Give them up', dread: -2, does: 'they burn on your order, and wake at dusk a Wraith' },
+      { id: 'no', text: 'Refuse him', dread: 1, does: 'he rides on to the inspector with the keep\'s name' },
+    ],
+  },
+  // The years' visitors: from the third year to the tenth, each comes once, in its year.
+  levy: {
+    name: "The lord's levy",
+    text: "The lord's sergeant, come for two of your living to fight in the lord's war.",
+    by: 'yearVisitors',
+    year: 3,
+    answers: [
+      { id: 'send', text: 'Send two', help: 4, does: "the two who came to the keep last go for good, and the lord's riders stand with you at the next raid (+4 defense)" },
+      { id: 'pay', text: 'Buy them off', cost: { glass: 8 } },
+      { id: 'no', text: 'Refuse him', edge: 1.2, does: "the lord's men ride with the Host: its next raid comes ×1.2 harder" },
+    ],
+  },
+  chronicler: {
+    name: 'A chronicler',
+    text: 'A scholar writing the history of the keeps, who asks to read your Book of the Dead.',
+    by: 'yearVisitors',
+    year: 4,
+    answers: [{ id: 'read', text: 'Let him read', gain: { remembrance: 4 }, dread: 1, does: 'what he writes, the Church reads' }, { id: 'no', text: 'Send him on' }],
+  },
+  shrine: {
+    name: 'Pilgrims to your dead',
+    text: "Pilgrims who have heard of the keep's dead, come to pray before its mirrors.",
+    by: 'yearVisitors',
+    year: 5,
+    answers: [{ id: 'pray', text: 'Let them pray', gain: { food: 6, remembrance: 2 }, does: 'every shade loses 10 memory to their prayers' }, { id: 'no', text: 'Send them on' }],
+  },
+  envoy: {
+    name: 'An envoy of the Host',
+    text: "The Ashen Host's chieftain offers a truce: tribute now, and no raid until the season turns.",
+    by: 'yearVisitors',
+    year: 6,
+    answers: [{ id: 'pay', text: 'Pay the tribute', cost: { food: 10, glass: 5 }, does: 'no raid comes for the rest of this season' }, { id: 'no', text: 'Send him back' }],
+  },
+  bishop: {
+    name: 'A bishop of the Lantern',
+    text: "A bishop on his rounds, who offers to consecrate the keep's mirrors.",
+    by: 'yearVisitors',
+    year: 7,
+    answers: [{ id: 'bless', text: 'Have them consecrated', cost: { remembrance: 6 }, dread: -1, does: 'for the rest of the year the Church judges the keep a Dread kinder' }, { id: 'no', text: 'Decline' }],
+  },
+  claimant: {
+    name: 'A claimant',
+    text: 'A man with a parchment who claims the keep as his inheritance, and hired swords behind him.',
+    by: 'yearVisitors',
+    year: 8,
+    answers: [{ id: 'pay', text: 'Pay him off', cost: { glass: 10 } }, { id: 'no', text: 'Throw him out', does: 'his men set fire to a room as they go' }],
+  },
+  wanderer: {
+    name: 'A keeper without a keep',
+    text: 'The keeper of a fallen keep, her dead all lost but one, who asks a place in your glass for it.',
+    by: 'yearVisitors',
+    year: 9,
+    answers: [{ id: 'take', text: 'Give it a place', does: 'a Loyal shade joins your glass, its memory whole' }, { id: 'no', text: 'Send her on' }],
+  },
+  founding: {
+    name: 'The founding feast',
+    text: "Ten years. The living ask to feast the keep's founding with its dead.",
+    by: 'yearVisitors',
+    year: 10,
+    answers: [{ id: 'feast', text: 'Hold the feast', cost: { food: 10 }, does: 'every shade gains 25 memory, and everyone is at peace until dusk' }, { id: 'no', text: 'Not this year' }],
   },
 };
 
