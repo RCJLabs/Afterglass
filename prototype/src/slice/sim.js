@@ -65,9 +65,18 @@ export const campaignOn = (s) => !!s.tuning.campaign && !!s.tuning.year;
 export const chapterOf = (s) => (campaignOn(s) && !s.campaign?.ending ? Math.min(5, yearOf(s)) : 0);
 // Whether a pressure a chapter brings has come yet: from its year in a campaign, always in the open year.
 export const arrived = (s, year) => !campaignOn(s) || yearOf(s) >= year;
-// The Library and the Hall wait for the keep's season lateRoomsFrom (round seven, phase 4).
+// A chapter's goal and its closing choices, as this keep's rules have them: round seven's phase 15 (chapterGoals,
+// chapterCloses), or round six's for a keep from before.
+export const goalOf = (s, k) => (s.tuning.chapterGoals || !CHAPTERS[k].oldGoal ? CHAPTERS[k].goal : CHAPTERS[k].oldGoal);
+export const closeOf = (s, k) => (s.tuning.chapterCloses || !CHAPTERS[k].oldClose ? CHAPTERS[k].close : CHAPTERS[k].oldClose);
+// Round seven, phase 15 (chapterSystems): what each of a campaign's chapters brings besides its pressure, by its
+// year. Before it, a keep in a campaign doesn't meet it: no visitor comes to the gate, no omen at dusk, and so on.
+export const CHAPTER_BRINGS = { visitors: 2, traitor: 2, bearer: 2, library: 3, hall: 3, hunter: 3, deep: 4, errands: 4, omens: 4, price: 4, eclipse: 5 };
+export const brought = (s, what) => !s.tuning.chapterSystems || !campaignOn(s) || !(what in CHAPTER_BRINGS) || yearOf(s) >= CHAPTER_BRINGS[what];
+// The Library and the Hall wait for the keep's season lateRoomsFrom (round seven, phase 4), and in a campaign for
+// The Lantern Church (phase 15).
 export const LATE_ROOMS = ['library', 'hall'];
-export const roomReady = (s, type) => !LATE_ROOMS.includes(type) || s.season >= (s.tuning.lateRoomsFrom || 1);
+export const roomReady = (s, type) => !LATE_ROOMS.includes(type) || (s.season >= (s.tuning.lateRoomsFrom || 1) && brought(s, type));
 // From the fourth year of a campaign the Hollow grows, and so do its nights.
 // The year's trouble (round seven, phase 12), and what it makes of k (or dflt in a year without one).
 export const troubleOf = (s) => (s.tuning.troubles && s.trouble?.year === yearOf(s) ? s.trouble.id : null);
@@ -92,7 +101,7 @@ export const boonNow = (s, id) => s.campaign?.boons?.[id] === yearOf(s);
 export const yearsEnd = (s) => s.phase === 'end' && !!s.tuning.year && seasonIndex(s) === 3 && !s.sealed && !s.opened;
 export const plagueSeason = (s) => !!s.tuning.plague && !!s.tuning.year && seasonIndex(s) === 1;
 export const besieged = (s) => !!s.siege && !s.siege.broken && s.day >= s.siege.from && s.day <= s.siege.until;
-export const sallyOdds = (s) => (s.siege ? clamp((s.tuning.guardsGoOut ? guardStrength(s) : defense(s)) / (s.tuning.sallyOdds * s.siege.strength), 0.1, 0.9) : 0);
+export const sallyOdds = (s) => (s.siege ? clamp(((s.tuning.guardsGoOut ? guardStrength(s) : defense(s)) * (boonNow(s, 'sallyport') ? s.tuning.sallyPort : 1)) / (s.tuning.sallyOdds * s.siege.strength), 0.1, 0.9) : 0);
 // Weather (round five): today's, which holds through the night after it, and tomorrow's, known a day ahead.
 // Every day is clear with the weather off.
 export const weatherOf = (s) => (s.tuning.weather ? s.weather || 'clear' : 'clear');
@@ -239,16 +248,22 @@ function chapterNews(s) {
   const k = chapterOf(s);
   const C = CHAPTERS[k];
   if (!C) return;
-  say(s, `Year ${k} of the campaign: ${C.name}. ${C.text} The goal: ${C.goal.text}.`, 'rite', true);
+  say(s, `Year ${k} of the campaign: ${C.name}. ${C.text} The goal: ${goalOf(s, k).text}.`, 'rite', true);
 }
 // A chapter's goal, looked at when it's due: whether it was met, and its reward.
 function chapterGoal(s, k) {
   const C = CHAPTERS[k];
   if (!C || s.campaign.goals[k] !== undefined) return;
-  const g = C.goal;
+  const g = goalOf(s, k);
   const days = [...s.days.filter((d) => yearOfSeason(d.season) === k), s.today];
+  const looked = s.inspections.filter((i) => yearOfSeason(i.season) === k);
   let met = true;
   if (g.id === 'candles') met = s.res.candles + EPS >= g.n;
+  // Round seven, phase 15 (chapterGoals): a sally that broke the siege; every inspection blessed with g.n of the
+  // dead or more in the glass; a mirror raised with quicksilver.
+  else if (g.id === 'sally') met = days.some((d) => d.sallies?.includes(1));
+  else if (g.id === 'kept') met = looked.length > 0 && looked.every((i) => i.verdict === 'blessed' && (i.shades ?? 0) >= g.n);
+  else if (g.id === 'silver') met = days.some((d) => d.upgraded);
   else if (g.id === 'gate') {
     const raids = days.map((d) => d.raid).filter((r) => r && !r.crusade && !r.paid);
     met = raids.length > 0 && raids.every((r) => r.held);
@@ -524,7 +539,7 @@ export const undergateMouth = (g) => ({ f: g.f, x: g.x0 < MAP.W / 2 ? g.x0 + 4 :
 // The eclipse (round six): once a year, on midsummer's day, the sun goes dark for a stretch of the day and the
 // Tain wakes while the day goes on. eclipseSpan is that stretch, in the day's ticks; s.eclipse stands while
 // it lasts, and the Tain is awake then as it is by night.
-export const eclipseDue = (s) => !!s.tuning.eclipse && !!s.tuning.year && seasonIndex(s) === 1 && s.day === s.tuning.eclipseDay;
+export const eclipseDue = (s) => !!s.tuning.eclipse && !!s.tuning.year && seasonIndex(s) === 1 && s.day === s.tuning.eclipseDay && brought(s, 'eclipse');
 export function eclipseSpan(s) {
   const D = dayTicks(s);
   const a = Math.round(s.tuning.eclipseAt * D);
@@ -941,7 +956,7 @@ function visitorCan(s, k, now) {
 }
 function rollVisitors(s) {
   const T = s.tuning;
-  if (!T.visitors || besieged(s) || crusadeDue(s) || (s.season === 1 && s.day < (T.visitFrom || 1))) return;
+  if (!T.visitors || !brought(s, 'visitors') || besieged(s) || crusadeDue(s) || (s.season === 1 && s.day < (T.visitFrom || 1))) return;
   const r = sideStream(s, VISIT_TAG);
   const D = dayTicks(s);
   const n = chance(r, T.visitorChance) ? (chance(r, T.visitorSecond) ? 2 : 1) : 0;
@@ -979,7 +994,7 @@ export function rollCruelty(s) {
     ['bearer', T.bearerChance, plagueSeason(s) && s.living.length > beds(s), () => s.living.filter((p) => p.sick > 0)],
   ];
   for (const [kind, p, now, who] of due) {
-    if (!chance(r, p) || !now) continue;
+    if (!chance(r, p) || !now || !brought(s, kind)) continue;
     const ps = who();
     if (!ps.length) continue;
     const named = pick(r, ps).id;
@@ -1607,7 +1622,7 @@ function inspect(s) {
   I.done = true;
   I.verdict = verdict;
   I.dread = d;
-  s.inspections.push({ season: s.season, day: s.day, reason: I.reason, verdict, dread: d, ...(s.tuning.churchLedger ? { now } : {}) });
+  s.inspections.push({ season: s.season, day: s.day, reason: I.reason, verdict, dread: d, ...(s.tuning.churchLedger ? { now } : {}), shades: s.shades.filter((x) => x.mirror).length });
   s.today.inspection = { verdict, dread: d };
   meet(s, 'inspection');
   if (verdict === 'censured') meet(s, 'censure');
@@ -2051,14 +2066,14 @@ function newNight(s) {
   }
   spawns.sort((a, b) => a.at - b.at);
   const night = {
-    ...(T.errands && !tut ? { errands: rollErrands(s, N) } : {}),
+    ...(T.errands && !tut && brought(s, 'errands') ? { errands: rollErrands(s, N) } : {}),
     candles: [], foes: [], spawns, tides: [...tides, ...(great ? [T.greatTideAt] : [])].map((x) => Math.round(x * N)).sort((a, b) => a - b), ...(great ? { great: Math.round(T.greatTideAt * N) } : {}), wards: [...standingOf(s)], wardHold: Object.fromEntries(standingOf(s).filter((w) => geo(s).stairs.some((x) => x.id === w)).map((w) => [w, wardHoldOf(s)])), hush: false, steel: !!s.steel || (boonNow(s, 'steel') && isNewMoon(s)),
     broken: [], // twin rooms (ids) a Maw has broken tonight
     stats: nightStats(),
     ...(cursed ? { curse: true } : {}),
   };
   // Tonight's omen, or two to choose between: the night as rolled is kept, so a choice can be changed at dusk.
-  const offered = T.omens && !tut && !long && !isNewMoon(s) && s.day >= T.omenFrom ? rollOmens(s, N, night) : [];
+  const offered = T.omens && !tut && !long && !isNewMoon(s) && s.day >= T.omenFrom && brought(s, 'omens') ? rollOmens(s, N, night) : [];
   if (offered.length === 1) applyOmen(s, night, offered[0]);
   else if (offered.length === 2) Object.assign(night, { omens: offered, base: { spawns: spawns.map((x) => ({ ...x })), tides: [...night.tides] } });
   return night;
@@ -2424,7 +2439,7 @@ function tainTick(s) {
   L.stood = stood(s, L);
   spawnFoes(s, L);
   biggestTide(s);
-  const burn = (n.omen?.id === 'still' ? T.stillBurn : 1) * (n.omen?.id === 'cold' ? T.coldBurn : 1) * (s.charm ? T.charmBurn : 1) * (n.curse ? T.curseBurn : 1) * DT;
+  const burn = (n.omen?.id === 'still' ? T.stillBurn : 1) * (n.omen?.id === 'cold' ? T.coldBurn : 1) * (s.charm ? T.charmBurn : 1) * (n.curse ? T.curseBurn : 1) * (boonNow(s, 'tallow') && seasonIndex(s) === 3 ? T.tallowBurn : 1) * DT;
   for (const c of n.candles) c.wax -= burn;
   if (T.veilStrains && s.phase === 'night' && s.t % TICKS_PER_SEC === 0) strainCheck(s, burn / DT);
   for (const h of n.foes) {
@@ -3543,7 +3558,7 @@ function upFromTheDeep(s) {
     const k = d.deep - 1;
     const S = shadeTrait(s, d);
     d.deep = 0;
-    if (chance(s, T.deepCatch[k] * (S?.unseen ? 0.5 : 1))) {
+    if (chance(s, T.deepCatch[k] * (S?.unseen ? 0.5 : 1) * (boonNow(s, 'chart') ? T.chartCatch : 1))) {
       const lost = T.deepDrain * (S?.drain ?? 1);
       d.memory = Math.round((d.memory - lost) * 100) / 100;
       s.night.stats.deep.push({ name: d.name, depth: k + 1, caught: true, lost });
@@ -3772,6 +3787,8 @@ export function ritePreview(s) {
   const crackD = (R.cracks || 0) * T.dreadPerCrack;
   const brokenD = (R.broken || 0) * T.dreadPerBroken + (R.ruined || 0) * (T.dreadPerRuin || 0); // the living saw what the Maws broke walk their rooms
   const bears = bear(s);
+  // Round seven, phase 15: honouring the dead, a campaign's close, halves what the kept weigh the year after.
+  if (boonNow(s, 'shrine')) keepD = Math.ceil(keepD * T.shrineDread);
   const delta = keepD + restD + wraithD + crackD + brokenD - bears - R.vigils;
   // In the tutorial's first days Dread stops one short of bringing the Church.
   const top = veilKept(s) ? T.dreadMax - 1 : T.dreadMax;
@@ -4020,7 +4037,7 @@ function endSeason(s, cracks) {
   if (chapterOf(s) && seasonIndex(s) === 3) {
     chapterGoal(s, chapterOf(s));
     const C = CHAPTERS[chapterOf(s)];
-    say(s, C.close ? `${C.name} is over. Choose how the chapter closes: ${C.close.map((c) => low(c.name)).join(', or ')}.` : 'The campaign is over. Choose how the keep\'s story ends: seal the Veil, open it, or keep the watch.', 'rite', true);
+    say(s, C.close ? `${C.name} is over. Choose how the chapter closes: ${closeOf(s, chapterOf(s)).map((c) => low(c.name)).join(', or ')}.` : 'The campaign is over. Choose how the keep\'s story ends: seal the Veil, open it, or keep the watch.', 'rite', true);
   }
   cue(s, 'end');
 }
@@ -4058,7 +4075,7 @@ function nextSeason(s) {
   cue(s, 'dawn');
   if (chapterOf(s) && seasonIndex(s) === 0) chapterNews(s);
   if (seasonIndex(s) === 0) yearsTrouble(s);
-  if (chapterOf(s) && seasonIndex(s) === 3 && CHAPTERS[chapterOf(s)].goal.id === 'candles') chapterGoal(s, chapterOf(s));
+  if (chapterOf(s) && seasonIndex(s) === 3 && goalOf(s, chapterOf(s)).id === 'candles') chapterGoal(s, chapterOf(s));
   generations(s);
 }
 
@@ -4193,6 +4210,7 @@ const ACTIONS = {
     if (!BUILDABLE.includes(room)) return 'That cannot be built.';
     const T = s.tuning;
     if (NEW_ROOMS.includes(room) && !T[room]) return `There is no ${DAY_ROOMS[room].name} in this keep.`;
+    if (!brought(s, room)) return `The ${DAY_ROOMS[room].name} comes with The Lantern Church, in the campaign's third year.`;
     if (!roomReady(s, room)) return `The ${DAY_ROOMS[room].name} can be built from ${T.year && T.lateRoomsFrom === 2 ? 'summer' : `the keep's season ${T.lateRoomsFrom}`}.`;
     const at = buildSpot(s, where);
     if (!at) return where && where !== 'top' ? 'There is no bare hall there.' : 'The keep can rise no higher.';
@@ -4477,6 +4495,7 @@ const ACTIONS = {
   descend(s, { id, depth }) {
     const T = s.tuning;
     if (!T.deep) return 'The way down is closed.';
+    if (!brought(s, 'deep')) return "The way down into the Deep opens with The Deep Rises, in the campaign's fourth year.";
     if (s.phase !== 'dusk' || s.dusk?.step !== 'place') return 'Shades go down into the Deep at dusk.';
     if (isNewMoon(s)) return 'Not on the new moon: the Hollow is down there.';
     const d = byId(s.shades, id);
@@ -4510,6 +4529,7 @@ const ACTIONS = {
     const was = m.name;
     m.type = next;
     m.name = `${was.split(' ')[0]} ${MIRRORS[next].name}`;
+    s.today.upgraded = (s.today.upgraded || 0) + 1; // for a campaign's goal (round seven, phase 15)
     say(s, `The ${was} is silvered anew as the ${m.name}: room for ${MIRRORS[next].cap}.`, 'good');
     cue(s, 'mirror');
   },
@@ -5036,12 +5056,13 @@ const ACTIONS = {
   closeChapter(s, { id }) {
     const k = chapterOf(s);
     if (!yearsEnd(s) || !k || k >= 5) return 'A chapter closes at the end of its year.';
-    const c = CHAPTERS[k].close.find((x) => x.id === id);
+    const c = closeOf(s, k).find((x) => x.id === id);
     if (!c) return 'Not a choice for this chapter.';
     s.campaign.closed[k] = id;
     say(s, `${CHAPTERS[k].name} closes: ${low(c.name)}, ${c.text}.`, 'rite', true);
     if (c.gain) for (const [r, n] of Object.entries(c.gain)) gain(s, r, n);
-    if (id === 'walls' || id === 'tithe' || id === 'steel') s.campaign.boons[id] = k + 1;
+    // A help that lasts the next year (the household's peace is at once).
+    if (!c.gain && id !== 'kin') s.campaign.boons[id] = k + 1;
     if (id === 'tithe') s.dread = Math.max(0, s.dread - 2);
     nextSeason(s);
     if (id === 'kin') {
@@ -5262,6 +5283,9 @@ export const RULES_SINCE = [
   { key: 'cruelty', old: 0, since: '2026-10-05', what: 'cruelty: four happenings with an answer that kills one of your own (phase 14)' },
   { key: 'moreOmens', old: 0, since: '2026-10-05', what: 'four more omens (phase 14)' },
   { key: 'yearVisitors', old: 0, since: '2026-10-05', what: "the years' visitors, one a year from the third to the tenth (phase 14)" },
+  { key: 'chapterSystems', old: 0, since: '2026-10-06', what: "a campaign's visitors, rooms, the Deep, errands, omens and eclipse come with its chapters (phase 15)" },
+  { key: 'chapterGoals', old: 0, since: '2026-10-06', what: "a campaign's goals that ask more than good play gives of itself (phase 15)" },
+  { key: 'chapterCloses', old: 0, since: '2026-10-06', what: "a campaign's chapters close on two helps for the next year (phase 15)" },
 ];
 export function upgrade(g) {
   g.keep ??= { floors: FULL_KEEP.floors.map((fl) => fl.map((r) => ({ ...r }))) };

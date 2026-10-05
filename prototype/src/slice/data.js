@@ -671,6 +671,22 @@ export const TUNING = {
   // five years harden by campaignHardness, not yearHardness, and the years after its ending by yearHardness, as
   // the open year's do (problem 43). 0 is the open year.
   campaign: 0,
+  // Round seven, phase 15: in a campaign, what else each chapter brings (sim.js, CHAPTER_BRINGS): from year 2 the
+  // visitors at the gate, the traitor's lantern and the plague-bearer; from year 3 the Library and the Hall, and the
+  // witch-hunter; from year 4 the way down into the Deep, errands, omens and the Hollow's price; in year 5 the
+  // eclipse. 0, as before: a campaign's first year has all of them.
+  chapterSystems: 1,
+  // Round seven, phase 15: each chapter's goal asks more than good play does of itself (chapterGoals; CHAPTERS'
+  // goal, not round six's oldGoal), and each chapter closes on two helps for the next year (chapterCloses):
+  // a sally-port (the guards sally out sallyPort times as strong), honouring the dead (a kept shade weighs
+  // shrineDread of its Dread at the rite), charting the Deep (a shade down there caught chartCatch as often) and
+  // laying by for the Long Night (winter's candles burn tallowBurn as fast). 0, as before.
+  chapterGoals: 1,
+  chapterCloses: 1,
+  sallyPort: 1.5,
+  shrineDread: 0.5,
+  chartCatch: 0.5,
+  tallowBurn: 0.75,
   // Round seven, phase 12: from year troublesFrom each year of the open year, and of a campaign kept on past its
   // ending, brings a trouble (TROUBLES). 0, as before: each year as the last, only harder.
   troubles: 1,
@@ -678,7 +694,8 @@ export const TUNING = {
   // A rite in the Chapel against the year's trouble, by day, once a season: until the season ends it does half what it
   // would, for troubleRite remembrance. 0 is none.
   troubleRite: 15,
-  campaignHardness: 1.1,
+  // Round seven, phase 15: a campaign's years harden as the open year's do (yearHardness), not ×1.1 (problem 58).
+  campaignHardness: 1.06,
   hollowRises: 1.5,
   goalReward: 3,
 };
@@ -705,8 +722,17 @@ export const CHAPTERS = {
   1: {
     name: 'The First Winter',
     text: 'Learn the round of day and night, and live through the long nights of winter on the candles you put by.',
+    // Round seven, phase 15: the chapter told at its first dawn, and what it brings that the year before hadn't
+    // (chapterSystems; sim.js, CHAPTER_BRINGS).
+    story: "The keep stands on the Veil, where the valley's dead wake in the glass. Its last keeper is gone, and the watch is yours. Learn its round: by day the living work and build, and by night the dead hold the line against what climbs out of the Deep. Winter's nights are long, and the last of them is the longest of all.",
     goal: { id: 'candles', n: 20, text: 'go into winter with 20 candles put by' },
+    // Round seven, phase 15 (chapterCloses): two helps for the next year, one against its pressure and one toward
+    // its goal. oldClose is round six's, for keeps from before: a help or goods now.
     close: [
+      { id: 'walls', name: 'Raise the walls', text: 'the Host meets 2 more defense at every raid next year' },
+      { id: 'sallyport', name: 'Cut a sally-port', text: 'next year the guards sally out against a siege half again as strong' },
+    ],
+    oldClose: [
       { id: 'walls', name: 'Raise the walls', text: 'the Host meets 2 more defense at every raid next year' },
       { id: 'stores', name: 'Lay in stores', text: '20 food and 10 candles now', gain: { food: 20, candles: 10 } },
     ],
@@ -714,8 +740,17 @@ export const CHAPTERS = {
   2: {
     name: 'The Ashen Host',
     text: "The Host has taken the keep's measure. Its raids bring ladders now, and in autumn it lays siege. A Gatehouse can be raised to meet it.",
-    goal: { id: 'gate', text: 'hold the gate against every raid this year' },
+    story: 'Word has gone down the valley of a keep that holds its dead, and the Ashen Host has come up the road to take its measure. Its raids bring ladders now, and in autumn it will camp outside the walls to starve you out: your guards can sally out to break the camp. The road brings others to the gate too, traders and pilgrims and worse, each with something to offer or to ask.',
+    brings: 'the siege, the Host\'s ladders, the Gatehouse and its Undergate, and visitors at the gate',
+    adds: 'visitors at the gate', // what chapterSystems holds back for it (sim.js, CHAPTER_BRINGS)
+    // Round seven, phase 15 (chapterGoals): a goal that good play doesn't meet of itself. oldGoal is round six's.
+    goal: { id: 'sally', text: "break the Host's siege with a sally" },
+    oldGoal: { id: 'gate', text: 'hold the gate against every raid this year' },
     close: [
+      { id: 'tithe', name: 'Tithe to the Church', text: 'Dread −2 now, and the Church forgives the first censure next year' },
+      { id: 'shrine', name: 'Honour the dead', text: 'next year a shade you keep weighs half its Dread at the rite' },
+    ],
+    oldClose: [
       { id: 'tithe', name: 'Tithe to the Church', text: 'Dread −2 now, and the Church forgives the first censure next year' },
       { id: 'silver', name: 'Keep the silver', text: '12 glass now', gain: { glass: 12 } },
     ],
@@ -723,8 +758,16 @@ export const CHAPTERS = {
   3: {
     name: 'The Lantern Church',
     text: 'The Church judges the keep more sternly now: a censure brings its embargo, then its Inquisition, and at last its crusade.',
-    goal: { id: 'church', text: 'come through every inspection this year without a censure' },
+    story: 'The Lantern Church has heard what this keep does with its dead. Its inspector comes with a sterner eye now: a censure brings its embargo, then its Inquisition, and at the last its crusade. Yet the keep can learn and rule as well as fight. Raise a Library, where scholars study the old crafts, and a Hall, where you proclaim the keep\'s law and the dead hold court by night.',
+    brings: "the Church's embargo, Inquisition and crusade, the Library and the Hall",
+    adds: 'the Library and the Hall',
+    goal: { id: 'kept', n: 6, text: 'come through every inspection this year blessed, with six of the dead or more in the glass' },
+    oldGoal: { id: 'church', text: 'come through every inspection this year without a censure' },
     close: [
+      { id: 'steel', name: 'Arm the dead', text: 'grave-steel every night of the new moon next year: every shade fights harder' },
+      { id: 'chart', name: 'Chart the Deep', text: 'next year a shade sent down into the Deep is caught half as often' },
+    ],
+    oldClose: [
       { id: 'steel', name: 'Arm the dead', text: 'grave-steel every night of the new moon next year: every shade fights harder' },
       { id: 'wax', name: 'Stock the Chandlery', text: '15 candles now', gain: { candles: 15 } },
     ],
@@ -732,8 +775,16 @@ export const CHAPTERS = {
   4: {
     name: 'The Deep Rises',
     text: 'The Hollow grows: it is half again as hard to drive back and eats the light as fast again, and the nights of the new moon bring half again as many Creepers.',
-    goal: { id: 'hollow', n: 1, text: 'drive the Hollow back on one of its nights this year' },
+    story: 'Something has woken below the rifts. The Hollow climbs harder now and hungers for light, and the new moon brings more of the Unlit with it. But the Deep gives as well as takes. A shade can go down past the rifts at dusk for quicksilver, which raises a mirror where it hangs; things turn up in the dark below the line; and at dusk the black mirror shows the night\'s omen.',
+    brings: 'the Hollow grown, the way down into the Deep, errands below the line, and omens',
+    adds: 'the way down into the Deep, errands below the line, and omens',
+    goal: { id: 'silver', text: 'raise a mirror with quicksilver from the Deep' },
+    oldGoal: { id: 'hollow', n: 1, text: 'drive the Hollow back on one of its nights this year' },
     close: [
+      { id: 'kin', name: 'Bind the household', text: 'everyone living at peace for seven days, their grief over' },
+      { id: 'tallow', name: 'Lay by for the Long Night', text: "next year's winter nights burn candles three-quarters as fast" },
+    ],
+    oldClose: [
       { id: 'kin', name: 'Bind the household', text: 'everyone living at peace for seven days, their grief over' },
       { id: 'debts', name: "Call in the keep's debts", text: '4 remembrance and 20 food now', gain: { remembrance: 4, food: 20 } },
     ],
@@ -741,14 +792,30 @@ export const CHAPTERS = {
   5: {
     name: 'The Long Night',
     text: "The last year of the watch. At its end comes the last Long Night, and a choice of how the keep's story ends.",
+    story: 'The last year of the watch. At midsummer the sun goes dark over the valley, and the Tain wakes with the keep in the middle of the day. At the year\'s end comes the last Long Night, the longest of all. If the keep comes through it, you choose how its story ends.',
+    brings: 'the eclipse at midsummer',
+    adds: 'the eclipse at midsummer',
     goal: { id: 'end', text: 'come through the last Long Night' },
   },
 };
 // Round three's three endings, after the campaign's fifth year.
+// Round seven, phase 15: each with its epilogue, told when it's chosen.
 export const ENDINGS = {
-  seal: { name: 'Seal the Veil', text: 'Every shade goes free. The Tain closes, and the living go on alone. The story ends.' },
-  open: { name: 'Open the Veil', text: 'The living and the dead share both realms, and the keep becomes a crossing. The story ends.' },
-  watch: { name: 'Keep the watch', text: 'You die and rule the Tain as its warden, and a new keeper goes on: play continues, with no more chapters.' },
+  seal: {
+    name: 'Seal the Veil',
+    text: 'Every shade goes free. The Tain closes, and the living go on alone. The story ends.',
+    epilogue: 'You seal the Veil. One by one the shades step out of the glass and are gone, and the mirrors show only the keep. The Deep is shut, the long nights are only nights, and the living go on alone.',
+  },
+  open: {
+    name: 'Open the Veil',
+    text: 'The living and the dead share both realms, and the keep becomes a crossing. The story ends.',
+    epilogue: 'You open the Veil. The dead walk out of the glass into the halls they held, and the living make room for them at the hearth. The keep becomes a crossing, half in each world, and the valley will tell of it for a hundred years.',
+  },
+  watch: {
+    name: 'Keep the watch',
+    text: 'You die and rule the Tain as its warden, and a new keeper goes on: play continues, with no more chapters.',
+    epilogue: 'You take your place in the glass as its warden, and a new keeper takes up the keys. The watch goes on, and so do you.',
+  },
 };
 
 // Difficulty presets (round five): named sets of the Settings numbers, chosen for a new keep. A keep keeps

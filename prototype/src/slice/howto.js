@@ -75,6 +75,9 @@ export function howTo(T) {
   ];
   const weepers = T.dreamwell && T.weepersMax;
   const chapters = [1, 2, 3, 4, 5].map((k) => CHAPTERS[k]);
+  // A chapter's goal and closes as the keep's rules have them (round seven, phase 15; round six's for keeps from before).
+  const goalOf = (C) => (T.chapterGoals || !C.oldGoal ? C.goal : C.oldGoal);
+  const closeOf = (C) => (T.chapterCloses || !C.oldClose ? C.close : C.oldClose);
   const campaign = T.campaign && T.year
     ? [
         {
@@ -83,10 +86,13 @@ export function howTo(T) {
           items: [
             `A campaign is five years, each a chapter: ${chapters.map((C, i) => `year ${i + 1}, ${C.name}`).join('; ')}. It's chosen for a new keep, beside the open year, and if you keep the watch after its fifth year, it plays on without chapters.`,
             'Each chapter brings its pressure. From year 2 the Host lays siege in autumn and brings ladders to the gate, and a Gatehouse can be raised against it; from year 3 a censure brings the embargo, then the Inquisition, then the crusade (before, it covers a mirror); from year 4 the Hollow is half again as hard to drive back and eats the light as fast again, and the new moon brings half again as many Creepers.',
-            `Each chapter has a goal, worth ${T.goalReward} remembrance, shown in the Day panel: ${chapters.map((C) => `to ${C.goal.text}`).join('; ')}.`,
-            `Years 1 to 4 close on a choice of two, goods now or a help for the next year: ${[1, 2, 3, 4].map((k) => `${CHAPTERS[k].close.map((c) => `${c.name.charAt(0).toLowerCase()}${c.name.slice(1)} (${c.text})`).join(' or ')}`).join('; ')}.`,
+            ...(T.chapterSystems ? [`With them comes more of the game, a little each year: ${[2, 3, 4, 5].map((k) => `in year ${k}, ${CHAPTERS[k].adds}`).join('; ')}. Before its year, none of it comes.`] : []),
+            `Each chapter has a goal, worth ${T.goalReward} remembrance, shown in the Day panel: ${chapters.map((C) => `to ${goalOf(C).text}`).join('; ')}.`,
+            T.chapterCloses
+              ? `Years 1 to 4 close on a choice of two helps for the next year, one against its pressure and one toward its goal: ${[1, 2, 3, 4].map((k) => `${closeOf(CHAPTERS[k]).map((c) => `${c.name.charAt(0).toLowerCase()}${c.name.slice(1)} (${c.text})`).join(' or ')}`).join('; ')}.`
+              : `Years 1 to 4 close on a choice of two, goods now or a help for the next year: ${[1, 2, 3, 4].map((k) => `${closeOf(CHAPTERS[k]).map((c) => `${c.name.charAt(0).toLowerCase()}${c.name.slice(1)} (${c.text})`).join(' or ')}`).join('; ')}.`,
             `The fifth year ends in one of three endings: ${Object.values(ENDINGS).map((E) => `${E.name}: ${E.text.charAt(0).toLowerCase()}${E.text.slice(1)}`).join(' ')}`,
-            `A campaign's years harden ×${mult(T.campaignHardness)} each, not the open year's ×${mult(T.yearHardness)}, and as the open year's after its ending. A chapter whose keep is lost can be begun again from its first dawn.`,
+            `A campaign's years harden ×${mult(T.campaignHardness)} each${T.campaignHardness === T.yearHardness ? ', as the open year\'s do' : `, not the open year's ×${mult(T.yearHardness)}, and as the open year's after its ending`}. A chapter whose keep is lost can be begun again from its first dawn.`,
           ],
         },
       ]

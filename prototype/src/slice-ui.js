@@ -11,7 +11,7 @@ import {
   weatherOf, forecastOf, raining, foggy, drownedDue, keepDefaults, embargoed, inquisition, churchDaysLeft, crusadeDay, crusadeDaysLeft,
   actOf, actCost, canAct, acting, actText, omenText, nextMark, SKIP_LEAD, visitorBlock,
   raiseCost, buildSpot, NEW_ROOMS, learned, decreeOf, gatehouseOf, undergateOpen, laddersDue, actsFor, mirrorGlass, pitchOf,
-  eclipseDue, eclipseSpan, bondedShade, chapterOf, campaignOn, chapterAgain, boonNow, arrived, roomReady, LATE_ROOMS,
+  eclipseDue, eclipseSpan, bondedShade, chapterOf, campaignOn, chapterAgain, boonNow, arrived, roomReady, LATE_ROOMS, brought, goalOf, closeOf,
   isGuard, musterOf, musterGain, armsCap, armedDefense, pursueShare, ledgerDread, judgedDread,
   wardPlace, livingCap, standingOf, standingCost, nightsLeft, rankOf, nextRank, studyLore, studyRem, repairing, troubleOf, spotFloor, HIGH_ROOMS,
   cracksOf, veilWardCost, eased,
@@ -870,7 +870,7 @@ function mirrorsHTML({ upgrades = true } = {}) {
       const slots = Array.from({ length: mirrorCap(m) }, (_, i) => (ds[i] ? `<span class="slot full">${esc(ds[i].name)}</span>` : '<span class="slot">empty</span>')).join('');
       return `<div class="mirror"><span class="mname">${esc(m.name)}${m.hidden ? ' <small class="muted">hidden</small>' : ''}${m.turned ? ' <small class="muted">turned to the wall</small>' : ''}</span><div class="slots">${slots}</div>${upgrades ? hangHTML(m) : ''}${upgrades ? upgradeHTML(m) : ''}${ds.length ? breakHTML(m) : ''}</div>`;
     })
-    .join('')}</div>${upgrades && s.tuning.deep ? `<p class="note">Quicksilver: ${floor1(s.res.quicksilver || 0)}.</p>${once('quicksilver', '<p class="note">Shades bring quicksilver back from the Deep, sent down at dusk. It upgrades a mirror where it hangs, its shades and all.</p>', 'Quicksilver', 'mirrors')}` : ''}`;
+    .join('')}</div>${upgrades && s.tuning.deep && brought(s, 'deep') ? `<p class="note">Quicksilver: ${floor1(s.res.quicksilver || 0)}.</p>${once('quicksilver', '<p class="note">Shades bring quicksilver back from the Deep, sent down at dusk. It upgrades a mirror where it hangs, its shades and all.</p>', 'Quicksilver', 'mirrors')}` : ''}`;
 }
 // Round seven, phase 13 (mirrorRooms): where a mirror hangs, whether it's a door, the room to hang it in (by day),
 // and turning it to the wall (by day or at dusk).
@@ -925,7 +925,7 @@ function doorsCard() {
 function upgradeHTML(m) {
   const T = s.tuning;
   const next = { hand: 'pier', pier: 'great', ...(T.glassHalls ? { great: 'hall' } : {}) }[m.type];
-  if (!T.deep || !next || s.phase === 'over') return '';
+  if (!T.deep || !brought(s, 'deep') || !next || s.phase === 'over') return '';
   const qs = T.upgradeSilver[next];
   const gl = T.upgradeGlass[next];
   const can = !embargoed(s) && (s.res.quicksilver || 0) + 1e-9 >= qs && s.res.glass + 1e-9 >= gl;
@@ -1081,7 +1081,7 @@ function winterCard() {
 // The campaign (round six): the chapter this year is, what it brings, its goal and how it's going. Told in full
 // at the chapter's first dawn; by day a line.
 function goalSoFar(k) {
-  const g = CHAPTERS[k].goal;
+  const g = goalOf(s, k);
   const y = (season) => Math.floor((season - 1) / SEASONS.length) + 1;
   const days = [...s.days.filter((d) => y(d.season) === k), s.today];
   if (s.campaign.goals[k] !== undefined) return s.campaign.goals[k] ? 'Met.' : 'Not met.';
@@ -1093,6 +1093,19 @@ function goalSoFar(k) {
   }
   if (g.id === 'church') return s.inspections.some((i) => y(i.season) === k && i.verdict === 'censured') ? 'Censured this year: not met.' : `No censure so far.`;
   if (g.id === 'hollow') return days.some((d) => d.night?.hollow === 'driven back') ? 'The Hollow was driven back: met at the year\'s end.' : 'Not yet: it withdraws at dawn if it isn\'t met on its way. Send fighters down to it.';
+  // Round seven, phase 15 (chapterGoals).
+  if (g.id === 'sally') {
+    if (days.some((d) => d.sallies?.includes(1))) return 'The camp was broken: met at the year\'s end.';
+    if (besieged(s)) return `The Host is camped outside: sally out from the Day panel's siege card (the odds now ${Math.round(100 * sallyOdds(s))}%). More guards, better odds.`;
+    return seasonIndex(s) < 2 ? 'The Host lays siege in autumn. Guards in the Barracks and the Gatehouse are the ones who sally out.' : 'Not this year: the siege is past.';
+  }
+  if (g.id === 'kept') {
+    const looked = s.inspections.filter((i) => y(i.season) === k);
+    const kept = s.shades.filter((d) => d.mirror).length;
+    if (looked.some((i) => i.verdict !== 'blessed' || (i.shades ?? 0) < g.n)) return 'Not met this year: an inspection found the keep short of it.';
+    return `${looked.length ? `${plural(looked.length, 'inspection')} so far, each blessed with ${g.n} or more in the glass. ` : ''}${kept} in the glass now. Keeping the dead raises Dread: vigils ease it.`;
+  }
+  if (g.id === 'silver') return days.some((d) => d.upgraded) ? 'A mirror was raised: met at the year\'s end.' : `Quicksilver ${floor1(s.res.quicksilver || 0)}: a shade sent down into the Deep at dusk brings it back, and Mirrors raises a mirror with it.`;
   return 'At the year\'s end.';
 }
 function chapterCard(full) {
@@ -1100,20 +1113,27 @@ function chapterCard(full) {
   if (!k) return '';
   const C = CHAPTERS[k];
   const reward = `worth ${s.tuning.goalReward} remembrance`;
-  if (!full) return `<p class="note chapter">Year ${k} of the campaign, <b>${esc(C.name)}</b>. The goal: to ${esc(C.goal.text)} (${reward}). ${esc(goalSoFar(k))}</p>`;
-  const help = Object.entries(s.campaign.boons || {}).filter(([id]) => boonNow(s, id)).map(([id]) => CHAPTERS[k - 1].close.find((c) => c.id === id)).filter(Boolean);
-  return `<div class="card chapter"><span class="eyebrow">The campaign, year ${k} of 5</span><h3>${esc(C.name)}</h3><p>${esc(C.text)}</p><p class="note">The goal: to ${esc(C.goal.text)}, ${reward}.${help.length ? ` From last year's close: ${esc(help.map((c) => `${c.name.charAt(0).toLowerCase()}${c.name.slice(1)}, ${c.text}`).join('; '))}.` : ''}</p></div>`;
+  const goal = goalOf(s, k);
+  if (!full) return `<p class="note chapter">Year ${k} of the campaign, <b>${esc(C.name)}</b>. The goal: to ${esc(goal.text)} (${reward}). ${esc(goalSoFar(k))}</p>`;
+  const help = Object.entries(s.campaign.boons || {}).filter(([id]) => boonNow(s, id)).map(([id]) => closeOf(s, k - 1).find((c) => c.id === id)).filter(Boolean);
+  // Round seven, phase 15: the chapter told in full, and what it brings that the year before hadn't
+  // (chapterSystems); a keep from before has the line it always had.
+  const told = s.tuning.chapterSystems && C.story;
+  return `<div class="card chapter"><span class="eyebrow">The campaign, year ${k} of 5</span><h3>${esc(C.name)}</h3><p>${esc(told ? C.story : C.text)}</p>${told && C.brings ? `<p class="note"><b>New this year:</b> ${esc(C.brings)}.</p>` : ''}<p class="note">The goal: to ${esc(goal.text)}, ${reward}.${help.length ? ` From last year's close: ${esc(help.map((c) => `${c.name.charAt(0).toLowerCase()}${c.name.slice(1)}, ${c.text}`).join('; '))}.` : ''}</p></div>`;
 }
 // A chapter's close (years 1 to 4): its goal, and the choice for the next; after the fifth, the three endings.
 function chapterCloseHTML() {
   const k = chapterOf(s);
   const C = CHAPTERS[k];
   const met = s.campaign.goals[k];
-  const goal = `<p class="note${met ? ' good' : ''}">The goal, to ${esc(C.goal.text)}, was ${met ? `met: +${s.tuning.goalReward} remembrance` : 'not met'}.</p>`;
+  const goal = `<p class="note${met ? ' good' : ''}">The goal, to ${esc(goalOf(s, k).text)}, was ${met ? `met: +${s.tuning.goalReward} remembrance` : 'not met'}.</p>`;
   if (C.close) {
     const next = CHAPTERS[k + 1];
-    return `<div class="card ending"><h3>${esc(C.name)} closes</h3>${goal}<p>Next comes year ${k + 1}, ${esc(next.name)}. How does this chapter close?</p>
-      <div class="endings">${C.close.map((c) => `<div><button class="btn${c.gain ? '' : ' primary'}" id="close-${c.id}" data-act="close-chapter" data-id="${c.id}">${esc(c.name)}</button><p class="note">${esc(upper(c.text))}.</p></div>`).join('')}</div></div>`;
+    const closes = closeOf(s, k);
+    // Round six's closes set the lasting help against goods now; phase 15's are two helps, neither the default.
+    const lead = closes.some((c) => c.gain);
+    return `<div class="card ending"><h3>${esc(C.name)} closes</h3>${goal}<p>Next comes year ${k + 1}, ${esc(next.name)}${s.tuning.chapterSystems && next.brings ? `, with ${esc(next.brings)}` : ''}. How does this chapter close?</p>
+      <div class="endings">${closes.map((c) => `<div><button class="btn${lead && !c.gain ? ' primary' : ''}" id="close-${c.id}" data-act="close-chapter" data-id="${c.id}">${esc(c.name)}</button><p class="note">${esc(upper(c.text))}.</p></div>`).join('')}</div></div>`;
   }
   const n = s.shades.length;
   const ask = ui.endAsk;
@@ -1304,7 +1324,7 @@ const DEPTH_NAMES = ['', 'Not far', 'Deep', 'Deepest'];
 const deepOdds = (p) => (p < 0.3 ? `1 in ${Math.round(1 / p)}` : `${Math.round(100 * p)}%`);
 function deepCard() {
   const T = s.tuning;
-  if (!T.deep || s.dusk?.step !== 'place') return '';
+  if (!T.deep || !brought(s, 'deep') || s.dusk?.step !== 'place') return ''; // in a campaign, from The Deep Rises
   const down = s.shades.filter((d) => d.deep);
   const up = s.shades.filter(canWork);
   if (isNewMoon(s)) return ''; // the Hollow is down there
@@ -1727,10 +1747,12 @@ function endPanel() {
   const T = s.tuning;
   const yearEnd = T.year && seasonIndex(s) === 3;
   const next = T.year ? `Begin ${SEASONS[e.season % SEASONS.length]}${yearEnd ? `, year ${yearOf(s) + 1}` : ''}` : `Begin season ${e.season + 1}`;
+  // Round seven, phase 15: a campaign's ending told as its epilogue, before the count.
+  const epilogue = s.campaign?.ending && ENDINGS[s.campaign.ending]?.epilogue ? `<p class="epilogue">${esc(ENDINGS[s.campaign.ending].epilogue)}</p>` : '';
   const head = s.opened
-    ? `<header class="ph-head"><h2>The Veil is open</h2><p>After five years, ${s.opened.shades ? `${plural(s.opened.shades, 'shade')} walked out of the glass into the keep` : 'with the glass empty'}, the living went down into the Tain, and the keep became a crossing between the two. This keep's story is over.</p></header>`
+    ? `<header class="ph-head"><h2>The Veil is open</h2>${epilogue}<p>After five years, ${s.opened.shades ? `${plural(s.opened.shades, 'shade')} walked out of the glass into the keep` : 'with the glass empty'}, the living went down into the Tain, and the keep became a crossing between the two. This keep's story is over.</p></header>`
     : s.sealed
-    ? `<header class="ph-head"><h2>The Veil is sealed</h2><p>After ${s.campaign?.ending === 'seal' ? 'five years' : 'a whole year'}, ${s.sealed.freed ? `${plural(s.sealed.freed, 'shade')} went free` : 'the glass stood empty'}, and the Book of the Dead is closed. This keep's story is over.</p></header>`
+    ? `<header class="ph-head"><h2>The Veil is sealed</h2>${epilogue}<p>After ${s.campaign?.ending === 'seal' ? 'five years' : 'a whole year'}, ${s.sealed.freed ? `${plural(s.sealed.freed, 'shade')} went free` : 'the glass stood empty'}, and the Book of the Dead is closed. This keep's story is over.</p></header>`
     : `<header class="ph-head"><h2>${yearEnd ? `Year ${yearOf(s)} is over` : T.year ? `${seasonWord()} is over` : `Season ${e.season} is over`}</h2><p>${yearEnd ? 'The Long Night has passed. The keep has stood a whole year.' : 'The new moon has passed. The keep stands.'}</p></header>`;
   const go = s.sealed || s.opened
     ? newKeepControls()
@@ -3477,7 +3499,8 @@ function buildHTML() {
   const rows = tut.map(row).join('');
   const moreRows = more.length ? aside('more-rooms', `<ul class="build-list">${more.map(row).join('')}</ul>`, `${more.length} more rooms`) : '';
   const twins = aside('twins', `<ul class="facts">${ready.map((type) => `<li><span>${esc(DAY_ROOMS[type].name)}</span><span>${esc(upper(BRIEF[type]()[1]))}</span></li>`).join('')}</ul>`, 'What each room is by night', 'dusk');
-  const laterNote = later.length ? `<p class="note">${esc(listOf(later.map((type) => `the ${DAY_ROOMS[type].name}`)).replace(/^t/, 'T'))} can be built from ${T.year && T.lateRoomsFrom === 2 ? 'summer' : `the keep's season ${T.lateRoomsFrom}`}.</p>` : '';
+  // Round seven, phase 15: in a campaign the Library and the Hall come with The Lantern Church.
+  const laterNote = later.length ? `<p class="note">${esc(listOf(later.map((type) => `the ${DAY_ROOMS[type].name}`)).replace(/^t/, 'T'))} ${later.some((type) => !brought(s, type)) ? `come${later.length === 1 ? 's' : ''} with The Lantern Church, in the campaign's third year` : `can be built from ${T.year && T.lateRoomsFrom === 2 ? 'summer' : `the keep's season ${T.lateRoomsFrom}`}`}.</p>` : '';
   return `<section class="build">
     <p>Stone <b data-live="stone">${floor1(stone)}</b>. ${masons ? `${esc(plural(masons, 'mason'))} in the Yard quarry ${fmt(masons * DAY_ROOMS.yard.rate)} a day.` : 'Nobody is quarrying: put someone in the Yard, in People, for 2 stone a day.'}</p>
     ${day ? '' : '<p class="note">Masons build by day.</p>'}
@@ -3976,7 +3999,7 @@ const GUIDE = [
   },
   {
     id: 'deep', target: '#open-phase',
-    when: () => first() && !!s.tuning.deep && s.phase === 'dusk' && s.dusk?.step === 'place' && s.day >= 3 && s.day < s.tuning.seasonDays && s.shades.filter(canWork).length >= 4,
+    when: () => first() && !!s.tuning.deep && brought(s, 'deep') && s.phase === 'dusk' && s.dusk?.step === 'place' && s.day >= 3 && s.day < s.tuning.seasonDays && s.shades.filter(canWork).length >= 4,
     done: () => ui.sheet === 'phase',
     text: 'A shade you can spare can go down into the Deep tonight instead of taking a post (the Dusk panel), for quicksilver to upgrade a mirror, unless something down there catches it.',
   },
@@ -5176,9 +5199,14 @@ function onAct(name, el, ev) {
     case 'shore': return game({ type: 'shore' });
     case 'raid-bell': return game({ type: 'raidBell' });
     case 'pursue': return game({ type: 'pursue' });
-    case 'take-glass':
-      if (game({ type: 'takeGlass' })) saveGame();
+    case 'take-glass': {
+      const campaignEnd = chapterOf(s) === 5; // round seven, phase 15: the campaign's last ending, told
+      if (game({ type: 'takeGlass' })) {
+        saveGame();
+        if (campaignEnd) toast(ENDINGS.watch.epilogue, 'rite');
+      }
       return undefined;
+    }
     case 'close-chapter':
       if (game({ type: 'closeChapter', id: el.dataset.id })) saveGame();
       return undefined;

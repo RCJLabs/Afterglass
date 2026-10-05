@@ -11,7 +11,7 @@
 // on the line for the biggest tides when the essence is there, and a fighter to meet a Maw. They move a
 // shade only along a lit floor; where its way is dark it stays.
 
-import { nightTicks, hollowNeed, chapterOf, yearsEnd, bondedShade, postRoom, bareHalls, buildSpot, raiseCost, step, act, newSeason, ritePreview, crossingPreview, capacity, canWork, defense, funeralCap, choicesFor, jobCap, jobCount, eatRate, wardCost, livingTrait, shadeTrait, peopleIn, crowded, tradeOf, inGreatGlass, handsAt, seasonIndex, tributeOf, besieged, sallyOdds, embargoed, inquisition, crusadeDaysLeft, canAct, actOf, actCost, NEW_ROOMS, atTheGate, gatehouseOf, decreeOf, undergateMouth, roomReady, isGuard, armsCap, musterGain, livingCap, raidsAhead, nextRank, studyRem, standingOf, standingCost, nightsLeft, undergateOpen, mirrorGlass as mirrorGlassOf, repairing, troubleOf, eased, veilWardCost, troubled, hangsIn, mirrorIn, mirrorUse, mirrorCap, mawLure, doorsOpen } from './sim.js';
+import { nightTicks, hollowNeed, chapterOf, goalOf, closeOf, brought, yearsEnd, bondedShade, postRoom, bareHalls, buildSpot, raiseCost, step, act, newSeason, ritePreview, crossingPreview, capacity, canWork, defense, funeralCap, choicesFor, jobCap, jobCount, eatRate, wardCost, livingTrait, shadeTrait, peopleIn, crowded, tradeOf, inGreatGlass, handsAt, seasonIndex, tributeOf, besieged, sallyOdds, embargoed, inquisition, crusadeDaysLeft, canAct, actOf, actCost, NEW_ROOMS, atTheGate, gatehouseOf, decreeOf, undergateMouth, roomReady, isGuard, armsCap, musterGain, livingCap, raidsAhead, nextRank, studyRem, standingOf, standingCost, nightsLeft, undergateOpen, mirrorGlass as mirrorGlassOf, repairing, troubleOf, eased, veilWardCost, troubled, hangsIn, mirrorIn, mirrorUse, mirrorCap, mawLure, doorsOpen } from './sim.js';
 import { DAY_ROOMS, MIRRORS, KINDS, MAP, TICKS_PER_SEC, VISITORS, STUDIES, CHAPTERS } from './data.js';
 import { geo, roomSpan, roomAt, roomsOf, lineSpots, lightMap, isLit } from './geo.js';
 import { STOPS } from './alerts.js';
@@ -47,6 +47,9 @@ function newStop(s) {
 }
 // AP_LAPSES=1 gives any plan the human plan's lapses (to compare Double with the human at a person's pace).
 const LAPSES = !!globalThis.process?.env?.AP_LAPSES;
+// Round seven, phase 15: AP_GOALS=1 plays for a campaign's goal each year (goalMoves), and closes each chapter on
+// the help toward the next year's goal.
+const GOALS = !!globalThis.process?.env?.AP_GOALS;
 const lapsing = (plan) => plan === 'human' || LAPSES;
 function hash01(...xs) {
   let h = 2166136261;
@@ -1358,17 +1361,20 @@ export function autoStep(s, plan = 'balanced') {
   }
 }
 
-// A year's end: a campaign's years 1 to 4 close by rule (round six), the lasting help unless AP_CLOSE=goods; the
-// fifth's ending, and the open year's, are the player's, unless AP_ENDING names one (seal, open or watch, which
-// plays on). Unnamed, the open year's watch goes on. Returns whether it went on.
-const CLOSE = globalThis.process?.env?.AP_CLOSE || 'help';
+// A year's end: a campaign's years 1 to 4 close by rule (round six): the help against the next year's pressure,
+// the first (round seven, phase 15; round six's lasting help), unless AP_CLOSE=goods (the goods now, where the
+// keep's closes have them) or AP_CLOSE=goal (the second, the help toward the next year's goal; AP_GOALS takes it
+// too); the fifth's ending, and the open year's, are the player's, unless AP_ENDING names one (seal, open or
+// watch, which plays on). Unnamed, the open year's watch goes on. Returns whether it went on.
+const CLOSE = globalThis.process?.env?.AP_CLOSE || (GOALS ? 'goal' : 'help');
 const ENDING = globalThis.process?.env?.AP_ENDING || '';
 export function closeYear(s) {
   const k = chapterOf(s);
   if (!yearsEnd(s)) return false;
   if (k && k < 5) {
-    const c = CHAPTERS[k].close;
-    return doAct(s, { type: 'closeChapter', id: (CLOSE === 'goods' ? c.find((x) => x.gain) : c.find((x) => !x.gain)).id });
+    const c = closeOf(s, k);
+    const pick = CLOSE === 'goods' ? c.find((x) => x.gain) ?? c[1] : CLOSE === 'goal' ? c[1] : c.find((x) => !x.gain);
+    return doAct(s, { type: 'closeChapter', id: pick.id });
   }
   const type = { seal: 'sealVeil', open: 'openVeil', watch: 'takeGlass' }[ENDING];
   return !!type && doAct(s, { type }) && ENDING === 'watch';

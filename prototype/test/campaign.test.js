@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { newSeason, step, act, upgrade, replay, chapterOf, campaignOn, laddersDue, hollowRisen, boonNow, defense, addFoe, hard, yearRate, yearsEnd, chapterAgain, isNewMoon, embargoed } from '../src/slice/sim.js';
+import { newSeason, step, act, upgrade, replay, chapterOf, campaignOn, laddersDue, hollowRisen, boonNow, defense, addFoe, hard, yearRate, yearsEnd, chapterAgain, isNewMoon, embargoed, goalOf, closeOf, brought, sallyOdds, guardStrength } from '../src/slice/sim.js';
 import { runSeasonAuto, autoStep, closeYear } from '../src/slice/autopilot.js';
 import { CHAPTERS, TUNING, MAP } from '../src/slice/data.js';
 import { epitaph } from '../src/slice/book.js';
@@ -119,10 +119,12 @@ test('each chapter brings its pressure: the Host\'s ladders, siege and Gatehouse
   assert.equal(siege(7), true);
 });
 
-test("each chapter's goal is looked at when it's due, and met, it's worth remembrance", () => {
+// Round six's goals and closes, for keeps from before round seven's phase 15 (chapterGoals, chapterCloses 0).
+const OLD = { chapterGoals: 0, chapterCloses: 0 };
+test("each chapter's goal is looked at when it's due, and met, it's worth remembrance (round six's, for keeps from before)", () => {
   // The First Winter's candles, as winter begins.
   const ready = (candles) => {
-    const s = at(3);
+    const s = at(3, OLD);
     s.day = s.tuning.seasonDays;
     s.phase = 'end';
     s.seasons.push({ season: 3, day: 7, lost: null, cracks: 0, answer: null, note: '', summary: {} });
@@ -140,26 +142,26 @@ test("each chapter's goal is looked at when it's due, and met, it's worth rememb
   assert.equal(missed.res.remembrance, 0);
   // The Ashen Host's, at its year's end: every raid held, or not.
   const gate = (held) => {
-    const s = at(8);
+    const s = at(8, OLD);
     s.days.push({ season: 5, day: 2, raid: { held: true } }, { season: 7, day: 4, raid: { held } }, { season: 7, day: 6, raid: { held: false, paid: true } });
     return throughLongNight(s).campaign.goals[2];
   };
   assert.equal(gate(true), true, 'a raid paid off is no raid lost');
   assert.equal(gate(false), false);
   // The Lantern Church's: no censure this year.
-  const church = at(12);
+  const church = at(12, OLD);
   church.inspections.push({ season: 10, day: 5, verdict: 'blessed' }, { season: 11, day: 5, verdict: 'censured' });
   assert.equal(throughLongNight(church).campaign.goals[3], false);
   // The Deep Rises': the Hollow driven back on one of its nights.
-  const deep = at(16);
+  const deep = at(16, OLD);
   deep.days.push({ season: 14, day: 7, night: { hollow: 'driven back' } });
   assert.equal(throughLongNight(deep).campaign.goals[4], true);
   // The last: coming through the last Long Night.
   assert.equal(throughLongNight(at(20)).campaign.goals[5], true);
 });
 
-test('a chapter closes on a choice of two: goods now, or a help that lasts the next year', () => {
-  const end = (season) => throughLongNight(at(season));
+test('a chapter closes on a choice of two: goods now, or a help that lasts the next year (round six\'s, for keeps from before)', () => {
+  const end = (season) => throughLongNight(at(season, OLD));
   // Nothing else will do at a chapter's end.
   const s = end(4);
   assert.match(act(s, { type: 'nextSeason' }).error, /Choose how the chapter closes/);
@@ -206,7 +208,118 @@ test('a chapter closes on a choice of two: goods now, or a help that lasts the n
   b.living[0].grief = { for: 'x', mult: 0.8 };
   ok(b, { type: 'closeChapter', id: 'kin' });
   assert.ok(b.living.every((p) => p.peace > 0 && !p.grief));
-  for (const k of [1, 2, 3, 4]) assert.equal(CHAPTERS[k].close.length, 2);
+  for (const k of [1, 2, 3, 4]) assert.equal(CHAPTERS[k].oldClose.length, 2);
+});
+
+// Round seven, phase 15.
+test("the goals ask more than good play gives of itself: a sally that breaks the siege, six of the dead kept through a blessed year, a mirror raised with the Deep's quicksilver", () => {
+  // The First Winter's is as it was: 20 candles as winter begins.
+  assert.equal(goalOf(at(1), 1).id, 'candles');
+  // The Ashen Host's: a sally that broke the siege this year.
+  const sally = (won) => {
+    const s = at(8);
+    s.days.push({ season: 7, day: 4, sallies: won ? [0, 1] : [0] });
+    return throughLongNight(s).campaign.goals[2];
+  };
+  assert.equal(sally(true), true);
+  assert.equal(sally(false), false);
+  // The Lantern Church's: every inspection of the year blessed, with six or more in the glass at each.
+  const kept = (looked) => {
+    const s = at(12);
+    s.inspections.push(...looked.map(([v, n], i) => ({ season: 9 + i, day: 5, verdict: v, shades: n })));
+    return throughLongNight(s).campaign.goals[3];
+  };
+  assert.equal(kept([['blessed', 6], ['blessed', 7], ['blessed', 6], ['blessed', 9]]), true);
+  assert.equal(kept([['blessed', 6], ['blessed', 5], ['blessed', 6], ['blessed', 9]]), false, 'five at one');
+  assert.equal(kept([['blessed', 6], ['warned', 7], ['blessed', 6], ['blessed', 9]]), false, 'one warned');
+  assert.equal(kept([]), false, 'none looked');
+  // An inspection keeps how many were in the glass.
+  const j = at(9);
+  judge(j, 0);
+  assert.equal(j.inspections.at(-1).shades, j.shades.filter((d) => d.mirror).length);
+  // The Deep Rises': a mirror raised with quicksilver this year.
+  const silver = (raised) => {
+    const s = at(16);
+    if (raised) s.days.push({ season: 15, day: 2, upgraded: 1 });
+    return throughLongNight(s).campaign.goals[4];
+  };
+  assert.equal(silver(true), true);
+  assert.equal(silver(false), false);
+  const u = at(13);
+  u.res.quicksilver = 10;
+  u.res.glass = 50;
+  ok(u, { type: 'upgradeMirror', id: u.mirrors[0].id });
+  assert.equal(u.today.upgraded, 1);
+});
+
+test('each chapter closes on two helps for the next year: one against its pressure, one toward its goal', () => {
+  const end = (season) => throughLongNight(at(season));
+  for (const k of [1, 2, 3, 4]) assert.ok(closeOf(at(4 * k), k).every((c) => !c.gain), `chapter ${k}: no goods now`);
+  // Goods are no choice any more.
+  assert.match(act(end(4), { type: 'closeChapter', id: 'stores' }).error, /Not a choice/);
+  // A sally-port: the guards sally out half again as strong, the year after.
+  const p = end(4);
+  ok(p, { type: 'closeChapter', id: 'sallyport' });
+  assert.ok(boonNow(p, 'sallyport'));
+  for (const q of p.living.filter((x) => x.age !== 'child').slice(0, 2)) Object.assign(q, { job: 'barracks', muster: 1 });
+  p.siege = { from: 1, until: 9, strength: 1, broken: false };
+  const base = () => {
+    const season = p.season;
+    p.season = 9; // the year after: no sally-port
+    const o = sallyOdds(p);
+    p.season = season;
+    return o;
+  };
+  p.siege.strength = guardStrength(p) / (p.tuning.sallyOdds * 0.3); // the odds without it, 0.3
+  assert.ok(Math.abs(base() - 0.3) < 1e-9);
+  assert.ok(Math.abs(sallyOdds(p) - 0.45) < 1e-9, `${sallyOdds(p)} against ${base()}`);
+  // Honouring the dead: a kept shade weighs half its Dread at the rite (rounded up).
+  const h = end(8);
+  ok(h, { type: 'closeChapter', id: 'shrine' });
+  assert.ok(boonNow(h, 'shrine'));
+  // Charting the Deep: a shade down there is caught half as often.
+  const c = end(12);
+  ok(c, { type: 'closeChapter', id: 'chart' });
+  assert.ok(boonNow(c, 'chart'));
+  // Laying by for the Long Night: winter's candles burn three-quarters as fast, that winter only.
+  const t = end(16);
+  ok(t, { type: 'closeChapter', id: 'tallow' });
+  assert.ok(boonNow(t, 'tallow'));
+  assert.equal(t.campaign.closed[4], 'tallow');
+});
+
+test("a campaign's other systems come with its chapters: visitors in year 2, the Library and the Hall in year 3, the Deep, errands and omens in year 4, the eclipse in year 5", () => {
+  const T = { campaign: 1, visitorChance: 1, omenChance: 1, sleepChance: 1 };
+  const play = (season) => {
+    const s = newSeason(7, T);
+    s.season = season;
+    return s;
+  };
+  // Year 1: none of them.
+  const y1 = play(2);
+  for (const k of ['visitors', 'library', 'hall', 'deep', 'errands', 'omens', 'eclipse', 'traitor', 'hunter', 'price', 'bearer']) assert.ok(!brought(y1, k), k);
+  assert.match(act(y1, { type: 'raise', room: 'library' }).error, /comes with The Lantern Church/);
+  // Year 2: visitors, the traitor and the plague-bearer.
+  const y2 = play(5);
+  assert.ok(brought(y2, 'visitors') && brought(y2, 'traitor') && brought(y2, 'bearer') && !brought(y2, 'library') && !brought(y2, 'hunter'));
+  // Year 3: the Library and the Hall, and the witch-hunter.
+  const y3 = play(9);
+  assert.ok(brought(y3, 'library') && brought(y3, 'hall') && brought(y3, 'hunter') && !brought(y3, 'deep') && !brought(y3, 'omens'));
+  // Year 4: the Deep, errands, omens and the Hollow's price; year 5, the eclipse.
+  const y4 = play(13);
+  assert.ok(brought(y4, 'deep') && brought(y4, 'errands') && brought(y4, 'omens') && brought(y4, 'price') && !brought(y4, 'eclipse'));
+  assert.ok(brought(play(17), 'eclipse'));
+  // The open year, and a campaign from before the rule, have all of them from the first day.
+  assert.ok(brought(newSeason(7, {}), 'visitors') && brought(newSeason(7, { campaign: 1, chapterSystems: 0 }), 'omens'));
+  // Played: a campaign's first year meets no visitor, no omen, no errand and no eclipse; the open year's does.
+  const met = (tuning) => {
+    const s = runSeasonAuto(3, { plan: 'balanced', seasons: 4, tuning });
+    const keys = Object.keys(s.met || {});
+    return { visitor: keys.some((k) => k.startsWith('visitor:')), omen: keys.some((k) => k.startsWith('omen:')), errand: keys.some((k) => ['echo', 'relic', 'sleepwalker'].includes(k)), eclipse: keys.includes('eclipse'), library: s.actions.some(({ a }) => a.type === 'raise' && (a.room === 'library' || a.room === 'hall')) };
+  };
+  assert.deepEqual(met({ campaign: 1 }), { visitor: false, omen: false, errand: false, eclipse: false, library: false });
+  const open = met({});
+  assert.ok(open.visitor && open.omen && open.errand && open.eclipse, JSON.stringify(open));
 });
 
 test("the fifth year ends in one of round three's three endings: seal the Veil, open it, or keep the watch and play on", () => {

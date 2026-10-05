@@ -111,5 +111,7 @@ Each is an environment variable, read once when the file loads, so a measurement
 
 | Switch | What it does |
 |---|---|
-| `AP_CLOSE=goods` | Closes each of a campaign's first four years on the goods, not the lasting help. |
+| `AP_CLOSE=goods` | Closes each of a campaign's first four years on the goods, not the lasting help, where the keep's closes have goods (round six's). Since round seven's phase 15 they're two helps, and it takes the second. |
+| `AP_CLOSE=goal` | Closes each of a campaign's first four years on the second help, the one toward the next year's goal (round seven, phase 15). By default it takes the first, against the next year's pressure. |
+| `AP_GOALS=1` | Plays for each year's campaign goal, and closes each chapter on the help toward the next one's (round seven, phase 15): candles held back for winter, a sally against the siege at worse odds, six of the dead kept with vigils against the Dread, and a shade sent down into the Deep until a mirror can be raised. |
 | `AP_ENDING=seal`, `open` or `watch` | At the open year's end, or a campaign's fifth: seals the Veil, opens it, or takes your own place in the glass as The Keeper and plays on. Unset, the open year keeps the watch into a harder year. (Before round seven, phase 6, it acted only at a campaign's end.) |
