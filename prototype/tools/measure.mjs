@@ -481,7 +481,9 @@ function eventsTable(R) {
   }
   const kinds = eventKinds(DATA.TUNING);
   const met = plans.map(([p, name]) => `${name} ${new Set(R[`long:${p}`].flatMap((x) => Object.keys(firsts(x)))).size}`).join(', ');
-  lines.push('', `Kinds of event in the build: ${kinds.length}. Met by at least one keep in ten years: ${met}.`);
+  const seen = new Set(plans.flatMap(([p]) => R[`long:${p}`].flatMap((x) => Object.keys(firsts(x)))));
+  const never = kinds.filter((k) => !seen.has(k)).map((k) => `\`${k}\``);
+  lines.push('', `Kinds of event in the build: ${kinds.length}. Met by at least one keep in ten years: ${met}${never.length ? `; by none, ${never.join(', ')}` : ''}.`);
   // The first year, the phase's rules off and the cruel answers taken, paired seed by seed with the plan's own.
   lines.push('', `| First year | ${plans.map(([, name]) => `${name}: finished | Better on / worse on`).join(' | ')} |`, `|---|${plans.map(() => '---|---|').join('')}`);
   for (const r of EVENT_ROWS) {
