@@ -139,6 +139,10 @@ export function howTo(T) {
               'Each of the twenty comes only when there is a reason to: a trader with what you lack, pilgrims ahead of a raid, a physician when someone is sick, a necromancer when a shade is Restless.',
               ...(T.payInKind ? ["A trader who wants food also takes glass, and the Church's almoner prayers, paid in remembrance."] : []),
               'Turning away those who ask shelter costs Dread. What an answer leaves behind, such as riders promised, shows in the Day panel until it comes.',
+              ...(T.cruelty
+                ? [`Some days bring a hard answer inside the keep: a traitor signalling the Host, a plague-bearer in a crowded summer, the Hollow's price on a new moon, a witch-hunter before the Church's inspector. One answer kills one of your own on your order, and they wake at dusk a Wraith, which hunts the Tain every night until banished at the rite (${T.banishCost} essence) and costs ${T.dreadPerWraith} Dread a dawn.`]
+                : []),
+              ...(T.yearVisitors ? ["From the keep's third year to its tenth, each year from its summer brings someone who has never come before, once."] : []),
             ],
           },
         ]
@@ -202,7 +206,7 @@ export function howTo(T) {
         ...(T.autoRelight ? ['In these rules a candle that burns down at the line, or where a shade is posted, is lit again from the store, keeping the last candle back, unless the Unlit are at it.'] : []),
         ...(T.lanterns ? [`A shade can carry a lantern (${(T.lanternCost ?? 1) === 1 ? 'a candle' : (T.lanternCost ?? 1) === 0.5 ? 'half a candle' : `${n1(T.lanternCost)} candles`}): its own light for ${n1(T.lanternWax)} seconds wherever it goes, so the Unlit can't catch it; asked again, it sets it down as a candle. Pick the shade, then Lantern (T).${T.hollowLure ? ' On the new moon the Hollow hunts a carried lantern first: a shade that keeps ahead of it leads it away.' : ''}`] : []),
         ...(T.errands ? [`From night ${T.errandFrom}, an echo (+${n1(T.echoMemory)} memory) or a relic (${n1(T.relicGlass)} glass) turns up in a dark room below the line, shown in the black mirror, for the shade that reaches it. From night ${T.sleepFrom}, on some nights one of the living sleepwalks into the Tain toward the Deep: a shade that reaches them, or light, sends them back to bed. Held by the Unlit in the dark ${n1(T.sleepHold)} seconds, or reaching a rift, they die and wake Pale.`] : []),
-        ...(T.omens ? [`From night ${T.omenFrom}, about ${pct(T.omenChance)} of nights have an omen, shown at dusk, that changes the night's shape: ${and(Object.values(OMENS).map((o) => `${o.name.charAt(0).toLowerCase()}${o.name.slice(1)}`))}. The Dusk panel says how, and on some dusks offers a choice of two.`] : []),
+        ...(T.omens ? [`From night ${T.omenFrom}, about ${pct(T.omenChance)} of nights have an omen, shown at dusk, that changes the night's shape: ${and(Object.values(OMENS).filter((o) => !o.more || T.moreOmens).map((o) => `${o.name.charAt(0).toLowerCase()}${o.name.slice(1)}`))}. The Dusk panel says how, and on some dusks offers a choice of two.`] : []),
         'The tide clock under the top bar marks the night’s tides, Maws, Hollow, Drowned, sleepwalkers and dawn. Skip (N) runs to just before the next mark, and stops if anything calls out.',
         ...(T.acts ? [`Each shade has one act a night, paid in memory (half for the named). A Loyal one Stands: ${actText(T, 'stand')} (${T.actCost.stand}). A Serene one Kindles: it ${actText(T, 'kindle')} (${T.actCost.kindle}). A Pale one Passes unseen: ${actText(T, 'pass')} (${T.actCost.pass}). A Stranger Lures: ${actText(T, 'lure')} (${T.actCost.lure}). Pick the shade, and its act is on the bar (A).`] : []),
         'With a keyboard, the arrows move a cursor over the Tain and Enter taps there (C candles, M move, W ward); [ and ] pick shades.',

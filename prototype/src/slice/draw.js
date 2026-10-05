@@ -1237,8 +1237,8 @@ function composeTain(s, t, opts = {}) {
     if (lantern) D(c, x, y, !t || (MF(t * 8) + i) % 2 ? P.yellow : P.amber);
     else flame(c, x, y, t, i);
   });
-  // Tonight's errands: an echo shimmers pale blue, a relic glints silver, and a sleepwalker walks pale, with
-  // their eyes shut.
+  // Tonight's errands: an echo shimmers pale blue, a relic glints silver, a fallen star glows white, and a
+  // sleepwalker walks pale, with their eyes shut.
   for (const e of n?.errands || []) {
     if (e.done) continue;
     const x = Math.round(e.x);
@@ -1252,6 +1252,15 @@ function composeTain(s, t, opts = {}) {
       R(c, x - 1, y - 2, 3, 2, P.steel);
       D(c, x, y - 3, P.silver);
       if (!t || MF(t * 2 + x) % 3 === 0) D(c, x + 1, y - 4, P.white);
+    } else if (e.kind === 'star') {
+      // A fallen star (round seven, phase 14): a white point with four rays, glowing.
+      glow(c, x, y - 3, 5, P.white, 0.4);
+      D(c, x, y - 3, P.white);
+      const ray = !t || MF(t * 3 + x) % 2 ? P.white : P.silver;
+      D(c, x - 1, y - 3, ray);
+      D(c, x + 1, y - 3, ray);
+      D(c, x, y - 4, ray);
+      D(c, x, y - 2, ray);
     } else if (e.out && !e.climb) {
       const p = s.living.find((q) => q.id === e.who);
       if (p) A(c, 0.55, () => figure(c, x, y, { ...livingLook(p), pose: 'walk', face: (e.path?.[0]?.x ?? x) >= x ? 1 : -1, ph: 3 }, t));

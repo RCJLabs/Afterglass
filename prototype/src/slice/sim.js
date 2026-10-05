@@ -1183,10 +1183,11 @@ function answerVisitor(s, v, id, late = false) {
       what = 'Tonight the Hollow stays in the Deep.';
     }
     what = `${what} At dusk ${p.name} wakes a Wraith.`.trim();
-  } else if (key === 'traitor:out') {
+  } else if (key === 'traitor:lock') {
     const p = byId(s.living, v.named);
-    leaveKeep(s, p);
-    what = `${p.name} is put out of the gate, and goes to the Host.`;
+    p.job = null;
+    p.locked = `${s.season}/${s.day}`;
+    what = `${p.name} is locked in the cellar until dusk.`;
   } else if (key === 'traitor:no') {
     what = edgeRaid(s, T.traitorLet) ? `The postern is opened to the Host: today's raid comes ×${fmt(T.traitorLet)} as hard.` : '';
   } else if (key === 'levy:send') {
@@ -2184,10 +2185,6 @@ function rollOmens(s, N, n) {
       const { x0, x1 } = roomSpan(G, pick(r, G.floors[f].rooms)[0]);
       o.at = { f, x: Math.round((x0 + x1) / 2) };
     }
-    if (id === 'bell' && !(raining(s) && drownedDue(s))) {
-      const end = pick(r, MAP.moat).id;
-      o.adds = Array.from({ length: drownedCount(s) }, () => ({ at: Math.round((0.08 + 0.8 * rand(r)) * N), type: 'drowned', seep: false, snuff: false, rift: end }));
-    }
     if (id === 'blood') {
       o.adds = Array.from({ length: Math.round(T.bloodMore * creepers) }, (_, i) => {
         const at = chance(r, T.stragglers) ? 0.05 + 0.85 * rand(r) : tides[i % tides.length] + (rand(r) - 0.5) * T.tideSpread;
@@ -2198,13 +2195,12 @@ function rollOmens(s, N, n) {
   });
 }
 // Round seven, phase 14 (moreOmens): whether one of the four more omens can come tonight. A falling star needs a
-// room below the line to fall in; the drowned bell, a night the Drowned can come (not the new moon's).
+// room below the line to fall in.
 function omenCan(s, id) {
   if (id === 'star') {
     const G = geo(s);
     return G.floors.some((fl, i) => i < G.veil - 1 && fl.rooms.length);
   }
-  if (id === 'bell') return !!s.tuning.weather && drownedDue(s);
   return true;
 }
 // Grave-cold: the Unlit move at coldSpeed tonight.
@@ -2220,6 +2216,12 @@ function applyOmen(s, n, o) {
   }
   if (o.id === 'sealed') for (const sp of n.spawns) if ((sp.type === 'creeper' || sp.type === 'maw') && sp.rift !== 'undergate') sp.rift = o.rift;
   if (o.id === 'thin') for (const sp of n.spawns) if (sp.type === 'creeper' && Math.abs(sp.at - n.tides[0]) <= w) sp.seep = true;
+  if (o.id === 'lull') {
+    // A lull in the Deep (round seven, phase 14): every so many of the night's Creepers, lullStay of them, stay down.
+    const every = Math.max(2, Math.round(1 / s.tuning.lullStay));
+    let k = 0;
+    n.spawns = n.spawns.filter((sp) => !(sp.type === 'creeper' && !sp.great && ++k % every === 0));
+  }
   if (o.adds) n.spawns.push(...o.adds.map((x) => ({ ...x })));
   if (o.id === 'restless') {
     // Every other Creeper of each tide comes halfway to the next one, or to the night's end.
@@ -2250,7 +2252,7 @@ export function omenText(T, o) {
     restless: () => 'the tides come twice as often, each half as big',
     star: () => `a star has fallen into the deepest dark below the line: the first shade to reach it brings back ${fmt(T.starGlass)} glass`,
     cold: () => `the Unlit move ${T.coldSpeed === 0.8 ? 'a fifth slower' : `${fmt(T.coldSpeed)} times as fast`}, and candles burn ${T.coldBurn === 1.25 ? 'a quarter faster' : `${fmt(T.coldBurn)} times as fast`}`,
-    bell: () => `the Drowned come up out of the moat's twin, rain or no rain, and each one cut down gives ${fmt(T.bellEssence)} essence`,
+    lull: () => `${T.lullStay === 0.25 ? 'a quarter' : `${Math.round(100 * T.lullStay)}%`} of the Creepers stay in the Deep tonight, and the Choir sings ${T.lullChoir === 0.5 ? 'half as loud' : `${fmt(T.lullChoir)} times as loud`}`,
     kin: () => `every shade fights ${T.kinFight === 1.25 ? 'a quarter harder' : `${fmt(T.kinFight)} times as hard`}, and fades ${T.kinFade === 1.5 ? 'half again as fast' : `${fmt(T.kinFade)} times as fast`}`,
   }[o.id]();
 }
@@ -2745,7 +2747,7 @@ function shadeTick(s, L, d) {
   if (T.lineGuard && job !== 'watch' && guardLit(geo(s), L, d.f, d.x)) return;
   const w = K.work * p * (isTwinnedShade(s, d) ? twinMultOf(s) : 1) * (S?.work ?? 1) * DT;
   if (job === 'essence') {
-    const sung = T.essencePerSec * w * (S?.essence ?? 1) * (n.omen?.id === 'thin' ? T.thinChoir : 1);
+    const sung = T.essencePerSec * w * (S?.essence ?? 1) * (n.omen?.id === 'thin' ? T.thinChoir : 1) * (n.omen?.id === 'lull' ? T.lullChoir : 1);
     gain(s, 'essence', sung);
     n.stats.essence += sung;
     d.sang++;
@@ -3493,7 +3495,7 @@ function foeDown(s, f) {
   const n = s.night;
   n.stats.killed++;
   // The Hunt pays for each Maw, a blood moon for each Creeper.
-  const bounty = n.omen?.id === 'hunt' && f.type === 'maw' ? s.tuning.huntEssence : n.omen?.id === 'blood' && f.type === 'creeper' ? s.tuning.bloodEssence : n.omen?.id === 'bell' && f.type === 'drowned' ? s.tuning.bellEssence : 0;
+  const bounty = n.omen?.id === 'hunt' && f.type === 'maw' ? s.tuning.huntEssence : n.omen?.id === 'blood' && f.type === 'creeper' ? s.tuning.bloodEssence : 0;
   if (bounty) {
     gain(s, 'essence', bounty);
     n.stats.omenEssence = (n.stats.omenEssence || 0) + bounty;
@@ -4130,6 +4132,7 @@ const ACTIONS = {
   assign(s, { id, room }) {
     const p = byId(s.living, id);
     if (!p) return 'No one living by that name.';
+    if (p.locked === `${s.season}/${s.day}` && room !== null) return `${p.name} is locked up until dusk.`; // a traitor's lantern (phase 14)
     if (p.age === 'child' && room !== null) return `${p.name} is a child: too young to work.`;
     if (room !== null && !(DAY_ROOMS[room] && DAY_ROOMS[room].out)) return 'No one works there.';
     if (room !== null && room !== p.job) {
@@ -4362,9 +4365,9 @@ const ACTIONS = {
   },
   // An answer to a visitor at the gate (round six).
   visitor(s, { id, answer }) {
-    if (!s.tuning.visitors) return 'No visitors come to this keep.';
-    if (s.phase !== 'day') return 'Visitors come by day.';
     const v = (s.visitors || []).find((x) => x.id === id);
+    if (!s.tuning.visitors && !(v && VISITORS[v.kind].by)) return 'No visitors come to this keep.';
+    if (s.phase !== 'day') return 'Visitors come by day.';
     if (!v || !v.here) return 'No one is waiting at the gate.';
     if (v.done) return `${VISITORS[v.kind].name} has had an answer.`;
     const why = visitorBlock(s, v, answer);

@@ -395,7 +395,7 @@ function stripHTML() {
     const v = s.visitors.find((x) => x.id === id);
     const V = VISITORS[v.kind];
     const last = V.answers.at(-1);
-    body = `${head(`<b>${esc(V.name)} at the gate.</b> Answer by ${untilText(v)}; with no answer, it's “${esc(last.text)}”.${more}`, false)}
+    body = `${head(`<b>${esc(V.name)} ${V.inside ? 'in the keep' : 'at the gate'}.</b> Answer by ${untilText(v)}; with no answer, it's “${esc(last.text)}”.${more}`, false)}
       <span class="ebar" aria-hidden="true"><i data-bar="visit" data-arg="${v.id}"></i></span>
       <div class="row eacts"><button class="btn sm primary" id="e-answer" data-act="strip-open" data-card="visit">Answer</button>
         <button class="btn sm" id="e-last" data-act="visitor" data-id="${v.id}" data-answer="${last.id}"${visitorBlock(s, v, last.id) ? ' disabled' : ''}>${esc(last.text)}</button></div>`;
@@ -693,11 +693,16 @@ function visitorAbout(v) {
     return sick.length ? `Sick now: ${listOf(sick.map((p) => p.name))}.` : 'Nobody is sick now.';
   }
   if (v.kind === 'priest') return `The crypt holds ${plural(s.bodies.length, 'body', 'bodies')}, and the Chapel can give ${plural(funeralCap(s), 'funeral')} tonight.`;
+  // Round seven, phase 14: who a happening inside the keep is about.
+  if (v.named) {
+    const p = byId(s.living, v.named);
+    return p ? VISITORS[v.kind].who(p.name) : '';
+  }
   return '';
 }
 const untilText = (v) => hhmm(6 + (12 * v.until) / dayTicks(s));
 function visitorCards() {
-  if (!s.tuning.visitors || !s.visitors) return '';
+  if ((!s.tuning.visitors && !s.tuning.cruelty && !s.tuning.yearVisitors) || !s.visitors) return '';
   const cards = s.visitors
     .filter((v) => v.here && !v.done)
     .map((v) => {
@@ -710,7 +715,7 @@ function visitorCards() {
           return `<li><button class="btn sm" id="visit-${v.id}-${A.id}" data-act="visitor" data-id="${v.id}" data-answer="${A.id}"${why ? ' disabled' : ''}>${esc(A.text)}</button>${terms || why ? `<small>${esc(terms)}${why ? `<span class="why">${esc(why)}</span>` : ''}</small>` : ''}</li>`;
         })
         .join('');
-      return `<div class="card visit"><h3>At the gate</h3><p><b>${esc(V.name)}.</b> ${esc(V.text)} ${esc(visitorAbout(v))}</p>
+      return `<div class="card visit"><h3>${V.inside ? 'In the keep' : 'At the gate'}</h3><p><b>${esc(V.name)}.</b> ${esc(V.text)} ${esc(visitorAbout(v))}</p>
         <ul class="answers">${rows}</ul>
         <p class="note">${esc(V.answers.at(-1).text)} unless you answer by ${untilText(v)}.</p><span class="waitbar" aria-hidden="true"><i data-bar="visit" data-arg="${v.id}"></i></span></div>`;
     })
@@ -722,7 +727,7 @@ function visitorCards() {
       const A = V.answers.find((a) => a.id === v.done);
       return `${V.name.toLowerCase()} (${v.late ? 'left waiting: ' : ''}${A.text.toLowerCase()})`;
     });
-  return `${cards}${past.length ? `<p class="note">Earlier at the gate today: ${esc(listOf(past))}.</p>` : ''}${gateNotes()}`;
+  return `${cards}${past.length ? `<p class="note">Earlier today: ${esc(listOf(past))}.</p>` : ''}${gateNotes()}`;
 }
 function gateNotes() {
   const T = s.tuning;
@@ -2092,6 +2097,9 @@ const TUNE = [
   ['huntEssence', 'Essence for each Maw cut down under the Hunt'],
   ['bloodEssence', 'Essence for each Creeper cut down under a blood moon'],
   ['visitors', 'Visitors at the gate, each with answers to choose between (1 on, 0 off)'],
+  ['cruelty', 'Cruelty: four happenings in the keep, each with an answer that kills one of your own, who wakes a Wraith (1 on, 0 off)'],
+  ['moreOmens', 'Four more omens: a falling star, grave-cold, a lull in the Deep and the dead remembering (1 on, 0 off)'],
+  ['yearVisitors', "The years' visitors: from the third year to the tenth, one a year who has never come (1 on, 0 off)"],
   ['payInKind', 'Visitors who want food for wares also take glass or remembrance (1 on, 0 off)'],
   ['visitorChance', 'Chance a visitor comes on a day'],
   ['visitorSecond', 'Chance, on a day one comes, that a second does too'],
@@ -3894,6 +3902,16 @@ const GUIDE = [
     text: () => {
       const m = s.mirrors.find((x) => isDoor(s, x) && mawLure(typeOf(K(), x.room)) >= 2);
       return `A Maw rises tonight, and the ${m.name} hangs open where people work, the kind of room Maws come for. If one breaks its twin, it comes through the mirror and the Veil cracks. Turn it to the wall in the Dusk panel (its shades sit the night out), or hang it where nobody works, by day.`;
+    },
+  },
+  {
+    // Round seven, phase 14: a hard answer inside the keep, the first time one waits.
+    id: 'cruel', target: '#open-phase',
+    when: () => s.phase === 'day' && !!s.visitors?.some((v) => v.here && !v.done && VISITORS[v.kind].inside && byId(s.living, v.named)),
+    done: () => ui.sheet === 'phase',
+    text: () => {
+      const v = s.visitors.find((x) => x.here && !x.done && VISITORS[x.kind].inside);
+      return `${VISITORS[v.kind].name} waits in the keep. One answer kills ${byId(s.living, v.named).name} on your order: they wake at dusk a Wraith, which hunts the Tain every night until banished at the rite (${s.tuning.banishCost} essence) and costs ${s.tuning.dreadPerWraith} Dread every dawn. The Day panel has the answers.`;
     },
   },
   {

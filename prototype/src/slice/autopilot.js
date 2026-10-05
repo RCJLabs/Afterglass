@@ -665,6 +665,11 @@ function dayMoves(s) {
 // AP_VISIT=default leaves every one waiting, to take the last answer; AP_VISIT=first gives each the first;
 // AP_VISIT=kind:answer gives that kind that answer and the rest their rule: to measure what an answer costs.
 const VISIT = globalThis.process?.env?.AP_VISIT || null;
+// Round seven, phase 14: cruelty. By default a careful keeper kills nobody: a traitor is locked up, and the rest
+// are refused. AP_CRUEL=1 takes the cruel answer wherever it
+// helps: hangs a traitor when the raid would otherwise break the gate, walls in a plague-bearer, pays the Hollow's
+// price, and gives up a witch when Dread is high enough for a censure (to measure what cruelty is worth).
+const CRUEL = !!globalThis.process?.env?.AP_CRUEL;
 function visitorAnswer(s, v, plan) {
   const T = s.tuning;
   const food = s.res.food;
@@ -705,6 +710,24 @@ function visitorAnswer(s, v, plan) {
     case 'reeve': return kind('glass', 3) ? 'glass' : spare(6) ? 'pay' : 'no';
     case 'necromancer': return plan !== 'mourner' && s.dread <= 2 ? 'bind' : 'no';
     case 'cooper': return s.res.glass >= 3 + MIRRORS.hand.glass ? 'buy' : 'no';
+    // Cruelty (round seven, phase 14).
+    case 'traitor': {
+      const hold = r ? defense(s) + musterGain(s) : Infinity;
+      if (CRUEL && r && hold < r.strength) return 'hang';
+      return 'lock';
+    }
+    case 'bearer': return CRUEL ? 'wall' : 'nurse';
+    case 'price': return CRUEL ? 'give' : 'no';
+    case 'hunter': return CRUEL && s.dread >= 4 ? 'burn' : 'no';
+    // The years' visitors.
+    case 'levy': return s.res.glass >= 8 + MIRRORS.hand.glass ? 'pay' : s.living.filter((p) => p.age !== 'child').length >= 7 ? 'send' : 'no';
+    case 'chronicler': return s.dread <= 1 ? 'read' : 'no';
+    case 'shrine': return s.shades.length && s.shades.reduce((a, d) => a + d.memory, 0) / s.shades.length > 60 ? 'pray' : 'no';
+    case 'envoy': return spare(10) && s.res.glass >= 5 + MIRRORS.hand.glass ? 'pay' : 'no';
+    case 'bishop': return s.res.remembrance >= 6 + T.vigilCost ? 'bless' : 'no';
+    case 'claimant': return s.res.glass >= 10 + MIRRORS.hand.glass ? 'pay' : 'no';
+    case 'wanderer': return capacity(s).free > 0 ? 'take' : 'no';
+    case 'founding': return spare(10) ? 'feast' : 'no';
     default: return VISITORS[v.kind].answers.at(-1).id;
   }
 }
@@ -982,8 +1005,8 @@ function errandMoves(s, plan) {
 // (problem 35): cheapest first. Double, which never moves anyone, feels the gnawing of still air and a second
 // Maw more.
 const OMEN_COST = {
-  double: ['sealed', 'thin', 'restless', 'blood', 'still', 'hunt'],
-  other: ['thin', 'still', 'restless', 'blood', 'sealed', 'hunt'],
+  double: ['lull', 'star', 'sealed', 'thin', 'kin', 'cold', 'restless', 'blood', 'still', 'hunt'],
+  other: ['lull', 'star', 'thin', 'kin', 'cold', 'still', 'restless', 'blood', 'sealed', 'hunt'],
 };
 function pickOmen(s, plan) {
   const [a, b] = s.night.omens;

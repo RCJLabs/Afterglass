@@ -389,20 +389,21 @@ export const TUNING = {
   // keep, each with an answer that kills one of your own on your order, who wakes at dusk a Wraith. Each comes,
   // at most one a day, from its own stream, at its chance on a day its trouble is there.
   cruelty: 1,
-  traitorChance: 0.25, // a traitor's lantern: on a day the Host is on the road
-  traitorHang: 0.75, // ... hanged, today's raid comes this much as hard; let be, traitorLet
+  traitorChance: 0.1, // a traitor's lantern: on a day the Host is on the road
+  traitorHang: 0.8, // ... hanged, today's raid comes this much as hard; let be, traitorLet
   traitorLet: 1.25,
   bearerChance: 0.3, // the plague-bearer: in summer's plague, someone sick in a crowded keep
   priceChance: 0.35, // the Hollow's price: on a new moon's day, from the keep's second year (not the Long Night)
   hunterChance: 0.4, // the witch-hunter: Dread hunterDread or more, an inspection within hunterDays days
   hunterDread: 3,
   hunterDays: 2,
-  // Four more omens (moreOmens): a falling star, grave-cold, the drowned bell and the dead remembering.
+  // Four more omens (moreOmens): a falling star, grave-cold, a lull in the Deep and the dead remembering.
   moreOmens: 1,
   starGlass: 9, // a falling star: the glass the first shade to reach it brings back
   coldSpeed: 0.8, // grave-cold: the Unlit move at this rate, and candles burn coldBurn times as fast
   coldBurn: 1.25,
-  bellEssence: 2, // the drowned bell: the Drowned come up as on a rain night, and each cut down gives this
+  lullStay: 0.25, // a lull in the Deep: this share of the night's Creepers stay down, and the Choir sings at lullChoir
+  lullChoir: 0.5,
   kinFight: 1.25, // the dead remember: every shade fights this many times as hard, and fades kinFade times as fast
   kinFade: 1.5,
   // The years' visitors (yearVisitors): from the third year to the tenth, each year brings one who has never come,
@@ -949,7 +950,7 @@ export const OMENS = {
   // Round seven, phase 14 (moreOmens).
   star: { name: 'A falling star', more: true },
   cold: { name: 'Grave-cold', more: true },
-  bell: { name: 'The drowned bell', more: true },
+  lull: { name: 'A lull in the Deep', more: true },
   kin: { name: 'The dead remember', more: true },
 };
 
@@ -1073,7 +1074,7 @@ export const VISITORS = {
     who: (n) => `${n} is caught at it.`,
     answers: [
       { id: 'hang', text: 'Hang them from the wall', does: (T) => `they die on your order, and wake at dusk a Wraith; the Host loses its eyes: today's raid comes ×${T.traitorHang} as hard` },
-      { id: 'out', text: 'Put them out of the gate', does: 'they leave the keep for good; the raid comes as it is' },
+      { id: 'lock', text: 'Lock them up', does: 'they do no work for the rest of the day; the raid comes as it is' },
       { id: 'no', text: 'Let it pass', does: (T) => `they open the postern to the Host: today's raid comes ×${T.traitorLet} as hard` },
     ],
   },

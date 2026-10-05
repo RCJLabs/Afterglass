@@ -56,12 +56,12 @@ test('keeps from before have none of it: the three rules are off, and no new kin
   assert.equal(fresh.length, 12);
   const s = runSeasonAuto(5, { plan: 'balanced', seasons: 2, tuning: { cruelty: 0, moreOmens: 0, yearVisitors: 0 } });
   const met = Object.keys(s.met || {});
-  assert.ok(!met.some((k) => fresh.includes(k.replace('visitor:', '')) || ['omen:star', 'omen:cold', 'omen:bell', 'omen:kin'].includes(k)), met.join(', '));
+  assert.ok(!met.some((k) => fresh.includes(k.replace('visitor:', '')) || ['omen:star', 'omen:cold', 'omen:lull', 'omen:kin'].includes(k)), met.join(', '));
   // Nor, with the rules on, is one drawn with the visitors at the gate.
   for (let seed = 1; seed <= 60; seed++) for (const v of newSeason(seed, { visitFrom: 1, visitorChance: 1 }).visitors) assert.ok(!VISITORS[v.kind].by, v.kind);
 });
 
-test("a traitor's lantern: hanged, they wake at dusk a Wraith and the raid comes x0.75; let be, x1.25; put out, they're gone", () => {
+test("a traitor's lantern: hanged, they wake at dusk a Wraith and the raid comes x0.8; let be, x1.25; locked up, they work no more today", () => {
   const go = (id) => {
     const s = newSeason(6, { ...calm, raidDays: { 1: 8, 2: 0, 4: 0, 6: 0 }, traitorChance: 1 });
     const v = s.visitors.find((x) => x.kind === 'traitor');
@@ -78,14 +78,15 @@ test("a traitor's lantern: hanged, they wake at dusk a Wraith and the raid comes
   const b = s.bodies.find((x) => x.id === p.id);
   assert.equal(b.cause, 'yours');
   assert.equal(b.kind, 'wraith');
-  assert.ok(Math.abs(s.raid.strength - Math.round(was * 0.75 * 10) / 10) < 1e-9);
+  assert.ok(Math.abs(s.raid.strength - Math.round(was * 0.8 * 10) / 10) < 1e-9);
   toNight(s);
   assert.ok(s.shades.some((d) => d.id === p.id && d.kind === 'wraith'), 'at dusk they wake a Wraith');
   ({ s, p, was } = go('no'));
   assert.ok(byId(s.living, p.id));
   assert.ok(Math.abs(s.raid.strength - Math.round(was * 1.25 * 10) / 10) < 1e-9);
-  ({ s, p, was } = go('out'));
-  assert.ok(!byId(s.living, p.id) && !s.bodies.some((x) => x.id === p.id), 'gone, alive');
+  ({ s, p, was } = go('lock'));
+  assert.ok(byId(s.living, p.id) && p.job === null, 'kept, and idle');
+  no(s, { type: 'assign', id: p.id, room: 'hearth' }, /locked up until dusk/);
   assert.equal(s.raid.strength, was);
 });
 
@@ -153,7 +154,7 @@ test('a cruel answer to someone already dead is refused', () => {
 });
 
 test('four more omens, each with its own effect, and each says what it does', () => {
-  for (const id of ['star', 'cold', 'bell', 'kin']) {
+  for (const id of ['star', 'cold', 'lull', 'kin']) {
     assert.ok(OMENS[id]?.more);
     assert.ok(omenText(TUNING, { id, rift: 'left', at: { f: 0, x: 40 } }).length > 20);
   }
@@ -170,11 +171,14 @@ test('four more omens, each with its own effect, and each says what it does', ()
   for (let i = 0; i < 20 && !e.done; i++) step(s);
   assert.equal(e.done, 'taken');
   assert.equal(s.res.glass, glass + s.tuning.starGlass);
-  // The drowned bell brings the Drowned on a dry night.
-  const b = newSeason(12, { ...calm, weather: 1, rainChance: [0, 0, 0, 0], fogChance: [0, 0, 0, 0], omenOnly: 'bell', omenChance: 1, omenFrom: 1, omenChoice: 0 });
-  toNight(b);
-  assert.equal(b.night.omen?.id, 'bell');
-  assert.ok(b.night.spawns.some((sp) => sp.type === 'drowned'), 'the Drowned come though it is dry');
+  // A lull in the Deep: a quarter of the night's Creepers stay down.
+  const count = (omen) => {
+    const b = newSeason(12, { ...calm, omenOnly: omen || 'star', omenChance: omen ? 1 : 0, omenFrom: 1, omenChoice: 0 });
+    toNight(b);
+    return b.night.spawns.filter((sp) => sp.type === 'creeper').length;
+  };
+  const all = count(null);
+  assert.equal(count('lull'), all - Math.floor(all / 4));
 });
 
 test('grave-cold slows the Unlit and burns the candles faster; the dead remember fight harder and fade faster', () => {

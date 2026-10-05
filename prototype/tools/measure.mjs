@@ -8,6 +8,7 @@
 //   node tools/measure.mjs --only day [--seeds 200] [--readme]        (two years a keep, so not in the default)
 //   node tools/measure.mjs --only long [--seeds 100] [--readme]       (ten years a keep, so not in the default)
 //   node tools/measure.mjs --only mirrors [--seeds 200] [--readme]    (where the mirrors hang; not in the default)
+//   node tools/measure.mjs --only events [--seeds 100] [--readme]     (ten years a keep: what each year brings new)
 //
 // Every keep is played by the rules as they are, from the first spring: a plan's first year is its first four
 // seasons. Paired comparisons play the same seeds, so a switch's column says on how many seeds it did better
@@ -97,6 +98,7 @@ if (process.argv[2] === '--worker') {
       hollow: E.filter((e) => !e.lost).map((e) => e.summary.hollow),
       goals: s.campaign?.goals ? { ...s.campaign.goals } : null,
       nights: [...s.days, ...(s.today?.night && !s.days.some((d) => d.season === s.season && d.day === s.day) ? [{ season: s.season, day: s.day, ...s.today }] : [])].filter((d) => d.night).map((d) => ({ k: kindOf(d), acts: acts[`${d.season}/${d.day}`] || 0, calls: calls[`${d.season}/${d.day}`] || 0, unlit: d.night.spawned || 0, hollow: d.night.hollow || null })),
+      met: Object.fromEntries(Object.entries(s.met || {}).map(([k, v]) => [k, year(v.season)])), // first met, by year (round seven, phase 14)
       use: { hush: count((a) => a.type === 'hush' && a.on), bind: count((a) => a.type === 'rite' && a.choice === 'bind'), curfew: count((a) => a.type === 'decree' && a.id === 'curfew'), keeper: count((a) => a.type === 'takeGlass'), heard },
     };
     // The day, by year (round seven, phase 10): days played, day actions other than jobs, raids at the gate and
@@ -141,7 +143,8 @@ if (process.argv[2] === '--worker') {
 
 /* ---------------------------------------------------------------- the runs */
 
-const { CHAPTERS } = await import('../src/slice/data.js');
+const DATA = await import('../src/slice/data.js');
+const { CHAPTERS } = DATA;
 
 const SEEDS = Number(arg('seeds', 200));
 const JOBS = Number(arg('jobs', cpus().length));
@@ -203,6 +206,15 @@ const MIRROR_ROWS = [
   { key: 'deep', env: { AP_HANG: 'deep' }, name: 'The fullest deepest (`AP_HANG=deep`)' },
   { key: 'before', env: {}, tuning: { mirrorRooms: 0 }, name: 'As before the phase: no mirror is a door (`mirrorRooms` 0)' },
 ];
+// Events toward sixty (round seven, phase 14's test): in each year of a ten-year keep, how many kinds of event it
+// meets for the first time, for the balanced and the human plans; and each plan's first year with the phase's three
+// rules off, and with the autopilot taking the cruel answers (AP_CRUEL), against its own on the same seeds.
+const EVENT_PLANS = [['balanced', 'Balanced'], ['human', 'Human']];
+const EVENT_ROWS = [
+  { key: 'own', env: {}, name: 'The rules as they are' },
+  { key: 'before', env: {}, tuning: { cruelty: 0, moreOmens: 0, yearVisitors: 0 }, name: 'As before the phase (`cruelty`, `moreOmens` and `yearVisitors` 0)' },
+  { key: 'cruel', env: { AP_CRUEL: '1' }, name: 'Taking the cruel answer where it helps (`AP_CRUEL`)' },
+];
 const configs = [];
 const ROWS = arg('rows', '').split(',').filter(Boolean); // --rows balanced,double: only those night rows
 if (ONLY.includes('night')) for (const r of NIGHT_ROWS.filter((r) => !ROWS.length || ROWS.includes(r.id.slice(6)))) configs.push({ id: r.id, plan: r.plan, seasons: YEAR, env: r.env, tuning: r.tuning });
@@ -218,6 +230,13 @@ if (ONLY.includes('mirrors')) {
   for (const [plan] of MIRROR_PLANS) {
     if (!configs.some((c) => c.id === `plan:${plan}`)) configs.push({ id: `plan:${plan}`, plan, seasons: YEAR, env: {} });
     for (const r of MIRROR_ROWS.slice(1)) configs.push({ id: `mirror:${plan}:${r.key}`, plan, seasons: YEAR, env: r.env, tuning: r.tuning });
+  }
+}
+if (ONLY.includes('events')) {
+  for (const [plan] of EVENT_PLANS) {
+    if (!configs.some((c) => c.id === `long:${plan}`)) configs.push({ id: `long:${plan}`, plan, seasons: 4 * LONG_YEARS, env: {}, long: true });
+    if (!configs.some((c) => c.id === `plan:${plan}`)) configs.push({ id: `plan:${plan}`, plan, seasons: YEAR, env: {} });
+    for (const r of EVENT_ROWS.slice(1)) configs.push({ id: `event:${plan}:${r.key}`, plan, seasons: YEAR, env: r.env, tuning: r.tuning });
   }
 }
 if (ONLY.includes('verbs')) {
@@ -421,6 +440,62 @@ function longTable(R) {
   return lines.join('\n');
 }
 
+// What counts as a kind of event (problem 57): whatever the keep meets (sim.js, meet) other than round three's
+// threats, counted apart (by day the Host's raids, fire, sickness and the Church's inspection; by night the
+// Unlit), a death, or a part of another (a censure, the siege's camp and ladders, a shade turning Wraith, the
+// empty larder). A child's coming of age, being grown and growing old are one kind; the Long Night and its great
+// tide one. Each visitor, omen, year's trouble and request of the dead is a kind of its own.
+const PART = { censure: null, siegeCamp: 'siege', ladder: 'siege', turnedWraith: null, hunger: null, oldage: null, greatTide: 'longNight', grown: 'comesOfAge', growsOld: 'comesOfAge' };
+const eventOf = (k) => (k.startsWith('unlit:') || ['raid', 'fire', 'sickness', 'inspection'].includes(k) ? null : k in PART ? PART[k] : k.replace(/^visitor:/, ''));
+const OTHER_EVENTS = ['plague', 'crusade', 'embargo', 'inquisition', 'siege', 'eclipse', 'longNight', 'sleepwalker', 'echo', 'relic', 'arrival', 'rain', 'fog', 'comesOfAge', 'wed', 'birth'];
+function eventKinds(T) {
+  const { VISITORS, OMENS, TROUBLES, REQUESTS } = DATA;
+  return [
+    ...Object.keys(VISITORS).filter((k) => !VISITORS[k].by || T[VISITORS[k].by]),
+    ...Object.keys(OMENS).filter((k) => !OMENS[k].more || T.moreOmens).map((k) => `omen:${k}`),
+    ...Object.keys(TROUBLES).map((k) => `trouble:${k}`),
+    ...Object.values(REQUESTS).map((r) => `ask:${r.kind}`),
+    ...OTHER_EVENTS,
+  ];
+}
+function eventsTable(R) {
+  const plans = EVENT_PLANS.filter(([p]) => R[`long:${p}`]);
+  const lines = [`| Year | ${plans.map(([, name]) => `${name}: keeps | New kinds a keep | Met nothing new`).join(' | ')} |`, `|---|${plans.map(() => '---|---|---|').join('')}`];
+  // Of each keep's kinds, the year it first met each; a kind made of parts, the year it first met any of them.
+  const firsts = (x) => {
+    const f = {};
+    for (const [k, y] of Object.entries(x.met || {})) {
+      const e = eventOf(k);
+      if (e) f[e] = Math.min(f[e] ?? 99, y);
+    }
+    return f;
+  };
+  for (let y = 1; y <= LONG_YEARS; y++) {
+    const cells = plans.map(([p]) => {
+      const alive = R[`long:${p}`].filter((x) => x.fin >= 4 * y);
+      if (!alive.length) return '– | – | –';
+      const n = alive.map((x) => Object.values(firsts(x)).filter((fy) => fy === y).length);
+      return `${alive.length} | ${(n.reduce((a, b) => a + b, 0) / n.length).toFixed(1)} | ${n.filter((v) => !v).length}`;
+    });
+    lines.push(`| ${y} | ${cells.join(' | ')} |`);
+  }
+  const kinds = eventKinds(DATA.TUNING);
+  const met = plans.map(([p, name]) => `${name} ${new Set(R[`long:${p}`].flatMap((x) => Object.keys(firsts(x)))).size}`).join(', ');
+  lines.push('', `Kinds of event in the build: ${kinds.length}. Met by at least one keep in ten years: ${met}.`);
+  // The first year, the phase's rules off and the cruel answers taken, paired seed by seed with the plan's own.
+  lines.push('', `| First year | ${plans.map(([, name]) => `${name}: finished | Better on / worse on`).join(' | ')} |`, `|---|${plans.map(() => '---|---|').join('')}`);
+  for (const r of EVENT_ROWS) {
+    const cells = plans.map(([p]) => {
+      const mine = R[r.key === 'own' ? `plan:${p}` : `event:${p}:${r.key}`];
+      if (!mine) return '– | –';
+      const base = bySeed(R[`plan:${p}`]);
+      return `${mine.filter((x) => x.fin >= YEAR).length} of ${mine.length} | ${r.key === 'own' ? '–' : `${mine.filter((x) => x.fin > base.get(x.seed).fin).length} / ${mine.filter((x) => x.fin < base.get(x.seed).fin).length}`}`;
+    });
+    lines.push(`| ${r.name} | ${cells.join(' | ')} |`);
+  }
+  return lines.join('\n');
+}
+
 function humanLine(R) {
   const h = R['plan:human'];
   const b = bySeed(R['plan:balanced'] || []);
@@ -446,6 +521,7 @@ if (ONLY.includes('moon')) blocks.moon = `${moonTable(R)}\n\n${stamp}`;
 if (ONLY.includes('campaign')) blocks.campaign = `${campaignTable(R)}\n\n${stamp}`;
 if (ONLY.includes('day')) blocks.day = `${dayTable(R)}\n\n${stamp}`;
 if (ONLY.includes('long')) blocks.long = `${longTable(R)}\n\n${stamp}`;
+if (ONLY.includes('events')) blocks.events = `${eventsTable(R)}\n\n${stamp}`;
 if (ONLY.includes('mirrors')) blocks.mirrors = `${mirrorsTable(R)}\n\n${stamp}`;
 for (const [k, v] of Object.entries(blocks)) console.log(`\n== ${k}\n${v}`);
 if (process.argv.includes('--readme')) {
