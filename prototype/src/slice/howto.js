@@ -18,6 +18,9 @@ const mult = (x) => String(Math.round(x * 100) / 100);
 const and = (xs) => xs.join(', ').replace(/, ([^,]+)$/, ' and $1');
 const or = (xs) => xs.join(', ').replace(/, ([^,]+)$/, ' or $1');
 const nth = (k) => ['', 'first', 'second', 'third', 'fourth'][k] || `${k}th`;
+const word = (k) => ['no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten'][k] ?? String(k);
+// The omens' names, the six from round six or the more from round seven's phase 14.
+const omenNames = (more) => Object.values(OMENS).filter((o) => !o.more === !more).map((o) => `${o.name.charAt(0).toLowerCase()}${o.name.slice(1)}`);
 // A share of the day as the clock shows it, from 06:00 to 18:00.
 const hour = (x) => {
   const h = 6 + 12 * x;
@@ -206,7 +209,7 @@ export function howTo(T) {
         ...(T.autoRelight ? ['In these rules a candle that burns down at the line, or where a shade is posted, is lit again from the store, keeping the last candle back, unless the Unlit are at it.'] : []),
         ...(T.lanterns ? [`A shade can carry a lantern (${(T.lanternCost ?? 1) === 1 ? 'a candle' : (T.lanternCost ?? 1) === 0.5 ? 'half a candle' : `${n1(T.lanternCost)} candles`}): its own light for ${n1(T.lanternWax)} seconds wherever it goes, so the Unlit can't catch it; asked again, it sets it down as a candle. Pick the shade, then Lantern (T).${T.hollowLure ? ' On the new moon the Hollow hunts a carried lantern first: a shade that keeps ahead of it leads it away.' : ''}`] : []),
         ...(T.errands ? [`From night ${T.errandFrom}, an echo (+${n1(T.echoMemory)} memory) or a relic (${n1(T.relicGlass)} glass) turns up in a dark room below the line, shown in the black mirror, for the shade that reaches it. From night ${T.sleepFrom}, on some nights one of the living sleepwalks into the Tain toward the Deep: a shade that reaches them, or light, sends them back to bed. Held by the Unlit in the dark ${n1(T.sleepHold)} seconds, or reaching a rift, they die and wake Pale.`] : []),
-        ...(T.omens ? [`From night ${T.omenFrom}, about ${pct(T.omenChance)} of nights have an omen, shown at dusk, that changes the night's shape: ${and(Object.values(OMENS).filter((o) => !o.more || T.moreOmens).map((o) => `${o.name.charAt(0).toLowerCase()}${o.name.slice(1)}`))}. The Dusk panel says how, and on some dusks offers a choice of two.`] : []),
+        ...(T.omens ? [`From night ${T.omenFrom}, about ${pct(T.omenChance)} of nights have an omen, shown at dusk, that changes the night's shape: ${and(omenNames(false))}${T.moreOmens ? `; and about ${pct((1 - T.omenChance) * T.moreOmenChance)} have one of ${word(omenNames(true).length)} more, alone: ${or(omenNames(true))}` : ''}. The Dusk panel says how, and on some dusks offers a choice of two.`] : []),
         'The tide clock under the top bar marks the night’s tides, Maws, Hollow, Drowned, sleepwalkers and dawn. Skip (N) runs to just before the next mark, and stops if anything calls out.',
         ...(T.acts ? [`Each shade has one act a night, paid in memory (half for the named). A Loyal one Stands: ${actText(T, 'stand')} (${T.actCost.stand}). A Serene one Kindles: it ${actText(T, 'kindle')} (${T.actCost.kindle}). A Pale one Passes unseen: ${actText(T, 'pass')} (${T.actCost.pass}). A Stranger Lures: ${actText(T, 'lure')} (${T.actCost.lure}). Pick the shade, and its act is on the bar (A).`] : []),
         'With a keyboard, the arrows move a cursor over the Tain and Enter taps there (C candles, M move, W ward); [ and ] pick shades.',

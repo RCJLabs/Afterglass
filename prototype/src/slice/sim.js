@@ -2168,11 +2168,17 @@ function wakeNow(s, b) {
 function rollOmens(s, N, n) {
   const T = s.tuning;
   const r = sideStream(s, 0x0e1);
-  if (!chance(r, T.omenChance)) return [];
-  const can = Object.keys(OMENS).filter((id) => (T.omenOnly ? id === T.omenOnly : true) && (id !== 'hunt' || s.day >= T.mawFrom) && (!OMENS[id].more || (T.moreOmens && omenCan(s, id))));
-  if (!can.length) return [];
-  const ids = [pick(r, can)];
-  if (!T.omenOnly && can.length > 1 && chance(r, T.omenChoice)) ids.push(pick(r, can.filter((x) => x !== ids[0])));
+  const first = chance(r, T.omenChance);
+  const can = (more) => Object.keys(OMENS).filter((id) => (T.omenOnly ? id === T.omenOnly : !OMENS[id].more === !more) && (id !== 'hunt' || s.day >= T.mawFrom) && (!OMENS[id].more || (T.moreOmens && omenCan(s, id))));
+  // Round seven, phase 14 (moreOmens): the four more come only on a night that would have had none, at
+  // moreOmenChance and alone, so the six before them come as often as they did and the black mirror offers its
+  // two from those six.
+  const more = !first && !T.omenOnly && T.moreOmens && chance(r, T.moreOmenChance);
+  if (!first && !more) return [];
+  const from = can(more);
+  if (!from.length) return [];
+  const ids = [pick(r, from)];
+  if (first && !T.omenOnly && from.length > 1 && chance(r, T.omenChoice)) ids.push(pick(r, from.filter((x) => x !== ids[0])));
   const tides = n.tides.map((x) => x / N);
   const creepers = n.spawns.filter((sp) => sp.type === 'creeper').length;
   return ids.map((id) => {

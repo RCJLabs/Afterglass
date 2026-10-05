@@ -184,7 +184,8 @@ test('the tide clock marks each tide, Maw and dawn; Skip runs to just before the
 
 test('omens replay exactly, the autopilot takes the cheaper of two, old saves have none, and How to play covers them', () => {
   const s = newSeason(1, { omenChoice: 1 });
-  while (!s.days.some((d) => d.night?.omen) && s.phase !== 'over' && s.phase !== 'end') autoStep(s, 'balanced');
+  // The first omen may be one of the four more, which come alone (moreOmens); play on to a choice of two.
+  while (!s.actions.some((a) => a.a.type === 'omen') && s.phase !== 'over' && s.phase !== 'end') autoStep(s, 'balanced');
   assert.ok(s.days.some((d) => d.night?.omen), 'an omen by the season\'s end');
   assert.ok(s.actions.some((a) => a.a.type === 'omen'));
   const r = replay(s.seed, s.tuning0, s.actions);

@@ -397,8 +397,10 @@ export const TUNING = {
   hunterChance: 0.4, // the witch-hunter: Dread hunterDread or more, an inspection within hunterDays days; once an inspection
   hunterDread: 3,
   hunterDays: 2,
-  // Four more omens (moreOmens): a falling star, grave-cold, a lull in the Deep and the dead remembering.
+  // Four more omens (moreOmens): a falling star, grave-cold, a lull in the Deep and the dead remembering. They come
+  // only on a night that would have had no omen, at moreOmenChance, so the six before them come as often as ever.
   moreOmens: 1,
+  moreOmenChance: 0.5,
   starGlass: 9, // a falling star: the glass the first shade to reach it brings back
   coldSpeed: 0.8, // grave-cold: the Unlit move at this rate, and candles burn coldBurn times as fast
   coldBurn: 1.15,

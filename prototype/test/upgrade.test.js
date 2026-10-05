@@ -27,6 +27,7 @@ const DEFAULT_OK = {
   coldSpeed: 'read only for the four more omens, and an old keep has moreOmens 0',
   coldBurn: 'read only for the four more omens, and an old keep has moreOmens 0',
   lullStay: 'read only for the four more omens, and an old keep has moreOmens 0',
+  moreOmenChance: 'read only for the four more omens, and an old keep has moreOmens 0',
   lullChoir: 'read only for the four more omens, and an old keep has moreOmens 0',
   kinFight: 'read only for the four more omens, and an old keep has moreOmens 0',
   kinFade: 'read only for the four more omens, and an old keep has moreOmens 0',
