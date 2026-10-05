@@ -128,8 +128,8 @@ test("the Hollow's price: paid, the new moon has no Hollow; refused, it rises; f
   assert.ok(!first.visitors.length, 'not in the first year');
 });
 
-test('the witch-hunter: before an inspection, at Dread 3; given up, Dread -2 and a Wraith; refused, Dread +1', () => {
-  for (const [id, dread] of [['burn', 1], ['no', 4]]) {
+test('the witch-hunter: once before an inspection, at Dread 3; given up, Dread -2 and a Wraith; refused, nothing', () => {
+  for (const [id, dread] of [['burn', 1], ['no', 3]]) {
     const s = newSeason(9, { ...calm, hunterChance: 1 });
     s.dread = 3;
     s.inspection = { day: s.day + 1, reason: 'dread', done: false };
@@ -141,6 +141,9 @@ test('the witch-hunter: before an inspection, at Dread 3; given up, Dread -2 and
     answer(s, v, id);
     assert.equal(s.dread, dread);
     if (id === 'burn') assert.equal(s.bodies.find((x) => x.id === v.named).cause, 'yours');
+    s.visitors = [];
+    rollCruelty(s);
+    assert.ok(!s.visitors.length, 'once an inspection');
   }
 });
 
@@ -200,7 +203,7 @@ test('grave-cold slows the Unlit and burns the candles faster; the dead remember
     return w - k.wax;
   };
   const plain = wax(null);
-  assert.ok(plain > 0 && Math.abs(wax('cold') - plain * 1.25) < 1e-6, `a quarter faster (${plain})`);
+  assert.ok(plain > 0 && Math.abs(wax('cold') - plain * TUNING.coldBurn) < 1e-6, `faster (${plain})`);
   // Fading: a shade's memory at dawn, with the omen and without.
   const fade = (omen) => {
     const s = run(omen);
@@ -212,7 +215,7 @@ test('grave-cold slows the Unlit and burns the candles faster; the dead remember
   };
   const a = fade(null).lost;
   const k = fade('kin').lost;
-  assert.ok(a > 0 && Math.abs(k - a * 1.5) < 1e-6, `fades half again as fast (${a} and ${k})`);
+  assert.ok(a > 0 && Math.abs(k - a * TUNING.kinFade) < 1e-6, `fades faster (${a} and ${k})`);
 });
 
 test("the years' visitors: each comes in its year, once, from summer's third day; none in the campaign", () => {

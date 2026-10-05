@@ -394,18 +394,18 @@ export const TUNING = {
   traitorLet: 1.25,
   bearerChance: 0.3, // the plague-bearer: in summer's plague, someone sick in a crowded keep
   priceChance: 0.35, // the Hollow's price: on a new moon's day, from the keep's second year (not the Long Night)
-  hunterChance: 0.4, // the witch-hunter: Dread hunterDread or more, an inspection within hunterDays days
+  hunterChance: 0.4, // the witch-hunter: Dread hunterDread or more, an inspection within hunterDays days; once an inspection
   hunterDread: 3,
   hunterDays: 2,
   // Four more omens (moreOmens): a falling star, grave-cold, a lull in the Deep and the dead remembering.
   moreOmens: 1,
   starGlass: 9, // a falling star: the glass the first shade to reach it brings back
   coldSpeed: 0.8, // grave-cold: the Unlit move at this rate, and candles burn coldBurn times as fast
-  coldBurn: 1.25,
+  coldBurn: 1.15,
   lullStay: 0.25, // a lull in the Deep: this share of the night's Creepers stay down, and the Choir sings at lullChoir
   lullChoir: 0.5,
   kinFight: 1.25, // the dead remember: every shade fights this many times as hard, and fades kinFade times as fast
-  kinFade: 1.5,
+  kinFade: 1.25,
   // The years' visitors (yearVisitors): from the third year to the tenth, each year brings one who has never come,
   // once, from its summer's third day (VISITORS, year). Not in the campaign, whose years have their chapters.
   yearVisitors: 1,
@@ -1108,7 +1108,7 @@ export const VISITORS = {
     who: (n) => `He names ${n}.`,
     answers: [
       { id: 'burn', text: 'Give them up', dread: -2, does: 'they burn on your order, and wake at dusk a Wraith' },
-      { id: 'no', text: 'Refuse him', dread: 1, does: 'he rides on to the inspector with the keep\'s name' },
+      { id: 'no', text: 'Refuse him', does: 'he rides on to the inspector' },
     ],
   },
   // The years' visitors: from the third year to the tenth, each comes once, in its year.

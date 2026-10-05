@@ -975,7 +975,7 @@ export function rollCruelty(s) {
   const due = [
     ['traitor', T.traitorChance, R && R.state === 'coming' && !R.crusade && !R.camp && !R.safe, () => grown.filter((p) => !isGuard(p))],
     ['price', T.priceChance, isNewMoon(s) && !isLongNight(s) && yearOf(s) >= 2, () => (grown.some((p) => p.age === 'old') ? grown.filter((p) => p.age === 'old') : grown)],
-    ['hunter', T.hunterChance, s.inspection && !s.inspection.done && s.inspection.day >= s.day && s.inspection.day - s.day <= T.hunterDays && s.dread >= T.hunterDread, () => grown],
+    ['hunter', T.hunterChance, s.inspection && !s.inspection.done && !s.inspection.hunted && s.inspection.day >= s.day && s.inspection.day - s.day <= T.hunterDays && s.dread >= T.hunterDread, () => grown],
     ['bearer', T.bearerChance, plagueSeason(s) && s.living.length > beds(s), () => s.living.filter((p) => p.sick > 0)],
   ];
   for (const [kind, p, now, who] of due) {
@@ -988,6 +988,7 @@ export function rollCruelty(s) {
     const cap = kind === 'traitor' ? R.hitAt - 1 : kind === 'hunter' && s.inspection.day === s.day ? Math.round(T.inspectAt * D) - 1 : D - 1;
     s.visitors.push({ id: `v${s.season}.${s.day}.${s.visitors.length}`, kind, at, until: Math.min(cap, at + Math.round(T.visitorWait * D)), here: false, done: null, named });
     s.visitors.sort((x, y) => x.at - y.at);
+    if (kind === 'hunter') s.inspection.hunted = true; // once an inspection
     return;
   }
 }
@@ -2251,9 +2252,9 @@ export function omenText(T, o) {
     blood: () => `${T.bloodMore === 0.5 ? 'half again as many' : Math.abs(T.bloodMore - 1 / 3) < 0.01 ? 'a third again as many' : `${Math.round(100 * T.bloodMore)}% more`} Creepers come, and each one cut down gives ${fmt(T.bloodEssence)} essence`,
     restless: () => 'the tides come twice as often, each half as big',
     star: () => `a star has fallen into the deepest dark below the line: the first shade to reach it brings back ${fmt(T.starGlass)} glass`,
-    cold: () => `the Unlit move ${T.coldSpeed === 0.8 ? 'a fifth slower' : `${fmt(T.coldSpeed)} times as fast`}, and candles burn ${T.coldBurn === 1.25 ? 'a quarter faster' : `${fmt(T.coldBurn)} times as fast`}`,
+    cold: () => `the Unlit move ${T.coldSpeed === 0.8 ? 'a fifth slower' : `${fmt(T.coldSpeed)} times as fast`}, and candles burn ${Math.round(100 * (T.coldBurn - 1))}% faster`,
     lull: () => `${T.lullStay === 0.25 ? 'a quarter' : `${Math.round(100 * T.lullStay)}%`} of the Creepers stay in the Deep tonight, and the Choir sings ${T.lullChoir === 0.5 ? 'half as loud' : `${fmt(T.lullChoir)} times as loud`}`,
-    kin: () => `every shade fights ${T.kinFight === 1.25 ? 'a quarter harder' : `${fmt(T.kinFight)} times as hard`}, and fades ${T.kinFade === 1.5 ? 'half again as fast' : `${fmt(T.kinFade)} times as fast`}`,
+    kin: () => `every shade fights ${T.kinFight === 1.25 ? 'a quarter harder' : `${fmt(T.kinFight)} times as hard`}, and fades ${T.kinFade === 1.25 ? 'a quarter faster' : T.kinFade === 1.5 ? 'half again as fast' : `${fmt(T.kinFade)} times as fast`}`,
   }[o.id]();
 }
 // The night's marks, from its spawns as they stand when it begins: each tide from its first Creeper, with
