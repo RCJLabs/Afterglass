@@ -817,6 +817,25 @@ The vertical slice: seven days in one keep, ending on the night of the new moon,
     - **Words:** How to play is 4,086 words (154 more), and the guide 1,549 (102 more, the doors card and the whisper card's new wording).
     - **Not checked:** whether a person sees where a mirror hangs and why it matters, from the drawing, the mirror rows and the Doors card.
     - **Found on the way:** the crossing could wake the newly dead in a mirror hidden from a crusade, though the code said nobody new is bound into one; under the new rule nobody is. And the line a swap of mirrors writes named the one sent back by its name less the first word, which for a bare hall's left "the hall hand mirror"; it names its kind now.
+57. **Round seven's phase 14: events toward sixty.** The audit counted about forty kinds of event, twenty of them visitors, against round three's plan of about sixty with cruelty events among them, and found none of those: a Wraith came only from a Restless shade left to turn, though round three had a Wraith be one of your own killed by you, and its decision against executing people said Wraiths should come only from cruelty events. The plan asked for events toward sixty, cruelty events so a Wraith's "killed by you" path exists, events that change with the year so long play keeps surprising, and more omens. It's done when there are sixty kinds and a ten-year keep meets something new every year. **What counts as a kind:** anything the keep meets with a name and rules of its own (sim.js now notes the first meeting of each: `meet`), other than the threats round three counted apart (by day the Host's raids, fire, sickness and the Church's inspection; by night the six kinds of Unlit), a death, or a part of another (a censure, the siege's camp and its ladders, a shade turning Wraith, the empty larder). A child's coming of age, being grown and growing old are one kind, and the Long Night with its great tide one. By that count the build had 54 before the phase: 20 visitors, 6 omens, 8 years' troubles, 4 requests of the dead, and 16 others (summer's plague, the siege, the crusade, the embargo and the Inquisition, the eclipse, the Long Night, rain, fog, an arrival, a wedding, a birth, coming of age, a sleepwalker, an echo and a relic). The audit's about forty came before phase 12's troubles, and left some of the rest out. **Where I parted from the plan:** a cruel answer is never an order you can give, only an answer to something that comes, as round three's decision asked. The events that change with the year are a visitor for each year from the third to the tenth, each once. And I added sixteen kinds, not six, since the count was nearly there and the plan's three asks each wanted several.
+    - **The baseline**, on phase 13's rules (seeds 1–50, ten years a keep): the keeps met 49 of the 54 kinds. A keep met 26 new kinds in its first year, 9 in its second and 3.3 to 3.5 in its third; from its fourth, 1.1 to 2.1 a year, mostly the year's trouble; and in its tenth, once the eight troubles had all come, 0.1: 29 of 32 balanced keeps and 19 of 22 human ones met nothing new. None met a Wraith in ten years.
+    - **What's new**, behind three rules with their old values for keeps from before (`cruelty`, `moreOmens` and `yearVisitors`, in `RULES_SINCE`), so the golden replays play as recorded, and described under How a season plays (Hard answers, and the years' visitors; Omens): four cruel happenings inside the keep, four more omens, and a visitor a year from the third to the tenth: 70 kinds.
+    - **The done-when**, by the events table below (seeds 1–100, ten years a keep): the build has 70 kinds, and every keep of both plans met something new in every year it reached, the first to the tenth. A keep met 30 new kinds in its first year, 10 in its second, 5 in its third and 3 in its fourth; from its fifth to its ninth 2.2 to 2.5 a year (the year's trouble and the year's visitor, and now and then something it hadn't met yet), and in its tenth 1.1 (the founding feast). The keeps met 63 and 64 of the 70. None met the wandering priest, who comes only when the dead are more than the dusk's funerals can take; the necromancer, who comes only to a keep holding a Restless shade with a mirror free, and both plans let the Restless go; or the witch-hunter, the Inquisition and the crusade, which come to a keep at high Dread or censured under an embargo, and both plans keep Dread low.
+    - **The other tables**, on the same build (below), against phase 13's: within what the seeds can tell apart, and mostly a little worse. First years (the plans table, seeds 1–200): balanced 143, human 121, Keeper 92, Mourner 74 and Double 124, against 150, 118, 96, 68 and 130. The night table (seeds 1–400): balanced 285, human 263, Double 268, and Double at a person's pace 242, against 288, 258, 273 and 252, so reacting leads the static line by as much as it did. Paired with the phase's rules off (the events table, seeds 1–100): the balanced plan 75 first years and the human 64, against 76 and 66. The traitor costs the balanced plan most of what it loses: 143 first years of 200 against 149 with none, whichever answer it takes (below). Ten years (the long table, seeds 1–100): 62 balanced keeps and 48 human ones reached their tenth, against 66 and 48. In the campaign, 146 balanced keeps and 122 human ones of 200 came to their fourth year's judging, against 153 and 131.
+    - **What didn't work, on the way** (first years, seeds 1–100 or 1–200):
+      - The traitor on a quarter of the days the Host came, about three a year, with putting them out of the gate (one of the living lost for good) the careful answer: the balanced plan finished 54 of 100 first years against 76 with the phase's rules off, the autopilot putting 183 out. On one day in ten, with locking them up until dusk the careful answer: 143 of 200 against 149 with no traitor, and 143 letting each one pass (seeds 1–200).
+      - A witch-hunter whose refusal cost a Dread: the Keeper plan, keeping every shade, stands at high Dread, so he came to it 459 times in 200 first years. He now comes once an inspection, and refusing costs nothing. That wasn't the Keeper plan's loss, though (below).
+      - Grave-cold with candles burning a quarter faster, and the dead remember fading half again as fast: with grave-cold on every night that had an omen, the Keeper plan finished 42 of 100 first years with only its faster candles, 52 with only its slower Unlit, and 44 with an omen that did nothing at all. Candles now burn 15% faster, and the dead remember fade a quarter faster.
+      - The four in the same draw as the six, an omen still on half of nights: the six came on three nights in ten rather than five, the black mirror's choice of two came from all ten, and two plans lost first years: the Keeper plan finished 78 of 200 against 96 on phase 13's rules, and Double 122 against 130 (the plans table); in the night table (seeds 1–400) Double finished 246 against 273, and at a person's pace 205 against 252. With the four off and the rest of the phase on, the Keeper plan finished 97 of 200. Which of the four cost it, or whether it was the six coming less often, I didn't find. The four now come alone, and only on half the nights that would have had none (`moreOmenChance`), so the six come as often as before, the choice of two is from the six, and three nights in four have an omen, not one in two. Over 200 first years each, with the four on and off: Double 125 and 126, at a person's pace 113 and 116, the Keeper plan 96 and 97, and the balanced plan 136 and 140 (with the autopilot's bug found on the way, below).
+      - The drowned bell, the Drowned coming up rain or no rain for an essence bounty: with it on every night that had an omen, the human plan finished 37 of 100 against 55 with still air on every such night, and 44 with one Drowned and a bounty of 3, or 43 with one of 5. The Drowned come up behind the line, and a bounty doesn't pay for a crack. A lull in the Deep took its place.
+    - **What the done-when doesn't show:**
+      - From the fifth year, what a keep meets new is a schedule: the year's trouble and the year's visitor. Something new every year holds because the build puts it there, through the tenth; after the tenth nothing new is left to come. The plan asked for events that change with the year so long play keeps surprising, and a visitor who always comes in the sixth year surprises once.
+      - The cruel answers never paid the autopilot. Taking each where it helps (`AP_CRUEL`: hanging a traitor when the gate would otherwise give, walling in a plague-bearer, paying the Hollow's price, giving up a witch at Dread 4) finished 74 and 64 first years of 100, against 75 and 64 without. So the Wraith's "killed on your order" path is there, but nothing measured says a person would be tempted down it, which is the point of it.
+      - The cruel cards come seldom: in the balanced plan's first years the traitor came 1.2 times a keep and the plague-bearer to one keep in seven; the Hollow's price comes only from the second year; and the witch-hunter only at high Dread, which neither the balanced plan nor the human one reaches (the Keeper plan met him 2.2 times a keep in its first year, and refused him).
+      - Three nights in four now have an omen, against one in two, so a plain night is half as common as it was.
+    - **Words:** How to play is 4,198 words (112 more: the hard answers, the years' visitors, and the four omens with their odds), and the guide 1,592 (43 more, the card for a hard answer).
+    - **Not checked:** whether a person reads the cruel answers as a temptation, or the Wraith's cost as the price of one.
+    - **Found on the way:** the autopilot counted a traitor it had locked up into whatever job it then picked them for, though the order failed, so that job stayed short until dusk: the balanced plan's first years with traitors finished 136 of 200 against 149 with none. It leaves them out now.
 
 **How a season plays**
 
@@ -1109,25 +1128,25 @@ The vertical slice: seven days in one keep, ending on the night of the new moon,
 43. **Phase 11's cuts are mine.** Round seven's plan asked to cut or merge, after the playtest, what measures as texture and what testers never mention (the curfew, the closing choices worth nothing, the haunted-room message, Weepers and the Dreamwell as they stand, and the Deep if nobody goes down), and for one word for each thing. There has been no playtest, so mine go by the autopilot alone: Weepers and the curfew cut; the hedge-witch's curse turned into her charm reversed, so that she still comes; the Dreamwell merged into resting, rather than left without a job; the haunted and ruined rooms said in the Day panel and the log, not called out at dawn; the Deep kept for the playtest; the closing choices left to phase 15; and "Skip" left to the night's clock, with Move on and Turn the guide off for the lesson card's two (problem 54).
 44. **Phase 12's shapes are mine.** Round seven's plan named the sinks (repairs in stone after a breach, a fire or a Maw; floors 8–11 with new twins; great-glass halls; second-tier studies; season-long wards bought with essence; more living with more Quarters) and a new pressure each open year. Mine are: repairs only from a keep's second year, a haunting of two dawns and a burn of two days unless mended, rather than until mended, and a gate that mends a quarter a day of itself; the cap on the living as the keep's beds; one new room for floors 8 to 11, the Lampworks, with a twin lit without a candle, rather than several, and rooms costing more stone above the seventh floor; the great-glass hall as a fourth mirror whose dead fade half as fast, built for glass or grown with quicksilver, rather than a room (phase 13 hangs mirrors in rooms); second ranks at twice the price; standing wards at 60% of a night's ward; the ward on the Veil itself and the rite against the year's trouble, neither in the plan, added when essence and remembrance still piled without them; the eight troubles, their sizes, and their order drawn for the keep with none twice until each has come; and the autopilot's ways with all of it, whose numbers are what the done-when measures (problem 55).
 45. **Phase 13's shapes are mine.** Round seven's plan said: a mirror hangs in a room; whispers and the great glass work that room; an uncovered mirror in a twin a Maw breaks lets something through; covering becomes a choice of where. Mine are: one mirror to a room, named for it; a door only while a shade is in it, so an empty mirror hangs anywhere; what comes through as a crack in the Veil, once, the Maw gone after it; covering as turning to the wall, since at the rite covering a shade's mirror already means letting it rest (one word for each thing), its shades sitting out as a hidden mirror's do; Maws that come for work and never for a door; doors from a keep's second season; a new mirror, and the newly dead, going where the Maws come least; and the autopilot's ways, moving a mirror with shades in it where nobody works, and never turning one (problem 56).
-46. **Phase 14's shapes are mine.** Round seven's plan said: about sixty kinds of event; cruelty events, so a Wraith's "killed by you" path exists; events that change with the year, so long play keeps surprising; more omens; done when there are sixty kinds and a ten-year keep meets something new every year. Mine are: what counts as a kind (problem 57), by which the build had 54, not the audit's about forty; the four cruel happenings and their trades, each a card like a visitor's, never an order you can give, as round three's decision against executing people asked; a visitor a year from the third to the tenth, each once, for the events that change with the year; the four omens; and the autopilot's ways, killing nobody unless told to (`AP_CRUEL`).
+46. **Phase 14's shapes are mine.** Round seven's plan said: about sixty kinds of event; cruelty events, so a Wraith's "killed by you" path exists; events that change with the year, so long play keeps surprising; more omens; done when there are sixty kinds and a ten-year keep meets something new every year. Mine are: what counts as a kind (problem 57), by which the build had 54, not the audit's about forty; the four cruel happenings and their trades, each a card like a visitor's, never an order you can give, as round three's decision against executing people asked; a visitor a year from the third to the tenth, each once, for the events that change with the year; the four omens, each alone on a night that would have had none of the six; and the autopilot's ways, killing nobody unless told to (`AP_CRUEL`).
 
 **What the numbers say so far.** The first year of each plan, from `npm run measure` (`tools/measure.mjs`), which writes the tables below: they come from that file, not from hand (problem 49). The human plan is the balanced one with a person's lapses (`tools/AUTOPILOT.md`). Every plan but Idle builds in the same order (a Barracks, a Chapel, a Chandlery, a Glazier, an Infirmary, a second Barracks, a Quarters once the keep is crowded, a Forge, a Granary, a Cellar), stands guards only on raid days, holds the stairs to the Veil, relights candles, and posts nobody below the line's floor at night except in the Choir, and never has the dead help by day. All but Double and Idle send help against a Maw, and a second fighter to the line for each tide: since the tide goes for the thinner stair (problem 50), they hold one fighter to each stair until a tide is up, then send the nearest free fighter to the stair on the side it's climbing. They move a shade only along a lit floor: a shade whose way is dark stays where it is (problem 36). On the Hollow's nights they ward it at the foot of the keep, unless three fighters could cut it down in 15 seconds or the store can't hold it until dawn: then they hold it at the line's stair and drive it back there, and on the Long Night they keep a candle for each stair of the line back for its great tide and put a second fighter at each stair as it rises (problem 51). They also ward the line for the last tide of nights 5 and 6 when the essence is there, use the shades' acts by rule (problem 33), and fetch echoes and relics in a lull (problem 34). Every plan but Idle drops a candle on a sleepwalker who's caught or has reached the Deep's floor, of two omens takes the one that cost it least (problem 35), answers visitors at the gate by rule (problem 38), builds the Hall, the Library and the Gatehouse last, once its own rooms stand (problem 39), meets the eclipse as it meets a night (problem 40), in a campaign closes each chapter on the help rather than the goods (problem 41), and late in a season keeps back what holding the Hollow off until dawn will take (problem 42). The first three differ in how they treat the dead; Double treats them like Balanced.
 
 <!-- measure:plans -->
 | | Balanced | Human | Keeper | Mourner | Double | Idle |
 |---|---|---|---|---|---|---|
-| First season finished | 100% | 97% | 100% | 91% | 94% | 0% |
-| **First year finished** | **75%** | **59%** | **48%** | **34%** | **65%** | **0%** |
-| Lost in spring / summer / autumn / winter | 1 / 5 / 13 / 32 | 6 / 17 / 17 / 42 | 1 / 10 / 24 / 69 | 18 / 27 / 45 / 43 | 13 / 8 / 12 / 37 | 200 / 0 / 0 / 0 |
-| Your deaths per season | 3.1 | 3.1 | 3.1 | 3.3 | 3.0 | 0.2 |
-| Raids held | 99% | 98% | 97% | 98% | 98% | 100% |
-| Church: blessed / warned / censured | 756 / 0 / 0 | 697 / 0 / 0 | 442 / 568 / 639 | 613 / 0 / 0 | 714 / 0 / 0 | 0 / 0 / 0 |
+| First season finished | 100% | 97% | 100% | 91% | 93% | 0% |
+| **First year finished** | **72%** | **61%** | **46%** | **37%** | **62%** | **0%** |
+| Lost in spring / summer / autumn / winter | 1 / 8 / 15 / 33 | 7 / 14 / 21 / 37 | 0 / 18 / 23 / 67 | 18 / 24 / 38 / 46 | 15 / 12 / 13 / 36 | 200 / 0 / 0 / 0 |
+| Your deaths per season | 3.1 | 3.0 | 3.2 | 3.2 | 3.0 | 0.2 |
+| Raids held | 98% | 98% | 98% | 97% | 98% | 100% |
+| Church: blessed / warned / censured | 743 / 0 / 0 | 694 / 0 / 0 | 452 / 526 / 614 | 623 / 0 / 0 | 700 / 0 / 0 | 0 / 0 / 0 |
 | Shades lost at night per season | 0.3 | 0.3 | 0.7 | 0.4 | 0.4 | 1.5 |
-| The Hollow, in finished seasons: reached the Veil / driven back / withdrew | 1 / 164 / 558 | 7 / 152 / 490 | 3 / 115 / 531 | 33 / 94 / 387 | 4 / 19 / 640 | – |
+| The Hollow, in finished seasons: reached the Veil / driven back / withdrew | 2 / 175 / 532 | 9 / 156 / 486 | 2 / 129 / 502 | 27 / 108 / 399 | 3 / 17 / 622 | – |
 
-The human plan finishes its first year on 118 of 200 seeds, against the balanced plan's 149: it loses 45 the balanced plan keeps and keeps 14 it loses. Median seasons finished of the first four: 4, against 4.
+The human plan finishes its first year on 121 of 200 seeds, against the balanced plan's 143: it loses 41 the balanced plan keeps and keeps 19 it loses. Median seasons finished of the first four: 4, against 4.
 
-Generated by `npm run measure` on seeds 1–200, at build d1cc066, 2026-10-05.
+Generated by `npm run measure` on seeds 1–200, at build 5eb91c2, 2026-10-05.
 <!-- /measure:plans -->
 
 **The verbs the autopilot didn't use until round seven's phase 6** (problem 49), each switched on for the balanced plan and paired with it seed by seed (`tools/AUTOPILOT.md` says what each does):
@@ -1135,14 +1154,14 @@ Generated by `npm run measure` on seeds 1–200, at build d1cc066, 2026-10-05.
 <!-- measure:verbs -->
 | Verb | What the autopilot does with it | Used, per keep | Finished | The balanced plan | Better on / worse on |
 |---|---|---|---|---|---|
-| Hush (`AP_HUSH`) | hushes while shades stand in the dark with the Unlit close and no candle to spare | 0.9 | 149 of 200 the first year | 149 | 2 / 1 |
-| Bind (`AP_BIND`) | binds a Restless shade into a free mirror when the essence can be spared | 0.1 | 151 of 200 the first year | 149 | 3 / 3 |
-| The curfew (`AP_CURFEW`, under its old rule) | proclaims the curfew once sleepwalkers can come; since phase 11 a Hall has no curfew | 1.1 | 142 of 200 the first year | 149 | 3 / 10 |
-| The Court (`AP_COURT`) | seats a shade in the Court of Shades before a rite where one will ask | 1.3 | 133 of 200 the first year | 149 | 1 / 17 |
-| Building by choice (`AP_TALL=line`) | builds tall, with the Chapel on the line’s floor | – | 148 of 200 the first year | 149 | 25 / 24 |
-| The Keeper (`AP_ENDING=watch`) | takes its own place in the glass at the first year’s end | 0.7 | 122 of 200 two years | 120 | 5 / 3 |
+| Hush (`AP_HUSH`) | hushes while shades stand in the dark with the Unlit close and no candle to spare | 0.8 | 142 of 200 the first year | 143 | 1 / 1 |
+| Bind (`AP_BIND`) | binds a Restless shade into a free mirror when the essence can be spared | 0.1 | 142 of 200 the first year | 143 | 1 / 1 |
+| The curfew (`AP_CURFEW`, under its old rule) | proclaims the curfew once sleepwalkers can come; since phase 11 a Hall has no curfew | 1.1 | 132 of 200 the first year | 143 | 3 / 14 |
+| The Court (`AP_COURT`) | seats a shade in the Court of Shades before a rite where one will ask | 1.2 | 128 of 200 the first year | 143 | 2 / 17 |
+| Building by choice (`AP_TALL=line`) | builds tall, with the Chapel on the line’s floor | – | 155 of 200 the first year | 143 | 34 / 23 |
+| The Keeper (`AP_ENDING=watch`) | takes its own place in the glass at the first year’s end | 0.7 | 122 of 200 two years | 120 | 5 / 1 |
 
-Generated by `npm run measure` on seeds 1–200, at build d1cc066, 2026-10-05.
+Generated by `npm run measure` on seeds 1–200, at build 5eb91c2, 2026-10-05.
 <!-- /measure:verbs -->
 
 **The night: reacting against the static line** (round seven, phase 7, problem 50). Each plan's first year on today's rules, paired seed by seed with the plan named: Double at the same pace, or as the row says. Human is the balanced plan at a person's pace; Double at a person's pace has the same lapses. Only watching sets the night at dusk and does nothing in it.
@@ -1150,18 +1169,18 @@ Generated by `npm run measure` on seeds 1–200, at build d1cc066, 2026-10-05.
 <!-- measure:night -->
 | Plan | First year finished | Paired with Double at the same pace, or as it says: better on / worse on (seeds) | Lost to the Veil / with everyone dead | Shades caught a night | Rooms broken / ruined in 10 nights | Cracks a season |
 |---|---|---|---|---|---|---|
-| Balanced: reacts | 288 of 400 | 91 / 67 | 103 / 9 | 0.1 | 2.7 / 0.0 | 0.3 |
-| Balanced, never moving a shade at night (`AP_NOMOVE`) | 292 of 400 | 24 / 21 against Balanced | 100 / 8 | 0.1 | 2.7 / 0.0 | 0.3 |
-| Double: two to a stair, never moves | 273 of 400 | – | 123 / 4 | 0.1 | 2.6 / 0.0 | 0.6 |
-| Human: reacts, at a person’s pace | 258 of 400 | 91 / 74 | 136 / 6 | 0.3 | 2.7 / 0.0 | 0.4 |
-| Double at a person’s pace (`AP_LAPSES`) | 252 of 400 | – | 145 / 3 | 0.3 | 2.6 / 0.0 | 0.6 |
-| Balanced, set at dusk and then only watching (`AP_WATCH`) | 0 of 400 | 0 / 397 against Balanced | 400 / 0 | 0.9 | 1.7 / 0.0 | 3.0 |
-| Human, with auto-relight (on in Gentle) | 288 of 400 | 67 / 29 against Human | 103 / 9 | 0.2 | 2.8 / 0.0 | 0.3 |
-| Only watching, with auto-relight | 25 of 400 | 9 / 349 against Balanced | 365 / 10 | 0.6 | 1.8 / 0.0 | 2.0 |
-| Balanced, never meeting the Hollow (`AP_MEETHOLLOW=off`) | 293 of 400 | 18 / 9 against Balanced | 98 / 9 | 0.1 | 2.7 / 0.0 | 0.3 |
-| Human, never meeting the Hollow | 259 of 400 | 14 / 14 against Human | 135 / 6 | 0.3 | 2.7 / 0.0 | 0.4 |
+| Balanced: reacts | 285 of 400 | 92 / 60 | 107 / 8 | 0.1 | 2.6 / 0.0 | 0.3 |
+| Balanced, never moving a shade at night (`AP_NOMOVE`) | 295 of 400 | 28 / 19 against Balanced | 97 / 8 | 0.1 | 2.7 / 0.0 | 0.3 |
+| Double: two to a stair, never moves | 268 of 400 | – | 128 / 4 | 0.1 | 2.6 / 0.0 | 0.6 |
+| Human: reacts, at a person’s pace | 263 of 400 | 99 / 66 | 131 / 6 | 0.3 | 2.7 / 0.0 | 0.4 |
+| Double at a person’s pace (`AP_LAPSES`) | 242 of 400 | – | 155 / 3 | 0.3 | 2.6 / 0.0 | 0.7 |
+| Balanced, set at dusk and then only watching (`AP_WATCH`) | 0 of 400 | 0 / 397 against Balanced | 400 / 0 | 0.9 | 1.9 / 0.0 | 3.0 |
+| Human, with auto-relight (on in Gentle) | 295 of 400 | 73 / 29 against Human | 95 / 10 | 0.2 | 2.7 / 0.0 | 0.3 |
+| Only watching, with auto-relight | 22 of 400 | 6 / 352 against Balanced | 367 / 11 | 0.6 | 1.8 / 0.0 | 2.0 |
+| Balanced, never meeting the Hollow (`AP_MEETHOLLOW=off`) | 288 of 400 | 16 / 14 against Balanced | 106 / 6 | 0.1 | 2.6 / 0.0 | 0.3 |
+| Human, never meeting the Hollow | 263 of 400 | 14 / 14 against Human | 130 / 7 | 0.3 | 2.7 / 0.0 | 0.4 |
 
-Generated by `npm run measure` on seeds 1–400, at build d1cc066, 2026-10-05.
+Generated by `npm run measure` on seeds 1–400, at build 5eb91c2, 2026-10-05.
 <!-- /measure:night -->
 
 **The nights of a season** (round seven, phase 8, problem 51). For each night of the season, over each plan's first year: the Unlit it brought, and the actions the plan took in it and the call-outs it made (the page's alerts), a night on average. Where the Hollow rose, how its night ended.
@@ -1170,17 +1189,17 @@ Generated by `npm run measure` on seeds 1–400, at build d1cc066, 2026-10-05.
 | Night | Unlit | Balanced: actions / call-outs | Human: actions / call-outs |
 |---|---|---|---|
 | Night 1 | 8.2 | 2.8 / 1.1 | 3.0 / 1.3 |
-| Night 2 | 11.4 | 4.5 / 2.2 | 4.7 / 2.5 |
-| Night 3 | 15.5 | 6.3 / 7.8 | 5.8 / 8.1 |
-| Night 4 | 18.2 | 6.0 / 8.0 | 5.6 / 8.3 |
-| Night 5 | 21.7 | 6.3 / 7.8 | 6.1 / 8.4 |
-| Night 6 | 24.6 | 6.6 / 8.0 | 5.9 / 8.7 |
-| The new moon (spring to autumn) | 13.2 | 6.6 / 5.4 | 5.5 / 5.5 |
-| The Long Night | 14.0 | 10.0 / 12.6 | 8.8 / 12.6 |
+| Night 2 | 11.3 | 4.6 / 2.3 | 4.7 / 2.5 |
+| Night 3 | 15.3 | 6.2 / 7.8 | 6.0 / 8.1 |
+| Night 4 | 18.0 | 6.1 / 8.1 | 5.7 / 8.4 |
+| Night 5 | 21.3 | 6.2 / 7.9 | 6.0 / 8.4 |
+| Night 6 | 24.2 | 6.5 / 8.1 | 5.9 / 8.7 |
+| The new moon (spring to autumn) | 13.2 | 6.6 / 5.5 | 5.8 / 5.5 |
+| The Long Night | 14.0 | 9.5 / 12.6 | 8.7 / 12.3 |
 
-The Hollow, on the nights it rose (driven back / crossed the Veil / withdrew at dawn): Balanced 351 / 2 / 1077 of 1430; Human 309 / 10 / 1022 of 1341. First year finished: Balanced 288 of 400; Human 258 of 400.
+The Hollow, on the nights it rose (driven back / crossed the Veil / withdrew at dawn): Balanced 367 / 2 / 1054 of 1423; Human 335 / 13 / 989 of 1337. First year finished: Balanced 285 of 400; Human 263 of 400.
 
-Generated by `npm run measure` on seeds 1–400, at build d1cc066, 2026-10-05.
+Generated by `npm run measure` on seeds 1–400, at build 5eb91c2, 2026-10-05.
 <!-- /measure:moon -->
 
 **The campaign's goals** (problem 51): each of the first four years' goals met, of the keeps that got as far as its judging (the first year's as winter begins, the others at the year's end).
@@ -1188,12 +1207,12 @@ Generated by `npm run measure` on seeds 1–400, at build d1cc066, 2026-10-05.
 <!-- measure:campaign -->
 | Year | Goal | Balanced: met / judged | Human: met / judged |
 |---|---|---|---|
-| 1: The First Winter | go into winter with 20 candles put by | 109 / 186 | 88 / 165 |
-| 2: The Ashen Host | hold the gate against every raid this year | 152 / 153 | 133 / 135 |
-| 3: The Lantern Church | come through every inspection this year without a censure | 153 / 153 | 132 / 132 |
-| 4: The Deep Rises | drive the Hollow back on one of its nights this year | 151 / 153 | 130 / 131 |
+| 1: The First Winter | go into winter with 20 candles put by | 107 / 180 | 82 / 165 |
+| 2: The Ashen Host | hold the gate against every raid this year | 148 / 149 | 126 / 129 |
+| 3: The Lantern Church | come through every inspection this year without a censure | 148 / 148 | 122 / 122 |
+| 4: The Deep Rises | drive the Hollow back on one of its nights this year | 146 / 146 | 122 / 122 |
 
-Generated by `npm run measure` on seeds 1–200, at build d1cc066, 2026-10-05.
+Generated by `npm run measure` on seeds 1–200, at build 5eb91c2, 2026-10-05.
 <!-- /measure:campaign -->
 
 **The day** (round seven, phase 10, problem 53). Each plan over two years, by year: the day's actions other than jobs (visitors answered, wards, pitch, building, decrees and the rest), raids held at the gate, the guards' share of the hands on a raid day (what holding a raid costs in work), sallies against the autumn camp, visitors paid in glass or remembrance, the Forge's arms and the Church's verdicts. Under it, the same plans posting their guards only when the Host is at the gate.
@@ -1201,14 +1220,14 @@ Generated by `npm run measure` on seeds 1–200, at build d1cc066, 2026-10-05.
 <!-- measure:day -->
 | Plan | Year | Keeps | Day actions other than jobs, a day | Raids held | Guards, of the hands on a raid day | Sallies won / made | Visitors paid in kind | Arms forged, a keep | Church: blessed / warned / censured |
 |---|---|---|---|---|---|---|---|---|---|
-| Balanced | 1 | 200 | 2.5 | 99% | 19% | 76 / 100 | 394 | 1.7 | 756 / 0 / 0 |
-| Balanced | 2 | 148 | 2.7 | 99% | 20% | 42 / 51 | 287 | 7.5 | 529 / 0 / 0 |
-| Human | 1 | 200 | 2.5 | 98% | 19% | 68 / 93 | 342 | 1.2 | 697 / 0 / 0 |
-| Human | 2 | 117 | 2.7 | 100% | 19% | 27 / 33 | 213 | 7.7 | 411 / 0 / 0 |
+| Balanced | 1 | 200 | 2.5 | 99% | 19% | 77 / 97 | 405 | 1.3 | 743 / 0 / 0 |
+| Balanced | 2 | 141 | 2.8 | 100% | 20% | 35 / 40 | 282 | 8.2 | 517 / 1 / 0 |
+| Human | 1 | 200 | 2.5 | 99% | 19% | 66 / 84 | 357 | 1.2 | 694 / 0 / 0 |
+| Human | 2 | 121 | 2.8 | 99% | 19% | 34 / 39 | 241 | 7.5 | 437 / 0 / 0 |
 
-Posting guards only when the Host is at the gate (`AP_JIT`), first year finished: Balanced 134 of 200 (against 149; better on 27, worse on 42), raids held 92%; Human 115 of 200 (against 118; better on 37, worse on 40), raids held 92%.
+Posting guards only when the Host is at the gate (`AP_JIT`), first year finished: Balanced 135 of 200 (against 143; better on 34, worse on 42), raids held 91%; Human 121 of 200 (against 121; better on 41, worse on 41), raids held 92%.
 
-Generated by `npm run measure` on seeds 1–200, at build d1cc066, 2026-10-05.
+Generated by `npm run measure` on seeds 1–200, at build 5eb91c2, 2026-10-05.
 <!-- /measure:day -->
 
 **Ten years** (round seven, phase 12, problem 55). Each plan over ten years, by year, of the keeps still standing at its end: the days with a decision by day other than jobs (repairs, wards, studies, visitors, decrees, building and the rest), the stores left at the year's end, and the days essence stood at its cap. Glass and candles stop at about 110 and 72 because the autopilot stops making them there, not because they're spent; and the decisions counted here spend the stores, but don't yet decide whether a keep lasts (problem 55).
@@ -1216,18 +1235,18 @@ Generated by `npm run measure` on seeds 1–200, at build d1cc066, 2026-10-05.
 <!-- measure:long -->
 | Plan | Year | Keeps | Days with a decision other than jobs | At the year’s end: glass, remembrance, candles, stone (medians) | Days essence was at its cap |
 |---|---|---|---|---|---|
-| Balanced | 1 | 76 | 93% | 29, 13, 6, 3 | 19% |
-| Balanced | 2 | 68 | 93% | 41, 9, 20, 1 | 15% |
-| Balanced | 3 | 66 | 91% | 74, 14, 38, 1 | 35% |
-| Balanced | 5 | 66 | 85% | 110, 17, 72, 2 | 48% |
-| Balanced | 10 | 66 | 90% | 110, 30, 72, 1 | 46% |
-| Human | 1 | 66 | 93% | 30, 12, 4, 1 | 30% |
-| Human | 2 | 52 | 93% | 38, 9, 17, 1 | 19% |
-| Human | 3 | 48 | 90% | 80, 14, 38, 1 | 36% |
-| Human | 5 | 48 | 85% | 110, 19, 72, 2 | 51% |
-| Human | 10 | 48 | 90% | 110, 16, 72, 1 | 47% |
+| Balanced | 1 | 75 | 93% | 30, 14, 4, 3 | 17% |
+| Balanced | 2 | 64 | 93% | 42, 10, 20, 1 | 15% |
+| Balanced | 3 | 63 | 92% | 71, 13, 28, 1 | 31% |
+| Balanced | 5 | 62 | 86% | 109, 17, 72, 2 | 48% |
+| Balanced | 10 | 62 | 91% | 110, 18, 72, 1 | 47% |
+| Human | 1 | 64 | 91% | 30, 12, 3, 2 | 30% |
+| Human | 2 | 50 | 94% | 39, 10, 16, 1 | 16% |
+| Human | 3 | 48 | 90% | 77, 15, 31, 2 | 33% |
+| Human | 5 | 48 | 88% | 110, 19, 72, 2 | 48% |
+| Human | 10 | 48 | 91% | 110, 17, 72, 1 | 49% |
 
-Generated by `npm run measure` on seeds 1–100, at build d1cc066, 2026-10-05.
+Generated by `npm run measure` on seeds 1–100, at build 5eb91c2, 2026-10-05.
 <!-- /measure:long -->
 
 **Where the mirrors hang** (round seven, phase 13, problem 56). Each plan's first year with its mirrors hung each way, paired seed by seed with the autopilot's own (a mirror with shades in it moved where the Maws come least), and the Maws that came through a door, a keep-season. A door lets a Maw through from a keep's second season.
@@ -1235,20 +1254,42 @@ Generated by `npm run measure` on seeds 1–100, at build d1cc066, 2026-10-05.
 <!-- measure:mirrors -->
 | Where the mirrors hang | Balanced: first year finished | Better on / worse on | Maws through a door, a keep-season | Human: first year finished | Better on / worse on | Maws through a door, a keep-season |
 |---|---|---|---|---|---|---|
-| Where the Maws come least, by the autopilot’s own rule | 149 of 200 | – | 0.01 | 118 of 200 | – | 0.01 |
-| The same, and a door the black mirror names turned to the wall at dusk (`AP_TURN=forecast`) | 146 of 200 | 0 / 4 | 0.00 | 116 of 200 | 2 / 3 | 0.00 |
-| The same, and on a Maw night every door in a worked room under the line turned (`AP_TURN=deep`) | 144 of 200 | 7 / 13 | 0.00 | 111 of 200 | 5 / 13 | 0.00 |
-| The fullest in worked rooms, nearest the Veil (`AP_HANG=worked`) | 144 of 200 | 3 / 9 | 0.09 | 112 of 200 | 1 / 9 | 0.09 |
-| Each where it was built (`AP_HANG=none`) | 138 of 200 | 0 / 11 | 0.09 | 107 of 200 | 1 / 11 | 0.07 |
-| The fullest deepest (`AP_HANG=deep`) | 52 of 200 | 7 / 108 | 0.50 | 32 of 200 | 4 / 100 | 0.43 |
-| As before the phase: no mirror is a door (`mirrorRooms` 0) | 148 of 200 | 0 / 1 | 0.00 | 119 of 200 | 2 / 0 | 0.00 |
+| Where the Maws come least, by the autopilot’s own rule | 143 of 200 | – | 0.01 | 121 of 200 | – | 0.02 |
+| The same, and a door the black mirror names turned to the wall at dusk (`AP_TURN=forecast`) | 143 of 200 | 1 / 1 | 0.00 | 121 of 200 | 4 / 4 | 0.00 |
+| The same, and on a Maw night every door in a worked room under the line turned (`AP_TURN=deep`) | 132 of 200 | 4 / 15 | 0.00 | 111 of 200 | 5 / 17 | 0.00 |
+| The fullest in worked rooms, nearest the Veil (`AP_HANG=worked`) | 132 of 200 | 0 / 11 | 0.08 | 113 of 200 | 1 / 11 | 0.09 |
+| Each where it was built (`AP_HANG=none`) | 131 of 200 | 0 / 12 | 0.07 | 116 of 200 | 1 / 6 | 0.07 |
+| The fullest deepest (`AP_HANG=deep`) | 50 of 200 | 3 / 107 | 0.50 | 34 of 200 | 6 / 102 | 0.43 |
+| As before the phase: no mirror is a door (`mirrorRooms` 0) | 143 of 200 | 0 / 0 | 0.00 | 123 of 200 | 2 / 0 | 0.00 |
 
-Generated by `npm run measure` on seeds 1–200, at build d1cc066, 2026-10-05.
+Generated by `npm run measure` on seeds 1–200, at build 5eb91c2, 2026-10-05.
 <!-- /measure:mirrors -->
 
 **What each year brings new** (round seven, phase 14, problem 57). Of each plan's keeps that played a year to its end, how many kinds of event each met for the first time that year, and how many met nothing new; then each plan's first year with the phase's three rules off, and taking the cruel answers, paired seed by seed with its own. What counts as a kind is in problem 57.
 
 <!-- measure:events -->
+| Year | Balanced: keeps | New kinds a keep | Met nothing new | Human: keeps | New kinds a keep | Met nothing new |
+|---|---|---|---|---|---|---|
+| 1 | 75 | 30.0 | 0 | 64 | 30.1 | 0 |
+| 2 | 64 | 10.3 | 0 | 50 | 10.3 | 0 |
+| 3 | 63 | 4.9 | 0 | 48 | 5.1 | 0 |
+| 4 | 63 | 3.0 | 0 | 48 | 3.0 | 0 |
+| 5 | 62 | 2.5 | 0 | 48 | 2.4 | 0 |
+| 6 | 62 | 2.4 | 0 | 48 | 2.3 | 0 |
+| 7 | 62 | 2.3 | 0 | 48 | 2.2 | 0 |
+| 8 | 62 | 2.2 | 0 | 48 | 2.2 | 0 |
+| 9 | 62 | 2.2 | 0 | 48 | 2.2 | 0 |
+| 10 | 62 | 1.1 | 0 | 48 | 1.1 | 0 |
+
+Kinds of event in the build: 70. Met by at least one keep in ten years: Balanced 63, Human 64; by none, `priest`, `necromancer`, `hunter`, `crusade`, `inquisition`.
+
+| First year | Balanced: finished | Better on / worse on | Human: finished | Better on / worse on |
+|---|---|---|---|---|
+| The rules as they are | 75 of 100 | – | 64 of 100 | – |
+| As before the phase (`cruelty`, `moreOmens` and `yearVisitors` 0) | 76 of 100 | 10 / 10 | 66 of 100 | 14 / 14 |
+| Taking the cruel answer where it helps (`AP_CRUEL`) | 74 of 100 | 1 / 3 | 64 of 100 | 1 / 2 |
+
+Generated by `npm run measure` on seeds 1–100, at build 5eb91c2, 2026-10-05.
 <!-- /measure:events -->
 
 - **Raids with traits** (before raids were fought): when traits went in, 86% held for the balanced plan, against 90% without them (and 58% before the two-room start). Traits first cut it to 75%. No one trait did it: Wil (a Coward) and Nell (Gentle) guarded at half strength, Tam (Devout) at ×0.8 off the Chapel, Ada (Brave) fell twice as often, which thinned the gate for the next raid, and the Greedy ate double. The Gentle's and the Greedy's costs now fall elsewhere: the Gentle grieve harder, and the Greedy work ×0.8 away from the Glazier and the Chandlery. The Coward and the Brave keep theirs, since the gate is what they're about. Guards stand only on raid days, when every free hand goes to the Barracks.
