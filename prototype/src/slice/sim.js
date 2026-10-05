@@ -296,6 +296,12 @@ function say(s, text, tone = '', alert = false) {
   if (alert) s.alerts.push({ text, tone, ...(kind ? { kind } : {}) });
   s.rev++;
 }
+// Round seven, phase 14: what the keep has met, each kind of happening the first time it comes (s.met[kind], the
+// season and day), for the measurement and the page. It rolls nothing and changes nothing the rules read.
+export function meet(s, kind) {
+  if (!s.met) s.met = {};
+  if (!s.met[kind]) s.met[kind] = { season: s.season, day: s.day };
+}
 // Sounds and vibration: a side channel for the page, never read by the rules. It exists only while a page
 // listens (the page sets s.cues to an array and empties it each frame), so replays, tests and the autopilot
 // never fill it. A cue with a place (floor and x) can be panned to where it happened.
@@ -777,6 +783,7 @@ function eat(s, D) {
   if (!s.hungry) {
     s.hungry = true;
     say(s, 'The larder is empty. Everyone works hungry, and the weakest will starve.', 'bad', 'larder');
+    meet(s, 'hunger');
     cue(s, 'warn');
   }
   s.starve += 1 / D;
@@ -947,6 +954,7 @@ function visitorTick(s) {
         continue;
       }
       v.here = true;
+      meet(s, `visitor:${v.kind}`);
       const V = VISITORS[v.kind];
       if (v.kind === 'wedding') v.who = coupleOf(s).map((p) => p.id);
       if (v.kind === 'knight') v.shade = strangerOf(s).id;
@@ -1145,6 +1153,8 @@ function weatherNews(s) {
   const under = 'the new moon belongs to the Hollow';
   if (raining(s)) say(s, `Rain. The Yard quarries at ${Math.round(100 * s.tuning.rainYard)}%, and fire catches and spreads less. ${drownedDue(s) ? `Tonight the Drowned come up out of the moat's twin${behind}.` : `The Drowned stay under tonight: ${under}.`}`, 'bad');
   else if (foggy(s)) say(s, 'Fog. Tonight the black mirror will show how many come and when, but not their ways.');
+  if (raining(s)) meet(s, 'rain');
+  else if (foggy(s)) meet(s, 'fog');
   if (forecastOf(s) === 'rain' && drownedDue(s, true)) {
     say(s, `Rain is coming tomorrow. Tomorrow night the Drowned come up out of the moat's twin, under the Veil, for the mirrors${behind ? ', behind the line' : ''}.`, 'bad', true);
     cue(s, 'warn');
@@ -1187,14 +1197,17 @@ function fire(s, e) {
     const days = s.tuning.sickDays;
     if (n > 1) say(s, `Plague: ${listNames(taken.map((p) => p.name))} have fallen sick. In a crowded keep it spreads; untreated, it kills within ${fmt(days)} days.`, 'bad', 'plague');
     else say(s, `${taken[0].name} has fallen sick. Untreated, the sickness kills within ${fmt(days * (livingTrait(s, taken[0])?.sick ?? 1))} days.`, 'bad', 'sick');
+    meet(s, n > 1 ? 'plague' : 'sickness');
     cue(s, 'warn');
   } else if (e.type === 'oldage') {
     const p = byId(s.living, e.id);
     if (p) kill(s, p, 'oldage');
+    if (p) meet(s, 'oldage');
   } else if (e.type === 'raidWarn') {
     const r = s.raid;
     if (!r || r.state !== 'coming') return;
     r.warned = true;
+    meet(s, r.crusade ? 'crusade' : r.camp ? 'siegeCamp' : 'raid');
     if (r.crusade) say(s, `The crusade is on the road: ${r.count} knights of the Lantern, strength ${fmt(r.strength)}, at the gate a little after noon. Your defense is ${fmt(defense(s))}${musterNote(s)}. They take no tribute; if they break in, they will smash every mirror they can find.`, 'bad', 'road');
     else if (r.camp) say(s, `The camp outside stirs: ${r.count} of the Ashen Host will come at the gate, strength ${fmt(r.strength)}. Your defense is ${fmt(defense(s))}${musterNote(s)}.`, 'bad', 'siege-camp');
     else say(s, `Raiders on the road: ${r.count} of the Ashen Host, strength ${fmt(r.strength)}. Your defense is ${fmt(defense(s))}${musterNote(s)}.`, 'bad', 'road');
@@ -1275,6 +1288,7 @@ function startAssault(s) {
   r.gate = repairing(s) ? s.gate ?? 1 : 1; // with repairs, the gate as the last assault left it
   r.left = Math.round(s.tuning.raidAssaultSecs * TICKS_PER_SEC);
   r.warned = true;
+  meet(s, r.crusade ? 'crusade' : r.camp ? 'siegeCamp' : 'raid');
   if (laddersDue(s)) r.ladders = { up: 0, down: 0, next: Math.round(s.tuning.ladderEvery * TICKS_PER_SEC) };
   const def = defense(s);
   const who = r.crusade ? `The crusade is at the gate: ${r.count} knights of the Lantern` : `The Host is at the gate: ${r.count} raiders`;
@@ -1302,10 +1316,12 @@ function ladder(s, r) {
   if (gateManned(s)) {
     r.ladders.down++;
     say(s, 'A ladder goes up against the wall, and a gate guard throws it down.', 'good');
+    meet(s, 'ladder');
   } else {
     r.ladders.up++;
     r.host += T.ladderHost;
     say(s, `A ladder goes up against the wall and stands. Raiders come over it: the Host +${fmt(T.ladderHost)}.`, 'bad', r.ladders.up === 1);
+    meet(s, 'ladder');
   }
   cue(s, 'ram');
 }
@@ -1463,6 +1479,8 @@ function inspect(s) {
   I.dread = d;
   s.inspections.push({ season: s.season, day: s.day, reason: I.reason, verdict, dread: d, ...(s.tuning.churchLedger ? { now } : {}) });
   s.today.inspection = { verdict, dread: d };
+  meet(s, 'inspection');
+  if (verdict === 'censured') meet(s, 'censure');
   if (s.tuning.churchLedger) s.churchLog = []; // the ledger starts again from the inspection
   say(s, read + text, verdict === 'blessed' ? 'good' : 'bad', 'church');
   cue(s, verdict === 'blessed' ? 'blessed' : 'censured');
@@ -1484,11 +1502,13 @@ function escalate(s) {
   if (embargoed(s)) {
     const again = inquisition(s);
     const until = dayNo(s) + T.inquisitionDays;
+    meet(s, 'inquisition');
     s.church = { embargo: Math.max(s.church.embargo, until), inquisition: until };
     if (again) return ` The Inquisition stays: the inquisitor will inspect the keep every day at noon for ${T.inquisitionDays} more days.`;
     return ` Censured under its embargo, the keep is given to the Inquisition: an inquisitor will inspect it every day at noon for ${T.inquisitionDays} days, unless it finds the keep at peace first.`;
   }
   s.church = { embargo: dayNo(s) + T.embargoDays, inquisition: 0 };
+  meet(s, 'embargo');
   return ` The Church lays a silver embargo on the keep for ${T.embargoDays} days: the Glazier can make no glass, and no mirror can be built. A blessing lifts it, or a donation of ${T.donation} remembrance.`;
 }
 
@@ -1597,6 +1617,7 @@ function ignite(s, id, safe = false) {
   s.fires.push({ room: id, heat: s.tuning.fireStart, full: 0, ...(safe ? { safe } : {}) });
   const R = geo(s).rooms[id];
   say(s, `Fire in the ${DAY_ROOMS[R.type].name}! Everyone in it fights it; send the Yard to help, or it will spread and kill.`, 'bad', 'fire');
+  meet(s, 'fire');
   cue(s, 'fire', R.f, (R.x0 + R.x1) / 2);
 }
 // The rooms a fire can catch from this one: beside it on its floor, and over or under it.
@@ -1952,6 +1973,7 @@ function beginEclipse(s) {
   const k = s.night.spawns.length;
   const host = s.raid && (s.raid.state === 'coming' || s.raid.state === 'assault') && !s.raid.crusade;
   say(s, `The eclipse. The sun goes dark and the Tain wakes with the keep: the dead stand at their posts while the living work${host ? ', and the Host is at the gate' : ''}. ${k === 1 ? 'One Creeper climbs' : `${k} Creepers climb`} before the sun comes back, in ${fmt(s.tuning.eclipseSecs)} seconds. Anyone who dies in the dark wakes at once.`, 'night', 'eclipse');
+  meet(s, 'eclipse');
   cue(s, 'eclipse');
 }
 // While it lasts: who stands beside their dead, and the Tain's tick; then the sun comes back.
@@ -2054,6 +2076,7 @@ function applyOmen(s, n, o) {
   }
   n.spawns.sort((a, b) => a.at - b.at);
   n.omen = o;
+  meet(s, `omen:${o.id}`);
 }
 // What an omen does, in words, by this keep's numbers.
 export function omenText(T, o) {
@@ -2160,6 +2183,7 @@ function startNight(s) {
   const drowned = s.night.spawns.filter((x) => x.type === 'drowned').length;
   const under = drowned && s.night.wards.includes('moat');
   say(s, `Night ${s.day}${isLongNight(s) ? `: the Long Night. It lasts ${s.tuning.longNight === 2 ? 'twice' : `${fmt(s.tuning.longNight)} times`} as long as a winter night, and the Hollow, a Maw and more of the Unlit will come. At its end the year ends` : isNewMoon(s) ? ': the new moon. The Hollow will rise' : ''}. ${s.night.spawns.filter((x) => x.type === 'creeper').length} Creepers will come before dawn${drowned && !under ? `, and ${drowned === 1 ? 'one of the Drowned' : `${drowned} of the Drowned`} out of the moat` : ''}.`, 'night', isNewMoon(s));
+  if (isLongNight(s)) meet(s, 'longNight');
   if (n.omen) say(s, `The omen: ${OMENS[n.omen.id].name}. ${cap(omenText(s.tuning, n.omen))}.`, 'night');
   n.marks = nightMarks(s);
   if (isLongNight(s)) cue(s, 'long-night');
@@ -2170,6 +2194,7 @@ function startNight(s) {
 
 export function addFoe(s, type, f, x, extra = {}) {
   const T = s.tuning;
+  meet(s, `unlit:${type}`);
   const hp = type === 'hollow' ? T.hollowHp * hard(s) * (hollowRisen(s) ? T.hollowRises : 1) : type === 'maw' ? T.mawHp * hard(s, 'mawHardness') : type === 'wraith' ? T.wraithHp : type === 'weeper' ? T.weeperHp : type === 'drowned' ? T.drownedHp : T.creeperHp;
   const foe = {
     id: 'c' + s.nextId++, type, f, x, ox: x, of: f, hp, max: hp, path: [], climb: 0, climbTotal: 0, temper: extra.temper || 'climb',
@@ -2307,6 +2332,7 @@ function errandTick(s, L) {
         const r = route(G, L, e, MAP.rifts.map((rf) => ({ f: G.deep, x: rf.x })));
         e.path = r ? r.path : [];
         say(s, `${e.name} is sleepwalking in the Tain, out of the ${TWINS[typeAt(G, e.f, e.x) || 'hearth'].name}, making for the Deep. Send a shade, or light their way.`, 'bad', true);
+        meet(s, 'sleepwalker');
         cue(s, 'warn', e.f, e.x);
       }
       if (!e.held) advance(e, T.sleepSpeed, Math.round(T.shadeClimb * 2 * TICKS_PER_SEC));
@@ -2347,9 +2373,11 @@ function errandTick(s, L) {
     if (e.kind === 'echo') {
       d.memory = Math.min(100, Math.round((d.memory + T.echoMemory) * 100) / 100);
       say(s, `${d.name} finds an echo in the ${twinAt(G, e.f, e.x).name}, a memory come loose, and takes it in: +${fmt(T.echoMemory)} memory.`, 'good', true);
+      meet(s, 'echo');
     } else {
       gain(s, 'glass', T.relicGlass);
       say(s, `${d.name} brings back a relic from the dark of the ${twinAt(G, e.f, e.x).name}: ${fmt(T.relicGlass)} glass.`, 'good', true);
+      meet(s, 'relic');
     }
     cue(s, 'good', e.f, e.x);
   }
@@ -2394,6 +2422,7 @@ function spawnFoes(s, L) {
     if (sp.great && !n.greatRose) {
       n.greatRose = true;
       say(s, `The last great tide rises: ${n.spawns.filter((x) => x.great).length + 1} Creepers at once, at both rifts. Hold the line until dawn.`, 'bad', 'great-tide');
+      meet(s, 'greatTide');
       cue(s, 'warn');
     }
     if (sp.type === 'drowned') {
@@ -3424,6 +3453,7 @@ function endNight(s) {
       const e = ledgerOf(s, d.id);
       if (e) e.turned = s.day;
       say(s, `${d.name} has turned Wraith.`, 'bad', 'wraith');
+      meet(s, 'turnedWraith');
       cue(s, 'wraith');
     }
   }
@@ -3514,6 +3544,7 @@ function toRite(s, cracks) {
   s.phase = 'dawn';
   s.t = 0;
   const asks = Object.fromEntries(s.shades.map((d) => [d.id, asksNow(s, d)]).filter(([, k]) => k));
+  for (const k of Object.values(asks)) meet(s, `ask:${k}`);
   for (const id of Object.keys(asks)) byId(s.shades, id).askedAt = byId(s.shades, id).nights;
   const heard = s.court ? heardAt(s, asks) : null; // the Court of Shades hears one, free
   s.court = false;
@@ -3719,6 +3750,7 @@ function siegeDawn(s, yesterday) {
   const strength = r1(raidStrength(s, (T.raidDays[2] || 4) * T.siegeStrength));
   s.siege = { from: s.day, until: s.day + T.siegeDays - 1, strength, broken: false };
   say(s, `The Ashen Host has made camp outside the walls. For ${T.siegeDays} days the gate is shut: nobody quarries in the Yard, and no one new can come. The guards can sally out to break the camp.`, 'bad', 'siege');
+  meet(s, 'siege');
   cue(s, 'horn');
 }
 
@@ -3772,6 +3804,7 @@ function newcomer(s) {
   s.living.push(p);
   s.today.arrivals.push(p.id);
   say(s, `${p.name} (${p.age}) arrives at the gate and asks to stay. Assign a job.`, 'good', 'arrival');
+  meet(s, 'arrival');
   cue(s, 'arrive');
 }
 
@@ -3865,6 +3898,7 @@ export function yearsTrouble(s) {
   const id = pick(sideStream(s, 0x7b1), left.length ? left : ids);
   s.troublesSeen = left.length > 1 ? [...seen, id] : [];
   s.trouble = { id, year: yearOf(s) };
+  meet(s, `trouble:${id}`);
   const X = TROUBLES[id];
   say(s, `${X.name}: ${X.text}.`, 'bad', true);
 }
@@ -3881,12 +3915,15 @@ function generations(s) {
       if (p.age === 'child') {
         p.age = 'young';
         news.push(`${p.name} comes of age and can work`);
+        meet(s, 'comesOfAge');
       } else if (p.age === 'young') {
         p.age = 'adult';
         news.push(`${p.name} is grown`);
+        meet(s, 'grown');
       } else if (p.age === 'adult' && chance(r, T.oldChance)) {
         p.age = 'old';
         news.push(`${p.name} grows old`);
+        meet(s, 'growsOld');
       }
     }
     // The unwed pair off, the young and the grown alike, in the order they came to the keep.
@@ -3897,6 +3934,7 @@ function generations(s) {
       a.bond = { with: b.id, rel: 'spouse' };
       b.bond = { with: a.id, rel: 'spouse' };
       news.push(`${a.name} and ${b.name} are wed`);
+      meet(s, 'wed');
     }
   }
   // Births: once for each pair of living spouses, neither old, while the keep has room.
@@ -3911,6 +3949,7 @@ function generations(s) {
     Object.assign(c, { bond: { with: p.id, rel: 'parent' }, born: true, joined: { season: s.season, day: 1 } });
     s.living.push(c);
     news.push(`${p.name} and ${q.name} have a child, ${c.name}`);
+    meet(s, 'birth');
   }
   if (!news.length) return;
   say(s, `${cap(listNames(news))}.`, 'good', true);
