@@ -317,6 +317,7 @@ function wantedJobs(s, uncapped = false) {
   return want;
 }
 
+const locked = (s, p) => p.locked === `${s.season}/${s.day}`;
 function staff(s) {
   const want = wantedJobs(s);
   // On a raid day a guard taken off the post musters again from nothing (muster): take others first, and until
@@ -328,6 +329,7 @@ function staff(s) {
   const free = [];
   for (const p of s.living) {
     if (p.age === 'child') continue; // too young to work
+    if (locked(s, p)) continue; // a traitor locked up until dusk (phase 14): no use counting them into a job
     if (holding && isGuard(p)) continue;
     if (p.job in count && count[p.job] < want[p.job]) count[p.job]++;
     else free.push(p);
@@ -377,7 +379,7 @@ function staff(s) {
     const spare = ['yard', 'lampworks', 'library', 'glazier', 'chandlery', 'chapel', 'infirmary', 'hearth', null];
     while (defense(s) + musterGain(s) + EPS < r.strength) {
       const room = jobCount(s, 'gatehouse') < jobCap(s, 'gatehouse') ? 'gatehouse' : jobCount(s, 'barracks') < jobCap(s, 'barracks') ? 'barracks' : null;
-      const p = s.living.filter((q) => !isGuard(q) && !q.fighting && !q.walls && !(q.sick > 0) && q.age !== 'child').sort((a, b) => spare.indexOf(a.job) - spare.indexOf(b.job) || fit(s, b, 'barracks') - fit(s, a, 'barracks'))[0];
+      const p = s.living.filter((q) => !isGuard(q) && !q.fighting && !q.walls && !(q.sick > 0) && q.age !== 'child' && !locked(s, q)).sort((a, b) => spare.indexOf(a.job) - spare.indexOf(b.job) || fit(s, b, 'barracks') - fit(s, a, 'barracks'))[0];
       if (!room || !p || !doAct(s, { type: 'assign', id: p.id, room })) break;
     }
   }
