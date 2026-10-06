@@ -50,6 +50,15 @@ const LAPSES = !!globalThis.process?.env?.AP_LAPSES;
 // Round seven, phase 15: AP_GOALS=1 plays for a campaign's goal each year (goalMoves), and closes each chapter on
 // the help toward the next year's goal.
 const GOALS = !!globalThis.process?.env?.AP_GOALS;
+// The campaign's goal this year, under AP_GOALS, while it's still to be judged, if it's the one asked for.
+function goalNow(s, id) {
+  const k = chapterOf(s);
+  if (!GOALS || !k || s.campaign?.goals?.[k] !== undefined) return null;
+  const g = goalOf(s, k);
+  return g.id === id ? g : null;
+}
+// This year's days, today's with them.
+const yearDays = (s) => [...s.days.filter((d) => Math.ceil(d.season / 4) === Math.ceil(s.season / 4)), s.today];
 const lapsing = (plan) => plan === 'human' || LAPSES;
 function hash01(...xs) {
   let h = 2166136261;
@@ -164,6 +173,11 @@ const NOWISP = !!globalThis.process?.env?.AP_NOWISP;
 const NO = (k) => !!globalThis.process?.env?.[`AP_NO${k}`];
 // Candles kept back from pitch for the night.
 const PITCH_KEEP = 8;
+// AP_GOALS: in autumn of the year whose goal is candles into winter, pitch never takes the store below the goal.
+const pitchKeep = (s) => {
+  const g = goalNow(s, 'candles');
+  return g && seasonIndex(s) === 2 ? Math.max(PITCH_KEEP, g.n) : PITCH_KEEP;
+};
 const EPS = 1e-9;
 const STEP = !!globalThis.process?.env?.AP_STEP;
 // A shade spent below this much memory by day would be lost to the night soon after.
@@ -201,6 +215,10 @@ const TALLLINE = globalThis.process?.env?.AP_TALL === 'line';
 // Autumn's siege: the autopilot sallies out when the odds are SALLY_AT or better with two guards or more.
 // AP_NOSALLY=1 waits the siege out (to measure whether sallying pays).
 const SALLY_AT = 0.6;
+// AP_GOALS: the year's goal a sally that breaks the siege, still to be had.
+const GOAL_SALLY_AT = 0.4;
+const silverGoal = (s) => goalNow(s, 'silver') && !yearDays(s).some((d) => d.upgraded);
+const sallyGoal = (s) => goalNow(s, 'sally') && !yearDays(s).some((d) => d.sallies?.includes(1));
 const NOSALLY = !!globalThis.process?.env?.AP_NOSALLY;
 // AP_JIT=1 plays raids the way round seven's audit found paid best: everyone at work until the Host is at the
 // gate, then every hand it can spare into the Barracks and the Gatehouse, and back to work after (to measure
@@ -279,7 +297,12 @@ function nextBuild(s) {
 // Candles to keep in store: with the year on, more put by through summer and autumn for winter's long nights
 // and the Long Night.
 const CANDLES_BY = [8, 16, 26, 26];
-const candleTarget = (s) => (s.tuning.year ? CANDLES_BY[seasonIndex(s)] : 8);
+// AP_GOALS, in the year whose goal is candles into winter: summer and autumn aim that many and 14 more.
+const candleTarget = (s) => {
+  const base = s.tuning.year ? CANDLES_BY[seasonIndex(s)] : 8;
+  const g = goalNow(s, 'candles');
+  return g && seasonIndex(s) >= 1 && seasonIndex(s) <= 2 ? Math.max(base, g.n + 14) : base;
+};
 
 // Stone for repairs (round seven, phase 12): a mend for each room broken or burned and one more in hand, and
 // the gate's missing quarters while the season has raids to come.
@@ -355,7 +378,8 @@ function staff(s) {
   // The rest hold the gate on a raid day, or when there's nothing to build, as many as the barracks hold;
   // everyone else quarries stone.
   // The Gatehouse first: its guards count for more, and throw down the ladders.
-  const gate = !JIT && (!!s.raid || !nextBuild(s));
+  // AP_GOALS, in the year whose goal is a sally: through a siege the spare hands stand guard, to go out with them.
+  const gate = !JIT && (!!s.raid || !nextBuild(s) || (besieged(s) && !!sallyGoal(s)));
   // The Forge's arms (forgeArms): on a day with no raid, once the keep is built (a hand taken from the Yard
   // while it was still building cost more first years than the arms won), as many smiths as the Forge holds
   // while the store is short of an arm for each guard's post.
@@ -397,12 +421,12 @@ function raidMoves(s) {
   const T = s.tuning;
   if (!T.raidFight || RAIDPASSIVE || !r) return;
   const hands = s.living.filter((p) => p.job !== 'barracks' && !p.fighting && !p.walls && !(p.sick > 0) && p.age !== 'child').length;
-  const pitchable = (c) => Math.max(0, Math.floor((c - PITCH_KEEP) / T.raidPitchCost)) * T.raidPitch;
+  const pitchable = (c) => Math.max(0, Math.floor((c - pitchKeep(s)) / T.raidPitchCost)) * T.raidPitch;
   if (r.state === 'coming' && r.warned) {
     const best = defense(s) + musterGain(s) + (r.ward ? 0 : s.res.essence >= T.wardGateCost ? T.wardGateDefense : 0) + hands * T.raidBellDefense + pitchable(s.res.candles);
     if (best + EPS < r.strength) {
       const t = tributeOf(s);
-      if (TRIBUTE && s.res.food >= t.food + eatRate(s) && s.res.candles >= t.candles + PITCH_KEEP) doAct(s, { type: 'payOff' });
+      if (TRIBUTE && s.res.food >= t.food + eatRate(s) && s.res.candles >= t.candles + pitchKeep(s)) doAct(s, { type: 'payOff' });
       else if (!r.barred && !NO('BAR')) doAct(s, { type: 'barStores' });
     }
   } else if (r.state === 'assault') {
@@ -412,7 +436,7 @@ function raidMoves(s) {
       const hands = s.living.filter((p) => !isGuard(p) && !p.fighting && !p.walls && !(p.sick > 0) && p.age !== 'child').sort((a, b) => order.indexOf(a.job) - order.indexOf(b.job));
       for (const k of ['gatehouse', 'barracks']) while (hands.length && jobCount(s, k) < jobCap(s, k)) doAct(s, { type: 'assign', id: hands.shift().id, room: k });
     }
-    while (!NO('PITCH') && r.host > defense(s) + EPS && s.res.candles >= PITCH_KEEP + T.raidPitchCost && doAct(s, { type: 'pitch' }));
+    while (!NO('PITCH') && r.host > defense(s) + EPS && s.res.candles >= pitchKeep(s) + T.raidPitchCost && doAct(s, { type: 'pitch' }));
     if (!NO('BELL') && r.host > defense(s) + EPS && !r.bell && hands) doAct(s, { type: 'raidBell' });
     // Stone only if the gate would give before the Host's time is up.
     const loss = (T.raidBreak * Math.max(0, r.host - defense(s))) / r.strength;
@@ -615,7 +639,9 @@ function dayMoves(s) {
   const w = s.raid;
   if (s.tuning.muster && w?.warned && w.state === 'coming' && !w.ward && defense(s) + musterGain(s) < w.strength) doAct(s, { type: 'wardGate' });
   if (s.raid?.state !== 'assault') staff(s); // nobody leaves the walls while the Host is at the gate
-  if (!NOSALLY && besieged(s) && s.raid?.state !== 'assault' && sallyOdds(s) >= SALLY_AT && s.living.filter((p) => p.job === 'barracks' && !(p.sick > 0)).length >= 2) doAct(s, { type: 'sally' });
+  // AP_GOALS: for the year's sally, at worse odds, and with whoever stands guard.
+  const sg = sallyGoal(s);
+  if (!NOSALLY && besieged(s) && s.raid?.state !== 'assault' && sallyOdds(s) >= (sg ? GOAL_SALLY_AT : SALLY_AT) && s.living.filter((p) => (sg ? isGuard(p) : p.job === 'barracks') && !(p.sick > 0)).length >= (sg ? 1 : 2)) doAct(s, { type: 'sally' });
   const r = s.raid;
   if (r && (r.state === 'coming' || r.state === 'assault') && r.warned && !r.ward && defense(s) + (r.state === 'coming' ? musterGain(s) : 0) < r.strength) doAct(s, { type: 'wardGate' });
   const { free } = capacity(s);
@@ -626,7 +652,7 @@ function dayMoves(s) {
     const T = s.tuning;
     const able = s.living.filter((p) => !(p.sick > 0) && p.age !== 'child').length;
     const guards = Math.min(able, jobCap(s, 'barracks'));
-    const pitch = Math.max(0, Math.floor((s.res.candles - PITCH_KEEP) / T.raidPitchCost)) * T.raidPitch;
+    const pitch = Math.max(0, Math.floor((s.res.candles - pitchKeep(s)) / T.raidPitchCost)) * T.raidPitch;
     const best = guards * DAY_ROOMS.barracks.rate + (s.res.essence >= T.wardGateCost ? T.wardGateDefense : 0) + (able - guards) * T.raidBellDefense + pitch;
     const open = s.mirrors.filter((m) => !m.hidden).map((m) => ({ m, n: s.shades.filter((d) => d.mirror === m.id).length })).sort((a, b) => b.n - a.n);
     if (best < s.church.strength && open[0]?.n) doAct(s, { type: 'hide', id: open[0].m.id, on: true });
@@ -635,7 +661,7 @@ function dayMoves(s) {
   if (embargoed(s) && !inquisition(s) && (free <= 1 || s.bodies.length) && s.res.remembrance >= s.tuning.donation + 2) doAct(s, { type: 'donate' });
   // AP_STEP saves its glass for a great glass unless the dead are waiting for room now.
   const saving = STEP && s.tuning.whispers && !s.bodies.length && s.res.glass < MIRRORS.great.glass;
-  const up = DEEP && s.tuning.deep && ((free <= 0 && !saving) || (free <= 1 && s.bodies.length)) && upgradeOne(s);
+  const up = ((DEEP && ((free <= 0 && !saving) || (free <= 1 && s.bodies.length))) || silverGoal(s)) && s.tuning.deep && upgradeOne(s);
   if (up) {
     // A mirror upgraded with quicksilver made the room.
   } else if ((free <= 0 && !saving) || (free <= 1 && s.bodies.length)) {
@@ -832,9 +858,12 @@ function placeNight(s, plan) {
   }
   const lit = meetDrowned(s, ds);
   meetUndergate(s, ds, lit);
-  if (DEEP && s.tuning.deep && s.day < T.seasonDays && ds.length >= 2) {
+  // AP_GOALS: in the year whose goal is a mirror raised with the Deep's quicksilver, until one is, one shade down
+  // to depth 2 each night as AP_DEEP=2 would send it.
+  const down = DEEP || (silverGoal(s) ? 2 : 0);
+  if (down && s.tuning.deep && s.day < T.seasonDays && ds.length >= 2) {
     const d = ds[ds.length - 1];
-    if (d.memory > s.tuning.deepDrain + 10 && doAct(s, { type: 'descend', id: d.id, depth: DEEP })) ds.pop();
+    if (d.memory > s.tuning.deepDrain + 10 && doAct(s, { type: 'descend', id: d.id, depth: down })) ds.pop();
   }
   // The new moon: no work tonight. Everyone off the line waits by the Veil for the Hollow.
   if (s.day >= T.seasonDays) {
@@ -1246,7 +1275,7 @@ function rite(s, plan) {
   for (const d of s.shades) {
     const cs = choicesFor(d);
     if (d.kind === 'wraith') doAct(s, { type: 'rite', id: d.id, choice: s.res.essence >= T.banishCost ? 'banish' : 'leave' });
-    else if (d.kind === 'restless') doAct(s, { type: 'rite', id: d.id, choice: BIND && cs.includes('bind') && capacity(s).free > 0 && s.res.essence >= T.bindCost + moonReserve(s) ? 'bind' : 'release' });
+    else if (d.kind === 'restless') doAct(s, { type: 'rite', id: d.id, choice: (BIND || goalNow(s, 'kept')) && cs.includes('bind') && capacity(s).free > 0 && s.res.essence >= T.bindCost + moonReserve(s) ? 'bind' : 'release' });
     else doAct(s, { type: 'rite', id: d.id, choice: cs[0] });
   }
   // What a shade is worth keeping, per point of Dread it costs, by its trait: an Anchored one lasts, a
@@ -1265,7 +1294,21 @@ function rite(s, plan) {
   };
   const keep = s.shades.filter(canWork).sort((a, b) => value(a) - value(b));
   let P = ritePreview(s);
-  while (P.dread.to > target && keep.length && plan !== 'keeper') {
+  let v = 0;
+  // AP_GOALS, in the year whose goal is the dead kept through every inspection: vigils first, and no shade
+  // covered that would leave fewer in the glass than the goal asks.
+  // The goal is known ahead (How to play lists them, and the close card says the next): from the winter before, too.
+  const k = chapterOf(s);
+  const ahead = GOALS && k && k < 5 && seasonIndex(s) === 3 && s.campaign?.goals?.[k + 1] === undefined && goalOf(s, k + 1).id === 'kept' ? goalOf(s, k + 1) : null;
+  const kg = goalNow(s, 'kept') || ahead;
+  const inGlass = () => s.shades.filter((d) => d.mirror && s.rite.choice[d.id] !== 'cover' && s.rite.choice[d.id] !== 'release').length;
+  if (kg) {
+    while (P.dread.to > target && P.remCost + T.vigilCost <= s.res.remembrance + P.rem) {
+      doAct(s, { type: 'vigils', n: ++v });
+      P = ritePreview(s);
+    }
+  }
+  while (P.dread.to > target && keep.length && plan !== 'keeper' && (!kg || inGlass() > kg.n)) {
     doAct(s, { type: 'rite', id: keep.shift().id, choice: 'cover' });
     P = ritePreview(s);
   }
@@ -1285,7 +1328,6 @@ function rite(s, plan) {
     doAct(s, { type: 'request', id, grant: yes });
   }
   P = ritePreview(s);
-  let v = 0;
   while (P.dread.to > target && P.remCost + T.vigilCost <= s.res.remembrance + P.rem) {
     doAct(s, { type: 'vigils', n: ++v });
     P = ritePreview(s);

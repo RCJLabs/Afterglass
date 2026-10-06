@@ -676,6 +676,10 @@ export const TUNING = {
   // witch-hunter; from year 4 the way down into the Deep, errands, omens and the Hollow's price; in year 5 the
   // eclipse. 0, as before: a campaign's first year has all of them.
   chapterSystems: 1,
+  // With no visitors in its first year, a campaign's keep starts with campaignCandles more candles, its last
+  // keeper's (round seven, phase 15: without them, the balanced plan finished 154 first years of 200 against 168
+  // with the visitors; with them, 164).
+  campaignCandles: 12,
   // Round seven, phase 15: each chapter's goal asks more than good play does of itself (chapterGoals; CHAPTERS'
   // goal, not round six's oldGoal), and each chapter closes on two helps for the next year (chapterCloses):
   // a sally-port (the guards sally out sallyPort times as strong), honouring the dead (a kept shade weighs
@@ -724,7 +728,7 @@ export const CHAPTERS = {
     text: 'Learn the round of day and night, and live through the long nights of winter on the candles you put by.',
     // Round seven, phase 15: the chapter told at its first dawn, and what it brings that the year before hadn't
     // (chapterSystems; sim.js, CHAPTER_BRINGS).
-    story: "The keep stands on the Veil, where the valley's dead wake in the glass. Its last keeper is gone, and the watch is yours. Learn its round: by day the living work and build, and by night the dead hold the line against what climbs out of the Deep. Winter's nights are long, and the last of them is the longest of all.",
+    story: "The keep stands on the Veil, where the valley's dead wake in the glass. Its last keeper is gone, and has left you the watch and a store of candles. Learn its round: by day the living work and build, and by night the dead hold the line against what climbs out of the Deep. Winter's nights are long, and the last of them is the longest of all.",
     goal: { id: 'candles', n: 20, text: 'go into winter with 20 candles put by' },
     // Round seven, phase 15 (chapterCloses): two helps for the next year, one against its pressure and one toward
     // its goal. oldClose is round six's, for keeps from before: a help or goods now.

@@ -238,6 +238,9 @@ export function newSeason(seed = Date.now() >>> 0, overrides = {}) {
   say(s, `Season 1, day 1. The new moon is ${tuning.seasonDays} days off. Anyone who dies inside the walls wakes at dusk as a shade.`, 'day');
   if (campaignOn(s)) {
     s.campaign = { goals: {}, closed: {}, boons: {}, ending: null };
+    // Round seven, phase 15: with no trader at the gate in its first year (chapterSystems), a campaign's keep
+    // starts with its last keeper's candles.
+    if (tuning.chapterSystems) s.res.candles += tuning.campaignCandles || 0;
     chapterNews(s);
   }
   weatherNews(s);

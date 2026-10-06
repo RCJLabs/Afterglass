@@ -28,6 +28,7 @@ const DEFAULT_OK = {
   coldBurn: 'read only for the four more omens, and an old keep has moreOmens 0',
   lullStay: 'read only for the four more omens, and an old keep has moreOmens 0',
   moreOmenChance: 'read only for the four more omens, and an old keep has moreOmens 0',
+  campaignCandles: "read only when a campaign keep is made, so never for a keep made before it",
   sallyPort: "read only for a campaign's sally-port close, and an old keep has chapterCloses 0",
   shrineDread: "read only for a campaign's honouring-the-dead close, and an old keep has chapterCloses 0",
   chartCatch: "read only for a campaign's charting-the-Deep close, and an old keep has chapterCloses 0",

@@ -1132,7 +1132,7 @@ function chapterCloseHTML() {
     const closes = closeOf(s, k);
     // Round six's closes set the lasting help against goods now; phase 15's are two helps, neither the default.
     const lead = closes.some((c) => c.gain);
-    return `<div class="card ending"><h3>${esc(C.name)} closes</h3>${goal}<p>Next comes year ${k + 1}, ${esc(next.name)}${s.tuning.chapterSystems && next.brings ? `, with ${esc(next.brings)}` : ''}. How does this chapter close?</p>
+    return `<div class="card ending"><h3>${esc(C.name)} closes</h3>${goal}<p>Next comes year ${k + 1}, ${esc(next.name)}${s.tuning.chapterSystems && next.brings ? `, with ${esc(next.brings)}` : ''}. Its goal: to ${esc(goalOf(s, k + 1).text)}. How does this chapter close?</p>
       <div class="endings">${closes.map((c) => `<div><button class="btn${lead && !c.gain ? ' primary' : ''}" id="close-${c.id}" data-act="close-chapter" data-id="${c.id}">${esc(c.name)}</button><p class="note">${esc(upper(c.text))}.</p></div>`).join('')}</div></div>`;
   }
   const n = s.shades.length;

@@ -86,7 +86,7 @@ export function howTo(T) {
           items: [
             `A campaign is five years, each a chapter: ${chapters.map((C, i) => `year ${i + 1}, ${C.name}`).join('; ')}. It's chosen for a new keep, beside the open year, and if you keep the watch after its fifth year, it plays on without chapters.`,
             'Each chapter brings its pressure. From year 2 the Host lays siege in autumn and brings ladders to the gate, and a Gatehouse can be raised against it; from year 3 a censure brings the embargo, then the Inquisition, then the crusade (before, it covers a mirror); from year 4 the Hollow is half again as hard to drive back and eats the light as fast again, and the new moon brings half again as many Creepers.',
-            ...(T.chapterSystems ? [`With them comes more of the game, a little each year: ${[2, 3, 4, 5].map((k) => `in year ${k}, ${CHAPTERS[k].adds}`).join('; ')}. Before its year, none of it comes.`] : []),
+            ...(T.chapterSystems ? [`With them comes more of the game, a little each year: ${[2, 3, 4, 5].map((k) => `in year ${k}, ${CHAPTERS[k].adds}`).join('; ')}. Before its year, none of it comes. With no trader at the gate in the first year, the keep starts with ${T.campaignCandles} more candles.`] : []),
             `Each chapter has a goal, worth ${T.goalReward} remembrance, shown in the Day panel: ${chapters.map((C) => `to ${goalOf(C).text}`).join('; ')}.`,
             T.chapterCloses
               ? `Years 1 to 4 close on a choice of two helps for the next year, one against its pressure and one toward its goal: ${[1, 2, 3, 4].map((k) => `${closeOf(CHAPTERS[k]).map((c) => `${c.name.charAt(0).toLowerCase()}${c.name.slice(1)} (${c.text})`).join(' or ')}`).join('; ')}.`

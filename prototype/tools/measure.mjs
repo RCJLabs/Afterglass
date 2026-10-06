@@ -27,6 +27,26 @@ const arg = (k, d) => {
   return i < 0 ? d : process.argv[i + 1];
 };
 
+// Round seven, phase 15: what a campaign holds back for each chapter, its year, and what shows a keep met it: a
+// happening (sim.js, meet) or an action (a room raised by its kind).
+const HELD = [
+  ['Visitors at the gate', 2, (k) => /^visitor:/.test(k) && !/^visitor:(traitor|bearer|price|hunter)$/.test(k)],
+  ["The traitor's lantern", 2, (k) => k === 'visitor:traitor'],
+  ['The plague-bearer', 2, (k) => k === 'visitor:bearer'],
+  ["The Host's siege", 2, (k) => k === 'siege' || k === 'siegeCamp'],
+  ['Ladders at the gate', 2, (k) => k === 'ladder'],
+  ['The Gatehouse', 2, (k) => k === 'act:raise:gatehouse'],
+  ['The Library', 3, (k) => k === 'act:raise:library' || k === 'act:study'],
+  ['The Hall', 3, (k) => k === 'act:raise:hall' || k === 'act:decree'],
+  ['The witch-hunter', 3, (k) => k === 'visitor:hunter'],
+  ["The Church's embargo, Inquisition or crusade", 3, (k) => ['embargo', 'inquisition', 'crusade'].includes(k)],
+  ['Down into the Deep', 4, (k) => k === 'act:descend' || k === 'act:upgradeMirror'],
+  ['Errands below the line', 4, (k) => ['echo', 'relic', 'sleepwalker'].includes(k)],
+  ['Omens', 4, (k) => /^omen:/.test(k) || k === 'act:omen'],
+  ["The Hollow's price", 4, (k) => k === 'visitor:price'],
+  ['The eclipse', 5, (k) => k === 'eclipse'],
+];
+
 /* ---------------------------------------------------------------- a worker: one configuration, some seeds */
 
 if (process.argv[2] === '--worker') {
@@ -127,6 +147,14 @@ if (process.argv[2] === '--worker') {
       }
     }
     // Ten years (round seven, phase 12): of each year's days, those with a day action other than jobs.
+    // A campaign's systems held to their chapters (round seven, phase 15): the year each was first met or used.
+    if (job.campaign) {
+      const first = {};
+      const note = (k, season) => (first[k] = Math.min(first[k] ?? Infinity, year(season)));
+      for (const [k, v] of Object.entries(s.met || {})) note(k, v.season);
+      for (const { a, at } of s.actions) note(a.type === 'raise' ? `act:raise:${a.room}` : `act:${a.type}`, at.season);
+      rec.held = HELD.map(([, , f]) => Object.entries(first).filter(([k]) => f(k)).reduce((m, [, y]) => Math.min(m, y), Infinity)).map((y) => (y === Infinity ? null : y));
+    }
     if (job.long) {
       const had = new Set();
       for (const { a, at } of s.actions) if (at.phase === 'day' && a.type !== 'assign' && a.type !== 'byDay') had.add(`${at.season}/${at.day}`);
@@ -184,9 +212,10 @@ const NIGHT_ROWS = [
 // The new moon against the other nights (round seven, phase 8): each night of a season, what it asks of the
 // balanced and the human plans, from their first year (the plans' own runs, when those run too).
 const MOON_PLANS = [['balanced', 'Balanced'], ['human', 'Human']];
-// The campaign's chapters (round seven, phase 8): how often each year's goal is met, of the keeps that reach its
-// end, for the balanced and the human plans over the campaign's first four years.
-const CAMPAIGN_YEARS = 4;
+// The campaign's chapters (round seven, phases 8 and 15): how often each year's goal is met, of the keeps that reach
+// its judging, for the balanced and the human plans over the campaign's five years, each playing for the goals
+// (AP_GOALS) and not; and whether anything a chapter brings was met before it.
+const CAMPAIGN_YEARS = 5;
 // The day's decisions (round seven, phase 10): the balanced and the human plans over two years, and each posting
 // its guards only when the Host is at the gate (AP_JIT) over the first, against itself.
 const DAY_PLANS = [['balanced', 'Balanced'], ['human', 'Human']];
@@ -219,7 +248,10 @@ const configs = [];
 const ROWS = arg('rows', '').split(',').filter(Boolean); // --rows balanced,double: only those night rows
 if (ONLY.includes('night')) for (const r of NIGHT_ROWS.filter((r) => !ROWS.length || ROWS.includes(r.id.slice(6)))) configs.push({ id: r.id, plan: r.plan, seasons: YEAR, env: r.env, tuning: r.tuning });
 if (ONLY.includes('plans')) for (const plan of PLAN_ROWS) configs.push({ id: `plan:${plan}`, plan, seasons: YEAR, env: {} });
-if (ONLY.includes('campaign')) for (const [plan] of MOON_PLANS) configs.push({ id: `campaign:${plan}`, plan, seasons: 4 * CAMPAIGN_YEARS, env: {}, tuning: { campaign: 1 } });
+if (ONLY.includes('campaign')) {
+  for (const [plan] of MOON_PLANS) configs.push({ id: `campaign:${plan}`, plan, seasons: 4 * CAMPAIGN_YEARS, env: {}, tuning: { campaign: 1 }, campaign: true });
+  for (const [plan] of MOON_PLANS) configs.push({ id: `campaign:${plan}:goals`, plan, seasons: 4 * CAMPAIGN_YEARS, env: { AP_GOALS: '1' }, tuning: { campaign: 1 }, campaign: true });
+}
 if (ONLY.includes('moon')) for (const [plan] of MOON_PLANS) if (!configs.some((c) => c.id === `plan:${plan}`)) configs.push({ id: `plan:${plan}`, plan, seasons: YEAR, env: {} });
 if (ONLY.includes('day')) {
   for (const [plan] of DAY_PLANS) configs.push({ id: `day:${plan}`, plan, seasons: 2 * YEAR, env: {}, day: true });
@@ -258,7 +290,7 @@ function run() {
       while (running < JOBS && queue.length) {
         const { c, from, to } = queue.shift();
         running++;
-        const p = spawn(process.execPath, [HERE, '--worker', JSON.stringify({ plan: c.plan, seasons: c.seasons, from, to, tuning: { ...TUNING, ...c.tuning }, day: !!c.day, long: !!c.long })], { env: { ...process.env, ...ENV, ...c.env }, stdio: ['ignore', 'pipe', 'inherit'] });
+        const p = spawn(process.execPath, [HERE, '--worker', JSON.stringify({ plan: c.plan, seasons: c.seasons, from, to, tuning: { ...TUNING, ...c.tuning }, day: !!c.day, long: !!c.long, campaign: !!c.campaign })], { env: { ...process.env, ...ENV, ...c.env }, stdio: ['ignore', 'pipe', 'inherit'] });
         let buf = '';
         p.stdout.on('data', (d) => (buf += d));
         p.on('exit', (code) => {
@@ -386,15 +418,26 @@ function moonTable(R) {
 
 function campaignTable(R) {
   const plans = MOON_PLANS.filter(([p]) => R[`campaign:${p}`]);
-  const lines = [`| Year | Goal | ${plans.map(([, name]) => `${name}: met / judged`).join(' | ')} |`, `|---|---|${plans.map(() => '---|').join('')}`];
+  const runs = plans.flatMap(([p, name]) => [[`campaign:${p}`, name], [`campaign:${p}:goals`, `${name}, playing for it`]]).filter(([id]) => R[id]);
+  const lines = [`| Year | Goal | ${runs.map(([, name]) => `${name}: met / judged`).join(' | ')} |`, `|---|---|${runs.map(() => '---|').join('')}`];
   for (let k = 1; k <= CAMPAIGN_YEARS; k++) {
     const C = CHAPTERS[k];
-    const cell = (p) => {
-      const rs = R[`campaign:${p}`].filter((x) => x.goals && k in x.goals);
+    const cell = (id) => {
+      const rs = R[id].filter((x) => x.goals && k in x.goals);
       return `${rs.filter((x) => x.goals[k]).length} / ${rs.length}`;
     };
-    lines.push(`| ${k}: ${C.name} | ${C.goal.text} | ${plans.map(([p]) => cell(p)).join(' | ')} |`);
+    lines.push(`| ${k}: ${C.name} | ${C.goal.text} | ${runs.map(([id]) => cell(id)).join(' | ')} |`);
   }
+  lines.push(`| Five years finished | | ${runs.map(([id]) => `${R[id].filter((x) => x.fin >= 4 * CAMPAIGN_YEARS).length} of ${R[id].length}`).join(' | ')} |`);
+  // What each chapter brings, and the keeps that met it before its year: none, if the chapters hold.
+  lines.push('', `| What a chapter brings | Its year | ${runs.map(([, name]) => `${name}: before it / in it`).join(' | ')} |`, `|---|---|${runs.map(() => '---|').join('')}`);
+  HELD.forEach(([name, y], i) => {
+    const cell = (id) => {
+      const ys = R[id].map((x) => x.held?.[i]).filter((v) => v != null);
+      return `${ys.filter((v) => v < y).length} / ${ys.filter((v) => v === y).length}`;
+    };
+    lines.push(`| ${name} | ${y} | ${runs.map(([id]) => cell(id)).join(' | ')} |`);
+  });
   return lines.join('\n');
 }
 
