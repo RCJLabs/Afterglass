@@ -201,8 +201,12 @@ export function newSeason(seed = Date.now() >>> 0, overrides = {}) {
     today: blankToday(),
   };
   const cast = {};
+  const firsts = startShades(tuning);
+  const theirs = new Set(firsts.map((x) => x.name));
   for (const c of CAST) {
-    const p = newPerson(s, c.name, c.age, roomsOf(geo(s), c.job).length ? c.job : 'yard', c.trait);
+    // One of the living who shares a name with one of the first dead goes by another (round seven, phase 16).
+    const name = theirs.has(c.name) ? NAMES.find((n) => !s.used.includes(n) && !theirs.has(n) && !CAST.some((o) => o.name === n)) || `${c.name} the younger` : c.name;
+    const p = newPerson(s, name, c.age, roomsOf(geo(s), c.job).length ? c.job : 'yard', c.trait);
     if (tuning.muster && isGuard(p)) p.muster = 1; // the keep's guards have stood their posts
     s.living.push(p);
     cast[c.name] = p;
@@ -214,7 +218,7 @@ export function newSeason(seed = Date.now() >>> 0, overrides = {}) {
   }
   for (const [type, place] of START_MIRRORS) addMirror(s, type, place);
   const line = lineSpots(geo(s));
-  for (const [i, x] of START_SHADES.entries()) {
+  for (const [i, x] of firsts.entries()) {
     const spot = line[i % line.length];
     const post = { f: spot.f, x: spot.x + (spot.x < MAP.W / 2 ? 2 : -2) }; // just inside the light, on the mirror's side
     const d = newShade(s, { id: 'p' + s.nextId++, name: x.name, kind: x.kind, cause: x.cause, from: 'living', day: 0, memory: x.memory, named: x.named, post, was: x.was });
@@ -228,14 +232,17 @@ export function newSeason(seed = Date.now() >>> 0, overrides = {}) {
     }
     s.shades.push(d);
     s.ledger.push({
-      id: d.id, name: d.name, from: 'before', season: 0, day: 0, cause: x.cause, how: CAUSES[x.cause].text, kind: x.kind, guided: false, job: x.job,
+      id: d.id, name: d.name, from: 'before', season: 0, day: 0, cause: x.cause, how: x.how || CAUSES[x.cause].text, kind: x.kind, guided: false, job: x.job,
       age: x.age, bond: x.bond ? { name: x.bond[0], rel: x.bond[1] } : null, woke: x.kind, end: null, endDay: null, nights: 0, kills: 0,
       posts: {}, named: x.named, memory: x.memory, was: x.was,
+      ...(x.keep ? { keep: x.keep, story: x.story, keeper: x.keeper } : {}),
     });
   }
   hangAll(s); // round seven, phase 13: the first two mirrors hang in the first two rooms, the first dead's first
   rollDay(s);
   say(s, `Season 1, day 1. The new moon is ${tuning.seasonDays} days off. Anyone who dies inside the walls wakes at dusk as a shade.`, 'day');
+  const kept = firsts.filter((x) => x.keep);
+  if (kept.length) say(s, `${kept.map((x) => x.name).join(' and ')}, of ${kept[0].keep}, ${kept.length === 1 ? 'is' : 'are'} in the Chapel glass: your own dead, come with you to this keep.`, 'rite');
   if (campaignOn(s)) {
     s.campaign = { goals: {}, closed: {}, boons: {}, ending: null };
     // Round seven, phase 15: with no trader at the gate in its first year (chapterSystems), a campaign's keep
@@ -245,6 +252,27 @@ export function newSeason(seed = Date.now() >>> 0, overrides = {}) {
   }
   weatherNews(s);
   return s;
+}
+// The keep's first dead (round seven, phase 16): Garrick and Hesper, or in their places the player's own dead
+// from their last keep (TUNING.firstDead), each with the place's memory and post but no bond. A kind that doesn't
+// work (a Restless shade, a Wraith) comes as the place's own, and a carried Keeper as an ordinary shade.
+export function startShades(tuning) {
+  const carried = Array.isArray(tuning.firstDead) ? tuning.firstDead : [];
+  const names = new Set();
+  return START_SHADES.map((x, i) => {
+    const c = carried[i];
+    if (!c || typeof c.name !== 'string' || !c.name || names.has(c.name) || START_SHADES.some((o, j) => j > i && o.name === c.name)) {
+      names.add(x.name);
+      return x;
+    }
+    names.add(c.name);
+    return {
+      name: c.name.slice(0, 40), age: ['child', 'young', 'adult', 'old'].includes(c.age) ? c.age : x.age, job: DAY_ROOMS[c.job] ? c.job : null,
+      kind: WORKING.includes(c.kind) ? c.kind : x.kind, cause: CAUSES[c.cause] ? c.cause : x.cause, how: typeof c.how === 'string' ? c.how : null,
+      memory: x.memory, named: !!c.named, bond: null, was: TRAITS[c.was] ? c.was : null,
+      keep: typeof c.keep === 'string' && c.keep ? c.keep : 'your last keep', story: typeof c.story === 'string' ? c.story.slice(0, 800) : '', keeper: !!c.keeper,
+    };
+  });
 }
 // A chapter's opening: its name, what it brings and its goal.
 function chapterNews(s) {
@@ -5115,7 +5143,7 @@ const ACTIONS = {
     const m = freeMirror(s) || addMirror(s, 'hand', nextPlace(s));
     hangAll(s); // a hand mirror made for the Keeper hangs where one would
     // Each keeper who takes the glass after the first is named in turn: The Keeper, then The Second Keeper.
-    const before = s.ledger.filter((e) => e.from === 'keeper').length;
+    const before = s.ledger.filter((e) => e.from === 'keeper' || e.keeper).length; // a Keeper come from the last keep counts
     const name = before ? `The ${KEEPER_ORDINALS[before] || `${before + 1}th`} Keeper` : 'The Keeper';
     const d = newShade(s, { id: 'p' + s.nextId++, name, kind: 'loyal', cause: 'duty', from: 'keeper', day: 0, memory: 100, named: true, was: 'stubborn' });
     d.mirror = m.id;

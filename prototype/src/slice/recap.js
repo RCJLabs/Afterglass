@@ -53,7 +53,9 @@ function remembered(s, season) {
 }
 
 // Everything the card says about one season (the last one played, by default), or null if it isn't over.
-export function recapOf(s, season = s.seasons[s.seasons.length - 1]?.season) {
+// With against (hall.js againstOf), its first number is how the season went against the player's last keep,
+// in place of the days it held, which the line under the head already says (round seven, phase 16).
+export function recapOf(s, season = s.seasons[s.seasons.length - 1]?.season, against = null) {
   const e = s.seasons.find((x) => x.season === season);
   if (!e) return null;
   const S = e.summary;
@@ -63,7 +65,7 @@ export function recapOf(s, season = s.seasons[s.seasons.length - 1]?.season) {
   const o = outcome(s, e);
   const title = seasonTitle(s.tuning, season);
   const stats = [
-    ['Days held', `${e.day} of ${s.tuning.seasonDays}`],
+    against ? [against.label, against.value] : ['Days held', `${e.day} of ${s.tuning.seasonDays}`],
     ['Deaths', String(S.deaths)],
     ['Shades in the glass', String(S.shades)],
     ['Raids held', S.raids.length ? `${held} of ${S.raids.length}${S.raids.some((x) => x.paid) ? `, ${S.raids.filter((x) => x.paid).length} paid off` : ''}` : 'none'],

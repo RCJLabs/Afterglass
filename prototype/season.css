@@ -313,6 +313,25 @@ table.days { min-width: 680px; }
 .bookpage.is-raider header b { color: var(--ink-2); }
 .roster-head .btn.sm { margin-left: auto; }
 
+/* The Hall of Keepers (round seven, phase 16): the deeds, then each keep played, opening on its card and its Book. */
+.hall { display: grid; gap: 10px; }
+.hall-keep { border: 1px solid var(--line-2); border-radius: 6px; padding: 10px 12px; display: grid; gap: 6px; background: var(--panel); }
+.hall-keep.is-open { border-color: var(--rite); }
+.hall-keep header { display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: baseline; justify-content: space-between; }
+.hall-keep header b { font: 700 19px/1.2 var(--font-display); color: var(--ink); }
+.hall-keep p { margin: 0; }
+.hall-keep .tag { color: var(--rite-ink); border-color: var(--rite); background: var(--rite-tint); }
+.hall-keep .tag.bad { color: var(--bad); border-color: var(--bad); background: var(--bad-tint); }
+.hall-book { display: grid; gap: 8px; }
+.hall-words { border: 1px solid var(--line); border-radius: 4px; padding: 8px 10px; background: var(--box); display: grid; gap: 4px; }
+.deeds { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 6px; }
+.deeds li { padding-left: 22px; position: relative; color: var(--ink-3); }
+.deeds li::before { content: '○'; position: absolute; left: 2px; top: 0; color: var(--ink-3); }
+.deeds li b { color: var(--ink-2); }
+.deeds li.is-done b { color: var(--ink); }
+.deeds li.is-done::before { content: '●'; color: var(--rite); }
+.daily-past ul { margin: 4px 0 8px; padding-left: 18px; color: var(--ink-2); font-size: 14px; }
+
 /* The guide: one card above the bar (or above an open sheet), and a pulse on what it points at. */
 .gcoach {
   position: absolute;

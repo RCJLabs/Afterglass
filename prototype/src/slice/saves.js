@@ -24,6 +24,7 @@ export function summary(s, now) {
     opened: !!s.opened,
     chapter: s.tuning?.campaign && s.tuning?.year && !s.campaign?.ending ? Math.min(5, Math.floor((s.season - 1) / 4) + 1) : 0,
     daily: s.daily || null,
+    seed: s.seed >>> 0, // with daily, which keep it is in the Hall of Keepers (hall.js)
     preset: s.preset || null,
     custom: !!s.custom,
     tutorial: !!s.tuning?.tutorial,
@@ -132,7 +133,11 @@ export function deleteSlot(store, index, n) {
 // rules' tuning holds numbers, and lists and tables of them), its seasons are counted in whole numbers, and a
 // playtest export replays only actions a player can take, not the measurement's own.
 const numberish = (v, depth = 0) => (typeof v === 'number' && Number.isFinite(v)) || (depth < 2 && !!v && typeof v === 'object' && Object.values(v).every((x) => numberish(x, depth + 1)));
-const saneTuning = (t) => t == null || (typeof t === 'object' && !Array.isArray(t) && Object.values(t).every((v) => numberish(v)));
+// The one rule that isn't numbers: a keep's first dead from the last keep (round seven, phase 16), at most two,
+// each a few short words and flags, which sim.js's startShades checks again before it uses them.
+const plain = (v) => v == null || typeof v === 'boolean' || (typeof v === 'number' && Number.isFinite(v)) || (typeof v === 'string' && v.length <= 1000);
+const saneDead = (v) => v == null || (Array.isArray(v) && v.length <= 2 && v.every((x) => !!x && typeof x === 'object' && !Array.isArray(x) && Object.values(x).every(plain)));
+const saneTuning = (t) => t == null || (typeof t === 'object' && !Array.isArray(t) && Object.entries(t).every(([k, v]) => (k === 'firstDead' ? saneDead(v) : numberish(v))));
 const saneSeasons = (list) => list == null || (Array.isArray(list) && list.every((e) => e && Number.isInteger(e.season)));
 export const BAD_FILE = "That file isn't a keep this game can trust: some of what should be numbers in it aren't.";
 export function saneSave(g) {

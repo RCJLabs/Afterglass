@@ -9,6 +9,7 @@
 //   node tools/measure.mjs --only long [--seeds 100] [--readme]       (ten years a keep, so not in the default)
 //   node tools/measure.mjs --only mirrors [--seeds 200] [--readme]    (where the mirrors hang; not in the default)
 //   node tools/measure.mjs --only events [--seeds 100] [--readme]     (ten years a keep: what each year brings new)
+//   node tools/measure.mjs --only keeps [--seeds 200] [--readme]      (a first year, and the next keep's with its dead)
 //
 // Every keep is played by the rules as they are, from the first spring: a plan's first year is its first four
 // seasons. Paired comparisons play the same seeds, so a switch's column says on how many seeds it did better
@@ -48,6 +49,38 @@ const HELD = [
 ];
 
 /* ---------------------------------------------------------------- a worker: one configuration, some seeds */
+
+if (process.argv[2] === '--worker' && JSON.parse(process.argv[3]).keeps) {
+  // Between keeps (round seven, phase 16): a first year, written into a Hall of its own; then another keep's first
+  // year twice on the same seed, once with that keep's dead in its glass and once with Garrick and Hesper; and each
+  // of the first keep's recap cards, number by number.
+  const job = JSON.parse(process.argv[3]);
+  const { runSeasonAuto } = await import('../src/slice/autopilot.js');
+  const { noteKeep, heirsOf, againstOf } = await import('../src/slice/hall.js');
+  const { recapOf } = await import('../src/slice/recap.js');
+  const sum = (s) => ({ fin: s.seasons.filter((e) => !e.lost).length, deaths: s.seasons.reduce((a, e) => a + e.summary.deaths, 0) });
+  for (let seed = job.from; seed <= job.to; seed++) {
+    const hall = { v: 1, count: 0, keeps: [], deeds: {} };
+    const a = runSeasonAuto(seed, { plan: job.plan, seasons: job.seasons, tuning: job.tuning });
+    const { deeds } = noteKeep(hall, a, 1, { left: true });
+    const heirs = heirsOf(hall.keeps[0]);
+    const b = runSeasonAuto(seed + 100000, { plan: job.plan, seasons: job.seasons, tuning: { ...job.tuning, firstDead: heirs.length ? heirs : null } });
+    const c = heirs.length ? runSeasonAuto(seed + 100000, { plan: job.plan, seasons: job.seasons, tuning: job.tuning }) : b;
+    noteKeep(hall, b, 2);
+    const rec = {
+      seed,
+      a: { ...sum(a), status: hall.keeps[0].status },
+      deeds: deeds.map((d) => d.id),
+      heirs: heirs.map((h) => h.kind),
+      b: sum(b),
+      c: sum(c),
+      against: b.seasons.map((e) => againstOf(hall, b, e.season)?.value || null),
+      card: a.seasons.map((e) => recapOf(a, e.season).stats.map(([, v]) => v)),
+    };
+    process.stdout.write(`${JSON.stringify(rec)}\n`);
+  }
+  process.exit(0);
+}
 
 if (process.argv[2] === '--worker') {
   const job = JSON.parse(process.argv[3]);
@@ -172,6 +205,7 @@ if (process.argv[2] === '--worker') {
 /* ---------------------------------------------------------------- the runs */
 
 const DATA = await import('../src/slice/data.js');
+const { DEEDS } = await import('../src/slice/hall.js');
 const { CHAPTERS } = DATA;
 
 const SEEDS = Number(arg('seeds', 200));
@@ -244,6 +278,10 @@ const EVENT_ROWS = [
   { key: 'before', env: {}, tuning: { cruelty: 0, moreOmens: 0, yearVisitors: 0 }, name: 'As before the phase (`cruelty`, `moreOmens` and `yearVisitors` 0)' },
   { key: 'cruel', env: { AP_CRUEL: '1' }, name: 'Taking the cruel answer where it helps (`AP_CRUEL`)' },
 ];
+// Between keeps (round seven, phase 16's test): a keep's first year with its last keep's dead in the glass, against
+// the same seed with Garrick and Hesper, for the balanced and the human plans; the recap card's numbers; and the
+// deeds a first year does.
+const KEEP_PLANS = [['balanced', 'Balanced'], ['human', 'Human']];
 const configs = [];
 const ROWS = arg('rows', '').split(',').filter(Boolean); // --rows balanced,double: only those night rows
 if (ONLY.includes('night')) for (const r of NIGHT_ROWS.filter((r) => !ROWS.length || ROWS.includes(r.id.slice(6)))) configs.push({ id: r.id, plan: r.plan, seasons: YEAR, env: r.env, tuning: r.tuning });
@@ -271,6 +309,7 @@ if (ONLY.includes('events')) {
     for (const r of EVENT_ROWS.slice(1)) configs.push({ id: `event:${plan}:${r.key}`, plan, seasons: YEAR, env: r.env, tuning: r.tuning });
   }
 }
+if (ONLY.includes('keeps')) for (const [plan] of KEEP_PLANS) configs.push({ id: `keeps:${plan}`, plan, seasons: YEAR, env: {}, keeps: true });
 if (ONLY.includes('verbs')) {
   if (!ONLY.includes('plans')) configs.push({ id: 'plan:balanced', plan: 'balanced', seasons: YEAR, env: {} });
   configs.push({ id: 'plan:balanced:2y', plan: 'balanced', seasons: 2 * YEAR, env: {} });
@@ -290,7 +329,7 @@ function run() {
       while (running < JOBS && queue.length) {
         const { c, from, to } = queue.shift();
         running++;
-        const p = spawn(process.execPath, [HERE, '--worker', JSON.stringify({ plan: c.plan, seasons: c.seasons, from, to, tuning: { ...TUNING, ...c.tuning }, day: !!c.day, long: !!c.long, campaign: !!c.campaign })], { env: { ...process.env, ...ENV, ...c.env }, stdio: ['ignore', 'pipe', 'inherit'] });
+        const p = spawn(process.execPath, [HERE, '--worker', JSON.stringify({ plan: c.plan, seasons: c.seasons, from, to, tuning: { ...TUNING, ...c.tuning }, day: !!c.day, long: !!c.long, campaign: !!c.campaign, keeps: !!c.keeps })], { env: { ...process.env, ...ENV, ...c.env }, stdio: ['ignore', 'pipe', 'inherit'] });
         let buf = '';
         p.stdout.on('data', (d) => (buf += d));
         p.on('exit', (code) => {
@@ -441,6 +480,45 @@ function campaignTable(R) {
   return lines.join('\n');
 }
 
+function keepsTable(R) {
+  const plans = KEEP_PLANS.filter(([p]) => R[`keeps:${p}`]);
+  const col = (f) => plans.map(([p]) => f(R[`keeps:${p}`])).join(' | ');
+  const head = (first) => [`| ${first} | ${plans.map(([, name]) => name).join(' | ')} |`, `|---|${plans.map(() => '---|').join('')}`];
+  const lines = head('A first year, and the next keep’s');
+  lines.push(`| First keeps whose dead went on (of those, fell / left standing) | ${col((rs) => {
+    const h = rs.filter((x) => x.heirs.length);
+    return `${h.length} of ${rs.length} (${h.filter((x) => x.a.status === 'fell').length} / ${h.filter((x) => x.a.status !== 'fell').length})`;
+  })} |`);
+  const KINDS = ['loyal', 'serene', 'pale', 'stranger'];
+  lines.push(`| The dead that went on, by kind (${KINDS.join(', ')}) | ${col((rs) => KINDS.map((k) => rs.reduce((a, x) => a + x.heirs.filter((h) => h === k).length, 0)).join(', '))} |`);
+  const paired = (rs) => {
+    const h = rs.filter((x) => x.heirs.length);
+    const fb = h.filter((x) => x.b.fin >= YEAR).length;
+    const fc = h.filter((x) => x.c.fin >= YEAR).length;
+    return `${fb} / ${fc} (${h.filter((x) => x.b.fin > x.c.fin).length} better, ${h.filter((x) => x.b.fin < x.c.fin).length} worse)`;
+  };
+  lines.push(`| On those seeds, the next keep’s first year finished: with their dead / with Garrick and Hesper | ${col(paired)} |`);
+  lines.push(`| Its deaths a year: with their dead / with Garrick and Hesper | ${col((rs) => {
+    const h = rs.filter((x) => x.heirs.length);
+    return `${avg(h.map((x) => x.b.deaths))} / ${avg(h.map((x) => x.c.deaths))}`;
+  })} |`);
+  lines.push(`| Every next keep’s first year finished (no dead to hand on: Garrick and Hesper) | ${col((rs) => `${rs.filter((x) => x.b.fin >= YEAR).length} of ${rs.length}`)} |`);
+  // The card: how often each number shows its commonest value, over every season a first keep played.
+  const LABELS = ['Days held', 'Deaths', 'Shades in the glass', 'Raids held', 'The Church', 'The Hollow'];
+  lines.push('', ...head('The recap card’s numbers: seasons showing each one’s commonest value'));
+  const common = (vals) => {
+    const n = new Map();
+    for (const v of vals) n.set(v, (n.get(v) || 0) + 1);
+    const [v, k] = [...n].sort((a, b) => b[1] - a[1])[0] || ['–', 0];
+    return `${pct(k, vals.length)} (${v})`;
+  };
+  LABELS.forEach((l, i) => lines.push(`| ${l} | ${col((rs) => common(rs.flatMap((x) => x.card.map((c) => c[i]))))} |`));
+  lines.push(`| Than my last keep (the next keep’s, in place of days held) | ${col((rs) => common(rs.flatMap((x) => x.against.filter(Boolean))))} |`);
+  lines.push('', ...head('Deeds done in a first year'));
+  for (const D of DEEDS) lines.push(`| ${D.name}: ${D.text} | ${col((rs) => `${rs.filter((x) => x.deeds.includes(D.id)).length} of ${rs.length}`)} |`);
+  return lines.join('\n');
+}
+
 function dayTable(R) {
   const plans = DAY_PLANS.filter(([p]) => R[`day:${p}`]);
   const sum = (xs) => xs.reduce((a, b) => a + b, 0);
@@ -567,6 +645,7 @@ if (ONLY.includes('campaign')) blocks.campaign = `${campaignTable(R)}\n\n${stamp
 if (ONLY.includes('day')) blocks.day = `${dayTable(R)}\n\n${stamp}`;
 if (ONLY.includes('long')) blocks.long = `${longTable(R)}\n\n${stamp}`;
 if (ONLY.includes('events')) blocks.events = `${eventsTable(R)}\n\n${stamp}`;
+if (ONLY.includes('keeps')) blocks.keeps = `${keepsTable(R)}\n\n${stamp}`;
 if (ONLY.includes('mirrors')) blocks.mirrors = `${mirrorsTable(R)}\n\n${stamp}`;
 for (const [k, v] of Object.entries(blocks)) console.log(`\n== ${k}\n${v}`);
 if (process.argv.includes('--readme')) {

@@ -4,6 +4,7 @@
 
 import { DAY_ROOMS, TWINS, KINDS, MIRRORS, TRAITS, SHADE_TRAITS, OMENS, STUDIES, DECREES, decreeDoes, decreesOf, CHAPTERS, ENDINGS, TROUBLES, mirrorsOf } from './data.js';
 import { actText } from './sim.js';
+import { DEEDS } from './hall.js';
 
 const n1 = (x) => (Math.abs(x - Math.round(x)) < 0.05 ? String(Math.round(x)) : x.toFixed(1));
 const times = (x) => (x === 2 ? 'twice' : `${n1(x)} times`);
@@ -269,6 +270,16 @@ export function howTo(T) {
         ...(T.plague ? [`Summer brings plague: in a crowded keep, sickness takes one more for every ${T.plagueCrowd} living beyond the beds. Beds in Quarters, and healers, answer it.`] : []),
         ...(T.generations ? [`From the second year the keep has generations. Each spring children come of age, the young grow up, an adult grows old ${pct(T.oldChance)} of the time, and the unwed pair off; each season a couple has a child ${pct(T.birthChance)} of the time while there's room. Children don't work, and starve first. The old die in their sleep and wake Serene.`] : []),
         ...(T.siege ? [`Autumn brings a siege: unless its day-2 raid is paid off, the Host camps outside for ${T.siegeDays} days, shutting the gate (no quarrying, no one new), and on day 3 comes at it. The guards can sally out to break the camp: ${T.guardsGoOut ? 'the stronger those who go out, mustered and armed, the better the odds' : 'the better your defense against the camp, the better the odds'}, each risking ${pct(T.raidPursueRisk)}.`] : []),
+      ],
+    },
+    {
+      id: 'keeps',
+      title: 'Between keeps',
+      items: [
+        'Every keep you play is written in the Hall of Keepers (in the Menu) when a season of it ends, and stays there when its slot goes to another keep: how it ended, its last recap card and its Book of the Dead.',
+        "A new keep's first dead come from the last keep you finished or left: two still in its glass, a Keeper who took their place there first, then those who served most. They keep their kind and their story, but take Garrick and Hesper's memory and posts, and have no one living to be bonded to. If that keep's Veil was sealed or opened they went free, and Garrick and Hesper come instead, as they always do in today's keep and the tutorial.",
+        "The recap card's first number sets the season against the same season of your last keep (today's keep against the last day you played it): fewer or more deaths if both held, else days held.",
+        `The Hall lists ${DEEDS.length} deeds, each done once, by whichever keep does it first.`,
       ],
     },
   ];

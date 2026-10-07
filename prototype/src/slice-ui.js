@@ -25,6 +25,7 @@ import { newTutorial, isTutorial } from './slice/tutorial.js';
 import { howTo } from './slice/howto.js';
 import { drawCard, cardFonts } from './slice/card.js';
 import { epitaph, ordinal, RESTING, LOST } from './slice/book.js';
+import { openHall, saveHall, shrinkHall, noteKeep, lastKeep, heirsOf, againstOf, dailyHistory, keepId, slotKeepId, keepLabel, HALL_KEY, DEEDS } from './slice/hall.js';
 import { SLOTS, slotKey, openIndex, loadSlot, saveSlot, useSlot, deleteSlot, keepFromFile, summary, mergeIndex, isIndexKey, saveSpare, loadSpare } from './slice/saves.js';
 import { BUILD } from './build.js';
 import { createSound, SOUNDS } from './slice/sound.js';
@@ -121,6 +122,8 @@ const listen = (g) => {
 
 // The keeps: three save slots (src/slice/saves.js). The page opens the one played last.
 const saves = openIndex(store, Date.now());
+// The Hall of Keepers (round seven, phase 16; hall.js): every keep played, kept when its slot is reused.
+const hall = openHall(store);
 let retuned = 0;
 function loadGame(n) {
   // Brought up to this build as it loads: what an older save predates, it gets (that's how the Maws reach
@@ -133,6 +136,10 @@ function loadGame(n) {
   return g;
 }
 window.addEventListener('storage', (e) => {
+  if (e.key === HALL_KEY) {
+    Object.assign(hall, openHall(store)); // another tab wrote the Hall
+    bump();
+  }
   if (isIndexKey(e.key) && mergeIndex(store, saves)) bump();
 });
 let saveWarned = false;
@@ -146,7 +153,8 @@ function saveGame() {
   if (ui.watch || crashed) return; // the session being watched is never saved, nor a keep after something broke
   dirty = false;
   s.build = BUILD;
-  if (saveSlot(store, saves, saves.current, s, Date.now()) || saveWarned) return;
+  // The Hall gives up its cards' images before a keep goes unsaved.
+  if (saveSlot(store, saves, saves.current, s, Date.now()) || (shrinkHall(store, hall) && saveSlot(store, saves, saves.current, s, Date.now())) || saveWarned) return;
   saveWarned = true;
   toast("The keep couldn't be saved: this browser's storage is full or blocked. Export it from Menu, then Saves.", 'bad');
 }
@@ -1762,7 +1770,7 @@ function endPanel() {
   return `${head}
     ${devMode() && !s.test ? questionHTML(e) : ''}
     ${s.sealed || s.opened ? '' : reviewHTML(isLongNight(s) ? 'The Long Night in moments' : 'The new moon in moments')}
-    <div class="card"><h3>The season</h3>${summaryHTML(e)}<div class="row"><button class="btn sm" id="end-book" data-act="book">Read the Book of the Dead</button></div></div>
+    <div class="card"><h3>The season</h3>${summaryHTML(e)}${againstHTML(e)}<div class="row"><button class="btn sm" id="end-book" data-act="book">Read the Book of the Dead</button></div></div>
     ${recapHTML(e)}
     ${go}`;
 }
@@ -1789,9 +1797,14 @@ function endingsHTML(next) {
     </div></div>`;
 }
 
+// The season against the same season of the player's last keep, as the recap card has it (round seven, phase 16).
+function againstHTML(e) {
+  const a = againstOf(hall, s, e.season);
+  return a ? `<p class="hint" id="end-against">Against ${esc(a.page)}'s ${esc(a.then.title.toLowerCase())}: ${esc(a.value)}.</p>` : '';
+}
 function newKeepControls() {
   if (!ui.confirmNew) return '<div class="row"><button class="btn" id="btn-new" data-act="new">New season from day 1</button></div>';
-  return `<div class="confirm"><p>Start keep ${saves.current} over from season 1, day 1? This one is gone unless you export it first, from Menu, then Saves, where you can start a new keep beside it instead.</p>
+  return `<div class="confirm"><p>Start keep ${saves.current} over from season 1, day 1? This one goes into the Hall of Keepers, and can't be played on unless you export it first, from Menu, then Saves, where you can start a new keep beside it instead.</p>
     <div class="row"><button class="btn primary" id="btn-new-yes" data-act="new-yes">Start over</button><button class="btn" id="btn-new-no" data-act="new-no">Cancel</button></div></div>`;
 }
 
@@ -1806,7 +1819,7 @@ function recapHTML(e) {
     <div class="row">${navigator.share ? '<button class="btn primary" id="card-share" data-act="card-share">Share</button>' : ''}<button class="btn" id="card-save" data-act="card-save">Save image</button></div></div>`;
 }
 async function makeCard() {
-  const r = recapOf(s);
+  const r = recapOf(s, undefined, againstOf(hall, s));
   if (!r || ui.card?.making) return;
   if (ui.card?.url) URL.revokeObjectURL(ui.card.url);
   ui.card = { making: true };
@@ -1967,13 +1980,16 @@ function daysTab() {
   return `${s.actionsFrom > 1 ? `<p class="hint">A long keep's save keeps its last two years of days: these are from season ${s.actionsFrom}.</p>` : ''}<div class="table-wrap" id="days-wrap"><table class="ledger days"><thead><tr><th>Day</th><th>Deaths</th><th>Raid</th><th>Church</th><th>Creepers</th><th>Through</th><th>Caught</th><th>Lost</th><th>Hollow</th><th>Dread</th></tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 function bookTab() {
-  const book = s.ledger;
+  return bookHTML(s.ledger, traitsOn());
+}
+// A Book of the Dead: this keep's, or one in the Hall of Keepers.
+function bookHTML(book, traits) {
   if (!book.length) return '<p class="hint">No one has died yet. When they do, their story is written here.</p>';
   const still = book.filter((e) => !e.end && e.woke && e.woke !== 'funeral').length;
   const rest = book.filter((e) => RESTING.includes(e.end)).length;
   const lost = book.filter((e) => LOST.includes(e.end)).length;
   const seasons = [...new Set(book.map((e) => e.season))].sort((a, b) => b - a);
-  const title = (k) => (k === 0 ? 'Before you came' : `The ${ordinal(k)} season`);
+  const title = (k) => (k === 0 ? (book.some((e) => e.season === 0 && e.keep) ? 'From the keep before' : 'Before you came') : `The ${ordinal(k)} season`);
   return `<p class="note">${plural(book.length, 'name')}: ${still} still bound, ${rest} at rest, ${lost} lost.</p>
     ${seasons
       .map((k) => `<section class="book"><h3 class="eyebrow">${title(k)}</h3>${book
@@ -1981,7 +1997,7 @@ function bookTab() {
         .sort((a, b) => a.day - b.day)
         .map((e) => `<article class="bookpage${e.end && e.end !== 'funeral' ? ' is-ended' : ''}${e.from === 'raider' ? ' is-raider' : ''}">
           <header><b>${esc(e.name)}</b>${e.woke && KINDS[e.woke] ? kindTag(e.woke) : ''}${e.named ? '<span class="tag peace">Named</span>' : ''}</header>
-          <p>${esc(epitaph(e, { traits: traitsOn() }))}</p></article>`)
+          <p>${esc(epitaph(e, { traits }))}</p></article>`)
         .join('')}</section>`)
       .join('')}`;
 }
@@ -2251,11 +2267,16 @@ function dailyHTML() {
   if (holds === saves.current) acts = "<p class=\"hint\">It's the keep you're playing.</p>";
   else if (holds) acts = `<div class="row"><button class="btn sm primary" id="daily-go" data-act="slot-play" data-n="${holds}">Continue it, in keep ${holds}</button></div>`;
   else if (ui.confirmSlot?.kind === 'daily') {
-    acts = `<p class="note bad">Put today's keep in keep ${saves.current}, in place of the one you're playing? That one is lost unless you exported it.</p><div class="row"><button class="btn sm primary" id="daily-yes" data-act="slot-yes" data-n="${saves.current}">Play today's keep</button><button class="btn sm" id="daily-no" data-act="slot-no">Cancel</button></div>`;
+    acts = `<p class="note bad">Put today's keep in keep ${saves.current}, in place of the one you're playing? That one goes into the Hall of Keepers, and can't be played on unless you exported it.</p><div class="row"><button class="btn sm primary" id="daily-yes" data-act="slot-yes" data-n="${saves.current}">Play today's keep</button><button class="btn sm" id="daily-no" data-act="slot-no">Cancel</button></div>`;
   } else if (empty) acts = `<div class="row"><button class="btn sm primary" id="daily-go" data-act="daily" data-n="${empty}">Play it, in keep ${empty}</button></div>`;
   else acts = `<div class="row"><button class="btn sm" id="daily-go" data-act="daily-ask">Play it in keep ${saves.current}</button></div>`;
+  // Today's keep with a history (round seven, phase 16): the days played before, newest first.
+  const past = dailyHistory(hall).filter((d) => d.key !== key);
+  const days = past.length
+    ? `<div class="daily-past" id="daily-past"><p class="hint">You've played it on ${past.length === 1 ? 'one other day' : `${past.length} other days`}:</p><ul>${past.slice(0, 5).map((d) => `<li>${esc(d.date)}: ${d.fell ? `fell in ${esc(d.fell.toLowerCase())}` : `held ${d.seasons === 1 ? 'a season' : `${d.seasons} seasons`}`}, ${d.deaths} ${d.deaths === 1 ? 'death' : 'deaths'}</li>`).join('')}</ul></div>`
+    : '';
   return `<div class="card daily"><h3>Today's keep: ${esc(dayText(key))}</h3>
-    <p class="note">Everyone who plays on this date, wherever they are, gets this same keep, on the rules as they ship: your own numbers from Settings are set aside, and can't be changed in it. Its recap card names the day, so you can compare how it went. A new one comes at your midnight.</p>${acts}</div>`;
+    <p class="note">Everyone who plays on this date, wherever they are, gets this same keep, on the rules as they ship: your own numbers from Settings are set aside, and can't be changed in it. Its recap card names the day, so you can compare how it went, and sets it against the last day you played. A new one comes at your midnight.</p>${days}${acts}</div>`;
 }
 // The tutorial keep: continue it where a slot holds one still in its first season, else start it in an empty
 // slot, else offer to put it in place of the keep being played.
@@ -2267,13 +2288,14 @@ function tutorialHTML() {
   if (holds === saves.current) acts = "<p class=\"hint\">It's the keep you're playing.</p>";
   else if (holds) acts = `<div class="row"><button class="btn sm primary" id="tutorial-go" data-act="slot-play" data-n="${holds}">Continue it, in keep ${holds}</button></div>`;
   else if (ui.confirmSlot?.kind === 'tutorial') {
-    acts = `<p class="note bad">Put the tutorial in keep ${saves.current}, in place of the one you're playing? That one is lost unless you exported it.</p><div class="row"><button class="btn sm primary" id="tutorial-yes" data-act="slot-yes" data-n="${saves.current}">Play the tutorial</button><button class="btn sm" id="tutorial-no" data-act="slot-no">Cancel</button></div>`;
+    acts = `<p class="note bad">Put the tutorial in keep ${saves.current}, in place of the one you're playing? That one goes into the Hall of Keepers, and can't be played on unless you exported it.</p><div class="row"><button class="btn sm primary" id="tutorial-yes" data-act="slot-yes" data-n="${saves.current}">Play the tutorial</button><button class="btn sm" id="tutorial-no" data-act="slot-no">Cancel</button></div>`;
   } else if (empty) acts = `<div class="row"><button class="btn sm primary" id="tutorial-go" data-act="tutorial" data-n="${empty}">Play it, in keep ${empty}</button></div>`;
   else acts = `<div class="row"><button class="btn sm" id="tutorial-go" data-act="tutorial-ask">Play it in keep ${saves.current}</button></div>`;
   return `<div class="card daily"><h3>The tutorial</h3>
     <p class="note">A keep whose first three days are set out to teach, one thing at a time: jobs and building, the dead and the night, a raid and a fire, the rite, mirrors and the Church. The Veil can't break before night ${TUTORIAL.safeUntil}, and from day ${TUTORIAL.safeUntil} it's an ordinary season.</p>${acts}</div>`;
 }
 function startTutorial(n) {
+  leaveSlot(n);
   retuned = 0;
   prefs.guide = true;
   savePrefs();
@@ -2286,6 +2308,7 @@ function howtoTab() {
     .join('')}</section>`;
 }
 function startDaily(n) {
+  leaveSlot(n);
   retuned = 0;
   const key = dayKey();
   return playKeep(n, newDaily(key), `Today's keep, ${dayText(key)}, in keep ${n}.`);
@@ -2301,7 +2324,7 @@ function savesTab() {
     const file = `<input type="file" id="import-${n}" class="visually-hidden" data-act="import" data-n="${n}" accept=".json,application/json"><label class="btn sm" for="import-${n}">Load a file</label>`;
     let acts;
     if (ask) {
-      const q = ask.kind === 'delete' ? `Delete keep ${n}? It can't be brought back unless you exported it.` : ask.kind === 'import' ? `Replace keep ${n} with the one in the file?` : `Start keep ${n} over from season 1, day 1? This keep is lost unless you exported it.`;
+      const q = ask.kind === 'delete' ? `Delete keep ${n}? Its Book and its card stay in the Hall of Keepers, but it can't be played on unless you exported it.` : ask.kind === 'import' ? `Replace keep ${n} with the one in the file?` : `Start keep ${n} over from season 1, day 1? This keep goes into the Hall of Keepers, and can't be played on unless you exported it.`;
       acts = `<p class="note bad">${esc(q)}</p><div class="row"><button class="btn sm primary" id="slot-yes-${n}" data-act="slot-yes" data-n="${n}">${ask.kind === 'delete' ? 'Delete' : ask.kind === 'import' ? 'Replace' : 'Start over'}</button><button class="btn sm" id="slot-no-${n}" data-act="slot-no">Cancel</button></div>`;
     } else if (here) acts = `<div class="row"><button class="btn sm" id="slot-export-${n}" data-act="slot-export" data-n="${n}">Export</button>${file}<button class="btn sm" id="slot-over-${n}" data-act="slot-over" data-n="${n}">Start over</button></div>`;
     else if (m) acts = `<div class="row"><button class="btn sm primary" id="slot-play-${n}" data-act="slot-play" data-n="${n}">Continue</button><button class="btn sm" id="slot-export-${n}" data-act="slot-export" data-n="${n}">Export</button>${file}<button class="btn sm" id="slot-delete-${n}" data-act="slot-delete" data-n="${n}">Delete</button></div>`;
@@ -2323,10 +2346,51 @@ function savesTab() {
     ${devMode() ? watchCard() : ''}
   </section>`;
 }
-const MENU_TABS = [['settings', 'Settings'], ['saves', 'Saves'], ['howto', 'How to play']];
+// The Hall of Keepers (round seven, phase 16): the deeds, then every keep played, newest first, each opening on its
+// card and its Book of the Dead.
+const HALL_STATUS = { fell: 'Fell', sealed: 'Sealed', opened: 'Opened', left: 'Left standing' };
+function hallStatus(k) {
+  const n = SLOT_NUMS().find((i) => (i === saves.current ? keepId(s) : slotKeepId(saves.slots[i])) === k.id);
+  if (n && k.status === 'kept') return `In keep ${n}, at ${k.where}`;
+  return `${HALL_STATUS[k.status] || 'Left standing'} in ${k.where}`;
+}
+function hallCardHTML(k) {
+  const c = k.card;
+  if (!c) return '<p class="hint">No season of it ended, so it has no card.</p>';
+  if (c.img) return `<img class="recap hall-img" src="${c.img}" alt="${esc(`The recap card for ${c.title}: ${c.head}. ${c.sub} ${c.stats.map(([l, v]) => `${l}: ${v}`).join('; ')}.`)}" width="360" height="450">`;
+  return `<div class="hall-words"><p><b>${esc(c.title)}: ${esc(c.head)}.</b> ${esc(c.sub)}</p><p class="hint">${c.stats.map(([l, v]) => `${esc(l)}: ${esc(v)}`).join(' · ')}</p>${c.remembered?.length ? `<p class="hint">Remembered: ${c.remembered.map((m) => `${esc(m.name)}, ${esc(m.line)}`).join('; ')}.</p>` : ''}</div>`;
+}
+function hallTab() {
+  const next = heirsNow(saves.current);
+  const keeps = [...hall.keeps].sort((a, b) => b.first - a.first);
+  const done = DEEDS.filter((D) => hall.deeds[D.id]).length;
+  const deeds = `<div class="card"><h3>Deeds</h3><p class="hint">${done} of ${DEEDS.length} done, across all your keeps.</p><ul class="deeds">${DEEDS.map((D) => {
+    const d = hall.deeds[D.id];
+    return `<li class="${d ? 'is-done' : ''}"><b>${esc(D.name)}</b> <span class="hint">${esc(D.text)}${d ? ` Done in ${esc(d.label)}, ${esc(new Date(d.at).toLocaleDateString(undefined, { day: 'numeric', month: 'long' }))}.` : ''}</span></li>`;
+  }).join('')}</ul></div>`;
+  const rows = keeps.map((k) => {
+    const open = ui.hallOpen === k.id;
+    const dead = (k.book || []).filter((e) => e.from !== 'before').length;
+    const what = [k.daily ? "Today's keep" : k.tutorial ? 'The tutorial' : k.campaign ? 'A campaign' : 'The open year', k.preset && PRESETS[k.preset] ? PRESETS[k.preset].name : '', `${(k.seasons || []).length} ${(k.seasons || []).length === 1 ? 'season' : 'seasons'}`, `${dead} dead`].filter(Boolean).join(' · ');
+    const heirs = k.heirs?.length ? `<p class="hint">Began with ${esc(k.heirs.join(' and '))} in its glass, from the keep before.</p>` : '';
+    return `<article class="hall-keep${open ? ' is-open' : ''}" id="hall-${esc(k.id.replace(/[^a-z0-9]/gi, '-'))}">
+      <header><b>${esc(upper(keepLabel(k)))}</b><span class="tag${k.status === 'fell' ? ' bad' : ''}">${esc(hallStatus(k))}</span></header>
+      <p class="hint">${esc(what)}</p>${heirs}
+      <div class="row"><button class="btn sm" data-act="hall-open" data-id="${esc(k.id)}" aria-expanded="${open}">${open ? 'Close' : 'Its card and its Book'}</button></div>
+      ${open ? `${hallCardHTML(k)}<div class="hall-book">${bookHTML(k.book || [], !!k.traits)}</div>` : ''}
+    </article>`;
+  }).join('');
+  return `<section class="hall">
+    <div class="card"><h3>The Hall of Keepers</h3><p class="note">Every keep you play is written here: how it ended, its last card and its Book of the Dead, kept when its slot goes to another keep.</p>
+      <p class="hint">${next.length ? `A new keep begins with ${esc(next.map((x) => x.name).join(' and '))}, of ${esc(next[0].keep)}, in its glass.` : 'A new keep begins with the last keeper\'s dead, Garrick and Hesper: when a keep of yours ends or is left with its dead still in the glass, its two best remembered go on into the next.'}</p></div>
+    ${deeds}
+    ${rows || '<p class="hint">No keep yet: the first is written in when its first season ends, or when someone in it dies and its slot goes to another.</p>'}
+  </section>`;
+}
+const MENU_TABS = [['settings', 'Settings'], ['saves', 'Saves'], ['hall', 'Hall of Keepers'], ['howto', 'How to play']];
 function menuHTML() {
   const tab = MENU_TABS.some(([k]) => k === ui.menuTab) ? ui.menuTab : 'settings';
-  const body = { settings: settingsTab, saves: savesTab, howto: howtoTab }[tab]();
+  const body = { settings: settingsTab, saves: savesTab, hall: hallTab, howto: howtoTab }[tab]();
   const back = ui.watch || ui.title ? '' : '<div class="row"><button class="btn" id="btn-title" data-act="title-open">Main menu</button><span class="hint">Continue, a new keep, the tutorial, today\'s keep.</span></div>';
   return `${testCard()}${back}<div class="tabs" role="tablist" aria-label="Menu">${MENU_TABS.map(([k, l]) => `<button class="tab" role="tab" id="menu-tab-${k}" data-act="menu-tab" data-tab="${k}" aria-selected="${k === tab}" tabindex="${k === tab ? 0 : -1}" aria-controls="menupanel">${l}</button>`).join('')}</div>
     <div class="tabpanel" role="tabpanel" id="menupanel" aria-labelledby="menu-tab-${tab}">${body}</div>`;
@@ -3584,6 +3648,7 @@ function titleMainHTML() {
     ${item('title-daily', 'title-start', daily ? "Continue today's keep" : "Today's keep", `${dayText(dayKey())}: the same keep for everyone who plays today`, false, ' data-what="daily"')}
     <div class="title-row">
       <button class="btn" id="title-saves" data-act="title-tab" data-tab="saves">Saves</button>
+      <button class="btn" id="title-hall" data-act="title-tab" data-tab="hall">Hall of Keepers</button>
       <button class="btn" id="title-howto" data-act="title-tab" data-tab="howto">How to play</button>
       <button class="btn" id="title-settings" data-act="title-tab" data-tab="settings">Settings</button>
     </div>
@@ -3596,15 +3661,20 @@ function titleNewHTML() {
     ${presetPicker('title')}
     ${customPicker('title')}
     <label class="title-check" for="title-guide"><input type="checkbox" id="title-guide" data-act="guide-toggle"${prefs.guide ? ' checked' : ''}><span>The guide: a short card the first time each thing happens</span></label>
-    <p class="hint">${n ? `It goes in keep ${n}.` : 'All three keeps are in use: next you choose which one it replaces.'}</p>
+    <p class="hint">${n ? `It goes in keep ${n}.` : 'All three keeps are in use: next you choose which one it replaces.'}${heirsHint(n)}</p>
     <div class="row"><button class="btn primary" id="title-begin" data-act="title-start" data-what="new">Begin</button><button class="btn" id="title-back" data-act="title-back">Back</button></div></div>`;
+}
+// Who a new keep's first dead will be, if they come from the player's last keep (round seven, phase 16).
+function heirsHint(n) {
+  const heirs = n ? heirsNow(n) : heirsOf(lastKeep(hall, SLOT_IDS()));
+  return heirs.length ? ` ${heirs.map((x) => x.name).join(' and ')}, of ${heirs[0].keep}, will be in its glass.` : '';
 }
 function titleReplaceHTML() {
   const what = WHAT_STARTS[ui.titleFor] || WHAT_STARTS.new;
   const rows = SLOT_NUMS().map((n) => {
     const m = n === saves.current ? summary(s, Date.now()) : saves.slots[n];
     const acts = ui.titleAsk === n
-      ? `<p class="note bad">Keep ${n} is gone for good unless you exported it (Saves, then Export). Put ${what} in its place?</p><div class="row"><button class="btn sm primary" id="title-replace-yes" data-act="title-replace-yes" data-n="${n}">Replace keep ${n}</button><button class="btn sm" id="title-replace-no" data-act="title-replace-no">Cancel</button></div>`
+      ? `<p class="note bad">Keep ${n} goes into the Hall of Keepers, and can't be played on unless you exported it (Saves, then Export). Put ${what} in its place?</p><div class="row"><button class="btn sm primary" id="title-replace-yes" data-act="title-replace-yes" data-n="${n}">Replace keep ${n}</button><button class="btn sm" id="title-replace-no" data-act="title-replace-no">Cancel</button></div>`
       : `<div class="row"><button class="btn sm" id="title-replace-${n}" data-act="title-replace" data-n="${n}">Replace keep ${n}</button></div>`;
     return `<div class="kslot"><div class="kslot-head"><span class="eyebrow">Keep ${n}</span></div><p>${m ? esc(keepLine(m)) : 'Empty.'}</p>${acts}</div>`;
   }).join('');
@@ -4701,6 +4771,7 @@ function tick(now) {
     trail('phase');
     onPhase();
     saveGame();
+    if ((s.phase === 'end' || s.phase === 'over') && !ui.watch) noteSeason();
     if (s.phase === 'day' && !ui.watch) {
       saveSpare(store, saves.current, s);
       if (s.day >= 2) askToKeep();
@@ -4863,6 +4934,61 @@ function chapterAgainNow() {
   toast(`${CHAPTERS[chapterOf(s)].name}, begun again from ${chapterOf(s) === 1 ? 'the keep\'s first morning' : 'its first dawn'}.`, 'rite');
   return bump();
 }
+// The Hall of Keepers (round seven, phase 16): a keep is written in when a season of it ends, when it ends, and
+// when its slot goes to another; a deed done for the first time is told.
+const SLOT_IDS = () => SLOT_NUMS().map((n) => (n === saves.current ? keepId(s) : slotKeepId(saves.slots[n]))).filter(Boolean);
+function noteHall(g = s, left = false) {
+  if (ui.watch || crashed) return null;
+  const { entry, deeds } = noteKeep(hall, g, Date.now(), { left });
+  if (!entry) return null;
+  saveHall(store, hall, SLOT_IDS());
+  for (const D of deeds) toast(`A deed: ${D.name}. ${D.text}`, 'rite');
+  return entry;
+}
+// A season's end: the keep written in, and a small copy of its card drawn for the Hall a moment later.
+function noteSeason() {
+  const k = noteHall();
+  const r = k?.card;
+  if (!r) return;
+  const g = s;
+  setTimeout(async () => {
+    try {
+      const full = recapOf(g, r.season, againstOf(hall, g, r.season));
+      if (!full || g !== s) return;
+      await cardFonts();
+      const cv = document.createElement('canvas');
+      drawCard(cv, g, full);
+      const small = document.createElement('canvas');
+      small.width = 360;
+      small.height = 450;
+      const c = small.getContext('2d');
+      c.imageSmoothingQuality = 'high';
+      c.drawImage(cv, 0, 0, small.width, small.height);
+      const now = hall.keeps.find((x) => x.id === k.id);
+      if (!now?.card || now.card.season !== r.season) return;
+      now.card.img = small.toDataURL('image/jpeg', 0.8);
+      saveHall(store, hall, SLOT_IDS());
+    } catch {
+      // A card the browser can't draw is only a card: the Hall keeps its words.
+    }
+  }, 800);
+}
+// A slot about to hold another keep (or none): the keep in it goes into the Hall as left, unless it is that keep.
+function leaveSlot(n, next = null) {
+  try {
+    const g = n === saves.current ? s : saves.slots[n] ? loadSlot(store, n) : null;
+    if (!g || (next && keepId(g) === keepId(next))) return null;
+    return noteHall(g, true);
+  } catch {
+    return null; // a keep that can't be read can't be remembered, but it never stops a new one
+  }
+}
+// A new keep's first dead: from the last keep finished or left, leaving out keeps still in a slot (slot n's is
+// being replaced, so it counts as left).
+function heirsNow(n) {
+  const here = n === saves.current ? keepId(s) : slotKeepId(saves.slots[n]);
+  return heirsOf(lastKeep(hall, SLOT_IDS().filter((id) => id !== here)));
+}
 function playKeep(n, g, lead) {
   if (ui.watch) {
     // Never let the session being watched stand in for a keep: the one in play comes back first.
@@ -4894,17 +5020,22 @@ function playSlot(n) {
   return bump();
 }
 function newKeep(n) {
+  leaveSlot(n);
   retuned = 0;
   const p = presetNow();
-  return playKeep(n, keepWith(p), `Keep ${n}: a new ${prefs.campaign ? 'campaign' : 'keep'}${p === 'standard' ? '' : `, ${PRESETS[p].name.toLowerCase()}`}.`);
+  const heirs = heirsNow(n);
+  const theirs = heirs.length ? ` ${heirs.map((x) => x.name).join(' and ')}, of ${heirs[0].keep}, ${heirs.length === 1 ? 'is' : 'are'} in its glass.` : '';
+  return playKeep(n, keepWith(p, heirs), `Keep ${n}: a new ${prefs.campaign ? 'campaign' : 'keep'}${p === 'standard' ? '' : `, ${PRESETS[p].name.toLowerCase()}`}.${theirs}`);
 }
 // Difficulty (round five): the preset chosen for a new keep, and a new keep made on it, with the player's own
 // numbers from the keep before where the preset has none. The keep keeps them as its own defaults.
 const presetNow = () => (PRESETS[prefs.preset] ? prefs.preset : 'standard');
-function keepWith(p) {
+function keepWith(p, heirs = []) {
   const custom = customNow(p);
   const defaults = { ...playerTuning(s), ...PRESETS[p].tuning, ...custom, campaign: prefs.campaign ? 1 : 0 };
-  const k = newSeason(Date.now() >>> 0, defaults);
+  // Its first dead from the player's last keep (round seven, phase 16): in its rules, so it replays, but not in
+  // its defaults, which the next keep takes from it.
+  const k = newSeason(Date.now() >>> 0, heirs.length ? { ...defaults, firstDead: heirs } : defaults);
   k.defaults = defaults;
   if (p !== 'standard') k.preset = p;
   if (Object.keys(custom).length) k.custom = true;
@@ -4987,12 +5118,14 @@ function confirmSlot(n) {
   if (ask.kind === 'daily') return startDaily(n);
   if (ask.kind === 'tutorial') return startTutorial(n);
   if (ask.kind === 'import') {
+    leaveSlot(n, ask.g);
     retuned = retune(ask.g, keepDefaults(ask.g));
     return playKeep(n, ask.g, `Keep ${n}, from ${ask.name}.`);
   }
   if (ask.kind !== 'delete' || n === saves.current) return bump(); // the keep being played is never deleted
+  const kept = leaveSlot(n);
   deleteSlot(store, saves, n);
-  toast(`Keep ${n} is deleted.`);
+  toast(`Keep ${n} is deleted.${kept ? ' Its Book and its card are kept in the Hall of Keepers.' : ''}`);
   return bump();
 }
 // A file from the page: the browser's download of it.
@@ -5203,6 +5336,7 @@ function onAct(name, el, ev) {
       const campaignEnd = chapterOf(s) === 5; // round seven, phase 15: the campaign's last ending, told
       if (game({ type: 'takeGlass' })) {
         saveGame();
+        noteHall();
         if (campaignEnd) toast(ENDINGS.watch.epilogue, 'rite');
       }
       return undefined;
@@ -5219,7 +5353,10 @@ function onAct(name, el, ev) {
     case 'end-yes': {
       const k = ui.endAsk;
       ui.endAsk = null;
-      if (game({ type: k === 'seal' ? 'sealVeil' : 'openVeil' })) saveGame();
+      if (game({ type: k === 'seal' ? 'sealVeil' : 'openVeil' })) {
+        saveGame();
+        noteHall();
+      }
       return undefined;
     }
     case 'chapter-again': return chapterAgainNow();
@@ -5231,7 +5368,10 @@ function onAct(name, el, ev) {
       return bump();
     case 'seal-yes':
       ui.sealAsk = false;
-      if (game({ type: 'sealVeil' })) saveGame();
+      if (game({ type: 'sealVeil' })) {
+        saveGame();
+        noteHall();
+      }
       return undefined;
     case 'request': return game({ type: 'request', id: el.dataset.id, grant: !!el.dataset.grant });
     case 'sally': return game({ type: 'sally' });
@@ -5394,6 +5534,9 @@ function onAct(name, el, ev) {
       ui.titleAsk = null;
       return bump();
     case 'title-replace-yes': return startIn(ui.titleFor || 'new', Number(el.dataset.n));
+    case 'hall-open':
+      ui.hallOpen = ui.hallOpen === el.dataset.id ? null : el.dataset.id;
+      return bump();
     case 'title-tab':
       ui.menuTab = el.dataset.tab;
       ui.confirmSlot = null;

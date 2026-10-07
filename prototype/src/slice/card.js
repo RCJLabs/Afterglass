@@ -99,7 +99,7 @@ export function drawCard(out, s, r) {
     c.strokeRect(x + 1, y + 1, tw - 2, th - 2);
     c.textAlign = 'left';
     c.fillStyle = C.ink3;
-    c.font = `700 19px ${BODY}`;
+    fitFont(c, label.toUpperCase(), (px) => `700 ${px}px ${BODY}`, 19, tw - 36);
     c.fillText(label.toUpperCase(), x + 18, y + 32);
     c.fillStyle = C.ink;
     fitFont(c, value, (px) => `600 ${px}px ${NUM}`, 34, tw - 36);

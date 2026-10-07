@@ -691,6 +691,10 @@ export const TUNING = {
   shrineDread: 0.5,
   chartCatch: 0.5,
   tallowBurn: 0.75,
+  // Round seven, phase 16: the keep's first dead, from the player's last keep (the page draws them from the Hall
+  // of Keepers): up to two, each { name, age, job, kind, cause, how, named, was, keep, story, keeper }, taking
+  // START_SHADES' places in order, with their memory and posts but no bond. null, as before: Garrick and Hesper.
+  firstDead: null,
   // Round seven, phase 12: from year troublesFrom each year of the open year, and of a campaign kept on past its
   // ending, brings a trouble (TROUBLES). 0, as before: each year as the last, only harder.
   troubles: 1,
@@ -1320,6 +1324,7 @@ export const BONDS = [
 // The last keeper's dead, already in the Chapel glass when the season opens, posted on the line (the feet of
 // the two stairs up to the Veil, or between rift and mirror in a keep with no stairs). Garrick is Osk's
 // father: posted in the Wick Room he and Osk both work x1.25.
+// With TUNING.firstDead, the player's own dead from their last keep take these places (sim.js, startShades).
 export const START_SHADES = [
   { name: 'Garrick', age: 'adult', job: 'barracks', kind: 'loyal', cause: 'duty', memory: 80, named: false, bond: ['Osk', 'parent'], was: 'brave' },
   { name: 'Hesper', age: 'old', job: 'chapel', kind: 'serene', cause: 'oldage', memory: 60, named: true, bond: null, was: 'stubborn' },

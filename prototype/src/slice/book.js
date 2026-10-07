@@ -14,7 +14,13 @@ function whenText(season, day, sameSeason) {
 }
 export function epitaph(e, { traits = false } = {}) {
   const out = [];
-  if (e.from === 'raider') out.push('One of the Ashen Host, who came over the wall and never left.');
+  // One of the player's own dead, come from their last keep (round seven, phase 16): that keep's story of them,
+  // then this one's.
+  if (e.from === 'before' && e.keep) {
+    out.push(`Of ${e.keep}.`);
+    if (e.story) out.push(e.story);
+    out.push(e.keeper ? 'Came with you to this keep, the Keeper no longer.' : 'Came with you to this keep.');
+  } else if (e.from === 'raider') out.push('One of the Ashen Host, who came over the wall and never left.');
   else if (e.from === 'visitor') out.push("A grave robber, who came to the gate for the keep's dead.");
   else {
     const desc = [e.age === 'young' || e.age === 'old' ? e.age : e.age === 'child' ? 'child' : '', e.age === 'child' ? '' : ROLE[e.job] || ''].filter(Boolean).join(' ');
@@ -25,14 +31,14 @@ export function epitaph(e, { traits = false } = {}) {
     else if (e.from === 'living' && e.joined && (e.joined.season > 1 || e.joined.day > 1)) who += `, who came to the gate ${whenText(e.joined.season, e.joined.day)}`;
     out.push(`${who}.`);
   }
-  out.push(e.from === 'before' ? `${capital(e.how)} before you came.` : `${capital(e.how)} ${whenText(e.season, e.day)}.`);
+  if (!(e.from === 'before' && e.keep)) out.push(e.from === 'before' ? `${capital(e.how)} before you came.` : `${capital(e.how)} ${whenText(e.season, e.day)}.`);
   const woke = { funeral: 'Was given a funeral and laid to rest.', overflow: 'Woke Restless, for no mirror had room.', restless: 'Woke Restless at the edge of the Deep.', wraith: 'Woke as a Wraith.', taken: 'There was no body to wake.', stolen: 'A grave robber carried the body off before dusk, and it never woke.' }[e.woke];
   if (woke) out.push(woke);
   else if (e.woke && e.from !== 'before') out.push(`Woke ${KINDS[e.woke]?.name || e.woke} in the glass${e.eclipse ? ', at once, in the eclipse' : ''}.`);
   if (woke && e.eclipse) out.push('It was the eclipse: the dead did not wait for dusk.');
   else if (!e.woke) out.push('Lies in the crypt, waiting for dusk.');
   // Traits: what they were in life, and, if they woke in the glass, what death made of it.
-  const T = traits && TRAITS[e.was];
+  const T = traits && !e.keep && TRAITS[e.was];
   if (T) out.push(e.woke && KINDS[e.woke] && e.woke !== 'wraith' ? `${T.name} in life, ${SHADE_TRAITS[T.dead].name} in death.` : `${T.name} in life.`);
   if (e.bound) out.push(`Was bound into a mirror as ${KINDS[e.bound.kind]?.name || 'a shade'} ${whenText(e.bound.season, e.bound.day, e.season)}.`);
   if (e.turned) out.push(`Turned Wraith on day ${e.turned}.`);
@@ -48,7 +54,7 @@ export function epitaph(e, { traits = false } = {}) {
     const trade = e.job && DAY_ROOMS[e.job] ? ` to the ${DAY_ROOMS[e.job].name}` : '';
     out.push(e.whispered && e.stepped ? `By day, whispered${trade} ${d(e.whispered)}, and stepped through the great glass to work ${d(e.stepped)}.` : e.whispered ? `By day, whispered${trade} ${d(e.whispered)}.` : `By day, stepped through the great glass to work ${d(e.stepped)}.`);
   }
-  if (e.named) out.push('Written in the ledger by name.');
+  if (e.named && !e.keep) out.push('Written in the ledger by name.');
   const at = e.endDay ? ` ${whenText(e.endSeason || e.season, e.endDay, e.season)}` : '';
   const end = {
     covered: `Released when their mirror was covered${at}.`,
