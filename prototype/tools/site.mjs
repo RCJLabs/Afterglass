@@ -10,7 +10,7 @@
 // keeps a cache of its own; prototype/version.json says the build, for the page's update notice; and a
 // preview's app is named as one, so it installs beside the release. A tree from before the page was split (no
 // src/page) is copied with the stamp alone, its modules as they were.
-import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { execFileSync } from 'node:child_process';
 
@@ -28,7 +28,12 @@ if (!/^[\w.-]+$/.test(build)) throw new Error(`--build ${build} isn't a plain na
 
 const SKIP = new Set(['.git', 'node_modules', '_site', 'dist']);
 mkdirSync(out, { recursive: true });
-cpSync(src, out, { recursive: true, filter: (p) => !p.slice(src.length).split(/[\\/]/).some((x) => SKIP.has(x)) });
+// Entry by entry, so the site can be built inside the tree it copies (Pages builds _site in the checkout, and
+// fs.cpSync won't copy a folder into itself).
+for (const name of readdirSync(src)) {
+  if (SKIP.has(name) || resolve(src, name) === out) continue;
+  cpSync(join(src, name), join(out, name), { recursive: true, filter: (p) => !p.slice(src.length).split(/[\\/]/).some((x) => SKIP.has(x)) });
+}
 const P = (f) => join(out, 'prototype', f);
 const read = (f) => readFileSync(P(f), 'utf8');
 const write = (f, text) => writeFileSync(P(f), text);
