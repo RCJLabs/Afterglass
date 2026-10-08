@@ -45,6 +45,7 @@ const CORE = [
   'src/slice/recap.js',
   'src/slice/hall.js',
   'src/slice/keys.js',
+  'src/slice/lines.js',
   'src/slice/card.js',
   'src/slice/daily.js',
   'src/slice/tutorial.js',

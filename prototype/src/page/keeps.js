@@ -17,7 +17,7 @@ import { wide, view } from './stage.js';
 import { closeTitle, titleContinue, openSheet, closeSheet } from './screen.js';
 import { takeAlerts, acc, seenPhase, seenPhaseWas, setAcc, setSeenPhase, setSeenPhaseWas } from './clock.js';
 
-/* ---------------------------------------------------------------- input */
+/* ---------------------------------------------------------------- the keeps */
 
 export function game(a) {
   if (ui.watch) {

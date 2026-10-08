@@ -268,8 +268,10 @@ const only = process.argv[2];
     const w = await ctx2.newPage();
     w.on('pageerror', (e) => errors.push(`viewer pageerror: ${e.message}`));
     await w.goto(BASE + '/season.html?watch');
-    await w.waitForTimeout(600);
+    // Wait for the viewer itself, not a fixed time: unbundled, the page loads its modules one by one (phase 19).
+    await w.waitForSelector('#watch-load summary', { timeout: 15000 });
     await w.click('#watch-load summary');
+    await w.waitForSelector('#watch-text', { state: 'visible', timeout: 5000 }).catch(() => w.click('#watch-load summary'));
     await w.fill('#watch-text', text);
     await w.click('#watch-paste');
     for (let i = 0; i < 240 && !(await w.isVisible('.watch')); i++) await w.waitForTimeout(500);
