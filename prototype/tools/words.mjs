@@ -5,7 +5,7 @@
 //
 //   node tools/words.mjs [--cards]   (--cards lists each card's words, most first)
 
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { howTo } from '../src/slice/howto.js';
 import { TUNING } from '../src/slice/data.js';
 
@@ -67,7 +67,7 @@ function literals(src, from = 0, stop = null) {
   return { out, end: i };
 }
 
-// The cards of an array in slice-ui.js (`const GUIDE = [` … `];`): each card's id and the words its text can say.
+// The cards of an array in the page's modules (`const GUIDE = [` … `];`): each card's id and the words its text can say.
 function cards(src, name) {
   const at = src.indexOf(`const ${name} = [`);
   const end = src.indexOf('\n];', at);
@@ -95,7 +95,8 @@ function cards(src, name) {
   return list;
 }
 
-const ui = readFileSync(new URL('../src/slice-ui.js', import.meta.url), 'utf8');
+// The page's modules (round seven, phase 19), together.
+const ui = readdirSync(new URL('../src/page/', import.meta.url)).map((f) => readFileSync(new URL(`../src/page/${f}`, import.meta.url), 'utf8')).join('\n');
 const guide = cards(ui, 'GUIDE');
 const tut = cards(ui, 'TUT');
 const how = howTo({ ...TUNING });

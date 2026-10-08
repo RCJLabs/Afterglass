@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { newSeason, act } from '../src/slice/sim.js';
 import { autoStep } from '../src/slice/autopilot.js';
 import { SOUNDS, BEDS, createSound } from '../src/slice/sound.js';
@@ -9,7 +9,8 @@ import { openIndex, saveSlot, slotKey } from '../src/slice/saves.js';
 const src = (p) => readFileSync(new URL(p, import.meta.url), 'utf8');
 // Every name the sim can cue (the string literals in its cue() calls) and the page's own sfx() calls.
 const simCues = [...src('../src/slice/sim.js').matchAll(/\bcue\(s, ([^)]*)\)/g)].flatMap((m) => [...m[1].matchAll(/'([a-z-]+)'/g)].map((x) => x[1]));
-const pageCues = [...src('../src/slice-ui.js').matchAll(/\bsfx\('([a-z-]+)'/g)].map((m) => m[1]);
+const pageSrc = readdirSync(new URL('../src/page/', import.meta.url)).map((f) => src(`../src/page/${f}`)).join('\n');
+const pageCues = [...pageSrc.matchAll(/\bsfx\('([a-z-]+)'/g)].map((m) => m[1]);
 
 function play(seed, listen) {
   const s = newSeason(seed);

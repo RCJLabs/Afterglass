@@ -24,7 +24,7 @@ function modules() {
   (function visit(p) {
     if (seen.has(p)) return;
     seen.add(p);
-    for (const m of readFileSync(p, 'utf8').matchAll(/^import\s*\{[^}]*\}\s*from\s*['"]([^'"]+)['"]/gm)) visit(resolve(dirname(p), m[1]));
+    for (const m of readFileSync(p, 'utf8').matchAll(/^import\s*(?:\{[^}]*\}\s*from\s*)?['"]([^'"]+)['"]/gm)) visit(resolve(dirname(p), m[1]));
   })(resolve(root, entry));
   return [...seen].map((p) => relative(root, p).split('\\').join('/'));
 }
