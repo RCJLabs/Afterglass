@@ -7,8 +7,9 @@ import { epitaph, ordinal } from './book.js';
 import { recapOf, seasonTitle } from './recap.js';
 import { dayText } from './daily.js';
 import { WORKING, SEASONS } from './data.js';
+import { KEY } from './keys.js';
 
-export const HALL_KEY = 'afterglass-season/hall/v1';
+export const HALL_KEY = `${KEY}/hall/v1`;
 export const MAX_KEEPS = 40; // the oldest keep no slot holds goes first
 export const MAX_BOOK = 160; // a longer Book keeps the dead it remembers best
 const ENDED = ['fell', 'sealed', 'opened', 'left'];

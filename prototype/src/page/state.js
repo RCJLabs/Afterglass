@@ -7,8 +7,9 @@ import { openHall, shrinkHall, HALL_KEY } from '../slice/hall.js';
 import { openIndex, loadSlot, saveSlot, mergeIndex, isIndexKey } from '../slice/saves.js';
 import { newSeason, retune, keepDefaults } from '../slice/sim.js';
 import { createSound, SOUNDS } from '../slice/sound.js';
+import { KEY } from '../slice/keys.js';
 
-const PREF_KEY = 'afterglass-season/prefs/v1';
+const PREF_KEY = `${KEY}/prefs/v1`;
 export const SYS_REDUCED = !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 export const { W, VEIL } = MAP;
 

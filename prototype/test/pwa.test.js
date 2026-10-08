@@ -13,7 +13,7 @@ const manifest = JSON.parse(read('season.webmanifest'));
 // The worker's CORE list and FONT_CSS, read by running sw.js against a stub worker scope.
 function core() {
   const scope = { self: { addEventListener() {}, location: new URL('https://example.test/Base-Manager/prototype/sw.js') }, URL, Set };
-  vm.runInNewContext(`${read('sw.js')}\nself.CORE = CORE;\nself.FONT_CSS = FONT_CSS;`, scope);
+  vm.runInNewContext(`${read('sw.js')}\nself.CORE = CORE;`, scope);
   return scope.self;
 }
 
@@ -36,9 +36,12 @@ const pngSize = (p) => {
 };
 
 test('the service worker caches everything the season page needs, and nothing that is missing', () => {
-  const { CORE: list, FONT_CSS } = core();
-  const fonts = [...html.matchAll(/<link rel="stylesheet" href="(https:\/\/fonts\.googleapis\.com\/[^"]+)"/g)].map((m) => m[1].replace(/&amp;/g, '&'));
-  assert.deepEqual(fonts, [FONT_CSS], 'sw.js FONT_CSS is not the stylesheet season.html loads');
+  const { CORE: list } = core();
+  // Round seven, phase 19: nothing from anywhere else, the fonts included.
+  assert.ok(!/(?:href|src)="https?:/.test(html), 'season.html loads something from another site');
+  assert.ok(!/https:\/\//.test(html.match(/Content-Security-Policy" content="([^"]+)"/)[1]), 'the CSP lets in another site');
+  const fontFiles = [...read('fonts/fonts.css').matchAll(/url\(([^)]+)\)/g)].map((m) => `fonts/${m[1]}`);
+  for (const f of fontFiles) assert.ok(list.includes(f), `sw.js CORE is missing ${f}`);
   const local = (href) => !/^(https?:|data:)/.test(href);
   const needs = [
     'season.html',

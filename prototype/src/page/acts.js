@@ -18,6 +18,11 @@ import { game, togglePlay, setSpeed, copyExport, chapterAgainNow, noteHall, play
 // What each button does, by its data-act: given the button (el), the event (ev), the button's data-id (id) and
 // the name itself. A name not here does nothing.
 const ACTS = {
+  // A newer build is ready (screen.js, checkVersion): save, then load it.
+  update() {
+    saveGame();
+    location.reload();
+  },
   play: () => togglePlay(),
   speed: (el) => setSpeed(Number(el.dataset.v)),
   'strip-open': (el) => stripOpen(el.dataset.card),

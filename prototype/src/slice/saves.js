@@ -4,11 +4,12 @@
 
 import { SAVE_VERSION, upgrade, replay, canWork, yearOf, chapterOf } from './sim.js';
 import { SEASONS } from './data.js';
+import { KEY } from './keys.js';
 
 export const SLOTS = 3;
-export const OLD_KEY = 'afterglass-season/save/v1'; // the single save from before there were slots
-const INDEX_KEY = 'afterglass-season/slots/v1';
-export const slotKey = (n) => `afterglass-season/slot/${n}/v1`;
+export const OLD_KEY = `${KEY}/save/v1`; // the single save from before there were slots
+const INDEX_KEY = `${KEY}/slots/v1`;
+export const slotKey = (n) => `${KEY}/slot/${n}/v1`;
 
 // What the list shows for a keep.
 export function summary(s, now) {
@@ -113,7 +114,7 @@ export function useSlot(store, index, n) {
 
 // A spare of the keep in play, as it stood when its last day began: what's left when something goes wrong
 // (round seven), however the keep was saved since. One for the keep in play, told apart by its slot and seed.
-const SPARE_KEY = 'afterglass-season/spare/v1';
+const SPARE_KEY = `${KEY}/spare/v1`;
 export function saveSpare(store, n, s) {
   return store.set(SPARE_KEY, { n, seed: s.seed, save: { ...trimSave(s), alerts: [], cues: undefined } });
 }

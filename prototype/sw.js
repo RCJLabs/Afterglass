@@ -1,13 +1,12 @@
 // The season's service worker: it lets the installed app open with no connection.
 // The season's own files go to the network first, so a deploy shows on the next load, and fall back to
-// the copy cached at install or on the last visit that reached the network. Google Fonts come from the
-// cache first (their files never change). The other prototypes in this folder load their own files as
-// if there were no worker; they share the season's fonts, which are the same ones.
-// CORE must list every file season.html needs, and FONT_CSS must be its fonts stylesheet; test/pwa.test.js
-// checks both against the page.
+// the copy cached at install or on the last visit that reached the network. Since round seven's phase 19
+// the fonts are among them (fonts/), so nothing comes from anywhere else. The other prototypes in this
+// folder load their own files as if there were no worker.
+// CORE must list every file season.html needs; test/pwa.test.js checks it against the page.
 
+// A preview build (tools/site.mjs) keeps a cache of its own, so the release's and the preview's never meet.
 const CACHE = 'afterglass-season';
-const FONTS = 'afterglass-fonts';
 const CORE = [
   'season.html',
   'style.css',
@@ -45,6 +44,7 @@ const CORE = [
   'src/slice/threats.js',
   'src/slice/recap.js',
   'src/slice/hall.js',
+  'src/slice/keys.js',
   'src/slice/card.js',
   'src/slice/daily.js',
   'src/slice/tutorial.js',
@@ -58,41 +58,28 @@ const CORE = [
   'icons/icon-maskable-512.png',
   'icons/apple-touch-icon.png',
   'icons/favicon-32.png',
+  'fonts/fonts.css',
+  'fonts/alegreya-sc-500.woff2',
+  'fonts/alegreya-sc-700.woff2',
+  'fonts/atkinson-hyperlegible-400.woff2',
+  'fonts/atkinson-hyperlegible-400-italic.woff2',
+  'fonts/atkinson-hyperlegible-700.woff2',
+  'fonts/spline-sans-mono.woff2',
 ];
-const FONT_CSS = 'https://fonts.googleapis.com/css2?family=Alegreya+SC:wght@500;700&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Spline+Sans+Mono:wght@400;600&display=swap';
 const HERE = new URL('./', self.location).pathname;
 const OURS = new Set(CORE.map((p) => HERE + p));
 
 self.addEventListener('install', (e) => {
   const core = caches.open(CACHE).then((c) => c.addAll(CORE.map((p) => new Request(p, { cache: 'reload' }))));
-  const fonts = Promise.race([cacheFonts(), new Promise((r) => setTimeout(r, 10000))]);
-  e.waitUntil(Promise.all([core, fonts]).then(() => self.skipWaiting()));
+  e.waitUntil(core.then(() => self.skipWaiting()));
 });
-
-// The first visit loads its fonts before this worker is in charge, so fetch the stylesheet and its Latin
-// files now; otherwise the first launch without a connection falls back to system fonts. Best effort:
-// if Google Fonts is out of reach, or its stylesheet changes shape, the app installs without them.
-async function cacheFonts() {
-  try {
-    const cache = await caches.open(FONTS);
-    const res = await fetch(FONT_CSS, { mode: 'cors' });
-    if (!res.ok) return;
-    const css = await res.clone().text();
-    await cache.put(FONT_CSS, res);
-    const files = [...css.matchAll(/\/\* latin \*\/\s*@font-face\s*\{[^}]*?url\((https:\/\/fonts\.gstatic\.com\/[^)]+)\)/g)].map((m) => m[1]);
-    await Promise.all([...new Set(files)].map(async (url) => {
-      const r = await fetch(url, { mode: 'cors' });
-      if (r.ok) await cache.put(url, r);
-    }));
-  } catch {
-    // Offline or blocked: the fonts get cached the first time the page loads them through this worker.
-  }
-}
 
 self.addEventListener('activate', (e) => {
   e.waitUntil(
     caches.keys()
-      .then((keys) => Promise.all(keys.filter((k) => k.startsWith('afterglass-') && k !== CACHE && k !== FONTS).map((k) => caches.delete(k))))
+      // The Google Fonts copies kept before phase 19 are no longer needed. The release's and a preview's caches
+      // share the site, so neither touches the other's.
+      .then((keys) => Promise.all(keys.filter((k) => k === 'afterglass-fonts').map((k) => caches.delete(k))))
       .then(() => self.clients.claim()),
   );
 });
@@ -103,8 +90,6 @@ self.addEventListener('fetch', (e) => {
   const url = new URL(req.url);
   if (url.origin === self.location.origin) {
     if (OURS.has(url.pathname)) e.respondWith(networkFirst(e, url.pathname));
-  } else if (url.hostname === 'fonts.googleapis.com' || url.hostname === 'fonts.gstatic.com') {
-    e.respondWith(cacheFirst(e));
   }
 });
 
@@ -141,13 +126,4 @@ async function networkFirst(e, path) {
     return hit; // offline
   }
   return good(res) ? res : hit;
-}
-
-async function cacheFirst(e) {
-  const cache = await caches.open(FONTS);
-  const hit = await cache.match(e.request, { ignoreVary: true });
-  if (hit) return hit;
-  const res = await fetch(e.request);
-  if (res.ok) keep(e, cache, e.request, res);
-  return res;
 }

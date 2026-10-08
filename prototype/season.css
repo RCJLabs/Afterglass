@@ -675,3 +675,7 @@ details.why .why-more { margin: 0; font-size: 13px; }
 .quiz-fb { min-height: 1.4em; margin: 0; font-weight: 700; }
 .quiz-fb.good { color: var(--good); }
 .quiz-fb.bad { color: var(--bad); }
+
+/* A newer build is ready (round seven, phase 19): on the main screen and at the top of the Menu. */
+.card.update { border-color: var(--day); box-shadow: inset 3px 0 0 var(--day); }
+.card.update p { margin: 0 0 6px; }

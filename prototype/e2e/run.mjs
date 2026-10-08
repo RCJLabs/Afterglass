@@ -9,11 +9,13 @@ import { extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const HERE = fileURLToPath(new URL('.', import.meta.url));
-const ROOT = normalize(join(HERE, '..'));
+// E2E_ROOT serves another copy instead, such as a site tools/site.mjs built (its prototype/ folder), so the
+// checks can run on the bundled page too.
+const ROOT = normalize(process.env.E2E_ROOT || join(HERE, '..'));
 const PORT = Number(process.env.E2E_PORT || 8099);
 // Quickest first; the tutorial and the tester's path each play three days through the page.
-const ALL = ['crash', 'dev', 'trail', 'held', 'back', 'dusk', 'lastnight', 'longnight', 'veil', 'day', 'grow', 'mirrors', 'events', 'campaign', 'hall', 'strip', 'quiz', 'phase4', 'taps', 'tutorial', 'tester'];
-const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.webmanifest': 'application/manifest+json', '.png': 'image/png', '.svg': 'image/svg+xml', '.ico': 'image/x-icon', '.txt': 'text/plain' };
+const ALL = ['crash', 'dev', 'trail', 'held', 'back', 'dusk', 'lastnight', 'longnight', 'veil', 'day', 'grow', 'mirrors', 'events', 'campaign', 'hall', 'update', 'strip', 'quiz', 'phase4', 'taps', 'tutorial', 'tester'];
+const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.webmanifest': 'application/manifest+json', '.png': 'image/png', '.svg': 'image/svg+xml', '.ico': 'image/x-icon', '.txt': 'text/plain', '.woff2': 'font/woff2' };
 
 const server = createServer(async (req, res) => {
   const path = decodeURIComponent(new URL(req.url, 'http://x').pathname);

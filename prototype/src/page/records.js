@@ -15,7 +15,7 @@ import { SYS_REDUCED, prefs, savePrefs, CAN_BUZZ, saves, hall, retuned, s, K, ui
 import { esc, plural, upper, traitsOn, livingTraitText, shadeTraitText, hhmm, kindTag, shadeStatus, once, aside } from './hud.js';
 import { testCard } from './playtest.js';
 import { watchCard } from './watch.js';
-import { installHTML } from './screen.js';
+import { installHTML, updateHTML } from './screen.js';
 import { leaveSlot, heirsNow, playKeep, customPicker, campaignPicker, presetPicker } from './keeps.js';
 
 /* ---------------------------------------------------------------- the rosters */
@@ -533,7 +533,7 @@ export function menuHTML() {
   const tab = MENU_TABS.some(([k]) => k === ui.menuTab) ? ui.menuTab : 'settings';
   const body = { settings: settingsTab, saves: savesTab, hall: hallTab, howto: howtoTab }[tab]();
   const back = ui.watch || ui.title ? '' : '<div class="row"><button class="btn" id="btn-title" data-act="title-open">Main menu</button><span class="hint">Continue, a new keep, the tutorial, today\'s keep.</span></div>';
-  return `${testCard()}${back}<div class="tabs" role="tablist" aria-label="Menu">${MENU_TABS.map(([k, l]) => `<button class="tab" role="tab" id="menu-tab-${k}" data-act="menu-tab" data-tab="${k}" aria-selected="${k === tab}" tabindex="${k === tab ? 0 : -1}" aria-controls="menupanel">${l}</button>`).join('')}</div>
+  return `${testCard()}${updateHTML()}${back}<div class="tabs" role="tablist" aria-label="Menu">${MENU_TABS.map(([k, l]) => `<button class="tab" role="tab" id="menu-tab-${k}" data-act="menu-tab" data-tab="${k}" aria-selected="${k === tab}" tabindex="${k === tab ? 0 : -1}" aria-controls="menupanel">${l}</button>`).join('')}</div>
     <div class="tabpanel" role="tabpanel" id="menupanel" aria-labelledby="menu-tab-${tab}">${body}</div>`;
 }
 const ALL_TABS = [['book', 'Book of the Dead'], ['log', 'Log'], ['days', 'Days'], ['playtest', 'Playtest']];

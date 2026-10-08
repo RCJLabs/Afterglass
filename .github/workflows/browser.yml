@@ -27,6 +27,14 @@ jobs:
       - name: Run the browser checks
         working-directory: prototype
         run: npm run e2e
+      # Round seven, phase 19: the site as Pages publishes it, the season bundled into one script, checked too.
+      - name: Build the site as Pages does
+        run: node prototype/tools/site.mjs --src . --out /tmp/site --channel release --build "${GITHUB_SHA::7}"
+      - name: Run the browser checks on the bundled page
+        working-directory: prototype
+        env:
+          E2E_ROOT: /tmp/site/prototype
+        run: node e2e/run.mjs crash dev hall campaign update taps
       - name: Keep the screenshots
         if: failure()
         uses: actions/upload-artifact@v4

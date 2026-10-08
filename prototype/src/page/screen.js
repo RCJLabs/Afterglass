@@ -7,6 +7,7 @@ import { lastKeep, heirsOf } from '../slice/hall.js';
 import { summary } from '../slice/saves.js';
 import { jobCount, nextSlot, defense, dayTicks, nightTicks, byId, fmt, bareHalls, tainPlace, raiseCost, buildSpot, NEW_ROOMS, arrived, roomReady, brought, spotFloor, HIGH_ROOMS, cracksOf } from '../slice/sim.js';
 import { isTutorial } from '../slice/tutorial.js';
+import { BUILD } from '../build.js';
 import { prefs, savePrefs, saves, hall, crashed, s, K, ui, bump, running, eclipseNow, toast } from './state.js';
 import { esc, plural, upper, listOf, floor1, PH, clockText, shadeStatus, nextMarkText, hudHTML, stripText, SHEET_NAME, barHTML, showHint, once, aside, markRead } from './hud.js';
 import { assaultText, fireTrend } from './day.js';
@@ -61,6 +62,35 @@ export function installHTML(where) {
   if (installPrompt) return `<div class="row"><button class="btn" id="btn-install-${where}" data-act="install">Install the app</button><span class="hint">Full screen, from your home screen, and it plays offline.</span></div>`;
   if (where === 'title' && !ui.installHelp) return '<button class="btn sm title-link" id="btn-install-help" data-act="install-help">Install on this device</button>';
   return `<p class="hint${where === 'title' ? ' title-install' : ''}" id="install-help-${where}">${esc(installHelp())}${where === 'settings' ? " Installed, it opens full screen from your home screen and plays offline. If it's installed already, open it from there." : ''}</p>`;
+}
+
+// A newer build (round seven, phase 19): the page asks the site's version.json (tools/site.mjs writes it) for
+// the build deployed, when it opens, when it comes back into view, and every half hour; if it isn't this one, a
+// toast says so once, and the main screen and the Menu offer to reload, saving the keep first. A checkout
+// ('dev') has no version.json, and never asks.
+export let newerBuild = null;
+async function checkVersion() {
+  if (BUILD === 'dev' || newerBuild || !/^https?:$/.test(location.protocol)) return;
+  try {
+    const res = await fetch('version.json', { cache: 'no-store' });
+    if (!res.ok) return;
+    const v = await res.json();
+    if (typeof v.build !== 'string' || v.build === BUILD) return;
+    newerBuild = v.build;
+    toast('A new version of the game is ready. Reload from the main screen or the Menu to play it; your keep is saved first.', 'day');
+    bump();
+  } catch {
+    // Offline, or the site is between deploys: ask again later.
+  }
+}
+checkVersion();
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) checkVersion();
+});
+setInterval(checkVersion, 30 * 60 * 1000);
+export function updateHTML() {
+  if (!newerBuild || ui.watch) return '';
+  return '<div class="card update" id="update-card"><p>A new version of the game is ready.</p><div class="row"><button class="btn sm primary" id="btn-update" data-act="update">Reload to play it</button><span class="hint">Your keep is saved first.</span></div></div>';
 }
 
 /* ---------------------------------------------------------------- the page */
@@ -224,7 +254,7 @@ function titleMainHTML() {
   const tut = tutorialHeld();
   const daily = dailyHeld();
   const item = (id, act, label, sub, primary = false, extra = '') => `<button class="btn${primary ? ' primary' : ''} title-go" id="${id}" data-act="${act}"${extra}><span>${label}</span><small>${esc(sub)}</small></button>`;
-  return `${go ? item('title-continue', 'title-continue', 'Continue', `Keep ${saves.current}: ${keepLine(summary(s, Date.now()))}`, true) : ''}
+  return `${updateHTML()}${go ? item('title-continue', 'title-continue', 'Continue', `Keep ${saves.current}: ${keepLine(summary(s, Date.now()))}`, true) : ''}
     ${item('title-tutorial', 'title-start', tut ? 'Continue the tutorial' : 'Learn to play', tut ? `In keep ${tut}` : 'The tutorial: three days that teach, one thing at a time', !go, ' data-what="tutorial"')}
     ${item('title-new', 'title-view', 'New game', 'The open year or a five-year campaign, Gentle to Hard', false, ' data-view="new"')}
     ${item('title-daily', 'title-start', daily ? "Continue today's keep" : "Today's keep", `${dayText(dayKey())}: the same keep for everyone who plays today`, false, ' data-what="daily"')}

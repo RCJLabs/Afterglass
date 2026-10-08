@@ -1,11 +1,15 @@
-# Publishes the repo root to GitHub Pages on every push to main, after the prototype tests pass.
-# Works with either Pages source: with "GitHub Actions" this workflow deploys; with "Deploy from a
-# branch" GitHub's own build publishes main and this workflow only runs the tests.
+# Publishes the site to GitHub Pages after main's tests pass (round seven, phase 19): the latest release tag
+# (v1.2.3) at the root, and main at preview/, each built by prototype/tools/site.mjs (the season bundled into one
+# script, the build stamped in, a preview with storage and a cache of its own). Until there's a tag, main is
+# the root. A push to main or a new tag publishes both. Works with either Pages source: with "GitHub Actions"
+# this workflow deploys; with "Deploy from a branch" GitHub's own build publishes main as it is and this
+# workflow only runs the tests.
 name: Pages
 
 on:
   push:
     branches: [main]
+    tags: ['v*']
   workflow_dispatch:
 
 permissions:
@@ -23,7 +27,11 @@ jobs:
     outputs:
       mode: ${{ steps.mode.outputs.mode }}
     steps:
+      # main, whatever triggered this, with every tag: main's tools build the release's tree too.
       - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -41,15 +49,27 @@ jobs:
           if [ "$mode" != "workflow" ]; then
             echo "::notice::Pages source is '$mode', so this workflow only tests. Set Settings > Pages > Source to GitHub Actions to deploy from here."
           fi
-      - name: Stamp the build
+      - name: Build the site
         if: steps.mode.outputs.mode == 'workflow'
-        # The season shows this in Settings, and writes it into saves, exports and crash reports.
-        run: echo "export const BUILD = '${GITHUB_SHA::7}';" > prototype/src/build.js
+        # The build is stamped in: the season shows it in Settings and writes it into saves, exports and crash
+        # reports, and its update notice compares it with the site's version.json.
+        run: |
+          main=$(git rev-parse --short=7 HEAD)
+          release=$(git tag --list 'v*' --sort=-v:refname | head -n1)
+          if [ -n "$release" ]; then
+            git worktree add --detach ../release "$release"
+            node prototype/tools/site.mjs --src ../release --out _site --channel release --build "$release"
+            node prototype/tools/site.mjs --src . --out _site/preview --channel preview --build "$main"
+            echo "::notice::Release $release at the root; main ($main) at preview/."
+          else
+            node prototype/tools/site.mjs --src . --out _site --channel release --build "$main"
+            echo "::notice::No release tag yet: main ($main) at the root."
+          fi
       - name: Upload the site
         if: steps.mode.outputs.mode == 'workflow'
         uses: actions/upload-pages-artifact@v3
         with:
-          path: .
+          path: _site
 
   deploy:
     needs: build
