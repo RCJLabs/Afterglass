@@ -1,0 +1,11 @@
+{
+  "name": "afterglass-archived-prototypes",
+  "private": true,
+  "description": "The weeks 1-2 and 3-4 greyboxes and the weeks 5-6 pixel pass, as they were when round seven's phase 19 archived them.",
+  "type": "module",
+  "scripts": {
+    "test": "node --test",
+    "balance": "node tools/balance.mjs",
+    "balance:night": "node tools/balance-night.mjs"
+  }
+}

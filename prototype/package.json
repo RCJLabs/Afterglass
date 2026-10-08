@@ -1,18 +1,17 @@
 {
-  "name": "afterglass-greybox",
+  "name": "afterglass-season",
   "private": true,
   "version": "0.1.0",
-  "description": "Afterglass prototypes: weeks 1-2 and 3-4 greyboxes, the weeks 5-6 pixel pass and the weeks 7-10 season slice, which installs as an app.",
+  "description": "Afterglass: the season, a keep on the Veil for a year and more, which installs as an app; with its tests, measurement and browser checks. The older prototypes are in docs/archive/prototypes.",
   "type": "module",
   "scripts": {
     "test": "node --test",
-    "balance": "node tools/balance.mjs",
-    "balance:night": "node tools/balance-night.mjs",
-    "bundle": "node tools/bundle.mjs dist/afterglass-greybox.html && node tools/bundle.mjs dist/afterglass-night.html --page night.html && node tools/bundle.mjs dist/afterglass-pixel.html --page pixel.html && node tools/bundle.mjs dist/afterglass-season.html --page season.html",
+    "bundle": "node tools/bundle.mjs",
     "serve": "python3 -m http.server 8080",
     "balance:season": "node tools/balance-season.mjs",
     "measure": "node tools/measure.mjs",
     "e2e": "node e2e/run.mjs",
-    "icons": "node tools/icons.mjs"
+    "icons": "node tools/icons.mjs",
+    "site": "node tools/site.mjs --src .. --out ../_site --channel release --build local"
   }
 }
